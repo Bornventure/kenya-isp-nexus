@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -6,6 +5,8 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { mockClients } from '@/data/mockData';
 import { Client } from '@/types/client';
+import ClientRegistrationForm from '@/components/clients/ClientRegistrationForm';
+import ClientDetails from '@/components/clients/ClientDetails';
 import {
   Search,
   Filter,
@@ -16,14 +17,19 @@ import {
   Clock,
   MapPin,
   Phone,
-  Mail
+  Mail,
+  Users
 } from 'lucide-react';
 
 const Clients = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('all');
+  const [clients, setClients] = useState<Client[]>(mockClients);
+  const [showRegistrationForm, setShowRegistrationForm] = useState(false);
+  const [selectedClient, setSelectedClient] = useState<Client | null>(null);
+  const [showClientDetails, setShowClientDetails] = useState(false);
 
-  const filteredClients = mockClients.filter(client => {
+  const filteredClients = clients.filter(client => {
     const matchesSearch = client.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
                          client.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
                          client.phone.includes(searchTerm);
@@ -32,6 +38,34 @@ const Clients = () => {
     
     return matchesSearch && matchesStatus;
   });
+
+  const handleAddClient = (newClientData: Partial<Client>) => {
+    const newClient = { ...newClientData } as Client;
+    setClients(prev => [...prev, newClient]);
+    setShowRegistrationForm(false);
+  };
+
+  const handleViewClient = (client: Client) => {
+    setSelectedClient(client);
+    setShowClientDetails(true);
+  };
+
+  const handleEditClient = () => {
+    // For now, just close the details view
+    // In a real app, this would open an edit form
+    setShowClientDetails(false);
+  };
+
+  const handleStatusChange = (newStatus: Client['status']) => {
+    if (selectedClient) {
+      setClients(prev => prev.map(client => 
+        client.id === selectedClient.id 
+          ? { ...client, status: newStatus }
+          : client
+      ));
+      setSelectedClient({ ...selectedClient, status: newStatus });
+    }
+  };
 
   const getStatusColor = (status: Client['status']) => {
     switch (status) {
@@ -207,7 +241,12 @@ const Clients = () => {
                 </div>
 
                 <div className="pt-2">
-                  <Button variant="outline" size="sm" className="w-full">
+                  <Button 
+                    variant="outline" 
+                    size="sm" 
+                    className="w-full"
+                    onClick={() => handleViewClient(client)}
+                  >
                     View Details
                   </Button>
                 </div>
@@ -230,6 +269,24 @@ const Clients = () => {
             }
           </p>
         </div>
+      )}
+
+      {/* Registration Form Modal */}
+      {showRegistrationForm && (
+        <ClientRegistrationForm
+          onClose={() => setShowRegistrationForm(false)}
+          onSave={handleAddClient}
+        />
+      )}
+
+      {/* Client Details Modal */}
+      {showClientDetails && selectedClient && (
+        <ClientDetails
+          client={selectedClient}
+          onClose={() => setShowClientDetails(false)}
+          onEdit={handleEditClient}
+          onStatusChange={handleStatusChange}
+        />
       )}
     </div>
   );
