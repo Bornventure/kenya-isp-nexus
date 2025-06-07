@@ -1,8 +1,24 @@
+
 import React, { useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
+import { 
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from '@/components/ui/table';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 import { mockClients } from '@/data/mockData';
 import { Client } from '@/types/client';
 import ClientRegistrationForm from '@/components/clients/ClientRegistrationForm';
@@ -18,12 +34,15 @@ import {
   MapPin,
   Phone,
   Mail,
-  Users
+  Users,
+  CheckCircle
 } from 'lucide-react';
 
 const Clients = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('all');
+  const [typeFilter, setTypeFilter] = useState<string>('all');
+  const [connectionFilter, setConnectionFilter] = useState<string>('all');
   const [clients, setClients] = useState<Client[]>(mockClients);
   const [showRegistrationForm, setShowRegistrationForm] = useState(false);
   const [selectedClient, setSelectedClient] = useState<Client | null>(null);
@@ -32,11 +51,15 @@ const Clients = () => {
   const filteredClients = clients.filter(client => {
     const matchesSearch = client.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
                          client.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         client.phone.includes(searchTerm);
+                         client.phone.includes(searchTerm) ||
+                         client.location.address.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                         client.location.subCounty.toLowerCase().includes(searchTerm.toLowerCase());
     
     const matchesStatus = statusFilter === 'all' || client.status === statusFilter;
+    const matchesType = typeFilter === 'all' || client.clientType === typeFilter;
+    const matchesConnection = connectionFilter === 'all' || client.connectionType === connectionFilter;
     
-    return matchesSearch && matchesStatus;
+    return matchesSearch && matchesStatus && matchesType && matchesConnection;
   });
 
   const handleAddClient = (newClientData: Partial<Client>) => {
@@ -51,8 +74,6 @@ const Clients = () => {
   };
 
   const handleEditClient = () => {
-    // For now, just close the details view
-    // In a real app, this would open an edit form
     setShowClientDetails(false);
   };
 
@@ -85,13 +106,13 @@ const Clients = () => {
   const getStatusIcon = (status: Client['status']) => {
     switch (status) {
       case 'active':
-        return <Wifi className="h-4 w-4" />;
+        return <CheckCircle className="h-3 w-3 mr-1" />;
       case 'suspended':
-        return <WifiOff className="h-4 w-4" />;
+        return <WifiOff className="h-3 w-3 mr-1" />;
       case 'disconnected':
-        return <AlertCircle className="h-4 w-4" />;
+        return <AlertCircle className="h-3 w-3 mr-1" />;
       case 'pending':
-        return <Clock className="h-4 w-4" />;
+        return <Clock className="h-3 w-3 mr-1" />;
       default:
         return null;
     }
@@ -121,35 +142,75 @@ const Clients = () => {
           </Button>
         </div>
 
-        {/* Search and Filters */}
-        <div className="flex flex-col sm:flex-row gap-4 mb-6">
-          <div className="relative flex-1">
-            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
-            <Input
-              placeholder="Search clients by name, email, or phone..."
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              className="pl-10"
-            />
-          </div>
-          <div className="flex gap-2">
-            <select
-              value={statusFilter}
-              onChange={(e) => setStatusFilter(e.target.value)}
-              className="px-3 py-2 border border-gray-300 rounded-md text-sm"
-            >
-              <option value="all">All Status</option>
-              <option value="active">Active</option>
-              <option value="suspended">Suspended</option>
-              <option value="disconnected">Disconnected</option>
-              <option value="pending">Pending</option>
-            </select>
-            <Button variant="outline" size="sm" className="gap-2">
-              <Filter className="h-4 w-4" />
-              More Filters
-            </Button>
-          </div>
-        </div>
+        {/* Enhanced Search and Filters */}
+        <Card className="mb-6">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Filter className="h-5 w-5" />
+              Search & Filters
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="flex flex-col gap-4">
+              <div className="relative">
+                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
+                <Input
+                  placeholder="Search clients by name, email, phone, or location..."
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  className="pl-10"
+                />
+              </div>
+              <div className="flex flex-wrap gap-4">
+                <div className="flex items-center gap-2">
+                  <label className="text-sm font-medium whitespace-nowrap">Status:</label>
+                  <Select value={statusFilter} onValueChange={setStatusFilter}>
+                    <SelectTrigger className="w-32">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">All</SelectItem>
+                      <SelectItem value="active">Active</SelectItem>
+                      <SelectItem value="suspended">Suspended</SelectItem>
+                      <SelectItem value="disconnected">Disconnected</SelectItem>
+                      <SelectItem value="pending">Pending</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="flex items-center gap-2">
+                  <label className="text-sm font-medium whitespace-nowrap">Type:</label>
+                  <Select value={typeFilter} onValueChange={setTypeFilter}>
+                    <SelectTrigger className="w-32">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">All</SelectItem>
+                      <SelectItem value="individual">Individual</SelectItem>
+                      <SelectItem value="business">Business</SelectItem>
+                      <SelectItem value="corporate">Corporate</SelectItem>
+                      <SelectItem value="government">Government</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="flex items-center gap-2">
+                  <label className="text-sm font-medium whitespace-nowrap">Connection:</label>
+                  <Select value={connectionFilter} onValueChange={setConnectionFilter}>
+                    <SelectTrigger className="w-32">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">All</SelectItem>
+                      <SelectItem value="fiber">Fiber</SelectItem>
+                      <SelectItem value="wireless">Wireless</SelectItem>
+                      <SelectItem value="satellite">Satellite</SelectItem>
+                      <SelectItem value="dsl">DSL</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
       </div>
 
       {/* Client Statistics */}
@@ -188,88 +249,114 @@ const Clients = () => {
         </Card>
       </div>
 
-      {/* Client List */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-6">
-        {filteredClients.map((client) => (
-          <Card key={client.id} className="hover:shadow-md transition-shadow">
-            <CardHeader className="pb-3">
-              <div className="flex justify-between items-start">
-                <div>
-                  <CardTitle className="text-lg">{client.name}</CardTitle>
-                  <p className="text-sm text-gray-500 capitalize">
-                    {client.clientType} Client
-                  </p>
-                </div>
-                <Badge className={`${getStatusColor(client.status)} gap-1`}>
-                  {getStatusIcon(client.status)}
-                  {client.status}
-                </Badge>
-              </div>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-3">
-                <div className="flex items-center gap-2 text-sm">
-                  <Mail className="h-4 w-4 text-gray-400" />
-                  <span className="text-gray-600">{client.email}</span>
-                </div>
-                <div className="flex items-center gap-2 text-sm">
-                  <Phone className="h-4 w-4 text-gray-400" />
-                  <span className="text-gray-600">{client.phone}</span>
-                </div>
-                <div className="flex items-center gap-2 text-sm">
-                  <MapPin className="h-4 w-4 text-gray-400" />
-                  <span className="text-gray-600">{client.location.subCounty}</span>
-                </div>
-                
-                <div className="pt-2 border-t border-gray-100">
-                  <div className="flex justify-between items-center mb-2">
-                    <span className="text-sm font-medium">Service Package</span>
-                    <span className="text-sm text-blue-600">{client.servicePackage}</span>
-                  </div>
-                  <div className="flex justify-between items-center mb-2">
-                    <span className="text-sm font-medium">Monthly Rate</span>
-                    <span className="text-sm font-semibold">{formatCurrency(client.monthlyRate)}</span>
-                  </div>
-                  <div className="flex justify-between items-center">
-                    <span className="text-sm font-medium">Balance</span>
-                    <span className={`text-sm font-semibold ${
-                      client.balance < 0 ? 'text-red-600' : 'text-green-600'
-                    }`}>
-                      {formatCurrency(client.balance)}
-                    </span>
-                  </div>
-                </div>
-
-                <div className="pt-2">
-                  <Button 
-                    variant="outline" 
-                    size="sm" 
-                    className="w-full"
-                    onClick={() => handleViewClient(client)}
-                  >
-                    View Details
-                  </Button>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-        ))}
-      </div>
-
-      {filteredClients.length === 0 && (
-        <div className="text-center py-12">
-          <div className="text-gray-400 mb-4">
-            <Users className="h-12 w-12 mx-auto" />
+      {/* Client List Table */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <Users className="h-5 w-5" />
+            Client List ({filteredClients.length} of {mockClients.length})
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="rounded-md border">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Client</TableHead>
+                  <TableHead>Status</TableHead>
+                  <TableHead>Type</TableHead>
+                  <TableHead>Location</TableHead>
+                  <TableHead>Service</TableHead>
+                  <TableHead>Connection</TableHead>
+                  <TableHead>Monthly Rate</TableHead>
+                  <TableHead>Balance</TableHead>
+                  <TableHead>Actions</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {filteredClients.map((client) => (
+                  <TableRow key={client.id}>
+                    <TableCell>
+                      <div className="space-y-1">
+                        <div className="font-medium">{client.name}</div>
+                        <div className="flex items-center gap-4 text-sm text-muted-foreground">
+                          <div className="flex items-center gap-1">
+                            <Phone className="h-3 w-3" />
+                            {client.phone}
+                          </div>
+                          <div className="flex items-center gap-1">
+                            <Mail className="h-3 w-3" />
+                            {client.email}
+                          </div>
+                        </div>
+                      </div>
+                    </TableCell>
+                    <TableCell>
+                      <Badge className={getStatusColor(client.status)}>
+                        {getStatusIcon(client.status)}
+                        {client.status}
+                      </Badge>
+                    </TableCell>
+                    <TableCell className="capitalize">{client.clientType}</TableCell>
+                    <TableCell>
+                      <div className="space-y-1">
+                        <div className="flex items-center gap-1 text-sm">
+                          <MapPin className="h-3 w-3" />
+                          {client.location.subCounty}
+                        </div>
+                        <div className="text-xs text-muted-foreground">
+                          {client.location.address}
+                        </div>
+                      </div>
+                    </TableCell>
+                    <TableCell>
+                      <div className="flex items-center gap-1">
+                        <Wifi className="h-3 w-3" />
+                        {client.servicePackage}
+                      </div>
+                    </TableCell>
+                    <TableCell className="capitalize">{client.connectionType}</TableCell>
+                    <TableCell className="font-medium">
+                      {formatCurrency(client.monthlyRate)}
+                    </TableCell>
+                    <TableCell>
+                      <span className={`font-medium ${
+                        client.balance < 0 ? 'text-red-600' : 'text-green-600'
+                      }`}>
+                        {formatCurrency(client.balance)}
+                      </span>
+                    </TableCell>
+                    <TableCell>
+                      <Button 
+                        variant="outline" 
+                        size="sm"
+                        onClick={() => handleViewClient(client)}
+                      >
+                        View Details
+                      </Button>
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
           </div>
-          <h3 className="text-lg font-medium text-gray-900 mb-2">No clients found</h3>
-          <p className="text-gray-600">
-            {searchTerm || statusFilter !== 'all' 
-              ? 'Try adjusting your search or filter criteria.'
-              : 'Get started by adding your first client.'
-            }
-          </p>
-        </div>
-      )}
+
+          {filteredClients.length === 0 && (
+            <div className="text-center py-12">
+              <div className="text-gray-400 mb-4">
+                <Users className="h-12 w-12 mx-auto" />
+              </div>
+              <h3 className="text-lg font-medium text-gray-900 mb-2">No clients found</h3>
+              <p className="text-gray-600">
+                {searchTerm || statusFilter !== 'all' || typeFilter !== 'all' || connectionFilter !== 'all'
+                  ? 'Try adjusting your search or filter criteria.'
+                  : 'Get started by adding your first client.'
+                }
+              </p>
+            </div>
+          )}
+        </CardContent>
+      </Card>
 
       {/* Registration Form Modal */}
       {showRegistrationForm && (
