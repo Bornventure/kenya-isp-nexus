@@ -3,15 +3,6 @@ import React, { useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
-import { 
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from '@/components/ui/table';
 import {
   Select,
   SelectContent,
@@ -23,19 +14,15 @@ import { mockClients } from '@/data/mockData';
 import { Client } from '@/types/client';
 import ClientRegistrationForm from '@/components/clients/ClientRegistrationForm';
 import ClientDetails from '@/components/clients/ClientDetails';
+import ClientViewSwitcher, { ViewMode } from '@/components/clients/ClientViewSwitcher';
+import ClientListView from '@/components/clients/ClientListView';
+import ClientGridView from '@/components/clients/ClientGridView';
+import InteractiveMap from '@/components/network/InteractiveMap';
 import {
   Search,
   Filter,
   UserPlus,
-  Wifi,
-  WifiOff,
-  AlertCircle,
-  Clock,
-  MapPin,
-  Phone,
-  Mail,
   Users,
-  CheckCircle
 } from 'lucide-react';
 
 const Clients = () => {
@@ -47,6 +34,7 @@ const Clients = () => {
   const [showRegistrationForm, setShowRegistrationForm] = useState(false);
   const [selectedClient, setSelectedClient] = useState<Client | null>(null);
   const [showClientDetails, setShowClientDetails] = useState(false);
+  const [currentView, setCurrentView] = useState<ViewMode>('list');
 
   const filteredClients = clients.filter(client => {
     const matchesSearch = client.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -88,42 +76,16 @@ const Clients = () => {
     }
   };
 
-  const getStatusColor = (status: Client['status']) => {
-    switch (status) {
-      case 'active':
-        return 'bg-green-100 text-green-800';
-      case 'suspended':
-        return 'bg-red-100 text-red-800';
-      case 'disconnected':
-        return 'bg-gray-100 text-gray-800';
-      case 'pending':
-        return 'bg-yellow-100 text-yellow-800';
+  const renderCurrentView = () => {
+    switch (currentView) {
+      case 'grid':
+        return <ClientGridView clients={filteredClients} onViewClient={handleViewClient} />;
+      case 'map':
+        return <InteractiveMap clients={filteredClients} />;
+      case 'list':
       default:
-        return 'bg-gray-100 text-gray-800';
+        return <ClientListView clients={filteredClients} onViewClient={handleViewClient} />;
     }
-  };
-
-  const getStatusIcon = (status: Client['status']) => {
-    switch (status) {
-      case 'active':
-        return <CheckCircle className="h-3 w-3 mr-1" />;
-      case 'suspended':
-        return <WifiOff className="h-3 w-3 mr-1" />;
-      case 'disconnected':
-        return <AlertCircle className="h-3 w-3 mr-1" />;
-      case 'pending':
-        return <Clock className="h-3 w-3 mr-1" />;
-      default:
-        return null;
-    }
-  };
-
-  const formatCurrency = (amount: number) => {
-    return new Intl.NumberFormat('en-KE', {
-      style: 'currency',
-      currency: 'KES',
-      minimumFractionDigits: 0
-    }).format(amount);
   };
 
   return (
@@ -142,7 +104,7 @@ const Clients = () => {
           </Button>
         </div>
 
-        {/* Enhanced Search and Filters */}
+        {/* Search and Filters */}
         <Card className="mb-6">
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
@@ -211,6 +173,11 @@ const Clients = () => {
             </div>
           </CardContent>
         </Card>
+
+        {/* View Switcher */}
+        <div className="mb-6">
+          <ClientViewSwitcher currentView={currentView} onViewChange={setCurrentView} />
+        </div>
       </div>
 
       {/* Client Statistics */}
@@ -249,112 +216,16 @@ const Clients = () => {
         </Card>
       </div>
 
-      {/* Client List Table */}
+      {/* Current View */}
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
             <Users className="h-5 w-5" />
-            Client List ({filteredClients.length} of {mockClients.length})
+            Client {currentView === 'list' ? 'List' : currentView === 'grid' ? 'Grid' : 'Map'} ({filteredClients.length} of {mockClients.length})
           </CardTitle>
         </CardHeader>
-        <CardContent>
-          <div className="rounded-md border">
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Client</TableHead>
-                  <TableHead>Status</TableHead>
-                  <TableHead>Type</TableHead>
-                  <TableHead>Location</TableHead>
-                  <TableHead>Service</TableHead>
-                  <TableHead>Connection</TableHead>
-                  <TableHead>Monthly Rate</TableHead>
-                  <TableHead>Balance</TableHead>
-                  <TableHead>Actions</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {filteredClients.map((client) => (
-                  <TableRow key={client.id}>
-                    <TableCell>
-                      <div className="space-y-1">
-                        <div className="font-medium">{client.name}</div>
-                        <div className="flex items-center gap-4 text-sm text-muted-foreground">
-                          <div className="flex items-center gap-1">
-                            <Phone className="h-3 w-3" />
-                            {client.phone}
-                          </div>
-                          <div className="flex items-center gap-1">
-                            <Mail className="h-3 w-3" />
-                            {client.email}
-                          </div>
-                        </div>
-                      </div>
-                    </TableCell>
-                    <TableCell>
-                      <Badge className={getStatusColor(client.status)}>
-                        {getStatusIcon(client.status)}
-                        {client.status}
-                      </Badge>
-                    </TableCell>
-                    <TableCell className="capitalize">{client.clientType}</TableCell>
-                    <TableCell>
-                      <div className="space-y-1">
-                        <div className="flex items-center gap-1 text-sm">
-                          <MapPin className="h-3 w-3" />
-                          {client.location.subCounty}
-                        </div>
-                        <div className="text-xs text-muted-foreground">
-                          {client.location.address}
-                        </div>
-                      </div>
-                    </TableCell>
-                    <TableCell>
-                      <div className="flex items-center gap-1">
-                        <Wifi className="h-3 w-3" />
-                        {client.servicePackage}
-                      </div>
-                    </TableCell>
-                    <TableCell className="capitalize">{client.connectionType}</TableCell>
-                    <TableCell className="font-medium">
-                      {formatCurrency(client.monthlyRate)}
-                    </TableCell>
-                    <TableCell>
-                      <span className={`font-medium ${
-                        client.balance < 0 ? 'text-red-600' : 'text-green-600'
-                      }`}>
-                        {formatCurrency(client.balance)}
-                      </span>
-                    </TableCell>
-                    <TableCell>
-                      <Button 
-                        variant="outline" 
-                        size="sm"
-                        onClick={() => handleViewClient(client)}
-                      >
-                        View Details
-                      </Button>
-                    </TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          </div>
-
-          {filteredClients.length === 0 && (
-            <div className="text-center py-12">
-              <div className="text-gray-400 mb-4">
-                <Users className="h-12 w-12 mx-auto" />
-              </div>
-              <h3 className="text-lg font-medium text-gray-900 mb-2">No clients found</h3>
-              <p className="text-gray-600">
-                {searchTerm || statusFilter !== 'all' || typeFilter !== 'all' || connectionFilter !== 'all'
-                  ? 'Try adjusting your search or filter criteria.'
-                  : 'Get started by adding your first client.'
-                }
-              </p>
-            </div>
-          )}
+        <CardContent className={currentView === 'map' ? 'p-0' : undefined}>
+          {renderCurrentView()}
         </CardContent>
       </Card>
 

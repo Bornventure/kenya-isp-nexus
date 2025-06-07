@@ -2,16 +2,7 @@
 import React, { useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
-import { 
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from '@/components/ui/table';
 import {
   Select,
   SelectContent,
@@ -20,26 +11,21 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { 
-  MapPin, 
-  Wifi, 
   Router, 
   Signal, 
-  Users, 
-  AlertTriangle,
-  CheckCircle,
   Filter,
   Search,
-  Phone,
-  Mail
 } from 'lucide-react';
 import InteractiveMap from '@/components/network/InteractiveMap';
 import NetworkStats from '@/components/network/NetworkStats';
+import ClientListView from '@/components/clients/ClientListView';
 import { mockClients } from '@/data/mockData';
 
 const NetworkMap = () => {
   const [filterStatus, setFilterStatus] = useState<string>('all');
   const [filterType, setFilterType] = useState<string>('all');
   const [searchTerm, setSearchTerm] = useState('');
+  const [showClientList, setShowClientList] = useState(false);
 
   const filteredClients = mockClients.filter(client => {
     const statusMatch = filterStatus === 'all' || client.status === filterStatus;
@@ -62,22 +48,8 @@ const NetworkMap = () => {
     suspendedClients: mockClients.filter(c => c.status === 'suspended').length,
   };
 
-  const getStatusColor = (status: string) => {
-    switch (status) {
-      case 'active': return 'bg-green-100 text-green-800';
-      case 'suspended': return 'bg-red-100 text-red-800';
-      case 'pending': return 'bg-yellow-100 text-yellow-800';
-      case 'disconnected': return 'bg-gray-100 text-gray-800';
-      default: return 'bg-gray-100 text-gray-800';
-    }
-  };
-
-  const formatCurrency = (amount: number) => {
-    return new Intl.NumberFormat('en-KE', {
-      style: 'currency',
-      currency: 'KES',
-      minimumFractionDigits: 0
-    }).format(amount);
+  const handleViewClient = (client: any) => {
+    console.log('View client:', client);
   };
 
   return (
@@ -155,24 +127,12 @@ const NetworkMap = () => {
                   </SelectContent>
                 </Select>
               </div>
-            </div>
-          </div>
-          <div className="flex items-center gap-4 mt-4">
-            <div className="flex items-center gap-2">
-              <div className="w-3 h-3 bg-green-500 rounded-full"></div>
-              <span className="text-sm">Active</span>
-            </div>
-            <div className="flex items-center gap-2">
-              <div className="w-3 h-3 bg-red-500 rounded-full"></div>
-              <span className="text-sm">Suspended</span>
-            </div>
-            <div className="flex items-center gap-2">
-              <div className="w-3 h-3 bg-yellow-500 rounded-full"></div>
-              <span className="text-sm">Pending</span>
-            </div>
-            <div className="flex items-center gap-2">
-              <div className="w-3 h-3 bg-gray-500 rounded-full"></div>
-              <span className="text-sm">Disconnected</span>
+              <Button 
+                variant="outline" 
+                onClick={() => setShowClientList(!showClientList)}
+              >
+                {showClientList ? 'Hide' : 'Show'} Client List
+              </Button>
             </div>
           </div>
         </CardContent>
@@ -185,105 +145,19 @@ const NetworkMap = () => {
         </CardContent>
       </Card>
 
-      {/* Client List Table */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <Users className="h-5 w-5" />
-            Clients on Map ({filteredClients.length} of {mockClients.length})
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="rounded-md border">
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Client</TableHead>
-                  <TableHead>Status</TableHead>
-                  <TableHead>Location</TableHead>
-                  <TableHead>Service</TableHead>
-                  <TableHead>Connection</TableHead>
-                  <TableHead>Monthly Rate</TableHead>
-                  <TableHead>Balance</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {filteredClients.map((client) => (
-                  <TableRow key={client.id}>
-                    <TableCell>
-                      <div className="space-y-1">
-                        <div className="font-medium">{client.name}</div>
-                        <div className="flex items-center gap-4 text-sm text-muted-foreground">
-                          <div className="flex items-center gap-1">
-                            <Phone className="h-3 w-3" />
-                            {client.phone}
-                          </div>
-                          <div className="flex items-center gap-1">
-                            <Mail className="h-3 w-3" />
-                            {client.email}
-                          </div>
-                        </div>
-                      </div>
-                    </TableCell>
-                    <TableCell>
-                      <Badge className={getStatusColor(client.status)}>
-                        {client.status === 'active' && <CheckCircle className="h-3 w-3 mr-1" />}
-                        {client.status === 'suspended' && <AlertTriangle className="h-3 w-3 mr-1" />}
-                        {client.status}
-                      </Badge>
-                    </TableCell>
-                    <TableCell>
-                      <div className="space-y-1">
-                        <div className="flex items-center gap-1 text-sm">
-                          <MapPin className="h-3 w-3" />
-                          {client.location.subCounty}
-                        </div>
-                        <div className="text-xs text-muted-foreground">
-                          {client.location.address}
-                        </div>
-                      </div>
-                    </TableCell>
-                    <TableCell>
-                      <div className="flex items-center gap-1">
-                        <Wifi className="h-3 w-3" />
-                        {client.servicePackage}
-                      </div>
-                    </TableCell>
-                    <TableCell>
-                      <div className="flex items-center gap-1">
-                        <Signal className="h-3 w-3" />
-                        {client.connectionType}
-                      </div>
-                    </TableCell>
-                    <TableCell className="font-medium">
-                      {formatCurrency(client.monthlyRate)}
-                    </TableCell>
-                    <TableCell>
-                      <span className={`font-medium ${
-                        client.balance < 0 ? 'text-red-600' : 'text-green-600'
-                      }`}>
-                        {formatCurrency(client.balance)}
-                      </span>
-                    </TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          </div>
-          
-          {filteredClients.length === 0 && (
-            <div className="text-center py-8">
-              <div className="text-muted-foreground mb-2">
-                <Users className="h-8 w-8 mx-auto" />
-              </div>
-              <h3 className="text-lg font-medium mb-1">No clients found</h3>
-              <p className="text-sm text-muted-foreground">
-                Try adjusting your search or filter criteria.
-              </p>
-            </div>
-          )}
-        </CardContent>
-      </Card>
+      {/* Client List (Optional) */}
+      {showClientList && (
+        <Card>
+          <CardHeader>
+            <CardTitle>
+              Clients on Map ({filteredClients.length} of {mockClients.length})
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <ClientListView clients={filteredClients} onViewClient={handleViewClient} />
+          </CardContent>
+        </Card>
+      )}
     </div>
   );
 };
