@@ -1,9 +1,10 @@
-
 import React from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
 import { ChartContainer, ChartTooltip, ChartTooltipContent } from '@/components/ui/chart';
 import { BarChart, Bar, XAxis, YAxis, ResponsiveContainer, PieChart, Pie, Cell } from 'recharts';
+import { Receipt as ReceiptIcon } from 'lucide-react';
 
 const paymentData = [
   { month: 'Jan', mpesa: 1200000, bank: 800000, cash: 200000 },
@@ -28,7 +29,8 @@ const recentPayments = [
     method: 'M-Pesa',
     date: '2024-01-15',
     status: 'completed',
-    reference: 'QA12345678'
+    reference: 'QA12345678',
+    receiptGenerated: true
   },
   {
     id: 'PAY-002',
@@ -37,7 +39,8 @@ const recentPayments = [
     method: 'Bank Transfer',
     date: '2024-01-14',
     status: 'completed',
-    reference: 'BNK987654321'
+    reference: 'BNK987654321',
+    receiptGenerated: true
   },
   {
     id: 'PAY-003',
@@ -46,7 +49,8 @@ const recentPayments = [
     method: 'M-Pesa',
     date: '2024-01-13',
     status: 'pending',
-    reference: 'QA87654321'
+    reference: 'QA87654321',
+    receiptGenerated: false
   },
 ];
 
@@ -65,7 +69,11 @@ const chartConfig = {
   },
 };
 
-const PaymentTracker = () => {
+interface PaymentTrackerProps {
+  onViewReceipts?: () => void;
+}
+
+const PaymentTracker: React.FC<PaymentTrackerProps> = ({ onViewReceipts }) => {
   const getStatusColor = (status: string) => {
     switch (status) {
       case 'completed':
@@ -90,6 +98,12 @@ const PaymentTracker = () => {
       default:
         return 'bg-gray-100 text-gray-800';
     }
+  };
+
+  const generateReceipt = (paymentId: string) => {
+    console.log('Generating receipt for payment:', paymentId);
+    // In a real implementation, this would trigger receipt generation
+    // and send it to the client portal
   };
 
   return (
@@ -162,8 +176,14 @@ const PaymentTracker = () => {
 
       {/* Recent Payments */}
       <Card className="lg:col-span-3">
-        <CardHeader>
+        <CardHeader className="flex flex-row items-center justify-between">
           <CardTitle>Recent Payments</CardTitle>
+          {onViewReceipts && (
+            <Button variant="outline" onClick={onViewReceipts}>
+              <ReceiptIcon className="h-4 w-4 mr-2" />
+              View All Receipts
+            </Button>
+          )}
         </CardHeader>
         <CardContent>
           <div className="space-y-4">
@@ -188,6 +208,20 @@ const PaymentTracker = () => {
                   </Badge>
                   <div className="text-right">
                     <p className="font-semibold">KES {payment.amount.toLocaleString()}</p>
+                    {payment.status === 'completed' && !payment.receiptGenerated && (
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => generateReceipt(payment.id)}
+                        className="mt-1"
+                      >
+                        <ReceiptIcon className="h-3 w-3 mr-1" />
+                        Generate Receipt
+                      </Button>
+                    )}
+                    {payment.receiptGenerated && (
+                      <p className="text-xs text-green-600">✓ Receipt sent</p>
+                    )}
                   </div>
                 </div>
               </div>
