@@ -18,33 +18,26 @@ interface InteractiveMapProps {
 const InteractiveMap: React.FC<InteractiveMapProps> = ({ clients }) => {
   const [mapStyle, setMapStyle] = useState('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png');
   const [selectedClient, setSelectedClient] = useState<string | null>(null);
-  const [map, setMap] = useState<L.Map | null>(null);
 
   // Default center for Nairobi, Kenya
-  const defaultCenter: [number, number] = [-0.1, 34.75];
-  const defaultZoom = 12;
-
-  const handleZoomIn = useCallback(() => {
-    if (map) {
-      map.zoomIn();
-    }
-  }, [map]);
-
-  const handleZoomOut = useCallback(() => {
-    if (map) {
-      map.zoomOut();
-    }
-  }, [map]);
-
-  const handleReset = useCallback(() => {
-    if (map) {
-      map.setView(defaultCenter, defaultZoom);
-    }
-  }, [map]);
+  const defaultCenter: [number, number] = [-1.2921, 36.8219];
+  const defaultZoom = 11;
 
   const handleClientToggle = useCallback((clientId: string) => {
     setSelectedClient(prev => prev === clientId ? null : clientId);
   }, []);
+
+  const handleZoomIn = () => {
+    console.log('Zoom in clicked');
+  };
+
+  const handleZoomOut = () => {
+    console.log('Zoom out clicked');
+  };
+
+  const handleReset = () => {
+    console.log('Reset clicked');
+  };
 
   return (
     <div className="relative w-full h-[600px] rounded-lg overflow-hidden">
@@ -53,7 +46,6 @@ const InteractiveMap: React.FC<InteractiveMapProps> = ({ clients }) => {
         zoom={defaultZoom}
         className="w-full h-full"
         zoomControl={false}
-        ref={setMap}
       >
         <TileLayer
           url={mapStyle}
