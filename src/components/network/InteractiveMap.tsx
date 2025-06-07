@@ -18,16 +18,18 @@ import shadowUrl from 'leaflet/dist/images/marker-shadow.png';
 // Initialize Leaflet icons only once
 let iconsInitialized = false;
 
-if (!iconsInitialized) {
-  // Fix Leaflet's default icon path issues with webpack
-  delete (L.Icon.Default.prototype as any)._getIconUrl;
-  L.Icon.Default.mergeOptions({
-    iconRetinaUrl,
-    iconUrl,
-    shadowUrl,
-  });
-  iconsInitialized = true;
-}
+const initializeLeafletIcons = () => {
+  if (!iconsInitialized) {
+    // Fix Leaflet's default icon path issues with webpack
+    delete (L.Icon.Default.prototype as any)._getIconUrl;
+    L.Icon.Default.mergeOptions({
+      iconRetinaUrl,
+      iconUrl,
+      shadowUrl,
+    });
+    iconsInitialized = true;
+  }
+};
 
 interface InteractiveMapProps {
   clients: Client[];
@@ -37,6 +39,11 @@ const InteractiveMap: React.FC<InteractiveMapProps> = ({ clients }) => {
   const [mapStyle, setMapStyle] = useState('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png');
   const [selectedClient, setSelectedClient] = useState<string | null>(null);
   const [mapKey, setMapKey] = useState(0);
+
+  // Initialize Leaflet icons on component mount
+  useEffect(() => {
+    initializeLeafletIcons();
+  }, []);
 
   // Default center for Nairobi, Kenya
   const defaultCenter: [number, number] = [-1.2921, 36.8219];
