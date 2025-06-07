@@ -1,6 +1,6 @@
 
 import React from 'react';
-import { Marker, Popup } from 'react-map-gl';
+import { Marker, Popup } from 'react-map-gl/mapbox';
 import { Badge } from '@/components/ui/badge';
 import { Client } from '@/types/client';
 import { MapPin, Phone, Mail, Wifi } from 'lucide-react';

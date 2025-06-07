@@ -1,6 +1,6 @@
 
 import React, { useState, useCallback } from 'react';
-import Map, { NavigationControl } from 'react-map-gl';
+import Map, { NavigationControl } from 'react-map-gl/mapbox';
 import { Client } from '@/types/client';
 import ClientMarker from './ClientMarker';
 import MapControls from './MapControls';
@@ -56,7 +56,6 @@ const InteractiveMap: React.FC<InteractiveMapProps> = ({ clients }) => {
         onMove={evt => setViewState(evt.viewState)}
         mapStyle={mapStyle}
         mapboxAccessToken={MAPBOX_TOKEN}
-        interactiveLayerIds={['clients']}
         attributionControl={false}
       >
         {/* Navigation controls */}
