@@ -1,3 +1,4 @@
+
 import React, { useState, useCallback } from 'react';
 import Map, { NavigationControl } from 'react-map-gl';
 import { Client } from '@/types/client';

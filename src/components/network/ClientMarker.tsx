@@ -1,3 +1,4 @@
+
 import React from 'react';
 import { Marker, Popup } from 'react-map-gl';
 import { Badge } from '@/components/ui/badge';
