@@ -1,9 +1,10 @@
 
 import React from 'react';
-import { Marker, Popup } from 'react-map-gl';
+import { Marker, Popup } from 'react-leaflet';
 import { Badge } from '@/components/ui/badge';
 import { Client } from '@/types/client';
 import { MapPin, Phone, Mail, Wifi } from 'lucide-react';
+import L from 'leaflet';
 
 interface ClientMarkerProps {
   client: Client;
@@ -14,11 +15,11 @@ interface ClientMarkerProps {
 const ClientMarker: React.FC<ClientMarkerProps> = ({ client, showPopup, onTogglePopup }) => {
   const getStatusColor = (status: Client['status']) => {
     switch (status) {
-      case 'active': return 'bg-green-500';
-      case 'suspended': return 'bg-red-500';
-      case 'pending': return 'bg-yellow-500';
-      case 'disconnected': return 'bg-gray-500';
-      default: return 'bg-gray-500';
+      case 'active': return '#10b981'; // green-500
+      case 'suspended': return '#ef4444'; // red-500
+      case 'pending': return '#eab308'; // yellow-500
+      case 'disconnected': return '#6b7280'; // gray-500
+      default: return '#6b7280';
     }
   };
 
@@ -32,34 +33,67 @@ const ClientMarker: React.FC<ClientMarkerProps> = ({ client, showPopup, onToggle
 
   if (!client.location.coordinates) return null;
 
-  return (
-    <>
-      <Marker
-        longitude={client.location.coordinates.lng}
-        latitude={client.location.coordinates.lat}
-        anchor="bottom"
-      >
-        <div
-          className={`w-4 h-4 rounded-full border-2 border-white shadow-md cursor-pointer hover:scale-125 transition-transform ${getStatusColor(client.status)}`}
-          onClick={onTogglePopup}
-        >
-          <div className="absolute -top-1 -left-1 w-6 h-6 rounded-full border-2 border-current opacity-50 animate-ping"></div>
-        </div>
-      </Marker>
+  // Create custom icon based on client status
+  const customIcon = L.divIcon({
+    html: `
+      <div style="
+        width: 16px;
+        height: 16px;
+        background-color: ${getStatusColor(client.status)};
+        border: 2px solid white;
+        border-radius: 50%;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+        position: relative;
+      ">
+        <div style="
+          position: absolute;
+          top: -2px;
+          left: -2px;
+          width: 20px;
+          height: 20px;
+          border: 2px solid ${getStatusColor(client.status)};
+          border-radius: 50%;
+          opacity: 0.5;
+          animation: ping 1s cubic-bezier(0, 0, 0.2, 1) infinite;
+        "></div>
+      </div>
+      <style>
+        @keyframes ping {
+          75%, 100% {
+            transform: scale(2);
+            opacity: 0;
+          }
+        }
+      </style>
+    `,
+    className: '',
+    iconSize: [16, 16],
+    iconAnchor: [8, 8],
+  });
 
+  return (
+    <Marker
+      position={[client.location.coordinates.lat, client.location.coordinates.lng]}
+      icon={customIcon}
+      eventHandlers={{
+        click: onTogglePopup,
+      }}
+    >
       {showPopup && (
         <Popup
-          longitude={client.location.coordinates.lng}
-          latitude={client.location.coordinates.lat}
-          anchor="top"
-          onClose={onTogglePopup}
           closeButton={false}
           className="w-80"
+          eventHandlers={{
+            remove: onTogglePopup,
+          }}
         >
           <div className="p-3 space-y-2">
             <div className="flex items-center justify-between">
               <h4 className="font-semibold text-lg">{client.name}</h4>
-              <Badge className={`${getStatusColor(client.status)} text-white`}>
+              <Badge 
+                className="text-white"
+                style={{ backgroundColor: getStatusColor(client.status) }}
+              >
                 {client.status}
               </Badge>
             </div>
@@ -101,7 +135,7 @@ const ClientMarker: React.FC<ClientMarkerProps> = ({ client, showPopup, onToggle
           </div>
         </Popup>
       )}
-    </>
+    </Marker>
   );
 };
 

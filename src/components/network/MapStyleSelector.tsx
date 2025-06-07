@@ -10,15 +10,30 @@ interface MapStyleSelectorProps {
 
 const MapStyleSelector: React.FC<MapStyleSelectorProps> = ({ currentStyle, onStyleChange }) => {
   const mapStyles = [
-    { id: 'mapbox://styles/mapbox/streets-v12', name: 'Streets' },
-    { id: 'mapbox://styles/mapbox/satellite-v9', name: 'Satellite' },
-    { id: 'mapbox://styles/mapbox/satellite-streets-v12', name: 'Hybrid' },
-    { id: 'mapbox://styles/mapbox/light-v11', name: 'Light' },
-    { id: 'mapbox://styles/mapbox/dark-v11', name: 'Dark' },
+    { 
+      id: 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', 
+      name: 'Streets' 
+    },
+    { 
+      id: 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', 
+      name: 'Satellite' 
+    },
+    { 
+      id: 'https://{s}.tile.opentopomap.org/{z}/{x}/{y}.png', 
+      name: 'Terrain' 
+    },
+    { 
+      id: 'https://tiles.stadiamaps.com/tiles/alidade_smooth/{z}/{x}/{y}{r}.png', 
+      name: 'Light' 
+    },
+    { 
+      id: 'https://tiles.stadiamaps.com/tiles/alidade_smooth_dark/{z}/{x}/{y}{r}.png', 
+      name: 'Dark' 
+    },
   ];
 
   return (
-    <div className="absolute top-4 left-4 z-20">
+    <div className="absolute top-4 left-4 z-[1000]">
       <Card className="shadow-md">
         <CardContent className="p-2">
           <div className="flex gap-1">

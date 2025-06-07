@@ -1,0 +1,34 @@
+
+/* Fix for missing marker icons in Leaflet */
+.leaflet-default-icon-path {
+  background-image: url('data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABkAAAApCAYAAADAk4LOAAAFgUlEQVR4Aa1XA5BjWRTN2oW17d3YaZtr2962HUzbXNfN1+14cbKK31cvF+QvLTISEtE6SG2nTCmnmcnP3//vR4vt23v7+59Xa/f76Pb8y6n0Mz+1x/vN/5z7/c+9dve9j7+Odz/+Nv5dfe7xq3v9hTvb3q/9Oa2+ZP1v/+9h/1/fzK/Xr/+jn//1v8+v/7v5uu9u9/97mPfvF/8+v7P3r81t/+9z5/+O+9f+9//6PfXrn/7+d27fv9vv+9f/8vfP9//6W+P7v9v///6r9/9fv/3v9//5tft//9fP7/81v/+1b9//7u++/5fb38v/P7Pt7xf3/+j9N/r/vv8vb/e/v/6N+//8n6f/P/6L9n9v+7/+a8r/9/vv7d2z/9+1fb3+l/0/8y3/7f/cX5v+9f/8n//vX7+//59+ffv//5dP/9b2t//7u9+/7f++fv//+bf//l7f/9b//zv/8n2f+//75/+/v//yb/e//79f/98bv/+N/z/5b//z7/9/3/++7vn3jns36vvrv/8Ofr//6X6f//t9v//zf6//9z//7f/bvvv3/97XP//zf6/+Z13v//3fPz//d87vL/v+v//0//7e3fv7/kf/9/ys//5z/9//5/3v//+fP///99//6fPfLt7+n/6d/v6/fv3/9fX/++//v9v//y7+Zr/8L5v/d++/3/s///3++/v///9/vf/z/9f///////tLZy/E8');
+}
+
+/* Custom marker styles */
+.custom-marker {
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  border: 2px solid white;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+  position: relative;
+}
+
+.custom-marker::before {
+  content: '';
+  position: absolute;
+  top: -2px;
+  left: -2px;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  opacity: 0.5;
+  animation: ping 1s cubic-bezier(0, 0, 0.2, 1) infinite;
+}
+
+@keyframes ping {
+  75%, 100% {
+    transform: scale(2);
+    opacity: 0;
+  }
+}

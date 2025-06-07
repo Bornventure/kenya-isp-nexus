@@ -1,49 +1,47 @@
 
 import React, { useState, useCallback } from 'react';
-import Map, { NavigationControl } from 'react-map-gl';
+import { MapContainer, TileLayer, ZoomControl } from 'react-leaflet';
 import { Client } from '@/types/client';
 import ClientMarker from './ClientMarker';
 import MapControls from './MapControls';
 import MapLegend from './MapLegend';
 import MapStyleSelector from './MapStyleSelector';
-import 'mapbox-gl/dist/mapbox-gl.css';
+import 'leaflet/dist/leaflet.css';
+import './LeafletStyles.css';
+
+// Fix for default markers in react-leaflet
+import L from 'leaflet';
 
 interface InteractiveMapProps {
   clients: Client[];
 }
 
 const InteractiveMap: React.FC<InteractiveMapProps> = ({ clients }) => {
-  const [viewState, setViewState] = useState({
-    longitude: 34.75,
-    latitude: -0.1,
-    zoom: 12,
-    pitch: 0,
-    bearing: 0
-  });
-  
-  const [mapStyle, setMapStyle] = useState('mapbox://styles/mapbox/streets-v12');
+  const [mapStyle, setMapStyle] = useState('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png');
   const [selectedClient, setSelectedClient] = useState<string | null>(null);
+  const [map, setMap] = useState<L.Map | null>(null);
 
-  // You'll need to set your Mapbox access token
-  const MAPBOX_TOKEN = 'pk.eyJ1IjoibG92YWJsZSIsImEiOiJjbTI4a2p6dTUwNWZzMmxzNGp5cXh1bzViIn0.cBX2nEN_rFKbhZ9JRvfGxA';
+  // Default center for Nairobi, Kenya
+  const defaultCenter: [number, number] = [-0.1, 34.75];
+  const defaultZoom = 12;
 
   const handleZoomIn = useCallback(() => {
-    setViewState(prev => ({ ...prev, zoom: Math.min(prev.zoom + 1, 20) }));
-  }, []);
+    if (map) {
+      map.zoomIn();
+    }
+  }, [map]);
 
   const handleZoomOut = useCallback(() => {
-    setViewState(prev => ({ ...prev, zoom: Math.max(prev.zoom - 1, 1) }));
-  }, []);
+    if (map) {
+      map.zoomOut();
+    }
+  }, [map]);
 
   const handleReset = useCallback(() => {
-    setViewState({
-      longitude: 34.75,
-      latitude: -0.1,
-      zoom: 12,
-      pitch: 0,
-      bearing: 0
-    });
-  }, []);
+    if (map) {
+      map.setView(defaultCenter, defaultZoom);
+    }
+  }, [map]);
 
   const handleClientToggle = useCallback((clientId: string) => {
     setSelectedClient(prev => prev === clientId ? null : clientId);
@@ -51,15 +49,19 @@ const InteractiveMap: React.FC<InteractiveMapProps> = ({ clients }) => {
 
   return (
     <div className="relative w-full h-[600px] rounded-lg overflow-hidden">
-      <Map
-        {...viewState}
-        onMove={evt => setViewState(evt.viewState)}
-        mapStyle={mapStyle}
-        mapboxAccessToken={MAPBOX_TOKEN}
-        attributionControl={false}
+      <MapContainer
+        center={defaultCenter}
+        zoom={defaultZoom}
+        className="w-full h-full"
+        zoomControl={false}
+        ref={setMap}
       >
-        {/* Navigation controls */}
-        <NavigationControl position="bottom-right" />
+        <TileLayer
+          url={mapStyle}
+          attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+        />
+        
+        <ZoomControl position="bottomright" />
 
         {/* Client markers */}
         {clients.map((client) => (
@@ -70,7 +72,7 @@ const InteractiveMap: React.FC<InteractiveMapProps> = ({ clients }) => {
             onTogglePopup={() => handleClientToggle(client.id)}
           />
         ))}
-      </Map>
+      </MapContainer>
 
       {/* Map style selector */}
       <MapStyleSelector currentStyle={mapStyle} onStyleChange={setMapStyle} />
