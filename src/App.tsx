@@ -9,6 +9,7 @@ import Login from "@/components/Login";
 import DashboardLayout from "@/components/dashboard/DashboardLayout";
 import Dashboard from "@/pages/Dashboard";
 import Clients from "@/pages/Clients";
+import Billing from "@/pages/Billing";
 
 const queryClient = new QueryClient();
 
@@ -41,9 +42,9 @@ const AppRoutes = () => {
       }>
         <Route index element={<Dashboard />} />
         <Route path="clients" element={<Clients />} />
+        <Route path="billing" element={<Billing />} />
         <Route path="network-map" element={<div className="p-6"><h1 className="text-2xl">Network Map - Coming Soon</h1></div>} />
         <Route path="equipment" element={<div className="p-6"><h1 className="text-2xl">Equipment - Coming Soon</h1></div>} />
-        <Route path="billing" element={<div className="p-6"><h1 className="text-2xl">Billing - Coming Soon</h1></div>} />
         <Route path="invoices" element={<div className="p-6"><h1 className="text-2xl">Invoices - Coming Soon</h1></div>} />
         <Route path="analytics" element={<div className="p-6"><h1 className="text-2xl">Analytics - Coming Soon</h1></div>} />
         <Route path="network" element={<div className="p-6"><h1 className="text-2xl">Network Status - Coming Soon</h1></div>} />
