@@ -1,6 +1,5 @@
-
 import React, { useState, useCallback } from 'react';
-import Map, { NavigationControl } from 'react-map-gl/mapbox';
+import Map, { NavigationControl } from 'react-map-gl';
 import { Client } from '@/types/client';
 import ClientMarker from './ClientMarker';
 import MapControls from './MapControls';
