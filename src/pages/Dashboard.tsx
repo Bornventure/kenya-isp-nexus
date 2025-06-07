@@ -1,6 +1,9 @@
 
 import React from 'react';
 import MetricCard from '@/components/dashboard/MetricCard';
+import RevenueChart from '@/components/dashboard/RevenueChart';
+import ClientGrowthChart from '@/components/dashboard/ClientGrowthChart';
+import NetworkStatusChart from '@/components/dashboard/NetworkStatusChart';
 import {
   Users,
   Wifi,
@@ -58,36 +61,46 @@ const Dashboard = () => {
         />
       </div>
 
-      {/* Secondary Metrics */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-        <MetricCard
-          title="New Clients (30d)"
-          value="89"
-          change="+23% vs previous month"
-          changeType="increase"
-          icon={UserCheck}
-        />
-        <MetricCard
-          title="Network Performance"
-          value="99.7%"
-          change="Excellent uptime"
-          changeType="increase"
-          icon={Network}
-        />
-        <MetricCard
-          title="Pending Payments"
-          value="KES 456,200"
-          change="47 invoices overdue"
-          changeType="neutral"
-          icon={CreditCard}
-        />
-        <MetricCard
-          title="Growth Rate"
-          value="15.3%"
-          change="Year over year"
-          changeType="increase"
-          icon={TrendingUp}
-        />
+      {/* Charts Section */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
+        <RevenueChart />
+        <ClientGrowthChart />
+      </div>
+
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
+        <NetworkStatusChart />
+        
+        {/* Secondary Metrics */}
+        <div className="grid grid-cols-1 gap-6">
+          <MetricCard
+            title="New Clients (30d)"
+            value="89"
+            change="+23% vs previous month"
+            changeType="increase"
+            icon={UserCheck}
+          />
+          <MetricCard
+            title="Network Performance"
+            value="99.7%"
+            change="Excellent uptime"
+            changeType="increase"
+            icon={Network}
+          />
+          <MetricCard
+            title="Pending Payments"
+            value="KES 456,200"
+            change="47 invoices overdue"
+            changeType="neutral"
+            icon={CreditCard}
+          />
+          <MetricCard
+            title="Growth Rate"
+            value="15.3%"
+            change="Year over year"
+            changeType="increase"
+            icon={TrendingUp}
+          />
+        </div>
       </div>
 
       {/* Quick Actions */}
