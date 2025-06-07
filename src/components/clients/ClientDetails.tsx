@@ -17,7 +17,8 @@ import {
   Ban,
   Play,
   AlertCircle,
-  CheckCircle
+  CheckCircle,
+  Clock
 } from 'lucide-react';
 
 interface ClientDetailsProps {

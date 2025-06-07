@@ -115,7 +115,7 @@ const Clients = () => {
               Manage your internet service subscribers
             </p>
           </div>
-          <Button className="gap-2">
+          <Button className="gap-2" onClick={() => setShowRegistrationForm(true)}>
             <UserPlus className="h-4 w-4" />
             Add New Client
           </Button>
