@@ -6,7 +6,6 @@ import ClientMarker from './ClientMarker';
 import MapControls from './MapControls';
 import MapLegend from './MapLegend';
 import MapStyleSelector from './MapStyleSelector';
-import 'leaflet/dist/leaflet.css';
 import './LeafletStyles.css';
 
 // Fix for default markers in react-leaflet
