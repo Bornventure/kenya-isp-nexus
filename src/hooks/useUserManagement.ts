@@ -3,6 +3,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/hooks/use-toast';
+import { Database } from '@/integrations/supabase/types';
 
 export interface SystemUser {
   id: string;
@@ -20,21 +21,12 @@ export interface SystemUser {
   };
 }
 
-// Define the profile data type as returned from Supabase
-interface ProfileData {
-  id: string;
-  first_name: string | null;
-  last_name: string | null;
-  phone: string | null;
-  role: 'super_admin' | 'isp_admin' | 'manager' | 'technician' | 'support' | 'billing' | 'readonly';
-  isp_company_id: string | null;
-  is_active: boolean;
-  created_at: string;
-  updated_at: string;
-  isp_companies?: {
+// Use the exact Supabase type for profiles with joined data
+type ProfileWithCompany = Database['public']['Tables']['profiles']['Row'] & {
+  isp_companies: {
     name: string;
   } | null;
-}
+};
 
 export const useUserManagement = () => {
   const { profile } = useAuth();
@@ -76,8 +68,11 @@ export const useUserManagement = () => {
         return [];
       }
 
+      // Type the profiles data properly
+      const typedProfilesData = profilesData as ProfileWithCompany[];
+
       // Get auth users to get email addresses
-      const userIds = profilesData.map((p: ProfileData) => p.id);
+      const userIds = typedProfilesData.map((p) => p.id);
       
       const { data: authUsers, error: authError } = await supabase.auth.admin.listUsers();
 
@@ -87,12 +82,20 @@ export const useUserManagement = () => {
       }
 
       // Combine profile data with auth user data
-      const combinedUsers: SystemUser[] = profilesData.map((profileData: ProfileData) => {
-        const authUser = authUsers.users.find(u => u.id === profileData.id);
+      const combinedUsers: SystemUser[] = typedProfilesData.map((profileData) => {
+        const authUser = authUsers.users.find((u) => u.id === profileData.id);
         return {
-          ...profileData,
+          id: profileData.id,
           email: authUser?.email || '',
-          isp_companies: profileData.isp_companies || undefined,
+          first_name: profileData.first_name,
+          last_name: profileData.last_name,
+          phone: profileData.phone,
+          role: profileData.role,
+          isp_company_id: profileData.isp_company_id,
+          is_active: profileData.is_active ?? true,
+          created_at: profileData.created_at ?? '',
+          updated_at: profileData.updated_at ?? '',
+          isp_companies: profileData.isp_companies ? { name: profileData.isp_companies.name } : undefined,
         };
       });
 
