@@ -33,7 +33,8 @@ export const useUserManagement = () => {
     queryFn: async () => {
       if (!canManageUsers) return [];
 
-      let query = supabase
+      // First get profiles with company info
+      let profileQuery = supabase
         .from('profiles')
         .select(`
           *,
@@ -45,17 +46,37 @@ export const useUserManagement = () => {
 
       // isp_admin can only see users in their company
       if (profile?.role === 'isp_admin' && profile?.isp_company_id) {
-        query = query.eq('isp_company_id', profile.isp_company_id);
+        profileQuery = profileQuery.eq('isp_company_id', profile.isp_company_id);
       }
 
-      const { data, error } = await query;
+      const { data: profilesData, error: profilesError } = await profileQuery;
 
-      if (error) {
-        console.error('Error fetching users:', error);
-        throw error;
+      if (profilesError) {
+        console.error('Error fetching profiles:', profilesError);
+        throw profilesError;
       }
 
-      return data as SystemUser[];
+      // Get auth users to get email addresses
+      const userIds = profilesData?.map(p => p.id) || [];
+      if (userIds.length === 0) return [];
+
+      const { data: authUsers, error: authError } = await supabase.auth.admin.listUsers();
+
+      if (authError) {
+        console.error('Error fetching auth users:', authError);
+        throw authError;
+      }
+
+      // Combine profile data with auth user data
+      const combinedUsers: SystemUser[] = profilesData?.map(profileData => {
+        const authUser = authUsers.users.find(u => u.id === profileData.id);
+        return {
+          ...profileData,
+          email: authUser?.email || '',
+        };
+      }) || [];
+
+      return combinedUsers;
     },
     enabled: canManageUsers,
   });
@@ -89,7 +110,7 @@ export const useUserManagement = () => {
       if (authError) throw authError;
 
       // Update profile with role and company
-      const { data: profile, error: profileError } = await supabase
+      const { data: userProfile, error: profileError } = await supabase
         .from('profiles')
         .update({
           first_name: userData.first_name,
@@ -104,7 +125,7 @@ export const useUserManagement = () => {
 
       if (profileError) throw profileError;
 
-      return profile;
+      return userProfile;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['system-users'] });
