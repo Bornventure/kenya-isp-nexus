@@ -1,159 +1,114 @@
 
 import React from 'react';
-import { Link, useLocation } from 'react-router-dom';
-import { cn } from '@/lib/utils';
+import { NavLink, useNavigate } from 'react-router-dom';
+import { Button } from '@/components/ui/button';
 import { useAuth } from '@/contexts/AuthContext';
 import {
   LayoutDashboard,
   Users,
-  Network,
-  FileText,
   CreditCard,
-  Settings,
-  HelpCircle,
-  Wifi,
-  Map,
-  Package,
+  Network,
+  Laptop,
+  FileText,
   BarChart3,
-  UserCircle,
-  LogOut
+  Wifi,
+  HeadphonesIcon,
+  Settings,
+  LogOut,
+  Building2,
 } from 'lucide-react';
-import { Button } from '@/components/ui/button';
 
-interface SidebarItem {
-  title: string;
-  href: string;
-  icon: React.ComponentType<{ className?: string }>;
-  roles?: string[];
-}
-
-const sidebarItems: SidebarItem[] = [
-  {
-    title: 'Dashboard',
-    href: '/',
-    icon: LayoutDashboard,
-  },
-  {
-    title: 'Clients',
-    href: '/clients',
-    icon: Users,
-  },
-  {
-    title: 'Network Map',
-    href: '/network-map',
-    icon: Map,
-  },
-  {
-    title: 'Equipment',
-    href: '/equipment',
-    icon: Package,
-    roles: ['isp_admin', 'manager', 'technician']
-  },
-  {
-    title: 'Billing',
-    href: '/billing',
-    icon: CreditCard,
-    roles: ['isp_admin', 'manager', 'billing']
-  },
-  {
-    title: 'Invoices',
-    href: '/invoices',
-    icon: FileText,
-    roles: ['isp_admin', 'manager', 'billing']
-  },
-  {
-    title: 'Analytics',
-    href: '/analytics',
-    icon: BarChart3,
-    roles: ['isp_admin', 'manager']
-  },
-  {
-    title: 'Network Status',
-    href: '/network',
-    icon: Network,
-    roles: ['isp_admin', 'manager', 'technician']
-  },
-  {
-    title: 'Support',
-    href: '/support',
-    icon: HelpCircle,
-  },
-  {
-    title: 'Settings',
-    href: '/settings',
-    icon: Settings,
-    roles: ['isp_admin', 'manager']
-  },
+const navigation = [
+  { name: 'Dashboard', href: '/', icon: LayoutDashboard },
+  { name: 'Clients', href: '/clients', icon: Users },
+  { name: 'Billing', href: '/billing', icon: CreditCard },
+  { name: 'Network Map', href: '/network-map', icon: Network },
+  { name: 'Equipment', href: '/equipment', icon: Laptop },
+  { name: 'Invoices', href: '/invoices', icon: FileText },
+  { name: 'Analytics', href: '/analytics', icon: BarChart3 },
+  { name: 'Network Status', href: '/network', icon: Wifi },
+  { name: 'Support', href: '/support', icon: HeadphonesIcon },
+  { name: 'Settings', href: '/settings', icon: Settings },
 ];
 
 const Sidebar = () => {
-  const location = useLocation();
-  const { user, logout } = useAuth();
+  const { logout, profile } = useAuth();
+  const navigate = useNavigate();
 
-  const filteredItems = sidebarItems.filter(item => 
-    !item.roles || item.roles.includes(user?.role || '')
-  );
+  const handleLogout = async () => {
+    await logout();
+    navigate('/login');
+  };
 
   return (
-    <div className="flex flex-col h-full bg-white border-r border-gray-200">
-      {/* Logo/Header */}
-      <div className="p-6 border-b border-gray-200">
-        <div className="flex items-center gap-3">
+    <div className="flex h-full w-64 flex-col bg-gray-50 border-r">
+      {/* Logo */}
+      <div className="flex h-16 items-center justify-center border-b px-4">
+        <div className="flex items-center gap-2">
           <div className="bg-blue-600 p-2 rounded-lg">
             <Wifi className="h-6 w-6 text-white" />
           </div>
-          <div>
-            <h2 className="font-bold text-lg text-gray-900">ISP Portal</h2>
-            <p className="text-xs text-gray-500">{user?.company}</p>
+          <div className="flex flex-col">
+            <span className="text-lg font-semibold text-gray-900">ISP Manager</span>
+            {profile?.isp_companies?.name && (
+              <span className="text-xs text-gray-500 truncate max-w-[150px]">
+                {profile.isp_companies.name}
+              </span>
+            )}
           </div>
         </div>
       </div>
 
-      {/* Navigation */}
-      <nav className="flex-1 p-4">
-        <ul className="space-y-2">
-          {filteredItems.map((item) => {
-            const isActive = location.pathname === item.href;
-            return (
-              <li key={item.href}>
-                <Link
-                  to={item.href}
-                  className={cn(
-                    'flex items-center gap-3 px-3 py-2 rounded-md text-sm font-medium transition-colors',
-                    isActive
-                      ? 'bg-blue-50 text-blue-700 border-r-2 border-blue-700'
-                      : 'text-gray-600 hover:text-gray-900 hover:bg-gray-50'
-                  )}
-                >
-                  <item.icon className="h-5 w-5" />
-                  {item.title}
-                </Link>
-              </li>
-            );
-          })}
-        </ul>
-      </nav>
-
-      {/* User Profile & Logout */}
-      <div className="p-4 border-t border-gray-200">
-        <div className="flex items-center gap-3 mb-3 p-2">
-          <UserCircle className="h-8 w-8 text-gray-400" />
-          <div className="flex-1 min-w-0">
-            <p className="text-sm font-medium text-gray-900 truncate">
-              {user?.name}
-            </p>
-            <p className="text-xs text-gray-500 truncate">
-              {user?.role.replace('_', ' ').toUpperCase()}
-            </p>
+      {/* User Info */}
+      {profile && (
+        <div className="px-4 py-3 border-b bg-white">
+          <div className="flex items-center gap-3">
+            <div className="bg-blue-100 p-2 rounded-full">
+              <Building2 className="h-4 w-4 text-blue-600" />
+            </div>
+            <div className="flex-1 min-w-0">
+              <p className="text-sm font-medium text-gray-900 truncate">
+                {profile.first_name} {profile.last_name}
+              </p>
+              <p className="text-xs text-gray-500 capitalize">
+                {profile.role?.replace('_', ' ')}
+              </p>
+            </div>
           </div>
         </div>
+      )}
+
+      {/* Navigation */}
+      <nav className="flex-1 space-y-1 px-2 py-4">
+        {navigation.map((item) => (
+          <NavLink
+            key={item.name}
+            to={item.href}
+            className={({ isActive }) =>
+              `group flex items-center px-2 py-2 text-sm font-medium rounded-md transition-colors ${
+                isActive
+                  ? 'bg-blue-100 text-blue-700'
+                  : 'text-gray-600 hover:bg-gray-100 hover:text-gray-900'
+              }`
+            }
+          >
+            <item.icon
+              className={`mr-3 h-5 w-5 flex-shrink-0`}
+              aria-hidden="true"
+            />
+            {item.name}
+          </NavLink>
+        ))}
+      </nav>
+
+      {/* Logout */}
+      <div className="border-t p-4">
         <Button
-          onClick={logout}
-          variant="outline"
-          size="sm"
-          className="w-full justify-start gap-2"
+          variant="ghost"
+          className="w-full justify-start text-gray-600 hover:text-gray-900 hover:bg-gray-100"
+          onClick={handleLogout}
         >
-          <LogOut className="h-4 w-4" />
+          <LogOut className="mr-3 h-5 w-5" />
           Sign Out
         </Button>
       </div>

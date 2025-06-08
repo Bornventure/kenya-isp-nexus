@@ -10,8 +10,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { mockClients } from '@/data/mockData';
-import { Client } from '@/types/client';
+import { useClients, DatabaseClient } from '@/hooks/useClients';
 import ClientRegistrationForm from '@/components/clients/ClientRegistrationForm';
 import ClientDetails from '@/components/clients/ClientDetails';
 import ClientViewSwitcher, { ViewMode } from '@/components/clients/ClientViewSwitcher';
@@ -23,6 +22,7 @@ import {
   Filter,
   UserPlus,
   Users,
+  Loader2,
 } from 'lucide-react';
 
 const Clients = () => {
@@ -30,48 +30,100 @@ const Clients = () => {
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const [typeFilter, setTypeFilter] = useState<string>('all');
   const [connectionFilter, setConnectionFilter] = useState<string>('all');
-  const [clients, setClients] = useState<Client[]>(mockClients);
   const [showRegistrationForm, setShowRegistrationForm] = useState(false);
-  const [selectedClient, setSelectedClient] = useState<Client | null>(null);
+  const [selectedClient, setSelectedClient] = useState<DatabaseClient | null>(null);
   const [showClientDetails, setShowClientDetails] = useState(false);
   const [currentView, setCurrentView] = useState<ViewMode>('list');
 
+  const { clients, isLoading, addClient, updateClient, isAddingClient } = useClients();
+
   const filteredClients = clients.filter(client => {
     const matchesSearch = client.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         client.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                         (client.email && client.email.toLowerCase().includes(searchTerm.toLowerCase())) ||
                          client.phone.includes(searchTerm) ||
-                         client.location.address.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         client.location.subCounty.toLowerCase().includes(searchTerm.toLowerCase());
+                         client.address.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                         client.sub_county.toLowerCase().includes(searchTerm.toLowerCase());
     
     const matchesStatus = statusFilter === 'all' || client.status === statusFilter;
-    const matchesType = typeFilter === 'all' || client.clientType === typeFilter;
-    const matchesConnection = connectionFilter === 'all' || client.connectionType === connectionFilter;
+    const matchesType = typeFilter === 'all' || client.client_type === typeFilter;
+    const matchesConnection = connectionFilter === 'all' || client.connection_type === connectionFilter;
     
     return matchesSearch && matchesStatus && matchesType && matchesConnection;
   });
 
-  const handleAddClient = (newClientData: Partial<Client>) => {
-    const newClient = { ...newClientData } as Client;
-    setClients(prev => [...prev, newClient]);
+  // Transform database clients to match the expected format for existing components
+  const transformedClients = filteredClients.map(client => ({
+    id: client.id,
+    name: client.name,
+    email: client.email || '',
+    phone: client.phone,
+    mpesaNumber: client.mpesa_number || '',
+    idNumber: client.id_number,
+    kraPinNumber: client.kra_pin_number || '',
+    clientType: client.client_type,
+    status: client.status,
+    connectionType: client.connection_type,
+    servicePackage: client.service_packages?.name || `${client.monthly_rate} KES/month`,
+    monthlyRate: client.monthly_rate,
+    installationDate: client.installation_date || '',
+    location: {
+      address: client.address,
+      county: client.county,
+      subCounty: client.sub_county,
+      coordinates: client.latitude && client.longitude ? {
+        lat: client.latitude,
+        lng: client.longitude,
+      } : undefined,
+    },
+    balance: client.balance,
+    lastPayment: undefined, // TODO: Fetch from payments table
+  }));
+
+  const handleAddClient = (newClientData: any) => {
+    // Transform the client data to match database schema
+    const dbClientData = {
+      name: newClientData.name,
+      email: newClientData.email || null,
+      phone: newClientData.phone,
+      mpesa_number: newClientData.mpesaNumber || null,
+      id_number: newClientData.idNumber,
+      kra_pin_number: newClientData.kraPinNumber || null,
+      client_type: newClientData.clientType,
+      status: 'pending' as const,
+      connection_type: newClientData.connectionType,
+      monthly_rate: newClientData.monthlyRate,
+      installation_date: newClientData.installationDate || null,
+      address: newClientData.location.address,
+      county: newClientData.location.county,
+      sub_county: newClientData.location.subCounty,
+      latitude: newClientData.location.coordinates?.lat || null,
+      longitude: newClientData.location.coordinates?.lng || null,
+      balance: 0,
+    };
+
+    addClient(dbClientData);
     setShowRegistrationForm(false);
   };
 
-  const handleViewClient = (client: Client) => {
-    setSelectedClient(client);
-    setShowClientDetails(true);
+  const handleViewClient = (client: any) => {
+    // Find the original database client
+    const dbClient = clients.find(c => c.id === client.id);
+    if (dbClient) {
+      setSelectedClient(dbClient);
+      setShowClientDetails(true);
+    }
   };
 
   const handleEditClient = () => {
     setShowClientDetails(false);
   };
 
-  const handleStatusChange = (newStatus: Client['status']) => {
+  const handleStatusChange = (newStatus: DatabaseClient['status']) => {
     if (selectedClient) {
-      setClients(prev => prev.map(client => 
-        client.id === selectedClient.id 
-          ? { ...client, status: newStatus }
-          : client
-      ));
+      updateClient({
+        id: selectedClient.id,
+        updates: { status: newStatus }
+      });
       setSelectedClient({ ...selectedClient, status: newStatus });
     }
   };
@@ -79,14 +131,22 @@ const Clients = () => {
   const renderCurrentView = () => {
     switch (currentView) {
       case 'grid':
-        return <ClientGridView clients={filteredClients} onViewClient={handleViewClient} />;
+        return <ClientGridView clients={transformedClients} onViewClient={handleViewClient} />;
       case 'map':
-        return <InteractiveMap clients={filteredClients} />;
+        return <InteractiveMap clients={transformedClients} />;
       case 'list':
       default:
-        return <ClientListView clients={filteredClients} onViewClient={handleViewClient} />;
+        return <ClientListView clients={transformedClients} onViewClient={handleViewClient} />;
     }
   };
+
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center min-h-[400px]">
+        <Loader2 className="h-8 w-8 animate-spin" />
+      </div>
+    );
+  }
 
   return (
     <div className="p-6">
@@ -98,8 +158,16 @@ const Clients = () => {
               Manage your internet service subscribers
             </p>
           </div>
-          <Button className="gap-2" onClick={() => setShowRegistrationForm(true)}>
-            <UserPlus className="h-4 w-4" />
+          <Button 
+            className="gap-2" 
+            onClick={() => setShowRegistrationForm(true)}
+            disabled={isAddingClient}
+          >
+            {isAddingClient ? (
+              <Loader2 className="h-4 w-4 animate-spin" />
+            ) : (
+              <UserPlus className="h-4 w-4" />
+            )}
             Add New Client
           </Button>
         </div>
@@ -185,7 +253,7 @@ const Clients = () => {
         <Card>
           <CardContent className="p-4">
             <div className="text-2xl font-bold text-green-600">
-              {mockClients.filter(c => c.status === 'active').length}
+              {clients.filter(c => c.status === 'active').length}
             </div>
             <div className="text-sm text-gray-600">Active Clients</div>
           </CardContent>
@@ -193,7 +261,7 @@ const Clients = () => {
         <Card>
           <CardContent className="p-4">
             <div className="text-2xl font-bold text-red-600">
-              {mockClients.filter(c => c.status === 'suspended').length}
+              {clients.filter(c => c.status === 'suspended').length}
             </div>
             <div className="text-sm text-gray-600">Suspended</div>
           </CardContent>
@@ -201,7 +269,7 @@ const Clients = () => {
         <Card>
           <CardContent className="p-4">
             <div className="text-2xl font-bold text-yellow-600">
-              {mockClients.filter(c => c.status === 'pending').length}
+              {clients.filter(c => c.status === 'pending').length}
             </div>
             <div className="text-sm text-gray-600">Pending</div>
           </CardContent>
@@ -209,7 +277,7 @@ const Clients = () => {
         <Card>
           <CardContent className="p-4">
             <div className="text-2xl font-bold text-blue-600">
-              {mockClients.length}
+              {clients.length}
             </div>
             <div className="text-sm text-gray-600">Total Clients</div>
           </CardContent>
@@ -221,7 +289,7 @@ const Clients = () => {
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
             <Users className="h-5 w-5" />
-            Client {currentView === 'list' ? 'List' : currentView === 'grid' ? 'Grid' : 'Map'} ({filteredClients.length} of {mockClients.length})
+            Client {currentView === 'list' ? 'List' : currentView === 'grid' ? 'Grid' : 'Map'} ({filteredClients.length} of {clients.length})
           </CardTitle>
         </CardHeader>
         <CardContent className={currentView === 'map' ? 'p-0' : undefined}>
@@ -240,7 +308,31 @@ const Clients = () => {
       {/* Client Details Modal */}
       {showClientDetails && selectedClient && (
         <ClientDetails
-          client={selectedClient}
+          client={{
+            id: selectedClient.id,
+            name: selectedClient.name,
+            email: selectedClient.email || '',
+            phone: selectedClient.phone,
+            mpesaNumber: selectedClient.mpesa_number || '',
+            idNumber: selectedClient.id_number,
+            kraPinNumber: selectedClient.kra_pin_number || '',
+            clientType: selectedClient.client_type,
+            status: selectedClient.status,
+            connectionType: selectedClient.connection_type,
+            servicePackage: selectedClient.service_packages?.name || `${selectedClient.monthly_rate} KES/month`,
+            monthlyRate: selectedClient.monthly_rate,
+            installationDate: selectedClient.installation_date || '',
+            location: {
+              address: selectedClient.address,
+              county: selectedClient.county,
+              subCounty: selectedClient.sub_county,
+              coordinates: selectedClient.latitude && selectedClient.longitude ? {
+                lat: selectedClient.latitude,
+                lng: selectedClient.longitude,
+              } : undefined,
+            },
+            balance: selectedClient.balance,
+          }}
           onClose={() => setShowClientDetails(false)}
           onEdit={handleEditClient}
           onStatusChange={handleStatusChange}
