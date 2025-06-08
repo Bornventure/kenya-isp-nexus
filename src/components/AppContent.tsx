@@ -1,4 +1,3 @@
-
 import React from 'react';
 import { Routes, Route, Navigate } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
@@ -13,6 +12,7 @@ import Invoices from "@/pages/Invoices";
 import Analytics from "@/pages/Analytics";
 import NetworkStatus from "@/pages/NetworkStatus";
 import Support from "@/pages/Support";
+import Settings from "@/pages/Settings";
 
 const AppContent: React.FC = () => {
   const { user, isLoading } = useAuth();
@@ -47,7 +47,7 @@ const AppContent: React.FC = () => {
         <Route path="analytics" element={<Analytics />} />
         <Route path="network" element={<NetworkStatus />} />
         <Route path="support" element={<Support />} />
-        <Route path="settings" element={<div className="p-6"><h1 className="text-2xl">Settings - Coming Soon</h1></div>} />
+        <Route path="settings" element={<Settings />} />
       </Route>
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>
