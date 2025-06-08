@@ -73,12 +73,13 @@ const InteractiveMap: React.FC<InteractiveMapProps> = ({ clients }) => {
 
   return (
     <ErrorBoundary>
-      <div className="relative w-full h-[600px] rounded-lg overflow-hidden">
+      <div className="relative w-full h-[600px] rounded-lg overflow-hidden border">
         <MapContainer
           key={mapKey}
           center={defaultCenter}
           zoom={defaultZoom}
-          className="w-full h-full"
+          style={{ height: '100%', width: '100%' }}
+          className="w-full h-full z-0"
           zoomControl={false}
         >
           <TileLayer
