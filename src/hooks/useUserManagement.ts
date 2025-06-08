@@ -72,10 +72,13 @@ export const useUserManagement = () => {
         throw profilesError;
       }
 
-      // Get auth users to get email addresses
-      const userIds = profilesData?.map((p: ProfileData) => p.id) || [];
-      if (userIds.length === 0) return [];
+      if (!profilesData || profilesData.length === 0) {
+        return [];
+      }
 
+      // Get auth users to get email addresses
+      const userIds = profilesData.map((p: ProfileData) => p.id);
+      
       const { data: authUsers, error: authError } = await supabase.auth.admin.listUsers();
 
       if (authError) {
@@ -84,14 +87,14 @@ export const useUserManagement = () => {
       }
 
       // Combine profile data with auth user data
-      const combinedUsers: SystemUser[] = (profilesData as ProfileData[])?.map((profileData: ProfileData) => {
+      const combinedUsers: SystemUser[] = profilesData.map((profileData: ProfileData) => {
         const authUser = authUsers.users.find(u => u.id === profileData.id);
         return {
           ...profileData,
           email: authUser?.email || '',
           isp_companies: profileData.isp_companies || undefined,
         };
-      }) || [];
+      });
 
       return combinedUsers;
     },
