@@ -1,4 +1,3 @@
-
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
@@ -27,6 +26,13 @@ type ProfileWithCompany = Database['public']['Tables']['profiles']['Row'] & {
     name: string;
   } | null;
 };
+
+// Type for auth users from Supabase admin API
+interface AuthUser {
+  id: string;
+  email?: string;
+  [key: string]: any;
+}
 
 export const useUserManagement = () => {
   const { profile } = useAuth();
@@ -81,9 +87,12 @@ export const useUserManagement = () => {
         throw authError;
       }
 
+      // Type the auth users properly
+      const typedAuthUsers = (authUsers?.users || []) as AuthUser[];
+
       // Combine profile data with auth user data
       const combinedUsers: SystemUser[] = typedProfilesData.map((profileData) => {
-        const authUser = authUsers.users.find((u) => u.id === profileData.id);
+        const authUser = typedAuthUsers.find((u) => u.id === profileData.id);
         return {
           id: profileData.id,
           email: authUser?.email || '',
