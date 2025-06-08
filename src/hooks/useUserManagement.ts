@@ -20,6 +20,22 @@ export interface SystemUser {
   };
 }
 
+// Define the profile data type as returned from Supabase
+interface ProfileData {
+  id: string;
+  first_name: string | null;
+  last_name: string | null;
+  phone: string | null;
+  role: 'super_admin' | 'isp_admin' | 'manager' | 'technician' | 'support' | 'billing' | 'readonly';
+  isp_company_id: string | null;
+  is_active: boolean;
+  created_at: string;
+  updated_at: string;
+  isp_companies?: {
+    name: string;
+  } | null;
+}
+
 export const useUserManagement = () => {
   const { profile } = useAuth();
   const { toast } = useToast();
@@ -57,7 +73,7 @@ export const useUserManagement = () => {
       }
 
       // Get auth users to get email addresses
-      const userIds = profilesData?.map(p => p.id) || [];
+      const userIds = profilesData?.map((p: ProfileData) => p.id) || [];
       if (userIds.length === 0) return [];
 
       const { data: authUsers, error: authError } = await supabase.auth.admin.listUsers();
@@ -68,11 +84,12 @@ export const useUserManagement = () => {
       }
 
       // Combine profile data with auth user data
-      const combinedUsers: SystemUser[] = profilesData?.map(profileData => {
+      const combinedUsers: SystemUser[] = (profilesData as ProfileData[])?.map((profileData: ProfileData) => {
         const authUser = authUsers.users.find(u => u.id === profileData.id);
         return {
           ...profileData,
           email: authUser?.email || '',
+          isp_companies: profileData.isp_companies || undefined,
         };
       }) || [];
 
