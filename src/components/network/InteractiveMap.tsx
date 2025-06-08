@@ -46,9 +46,9 @@ const InteractiveMap: React.FC<InteractiveMapProps> = ({ clients }) => {
     initializeLeafletIcons();
   }, []);
 
-  // Default center for Nairobi, Kenya
-  const defaultCenter: [number, number] = [-1.2921, 36.8219];
-  const defaultZoom = 11;
+  // Center for Kisumu, Kenya (corrected coordinates)
+  const defaultCenter: [number, number] = [-0.0917, 34.7680];
+  const defaultZoom = 12;
 
   const handleClientToggle = useCallback((clientId: string) => {
     setSelectedClient(prev => prev === clientId ? null : clientId);
@@ -78,6 +78,15 @@ const InteractiveMap: React.FC<InteractiveMapProps> = ({ clients }) => {
     setMapStyle(newStyle);
   }, []);
 
+  // Filter clients with valid coordinates
+  const validClients = clients.filter(client => 
+    client.location.coordinates && 
+    client.location.coordinates.lat && 
+    client.location.coordinates.lng
+  );
+
+  console.log('Valid clients for map:', validClients.length, 'out of', clients.length);
+
   return (
     <ErrorBoundary>
       <div className="relative w-full h-[600px] rounded-lg overflow-hidden border">
@@ -97,7 +106,7 @@ const InteractiveMap: React.FC<InteractiveMapProps> = ({ clients }) => {
           <ZoomControl position="bottomright" />
 
           {/* Client markers */}
-          {clients.map((client) => (
+          {validClients.map((client) => (
             <ClientMarker
               key={client.id}
               client={client}
@@ -143,6 +152,9 @@ const InteractiveMap: React.FC<InteractiveMapProps> = ({ clients }) => {
               <div className="w-3 h-3 rounded-full bg-gray-500"></div>
               <span>Disconnected ({clients.filter(c => c.status === 'disconnected').length})</span>
             </div>
+          </div>
+          <div className="mt-2 pt-2 border-t text-xs text-muted-foreground">
+            Showing {validClients.length} clients on map
           </div>
         </div>
       </div>
