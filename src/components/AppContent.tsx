@@ -9,6 +9,8 @@ import Clients from "@/pages/Clients";
 import Billing from "@/pages/Billing";
 import NetworkMap from "@/pages/NetworkMap";
 import Equipment from "@/pages/Equipment";
+import Invoices from "@/pages/Invoices";
+import Analytics from "@/pages/Analytics";
 
 const AppContent: React.FC = () => {
   const { user, isLoading } = useAuth();
@@ -39,8 +41,8 @@ const AppContent: React.FC = () => {
         <Route path="billing" element={<Billing />} />
         <Route path="network-map" element={<NetworkMap />} />
         <Route path="equipment" element={<Equipment />} />
-        <Route path="invoices" element={<div className="p-6"><h1 className="text-2xl">Invoices - Coming Soon</h1></div>} />
-        <Route path="analytics" element={<div className="p-6"><h1 className="text-2xl">Analytics - Coming Soon</h1></div>} />
+        <Route path="invoices" element={<Invoices />} />
+        <Route path="analytics" element={<Analytics />} />
         <Route path="network" element={<div className="p-6"><h1 className="text-2xl">Network Status - Coming Soon</h1></div>} />
         <Route path="support" element={<div className="p-6"><h1 className="text-2xl">Support - Coming Soon</h1></div>} />
         <Route path="settings" element={<div className="p-6"><h1 className="text-2xl">Settings - Coming Soon</h1></div>} />

@@ -9,10 +9,20 @@ import L from 'leaflet';
 interface ClientMarkerProps {
   client: Client;
   showPopup: boolean;
+  isHovered?: boolean;
   onTogglePopup: () => void;
+  onHover?: () => void;
+  onHoverEnd?: () => void;
 }
 
-const ClientMarker: React.FC<ClientMarkerProps> = ({ client, showPopup, onTogglePopup }) => {
+const ClientMarker: React.FC<ClientMarkerProps> = ({ 
+  client, 
+  showPopup, 
+  isHovered = false,
+  onTogglePopup, 
+  onHover,
+  onHoverEnd 
+}) => {
   const getStatusColor = (status: Client['status']) => {
     switch (status) {
       case 'active': return '#10b981'; // green-500
@@ -34,23 +44,28 @@ const ClientMarker: React.FC<ClientMarkerProps> = ({ client, showPopup, onToggle
   if (!client.location.coordinates) return null;
 
   // Create custom icon based on client status
+  const size = isHovered ? 20 : 16;
+  const pulseSize = isHovered ? 24 : 20;
+  
   const customIcon = L.divIcon({
     html: `
       <div style="
-        width: 16px;
-        height: 16px;
+        width: ${size}px;
+        height: ${size}px;
         background-color: ${getStatusColor(client.status)};
         border: 2px solid white;
         border-radius: 50%;
         box-shadow: 0 2px 4px rgba(0,0,0,0.2);
         position: relative;
+        transition: all 0.2s ease;
+        ${isHovered ? 'transform: scale(1.2);' : ''}
       ">
         <div style="
           position: absolute;
           top: -2px;
           left: -2px;
-          width: 20px;
-          height: 20px;
+          width: ${pulseSize}px;
+          height: ${pulseSize}px;
           border: 2px solid ${getStatusColor(client.status)};
           border-radius: 50%;
           opacity: 0.5;
@@ -67,8 +82,8 @@ const ClientMarker: React.FC<ClientMarkerProps> = ({ client, showPopup, onToggle
       </style>
     `,
     className: '',
-    iconSize: [16, 16],
-    iconAnchor: [8, 8],
+    iconSize: [size, size],
+    iconAnchor: [size / 2, size / 2],
   });
 
   return (
@@ -77,9 +92,11 @@ const ClientMarker: React.FC<ClientMarkerProps> = ({ client, showPopup, onToggle
       icon={customIcon}
       eventHandlers={{
         click: onTogglePopup,
+        mouseover: onHover,
+        mouseout: onHoverEnd,
       }}
     >
-      {showPopup && (
+      {(showPopup || isHovered) && (
         <Popup
           closeButton={false}
           className="w-80"

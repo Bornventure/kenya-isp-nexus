@@ -38,6 +38,7 @@ interface InteractiveMapProps {
 const InteractiveMap: React.FC<InteractiveMapProps> = ({ clients }) => {
   const [mapStyle, setMapStyle] = useState('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png');
   const [selectedClient, setSelectedClient] = useState<string | null>(null);
+  const [hoveredClient, setHoveredClient] = useState<string | null>(null);
   const [mapKey, setMapKey] = useState(0);
 
   // Initialize Leaflet icons on component mount
@@ -53,6 +54,10 @@ const InteractiveMap: React.FC<InteractiveMapProps> = ({ clients }) => {
     setSelectedClient(prev => prev === clientId ? null : clientId);
   }, []);
 
+  const handleClientHover = useCallback((clientId: string | null) => {
+    setHoveredClient(clientId);
+  }, []);
+
   const handleZoomIn = () => {
     console.log('Zoom in clicked');
   };
@@ -63,6 +68,8 @@ const InteractiveMap: React.FC<InteractiveMapProps> = ({ clients }) => {
 
   const handleReset = () => {
     console.log('Reset clicked');
+    setSelectedClient(null);
+    setHoveredClient(null);
     setMapKey(prev => prev + 1);
   };
 
@@ -95,7 +102,10 @@ const InteractiveMap: React.FC<InteractiveMapProps> = ({ clients }) => {
               key={client.id}
               client={client}
               showPopup={selectedClient === client.id}
+              isHovered={hoveredClient === client.id}
               onTogglePopup={() => handleClientToggle(client.id)}
+              onHover={() => handleClientHover(client.id)}
+              onHoverEnd={() => handleClientHover(null)}
             />
           ))}
         </MapContainer>
@@ -112,6 +122,29 @@ const InteractiveMap: React.FC<InteractiveMapProps> = ({ clients }) => {
 
         {/* Legend */}
         <MapLegend />
+
+        {/* Status indicators overlay */}
+        <div className="absolute top-4 left-4 bg-white/90 backdrop-blur-sm rounded-lg p-3 shadow-lg">
+          <div className="text-sm font-medium mb-2">Client Status</div>
+          <div className="space-y-1 text-xs">
+            <div className="flex items-center gap-2">
+              <div className="w-3 h-3 rounded-full bg-green-500"></div>
+              <span>Active ({clients.filter(c => c.status === 'active').length})</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <div className="w-3 h-3 rounded-full bg-red-500"></div>
+              <span>Suspended ({clients.filter(c => c.status === 'suspended').length})</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <div className="w-3 h-3 rounded-full bg-yellow-500"></div>
+              <span>Pending ({clients.filter(c => c.status === 'pending').length})</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <div className="w-3 h-3 rounded-full bg-gray-500"></div>
+              <span>Disconnected ({clients.filter(c => c.status === 'disconnected').length})</span>
+            </div>
+          </div>
+        </div>
       </div>
     </ErrorBoundary>
   );
