@@ -67,7 +67,7 @@ export const useClients = () => {
   });
 
   const addClientMutation = useMutation({
-    mutationFn: async (clientData: Partial<DatabaseClient>) => {
+    mutationFn: async (clientData: Omit<DatabaseClient, 'id' | 'created_at' | 'updated_at' | 'service_packages'>) => {
       if (!profile?.isp_company_id) {
         throw new Error('No ISP company associated with user');
       }
