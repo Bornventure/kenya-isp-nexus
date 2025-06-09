@@ -27,13 +27,12 @@ const AppContent: React.FC = () => {
     );
   }
   
-  // Public routes that don't require authentication
   return (
     <Routes>
-      {/* Public customer portal */}
+      {/* Public customer portal - accessible without authentication */}
       <Route path="/customer-portal" element={<CustomerPortal />} />
       
-      {/* Admin routes */}
+      {/* Authentication and Admin routes */}
       {!user ? (
         <>
           <Route path="/login" element={<Login />} />
