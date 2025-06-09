@@ -7,7 +7,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Badge } from '@/components/ui/badge';
 import { useUserManagement } from '@/hooks/useUserManagement';
 import { useAuth } from '@/contexts/AuthContext';
-import { UserPlus, Users, Shield, AlertCircle } from 'lucide-react';
+import { UserPlus, Users, Shield, AlertCircle, Info } from 'lucide-react';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Label } from '@/components/ui/label';
 
@@ -85,6 +85,19 @@ const UserManagement = () => {
 
   return (
     <div className="space-y-6">
+      {/* Info banner about current limitations */}
+      <Card className="border-blue-200 bg-blue-50">
+        <CardContent className="p-4">
+          <div className="flex items-start gap-2">
+            <Info className="h-5 w-5 text-blue-600 mt-0.5 flex-shrink-0" />
+            <div className="text-blue-800 text-sm">
+              <p className="font-medium mb-1">User Management Status</p>
+              <p>Currently showing user profiles. Full authentication integration is in progress. Email addresses are temporarily unavailable in this view.</p>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+
       <Card>
         <CardHeader>
           <div className="flex items-center justify-between">
@@ -102,15 +115,15 @@ const UserManagement = () => {
                 <DialogTrigger asChild>
                   <Button>
                     <UserPlus className="h-4 w-4 mr-2" />
-                    Add User
+                    Add User Profile
                   </Button>
                 </DialogTrigger>
                 <DialogContent className="sm:max-w-[425px]">
                   <form onSubmit={handleCreateUser}>
                     <DialogHeader>
-                      <DialogTitle>Create New User</DialogTitle>
+                      <DialogTitle>Create New User Profile</DialogTitle>
                       <DialogDescription>
-                        Add a new user to the system with appropriate permissions.
+                        Create a user profile. Authentication setup will need to be completed separately.
                       </DialogDescription>
                     </DialogHeader>
                     <div className="grid gap-4 py-4">
@@ -135,24 +148,21 @@ const UserManagement = () => {
                         </div>
                       </div>
                       <div className="space-y-2">
-                        <Label htmlFor="email">Email</Label>
+                        <Label htmlFor="email">Email (for reference)</Label>
                         <Input
                           id="email"
                           type="email"
                           value={newUser.email}
                           onChange={(e) => setNewUser({ ...newUser, email: e.target.value })}
-                          required
+                          placeholder="Will be used for auth setup later"
                         />
                       </div>
                       <div className="space-y-2">
-                        <Label htmlFor="password">Password</Label>
+                        <Label htmlFor="phone">Phone</Label>
                         <Input
-                          id="password"
-                          type="password"
-                          value={newUser.password}
-                          onChange={(e) => setNewUser({ ...newUser, password: e.target.value })}
-                          required
-                          minLength={8}
+                          id="phone"
+                          value={newUser.phone}
+                          onChange={(e) => setNewUser({ ...newUser, phone: e.target.value })}
                         />
                       </div>
                       <div className="space-y-2">
@@ -175,7 +185,7 @@ const UserManagement = () => {
                     </div>
                     <DialogFooter>
                       <Button type="submit" disabled={isCreatingUser}>
-                        {isCreatingUser ? 'Creating...' : 'Create User'}
+                        {isCreatingUser ? 'Creating...' : 'Create Profile'}
                       </Button>
                     </DialogFooter>
                   </form>
@@ -200,7 +210,7 @@ const UserManagement = () => {
                       <Badge variant="secondary">Inactive</Badge>
                     )}
                   </div>
-                  <p className="text-sm text-gray-600">{user.email}</p>
+                  <p className="text-sm text-gray-600">{user.phone || 'No phone'}</p>
                   {user.isp_companies?.name && (
                     <p className="text-xs text-gray-500">Company: {user.isp_companies.name}</p>
                   )}
