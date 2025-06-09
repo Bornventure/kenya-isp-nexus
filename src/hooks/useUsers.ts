@@ -2,6 +2,7 @@
 import { useQuery } from '@tanstack/react-query';
 import { useAuth } from '@/contexts/AuthContext';
 import { userService } from '@/services/userService';
+import { supabase } from '@/integrations/supabase/client';
 
 export const useUsers = () => {
   const { profile } = useAuth();
