@@ -2,27 +2,47 @@
 import { supabase } from '@/integrations/supabase/client';
 import type { Database } from '@/integrations/supabase/types';
 
-// Type definitions for our API responses
-export type ApiResponse<T> = {
+export interface ApiResponse<T> {
   data: T | null;
   error: string | null;
   success: boolean;
-};
+}
 
-// Base service class with common functionality
-class BaseApiService {
-  protected async handleQuery<T>(queryPromise: Promise<any>): Promise<ApiResponse<T>> {
+// Base Stations API
+class BaseStationsApi {
+  async getAll(ispCompanyId: string): Promise<ApiResponse<Database['public']['Tables']['base_stations']['Row'][]>> {
     try {
-      const { data, error } = await queryPromise;
-      
-      if (error) {
-        console.error('Database error:', error);
-        return {
-          data: null,
-          error: error.message,
-          success: false,
-        };
-      }
+      const { data, error } = await supabase
+        .from('base_stations')
+        .select('*')
+        .eq('isp_company_id', ispCompanyId);
+
+      if (error) throw error;
+
+      return {
+        data: data || [],
+        error: null,
+        success: true,
+      };
+    } catch (error) {
+      console.error('Error fetching base stations:', error);
+      return {
+        data: null,
+        error: error instanceof Error ? error.message : 'Unknown error occurred',
+        success: false,
+      };
+    }
+  }
+
+  async create(baseStationData: Database['public']['Tables']['base_stations']['Insert']): Promise<ApiResponse<Database['public']['Tables']['base_stations']['Row']>> {
+    try {
+      const { data, error } = await supabase
+        .from('base_stations')
+        .insert(baseStationData)
+        .select()
+        .single();
+
+      if (error) throw error;
 
       return {
         data,
@@ -30,7 +50,33 @@ class BaseApiService {
         success: true,
       };
     } catch (error) {
-      console.error('Unexpected error:', error);
+      console.error('Error creating base station:', error);
+      return {
+        data: null,
+        error: error instanceof Error ? error.message : 'Unknown error occurred',
+        success: false,
+      };
+    }
+  }
+
+  async update(id: string, updates: Database['public']['Tables']['base_stations']['Update']): Promise<ApiResponse<Database['public']['Tables']['base_stations']['Row']>> {
+    try {
+      const { data, error } = await supabase
+        .from('base_stations')
+        .update(updates)
+        .eq('id', id)
+        .select()
+        .single();
+
+      if (error) throw error;
+
+      return {
+        data,
+        error: null,
+        success: true,
+      };
+    } catch (error) {
+      console.error('Error updating base station:', error);
       return {
         data: null,
         error: error instanceof Error ? error.message : 'Unknown error occurred',
@@ -40,318 +86,401 @@ class BaseApiService {
   }
 }
 
-// Clients API Service
-export class ClientsApiService extends BaseApiService {
-  async getAll(ispCompanyId: string) {
-    return this.handleQuery(
-      supabase
+// Clients API
+class ClientsApi {
+  async getAll(ispCompanyId: string): Promise<ApiResponse<any[]>> {
+    try {
+      const { data, error } = await supabase
         .from('clients')
         .select(`
           *,
           service_packages (
-            id,
             name,
             speed,
             monthly_rate
           )
         `)
-        .eq('isp_company_id', ispCompanyId)
-        .order('created_at', { ascending: false })
-    );
+        .eq('isp_company_id', ispCompanyId);
+
+      if (error) throw error;
+
+      return {
+        data: data || [],
+        error: null,
+        success: true,
+      };
+    } catch (error) {
+      console.error('Error fetching clients:', error);
+      return {
+        data: null,
+        error: error instanceof Error ? error.message : 'Unknown error occurred',
+        success: false,
+      };
+    }
   }
 
-  async getById(id: string) {
-    return this.handleQuery(
-      supabase
-        .from('clients')
-        .select(`
-          *,
-          service_packages (
-            id,
-            name,
-            speed,
-            monthly_rate
-          )
-        `)
-        .eq('id', id)
-        .single()
-    );
-  }
-
-  async create(clientData: Database['public']['Tables']['clients']['Insert']) {
-    return this.handleQuery(
-      supabase
+  async create(clientData: Database['public']['Tables']['clients']['Insert']): Promise<ApiResponse<Database['public']['Tables']['clients']['Row']>> {
+    try {
+      const { data, error } = await supabase
         .from('clients')
         .insert(clientData)
         .select()
-        .single()
-    );
+        .single();
+
+      if (error) throw error;
+
+      return {
+        data,
+        error: null,
+        success: true,
+      };
+    } catch (error) {
+      console.error('Error creating client:', error);
+      return {
+        data: null,
+        error: error instanceof Error ? error.message : 'Unknown error occurred',
+        success: false,
+      };
+    }
   }
 
-  async update(id: string, updates: Database['public']['Tables']['clients']['Update']) {
-    return this.handleQuery(
-      supabase
+  async update(id: string, updates: Database['public']['Tables']['clients']['Update']): Promise<ApiResponse<Database['public']['Tables']['clients']['Row']>> {
+    try {
+      const { data, error } = await supabase
         .from('clients')
         .update(updates)
         .eq('id', id)
         .select()
-        .single()
-    );
-  }
+        .single();
 
-  async delete(id: string) {
-    return this.handleQuery(
-      supabase
-        .from('clients')
-        .delete()
-        .eq('id', id)
-    );
+      if (error) throw error;
+
+      return {
+        data,
+        error: null,
+        success: true,
+      };
+    } catch (error) {
+      console.error('Error updating client:', error);
+      return {
+        data: null,
+        error: error instanceof Error ? error.message : 'Unknown error occurred',
+        success: false,
+      };
+    }
   }
 }
 
-// Service Packages API Service
-export class ServicePackagesApiService extends BaseApiService {
-  async getAll(ispCompanyId: string) {
-    return this.handleQuery(
-      supabase
+// Service Packages API
+class ServicePackagesApi {
+  async getAll(ispCompanyId: string): Promise<ApiResponse<Database['public']['Tables']['service_packages']['Row'][]>> {
+    try {
+      const { data, error } = await supabase
         .from('service_packages')
         .select('*')
         .eq('isp_company_id', ispCompanyId)
-        .eq('is_active', true)
-        .order('monthly_rate', { ascending: true })
-    );
+        .eq('is_active', true);
+
+      if (error) throw error;
+
+      return {
+        data: data || [],
+        error: null,
+        success: true,
+      };
+    } catch (error) {
+      console.error('Error fetching service packages:', error);
+      return {
+        data: null,
+        error: error instanceof Error ? error.message : 'Unknown error occurred',
+        success: false,
+      };
+    }
   }
 
-  async create(packageData: Database['public']['Tables']['service_packages']['Insert']) {
-    return this.handleQuery(
-      supabase
+  async create(packageData: Database['public']['Tables']['service_packages']['Insert']): Promise<ApiResponse<Database['public']['Tables']['service_packages']['Row']>> {
+    try {
+      const { data, error } = await supabase
         .from('service_packages')
         .insert(packageData)
         .select()
-        .single()
-    );
-  }
+        .single();
 
-  async update(id: string, updates: Database['public']['Tables']['service_packages']['Update']) {
-    return this.handleQuery(
-      supabase
-        .from('service_packages')
-        .update(updates)
-        .eq('id', id)
-        .select()
-        .single()
-    );
+      if (error) throw error;
+
+      return {
+        data,
+        error: null,
+        success: true,
+      };
+    } catch (error) {
+      console.error('Error creating service package:', error);
+      return {
+        data: null,
+        error: error instanceof Error ? error.message : 'Unknown error occurred',
+        success: false,
+      };
+    }
   }
 }
 
-// Equipment API Service
-export class EquipmentApiService extends BaseApiService {
-  async getAll(ispCompanyId: string) {
-    return this.handleQuery(
-      supabase
+// Equipment API
+class EquipmentApi {
+  async getAll(ispCompanyId: string): Promise<ApiResponse<Database['public']['Tables']['equipment']['Row'][]>> {
+    try {
+      const { data, error } = await supabase
         .from('equipment')
-        .select(`
-          *,
-          clients (
-            id,
-            name,
-            phone
-          )
-        `)
-        .eq('isp_company_id', ispCompanyId)
-        .order('created_at', { ascending: false })
-    );
+        .select('*')
+        .eq('isp_company_id', ispCompanyId);
+
+      if (error) throw error;
+
+      return {
+        data: data || [],
+        error: null,
+        success: true,
+      };
+    } catch (error) {
+      console.error('Error fetching equipment:', error);
+      return {
+        data: null,
+        error: error instanceof Error ? error.message : 'Unknown error occurred',
+        success: false,
+      };
+    }
   }
 
-  async create(equipmentData: Database['public']['Tables']['equipment']['Insert']) {
-    return this.handleQuery(
-      supabase
+  async create(equipmentData: Database['public']['Tables']['equipment']['Insert']): Promise<ApiResponse<Database['public']['Tables']['equipment']['Row']>> {
+    try {
+      const { data, error } = await supabase
         .from('equipment')
         .insert(equipmentData)
         .select()
-        .single()
-    );
-  }
+        .single();
 
-  async update(id: string, updates: Database['public']['Tables']['equipment']['Update']) {
-    return this.handleQuery(
-      supabase
-        .from('equipment')
-        .update(updates)
-        .eq('id', id)
-        .select()
-        .single()
-    );
+      if (error) throw error;
+
+      return {
+        data,
+        error: null,
+        success: true,
+      };
+    } catch (error) {
+      console.error('Error creating equipment:', error);
+      return {
+        data: null,
+        error: error instanceof Error ? error.message : 'Unknown error occurred',
+        success: false,
+      };
+    }
   }
 }
 
-// Invoices API Service
-export class InvoicesApiService extends BaseApiService {
-  async getAll(ispCompanyId: string) {
-    return this.handleQuery(
-      supabase
+// Invoices API
+class InvoicesApi {
+  async getAll(ispCompanyId: string): Promise<ApiResponse<any[]>> {
+    try {
+      const { data, error } = await supabase
         .from('invoices')
         .select(`
           *,
           clients (
-            id,
             name,
-            email,
-            phone
+            email
           )
         `)
-        .eq('isp_company_id', ispCompanyId)
-        .order('created_at', { ascending: false })
-    );
+        .eq('isp_company_id', ispCompanyId);
+
+      if (error) throw error;
+
+      return {
+        data: data || [],
+        error: null,
+        success: true,
+      };
+    } catch (error) {
+      console.error('Error fetching invoices:', error);
+      return {
+        data: null,
+        error: error instanceof Error ? error.message : 'Unknown error occurred',
+        success: false,
+      };
+    }
   }
 
-  async create(invoiceData: Database['public']['Tables']['invoices']['Insert']) {
-    return this.handleQuery(
-      supabase
+  async create(invoiceData: Database['public']['Tables']['invoices']['Insert']): Promise<ApiResponse<Database['public']['Tables']['invoices']['Row']>> {
+    try {
+      const { data, error } = await supabase
         .from('invoices')
         .insert(invoiceData)
         .select()
-        .single()
-    );
-  }
+        .single();
 
-  async update(id: string, updates: Database['public']['Tables']['invoices']['Update']) {
-    return this.handleQuery(
-      supabase
-        .from('invoices')
-        .update(updates)
-        .eq('id', id)
-        .select()
-        .single()
-    );
+      if (error) throw error;
+
+      return {
+        data,
+        error: null,
+        success: true,
+      };
+    } catch (error) {
+      console.error('Error creating invoice:', error);
+      return {
+        data: null,
+        error: error instanceof Error ? error.message : 'Unknown error occurred',
+        success: false,
+      };
+    }
   }
 }
 
-// Payments API Service
-export class PaymentsApiService extends BaseApiService {
-  async getAll(ispCompanyId: string) {
-    return this.handleQuery(
-      supabase
+// Payments API
+class PaymentsApi {
+  async getAll(ispCompanyId: string): Promise<ApiResponse<any[]>> {
+    try {
+      const { data, error } = await supabase
         .from('payments')
         .select(`
           *,
           clients (
-            id,
             name,
-            phone
-          ),
-          invoices (
-            id,
-            invoice_number,
-            amount
+            email
           )
         `)
-        .eq('isp_company_id', ispCompanyId)
-        .order('created_at', { ascending: false })
-    );
+        .eq('isp_company_id', ispCompanyId);
+
+      if (error) throw error;
+
+      return {
+        data: data || [],
+        error: null,
+        success: true,
+      };
+    } catch (error) {
+      console.error('Error fetching payments:', error);
+      return {
+        data: null,
+        error: error instanceof Error ? error.message : 'Unknown error occurred',
+        success: false,
+      };
+    }
   }
 
-  async create(paymentData: Database['public']['Tables']['payments']['Insert']) {
-    return this.handleQuery(
-      supabase
+  async create(paymentData: Database['public']['Tables']['payments']['Insert']): Promise<ApiResponse<Database['public']['Tables']['payments']['Row']>> {
+    try {
+      const { data, error } = await supabase
         .from('payments')
         .insert(paymentData)
         .select()
-        .single()
-    );
+        .single();
+
+      if (error) throw error;
+
+      return {
+        data,
+        error: null,
+        success: true,
+      };
+    } catch (error) {
+      console.error('Error creating payment:', error);
+      return {
+        data: null,
+        error: error instanceof Error ? error.message : 'Unknown error occurred',
+        success: false,
+      };
+    }
   }
 }
 
-// Support Tickets API Service
-export class SupportTicketsApiService extends BaseApiService {
-  async getAll(ispCompanyId: string) {
-    return this.handleQuery(
-      supabase
+// Support Tickets API
+class SupportTicketsApi {
+  async getAll(ispCompanyId: string): Promise<ApiResponse<any[]>> {
+    try {
+      const { data, error } = await supabase
         .from('support_tickets')
         .select(`
           *,
           clients (
-            id,
             name,
-            phone
-          ),
-          created_by_profile:profiles!support_tickets_created_by_fkey (
-            id,
-            first_name,
-            last_name
-          ),
-          assigned_to_profile:profiles!support_tickets_assigned_to_fkey (
-            id,
-            first_name,
-            last_name
+            email
           )
         `)
-        .eq('isp_company_id', ispCompanyId)
-        .order('created_at', { ascending: false })
-    );
+        .eq('isp_company_id', ispCompanyId);
+
+      if (error) throw error;
+
+      return {
+        data: data || [],
+        error: null,
+        success: true,
+      };
+    } catch (error) {
+      console.error('Error fetching support tickets:', error);
+      return {
+        data: null,
+        error: error instanceof Error ? error.message : 'Unknown error occurred',
+        success: false,
+      };
+    }
   }
 
-  async create(ticketData: Database['public']['Tables']['support_tickets']['Insert']) {
-    return this.handleQuery(
-      supabase
+  async create(ticketData: Database['public']['Tables']['support_tickets']['Insert']): Promise<ApiResponse<Database['public']['Tables']['support_tickets']['Row']>> {
+    try {
+      const { data, error } = await supabase
         .from('support_tickets')
         .insert(ticketData)
         .select()
-        .single()
-    );
+        .single();
+
+      if (error) throw error;
+
+      return {
+        data,
+        error: null,
+        success: true,
+      };
+    } catch (error) {
+      console.error('Error creating support ticket:', error);
+      return {
+        data: null,
+        error: error instanceof Error ? error.message : 'Unknown error occurred',
+        success: false,
+      };
+    }
   }
 
-  async update(id: string, updates: Database['public']['Tables']['support_tickets']['Update']) {
-    return this.handleQuery(
-      supabase
+  async update(id: string, updates: Database['public']['Tables']['support_tickets']['Update']): Promise<ApiResponse<Database['public']['Tables']['support_tickets']['Row']>> {
+    try {
+      const { data, error } = await supabase
         .from('support_tickets')
         .update(updates)
         .eq('id', id)
         .select()
-        .single()
-    );
+        .single();
+
+      if (error) throw error;
+
+      return {
+        data,
+        error: null,
+        success: true,
+      };
+    } catch (error) {
+      console.error('Error updating support ticket:', error);
+      return {
+        data: null,
+        error: error instanceof Error ? error.message : 'Unknown error occurred',
+        success: false,
+      };
+    }
   }
 }
 
-// Base Stations API Service
-export class BaseStationsApiService extends BaseApiService {
-  async getAll(ispCompanyId: string) {
-    return this.handleQuery(
-      supabase
-        .from('base_stations')
-        .select('*')
-        .eq('isp_company_id', ispCompanyId)
-        .order('created_at', { ascending: false })
-    );
-  }
-
-  async create(stationData: Database['public']['Tables']['base_stations']['Insert']) {
-    return this.handleQuery(
-      supabase
-        .from('base_stations')
-        .insert(stationData)
-        .select()
-        .single()
-    );
-  }
-
-  async update(id: string, updates: Database['public']['Tables']['base_stations']['Update']) {
-    return this.handleQuery(
-      supabase
-        .from('base_stations')
-        .update(updates)
-        .eq('id', id)
-        .select()
-        .single()
-    );
-  }
-}
-
-// Export service instances
-export const clientsApi = new ClientsApiService();
-export const servicePackagesApi = new ServicePackagesApiService();
-export const equipmentApi = new EquipmentApiService();
-export const invoicesApi = new InvoicesApiService();
-export const paymentsApi = new PaymentsApiService();
-export const supportTicketsApi = new SupportTicketsApiService();
-export const baseStationsApi = new BaseStationsApiService();
+// Export API instances
+export const baseStationsApi = new BaseStationsApi();
+export const clientsApi = new ClientsApi();
+export const servicePackagesApi = new ServicePackagesApi();
+export const equipmentApi = new EquipmentApi();
+export const invoicesApi = new InvoicesApi();
+export const paymentsApi = new PaymentsApi();
+export const supportTicketsApi = new SupportTicketsApi();
