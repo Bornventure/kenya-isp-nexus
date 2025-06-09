@@ -1,7 +1,7 @@
 # ISP Management System - Customer Portal API Documentation
 
 ## Base URL
-Your Supabase project URL: `https://ddljuawonxdnesrnclsx.supabase.co/functions/v1`
+Your custom domain: `https://main.qorioninnovations.com/functions/v1`
 
 ## Authentication
 All endpoints use the Supabase project's anon key in the `apikey` header.
@@ -134,7 +134,7 @@ Create an API service file:
 
 ```javascript
 // src/services/api.js
-const BASE_URL = 'https://ddljuawonxdnesrnclsx.supabase.co/functions/v1';
+const BASE_URL = 'https://main.qorioninnovations.com/functions/v1';
 const API_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImRkbGp1YXdvbnhkbmVzcm5jbHN4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDkzOTk0NDksImV4cCI6MjA2NDk3NTQ0OX0.HcMHBQ0dD0rHz2s935PncmiJgaG8C1fJw39XdfGlzeg';
 
 const apiRequest = async (endpoint, options = {}) => {
@@ -219,7 +219,7 @@ const handleLogin = async (email, idNumber) => {
 
 ### 1. Test Client Registration
 ```bash
-curl -X POST https://ddljuawonxdnesrnclsx.supabase.co/functions/v1/client-registration \
+curl -X POST https://main.qorioninnovations.com/functions/v1/client-registration \
   -H "Content-Type: application/json" \
   -H "apikey: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImRkbGp1YXdvbnhkbmVzcm5jbHN4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDkzOTk0NDksImV4cCI6MjA2NDk3NTQ0OX0.HcMHBQ0dD0rHz2s935PncmiJgaG8C1fJw39XdfGlzeg" \
   -d '{
@@ -238,7 +238,7 @@ curl -X POST https://ddljuawonxdnesrnclsx.supabase.co/functions/v1/client-regist
 
 ### 2. Test Client Login
 ```bash
-curl -X POST https://ddljuawonxdnesrnclsx.supabase.co/functions/v1/client-auth \
+curl -X POST https://main.qorioninnovations.com/functions/v1/client-auth \
   -H "Content-Type: application/json" \
   -H "apikey: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImRkbGp1YXdvbnhkbmVzcm5jbHN4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDkzOTk0NDksImV4cCI6MjA2NDk3NTQ0OX0.HcMHBQ0dD0rHz2s935PncmiJgaG8C1fJw39XdfGlzeg" \
   -d '{
