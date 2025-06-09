@@ -1,7 +1,9 @@
+
 import React from 'react';
 import { Routes, Route, Navigate } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
 import Login from "@/components/Login";
+import CustomerPortal from "@/pages/CustomerPortal";
 import DashboardLayout from "@/components/dashboard/DashboardLayout";
 import Dashboard from "@/pages/Dashboard";
 import Clients from "@/pages/Clients";
@@ -25,31 +27,36 @@ const AppContent: React.FC = () => {
     );
   }
   
-  if (!user) {
-    return (
-      <Routes>
-        <Route path="/login" element={<Login />} />
-        <Route path="*" element={<Navigate to="/login" replace />} />
-      </Routes>
-    );
-  }
-  
+  // Public routes that don't require authentication
   return (
     <Routes>
-      <Route path="/login" element={<Navigate to="/" replace />} />
-      <Route path="/" element={<DashboardLayout />}>
-        <Route index element={<Dashboard />} />
-        <Route path="clients" element={<Clients />} />
-        <Route path="billing" element={<Billing />} />
-        <Route path="network-map" element={<NetworkMap />} />
-        <Route path="equipment" element={<Equipment />} />
-        <Route path="invoices" element={<Invoices />} />
-        <Route path="analytics" element={<Analytics />} />
-        <Route path="network" element={<NetworkStatus />} />
-        <Route path="support" element={<Support />} />
-        <Route path="settings" element={<Settings />} />
-      </Route>
-      <Route path="*" element={<Navigate to="/" replace />} />
+      {/* Public customer portal */}
+      <Route path="/customer-portal" element={<CustomerPortal />} />
+      
+      {/* Admin routes */}
+      {!user ? (
+        <>
+          <Route path="/login" element={<Login />} />
+          <Route path="*" element={<Navigate to="/login" replace />} />
+        </>
+      ) : (
+        <>
+          <Route path="/login" element={<Navigate to="/" replace />} />
+          <Route path="/" element={<DashboardLayout />}>
+            <Route index element={<Dashboard />} />
+            <Route path="clients" element={<Clients />} />
+            <Route path="billing" element={<Billing />} />
+            <Route path="network-map" element={<NetworkMap />} />
+            <Route path="equipment" element={<Equipment />} />
+            <Route path="invoices" element={<Invoices />} />
+            <Route path="analytics" element={<Analytics />} />
+            <Route path="network" element={<NetworkStatus />} />
+            <Route path="support" element={<Support />} />
+            <Route path="settings" element={<Settings />} />
+          </Route>
+          <Route path="*" element={<Navigate to="/" replace />} />
+        </>
+      )}
     </Routes>
   );
 };
