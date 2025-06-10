@@ -4,7 +4,6 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/hooks/use-toast';
 import { useServicePackages } from '@/hooks/useServicePackages';
 import { supabase } from '@/integrations/supabase/client';
-import { registerClientAuthenticated } from '@/services/customerPortalApi';
 import { Client } from '@/types/client';
 import { FormData, validateForm } from './formValidation';
 
@@ -79,18 +78,32 @@ export const useClientRegistrationForm = ({ onClose, onSave }: UseClientRegistra
         county: formData.county,
         sub_county: formData.subCounty,
         service_package_id: formData.servicePackage,
-        isp_company_id: profile.isp_company_id, // Add the missing isp_company_id
+        isp_company_id: profile.isp_company_id,
       };
 
       console.log('Client data being sent:', clientData);
 
-      // Fix: Properly await the session promise and extract access_token
-      const { data: sessionData } = await supabase.auth.getSession();
-      if (!sessionData.session?.access_token) {
+      // Get the session and access token
+      const { data: sessionData, error: sessionError } = await supabase.auth.getSession();
+      if (sessionError || !sessionData.session?.access_token) {
         throw new Error('No valid session found');
       }
 
-      const result = await registerClientAuthenticated(clientData, sessionData.session.access_token);
+      // Call the edge function directly
+      const { data: result, error: functionError } = await supabase.functions.invoke('authenticated-client-registration', {
+        body: clientData,
+        headers: {
+          Authorization: `Bearer ${sessionData.session.access_token}`,
+        },
+      });
+
+      if (functionError) {
+        throw new Error(functionError.message || 'Failed to register client');
+      }
+
+      if (!result.success) {
+        throw new Error(result.error || 'Failed to register client');
+      }
 
       toast({
         title: "Success",
