@@ -108,6 +108,9 @@ export const useClientRegistrationForm = ({ onClose, onSave }: UseClientRegistra
         return;
       }
 
+      // Calculate monthly rate from selected package
+      const monthlyRate = selectedPackage?.monthly_rate || 0;
+
       const clientData = {
         name: formData.name,
         email: formData.email,
@@ -121,7 +124,7 @@ export const useClientRegistrationForm = ({ onClose, onSave }: UseClientRegistra
         county: formData.county,
         sub_county: formData.subCounty,
         service_package_id: formData.servicePackage || null,
-        monthly_rate: selectedPackage?.monthly_rate || 0,
+        monthly_rate: monthlyRate,
         isp_company_id: profile.isp_company_id,
       };
 
@@ -142,6 +145,7 @@ export const useClientRegistrationForm = ({ onClose, onSave }: UseClientRegistra
       });
 
       if (functionError) {
+        console.error('Edge function error:', functionError);
         throw new Error(functionError.message || 'Failed to register client');
       }
 
@@ -166,7 +170,7 @@ export const useClientRegistrationForm = ({ onClose, onSave }: UseClientRegistra
         status: 'pending',
         connectionType: formData.connectionType,
         servicePackage: selectedPackage?.name || '',
-        monthlyRate: selectedPackage?.monthly_rate || 0,
+        monthlyRate: monthlyRate,
         installationDate: new Date().toISOString().split('T')[0],
         location: {
           address: formData.address,
@@ -181,9 +185,22 @@ export const useClientRegistrationForm = ({ onClose, onSave }: UseClientRegistra
 
     } catch (error: any) {
       console.error('Registration failed:', error);
+      
+      // Handle specific error types with better messaging
+      let errorMessage = error.message || "Failed to register client. Please try again.";
+      
+      if (error.message?.includes('duplicate key')) {
+        errorMessage = "A client with this email or ID number already exists. Please check your input.";
+      } else if (error.message?.includes('invalid email')) {
+        errorMessage = "Please enter a valid email address.";
+        setErrors(prev => ({ ...prev, email: 'Invalid email format' }));
+      } else if (error.message?.includes('Edge Function returned a non-2xx status code')) {
+        errorMessage = "Registration failed due to a server error. Please check your input and try again.";
+      }
+      
       toast({
         title: "Registration Failed",
-        description: error.message || "Failed to register client. Please try again.",
+        description: errorMessage,
         variant: "destructive",
       });
     } finally {
