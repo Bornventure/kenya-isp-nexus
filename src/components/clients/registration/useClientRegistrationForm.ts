@@ -158,29 +158,24 @@ export const useClientRegistrationForm = ({ onClose, onSave }: UseClientRegistra
       if (functionError) {
         console.error('Edge function error:', functionError);
         
-        // Try to parse the error response for better error handling
-        let errorDetails: RegistrationError = {
-          code: 'UNKNOWN_ERROR',
-          message: functionError.message || 'Registration failed'
-        };
-
-        // If the error has context, try to extract it
-        if (functionError.context) {
-          try {
-            const errorData = typeof functionError.context === 'string' 
-              ? JSON.parse(functionError.context) 
-              : functionError.context;
+        // Handle HTTP errors with proper error parsing
+        if (functionError.context && typeof functionError.context === 'object') {
+          const errorData = functionError.context as any;
+          
+          if (errorData.code) {
+            const errorDetails: RegistrationError = {
+              code: errorData.code,
+              message: errorData.error || errorData.message || 'Registration failed',
+              step: errorData.step
+            };
             
-            if (errorData.code) {
-              errorDetails = errorData;
-            }
-          } catch (parseError) {
-            console.error('Failed to parse error context:', parseError);
+            setFieldError(errorDetails);
+            throw new Error(getErrorMessage(errorDetails));
           }
         }
-
-        setFieldError(errorDetails);
-        throw new Error(getErrorMessage(errorDetails));
+        
+        // Fallback error handling
+        throw new Error(functionError.message || 'Registration failed');
       }
 
       if (!result?.success) {
