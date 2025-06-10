@@ -16,10 +16,19 @@ export interface ServicePackage {
 export const useServicePackages = () => {
   const { user, profile } = useAuth();
 
+  console.log('useServicePackages - user:', user?.id);
+  console.log('useServicePackages - profile:', profile);
+  console.log('useServicePackages - isp_company_id:', profile?.isp_company_id);
+
   const { data: servicePackages = [], isLoading, error } = useQuery({
-    queryKey: ['service-packages', user?.id],
+    queryKey: ['service-packages', user?.id, profile?.isp_company_id],
     queryFn: async () => {
-      if (!user || !profile?.isp_company_id) return [];
+      console.log('Fetching service packages...');
+      
+      if (!user || !profile?.isp_company_id) {
+        console.log('No user or isp_company_id, returning empty array');
+        return [];
+      }
 
       const { data, error } = await supabase
         .from('service_packages')
@@ -33,10 +42,13 @@ export const useServicePackages = () => {
         throw error;
       }
 
+      console.log('Fetched service packages:', data);
       return data as ServicePackage[];
     },
     enabled: !!user && !!profile?.isp_company_id,
   });
+
+  console.log('useServicePackages - final result:', { servicePackages, isLoading, error });
 
   return {
     servicePackages,
