@@ -1,4 +1,6 @@
 
+import { supabase } from '@/integrations/supabase/client';
+
 const BASE_URL = 'https://main.qorioninnovations.com/functions/v1';
 const API_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImRkbGp1YXdvbnhkbmVzcm5jbHN4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDkzOTk0NDksImV4cCI6MjA2NDk3NTQ0OX0.HcMHBQ0dD0rHz2s935PncmiJgaG8C1fJw39XdfGlzeg';
 
@@ -53,15 +55,28 @@ export const registerClient = (clientData: any) => {
 };
 
 // For authenticated admin registration with user creation and email
-export const registerClientAuthenticated = (clientData: any, authToken: string) => {
+export const registerClientAuthenticated = async (clientData: any, authToken: string) => {
   console.log('Registering client with authentication:', clientData);
-  return apiRequest('/authenticated-client-registration', {
-    method: 'POST',
-    headers: {
-      'authorization': `Bearer ${authToken}`
-    },
-    body: JSON.stringify(clientData),
-  });
+  
+  try {
+    // Use Supabase client to invoke the edge function
+    const { data, error } = await supabase.functions.invoke('authenticated-client-registration', {
+      body: clientData,
+      headers: {
+        'authorization': `Bearer ${authToken}`
+      }
+    });
+
+    if (error) {
+      console.error('Edge function error:', error);
+      throw new Error(error.message || 'Failed to register client');
+    }
+
+    return data;
+  } catch (error) {
+    console.error('Registration error:', error);
+    throw error;
+  }
 };
 
 export const loginClient = (credentials: any) => {
