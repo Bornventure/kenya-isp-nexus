@@ -27,23 +27,7 @@ export const customerLogin = async (loginData: CustomerLoginData) => {
   try {
     console.log('Attempting customer login with:', { email: loginData.email, idNumber: loginData.idNumber });
     
-    // First, verify the client exists with the provided email and ID number
-    const { data: client, error: clientError } = await supabase
-      .from('clients')
-      .select('id, email, id_number, name')
-      .eq('email', loginData.email)
-      .eq('id_number', loginData.idNumber)
-      .single();
-
-    if (clientError || !client) {
-      console.error('Client verification failed:', clientError);
-      throw new Error('Invalid email or ID number. Please check your credentials.');
-    }
-
-    console.log('Client verified:', client);
-
-    // Now attempt to sign in with Supabase auth using email
-    // The password would be the ID number (as set during registration)
+    // Use standard Supabase authentication
     const { data: authData, error: authError } = await supabase.auth.signInWithPassword({
       email: loginData.email,
       password: loginData.idNumber
@@ -51,14 +35,14 @@ export const customerLogin = async (loginData: CustomerLoginData) => {
 
     if (authError) {
       console.error('Authentication failed:', authError);
-      throw new Error('Authentication failed. Please contact support if this continues.');
+      throw new Error('Invalid email or ID number. Please check your credentials.');
     }
 
     console.log('Customer login successful:', authData);
     return {
       success: true,
       user: authData.user,
-      client: client
+      session: authData.session
     };
 
   } catch (error: any) {
@@ -67,8 +51,8 @@ export const customerLogin = async (loginData: CustomerLoginData) => {
   }
 };
 
-// Register a new client through the customer portal
-export const registerClient = async (clientData: ClientRegistrationData) => {
+// Register a new client through the customer portal (exported as registerClientAuthenticated for compatibility)
+export const registerClientAuthenticated = async (clientData: ClientRegistrationData, accessToken: string) => {
   try {
     console.log('Registering client via customer portal:', clientData);
 
@@ -76,7 +60,7 @@ export const registerClient = async (clientData: ClientRegistrationData) => {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'Authorization': `Bearer ${supabase.auth.getSession()?.access_token || ''}`,
+        'Authorization': `Bearer ${accessToken}`,
       },
       body: JSON.stringify(clientData),
     });
@@ -95,6 +79,9 @@ export const registerClient = async (clientData: ClientRegistrationData) => {
     throw new Error(error.message || 'Registration failed. Please try again.');
   }
 };
+
+// Alias for backward compatibility
+export const registerClient = registerClientAuthenticated;
 
 // Get client profile data
 export const getClientProfile = async () => {

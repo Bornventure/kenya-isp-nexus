@@ -84,12 +84,13 @@ export const useClientRegistrationForm = ({ onClose, onSave }: UseClientRegistra
 
       console.log('Client data being sent:', clientData);
 
-      const { data: { session } } = await supabase.auth.getSession();
-      if (!session?.access_token) {
+      // Fix: Properly await the session promise and extract access_token
+      const { data: sessionData } = await supabase.auth.getSession();
+      if (!sessionData.session?.access_token) {
         throw new Error('No valid session found');
       }
 
-      const result = await registerClientAuthenticated(clientData, session.access_token);
+      const result = await registerClientAuthenticated(clientData, sessionData.session.access_token);
 
       toast({
         title: "Success",
