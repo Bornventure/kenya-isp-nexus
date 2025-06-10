@@ -150,7 +150,7 @@ serve(async (req) => {
     // Send welcome email with login credentials
     try {
       const emailResponse = await resend.emails.send({
-        from: 'ISP Portal <onboarding@resend.dev>',
+        from: 'ISP Portal <noreply@qorioninnovations.com>', // ✅ Use your verified domain
         to: [clientData.email],
         subject: 'Welcome to Our ISP Service - Your Account Details',
         html: `
@@ -164,7 +164,7 @@ serve(async (req) => {
               <h3 style="margin-top: 0;">Your Login Details:</h3>
               <p><strong>Email:</strong> ${clientData.email}</p>
               <p><strong>Password:</strong> ${password}</p>
-              <p><strong>Portal URL:</strong> ${supabaseUrl.replace('supabase.co', 'lovable.app')}/customer-portal</p>
+              <p><strong>Portal URL:</strong> https://main.qorioninnovations.com/customer-portal</p>
             </div>
             
             <div style="background-color: #fef3c7; padding: 15px; border-radius: 8px; margin: 20px 0;">
@@ -185,7 +185,7 @@ serve(async (req) => {
             <p>Thank you for choosing our services!</p>
             
             <p>Best regards,<br>
-            Technical Support Team</p>
+            Qorion Innovations Technical Support Team</p>
           </div>
         `,
       });
