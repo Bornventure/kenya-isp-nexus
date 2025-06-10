@@ -92,10 +92,21 @@ serve(async (req) => {
       throw new Error('A user with this email already exists')
     }
 
+    // Check if ID number already exists in clients table
+    const { data: existingClient } = await supabase
+      .from('clients')
+      .select('id')
+      .eq('id_number', clientData.id_number)
+      .single()
+
+    if (existingClient) {
+      throw new Error('A client with this ID number already exists')
+    }
+
     // Generate secure password
     const password = generateSecurePassword()
 
-    // Create user account with CLIENT role explicitly set
+    // Create user account with appropriate metadata - don't set role to 'client'
     const { data: newUser, error: userError } = await supabase.auth.admin.createUser({
       email: clientData.email,
       password: password,
@@ -103,7 +114,7 @@ serve(async (req) => {
       user_metadata: {
         first_name: clientData.name.split(' ')[0],
         last_name: clientData.name.split(' ').slice(1).join(' ') || '',
-        role: 'client'  // Explicitly set to client role
+        user_type: 'client'  // Use user_type instead of role in metadata
       }
     })
 
@@ -114,7 +125,7 @@ serve(async (req) => {
 
     console.log('User account created successfully:', newUser.user.id);
 
-    // Create client profile with CLIENT role
+    // Create client profile first
     const { data: client, error: clientError } = await supabase
       .from('clients')
       .insert({
@@ -145,14 +156,14 @@ serve(async (req) => {
       throw new Error(`Failed to create client profile: ${clientError.message}`);
     }
 
-    // Create user profile with CLIENT role - this is critical for access control
+    // Create user profile with 'readonly' role (which is accepted by the enum)
     const { error: profileCreationError } = await supabase
       .from('profiles')
       .insert({
         id: newUser.user.id,
         first_name: clientData.name.split(' ')[0],
         last_name: clientData.name.split(' ').slice(1).join(' ') || '',
-        role: 'client',  // CRITICAL: Set role to 'client' to prevent ISP system access
+        role: 'readonly',  // Use 'readonly' instead of 'client' which isn't a valid enum value
         isp_company_id: profile.isp_company_id,
         is_active: true
       })
@@ -169,7 +180,7 @@ serve(async (req) => {
     // Send welcome email with login credentials
     try {
       const emailResponse = await resend.emails.send({
-        from: 'ISP Portal <noreply@qorioninnovations.com>', // ✅ Use your verified domain
+        from: 'ISP Portal <noreply@qorioninnovations.com>',
         to: [clientData.email],
         subject: 'Welcome to Our ISP Service - Your Account Details',
         html: `
