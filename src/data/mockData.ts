@@ -1,38 +1,50 @@
-
 import { Client, ServicePackage } from '@/types/client';
 
 export const servicePackages: ServicePackage[] = [
   {
-    id: 'basic-5mb',
+    id: '550e8400-e29b-41d4-a716-446655440001',
     name: 'Basic 5Mbps',
     speed: '5 Mbps',
     monthlyRate: 2500,
-    connectionType: ['fiber', 'wireless'],
-    description: 'Perfect for basic browsing and email'
+    description: 'Perfect for basic internet browsing and email',
+    connectionTypes: ['fiber', 'wireless'],
+    isActive: true
   },
   {
-    id: 'standard-10mb',
+    id: '550e8400-e29b-41d4-a716-446655440002',
     name: 'Standard 10Mbps',
     speed: '10 Mbps',
-    monthlyRate: 4000,
-    connectionType: ['fiber', 'wireless'],
-    description: 'Ideal for streaming and remote work'
+    monthlyRate: 3500,
+    description: 'Ideal for streaming and video calls',
+    connectionTypes: ['fiber', 'wireless'],
+    isActive: true
   },
   {
-    id: 'premium-25mb',
+    id: '550e8400-e29b-41d4-a716-446655440003',
     name: 'Premium 25Mbps',
     speed: '25 Mbps',
-    monthlyRate: 7500,
-    connectionType: ['fiber'],
-    description: 'High-speed for businesses and heavy users'
+    monthlyRate: 5000,
+    description: 'High-speed for multiple devices and HD streaming',
+    connectionTypes: ['fiber'],
+    isActive: true
   },
   {
-    id: 'enterprise-50mb',
-    name: 'Enterprise 50Mbps',
+    id: '550e8400-e29b-41d4-a716-446655440004',
+    name: 'Business 50Mbps',
     speed: '50 Mbps',
-    monthlyRate: 15000,
-    connectionType: ['fiber'],
-    description: 'Enterprise-grade connectivity'
+    monthlyRate: 8000,
+    description: 'Enterprise-grade connectivity for business use',
+    connectionTypes: ['fiber'],
+    isActive: true
+  },
+  {
+    id: '550e8400-e29b-41d4-a716-446655440005',
+    name: 'Enterprise 100Mbps',
+    speed: '100 Mbps',
+    monthlyRate: 12000,
+    description: 'Maximum speed for large organizations',
+    connectionTypes: ['fiber'],
+    isActive: true
   }
 ];
 

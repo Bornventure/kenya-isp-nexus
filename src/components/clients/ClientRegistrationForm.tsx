@@ -116,9 +116,11 @@ const ClientRegistrationForm: React.FC<ClientRegistrationFormProps> = ({ onClose
         address: formData.address,
         county: formData.county,
         sub_county: formData.subCounty,
-        service_package_id: formData.servicePackage,
+        service_package_id: formData.servicePackage, // This is now a proper UUID
         monthly_rate: selectedPackage?.monthlyRate || 0,
       };
+
+      console.log('Client data being sent:', clientData);
 
       // Get the user's access token using the supabase client directly
       const { data: { session } } = await supabase.auth.getSession();
