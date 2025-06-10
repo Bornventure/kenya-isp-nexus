@@ -29,3 +29,6 @@ port = 54326
 
 [functions.client-registration]
 verify_jwt = false
+
+[functions.authenticated-client-registration]
+verify_jwt = false

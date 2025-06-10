@@ -43,10 +43,23 @@ const apiRequest = async (endpoint: string, options: RequestInit = {}) => {
   }
 };
 
+// For public customer registration (customer portal)
 export const registerClient = (clientData: any) => {
   console.log('Registering client with data:', clientData);
   return apiRequest('/client-registration', {
     method: 'POST',
+    body: JSON.stringify(clientData),
+  });
+};
+
+// For authenticated admin registration with user creation and email
+export const registerClientAuthenticated = (clientData: any, authToken: string) => {
+  console.log('Registering client with authentication:', clientData);
+  return apiRequest('/authenticated-client-registration', {
+    method: 'POST',
+    headers: {
+      'authorization': `Bearer ${authToken}`
+    },
     body: JSON.stringify(clientData),
   });
 };

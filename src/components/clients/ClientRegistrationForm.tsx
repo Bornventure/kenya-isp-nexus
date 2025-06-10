@@ -5,6 +5,9 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
+import { useAuth } from '@/contexts/AuthContext';
+import { registerClientAuthenticated } from '@/services/customerPortalApi';
+import { useToast } from '@/hooks/use-toast';
 import { Client } from '@/types/client';
 import { servicePackages } from '@/data/mockData';
 import {
@@ -16,7 +19,8 @@ import {
   MapPin,
   CreditCard,
   Wifi,
-  Building
+  Building,
+  Loader2
 } from 'lucide-react';
 
 interface ClientRegistrationFormProps {
@@ -25,6 +29,10 @@ interface ClientRegistrationFormProps {
 }
 
 const ClientRegistrationForm: React.FC<ClientRegistrationFormProps> = ({ onClose, onSave }) => {
+  const { user } = useAuth();
+  const { toast } = useToast();
+  const [isSubmitting, setIsSubmitting] = useState(false);
+
   const [formData, setFormData] = useState({
     name: '',
     email: '',
@@ -77,36 +85,89 @@ const ClientRegistrationForm: React.FC<ClientRegistrationFormProps> = ({ onClose
     return Object.keys(newErrors).length === 0;
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
     if (!validateForm()) return;
+    if (!user) {
+      toast({
+        title: "Error",
+        description: "You must be logged in to register clients.",
+        variant: "destructive",
+      });
+      return;
+    }
 
-    const selectedPackage = servicePackages.find(pkg => pkg.id === formData.servicePackage);
-    
-    const newClient: Partial<Client> = {
-      id: Date.now().toString(),
-      name: formData.name,
-      email: formData.email,
-      phone: formData.phone,
-      mpesaNumber: formData.mpesaNumber || formData.phone,
-      idNumber: formData.idNumber,
-      kraPinNumber: formData.kraPinNumber || undefined,
-      clientType: formData.clientType,
-      status: 'pending',
-      connectionType: formData.connectionType,
-      servicePackage: selectedPackage?.name || '',
-      monthlyRate: selectedPackage?.monthlyRate || 0,
-      installationDate: new Date().toISOString().split('T')[0],
-      location: {
+    setIsSubmitting(true);
+
+    try {
+      const selectedPackage = servicePackages.find(pkg => pkg.id === formData.servicePackage);
+      
+      const clientData = {
+        name: formData.name,
+        email: formData.email,
+        phone: formData.phone,
+        mpesa_number: formData.mpesaNumber || formData.phone,
+        id_number: formData.idNumber,
+        kra_pin_number: formData.kraPinNumber || null,
+        client_type: formData.clientType,
+        connection_type: formData.connectionType,
         address: formData.address,
         county: formData.county,
-        subCounty: formData.subCounty
-      },
-      balance: 0
-    };
+        sub_county: formData.subCounty,
+        service_package_id: formData.servicePackage,
+        monthly_rate: selectedPackage?.monthlyRate || 0,
+      };
 
-    onSave(newClient);
+      // Get the user's access token
+      const { data: { session } } = await user.supabase.auth.getSession();
+      if (!session?.access_token) {
+        throw new Error('No valid session found');
+      }
+
+      const result = await registerClientAuthenticated(clientData, session.access_token);
+
+      toast({
+        title: "Success",
+        description: result.message || "Client registered successfully! Login credentials have been sent to their email.",
+      });
+
+      // Create a client object for the parent component
+      const newClient: Partial<Client> = {
+        id: result.user_id,
+        name: formData.name,
+        email: formData.email,
+        phone: formData.phone,
+        mpesaNumber: formData.mpesaNumber || formData.phone,
+        idNumber: formData.idNumber,
+        kraPinNumber: formData.kraPinNumber || undefined,
+        clientType: formData.clientType,
+        status: 'pending',
+        connectionType: formData.connectionType,
+        servicePackage: selectedPackage?.name || '',
+        monthlyRate: selectedPackage?.monthlyRate || 0,
+        installationDate: new Date().toISOString().split('T')[0],
+        location: {
+          address: formData.address,
+          county: formData.county,
+          subCounty: formData.subCounty
+        },
+        balance: 0
+      };
+
+      onSave(newClient);
+      onClose();
+
+    } catch (error: any) {
+      console.error('Registration failed:', error);
+      toast({
+        title: "Registration Failed",
+        description: error.message || "Failed to register client. Please try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   const updateFormData = (field: string, value: string) => {
@@ -121,11 +182,21 @@ const ClientRegistrationForm: React.FC<ClientRegistrationFormProps> = ({ onClose
       <Card className="w-full max-w-4xl max-h-[90vh] overflow-y-auto">
         <CardHeader className="flex flex-row items-center justify-between">
           <CardTitle className="text-xl font-semibold">Register New Client</CardTitle>
-          <Button variant="ghost" size="sm" onClick={onClose}>
+          <Button variant="ghost" size="sm" onClick={onClose} disabled={isSubmitting}>
             <X className="h-4 w-4" />
           </Button>
         </CardHeader>
         <CardContent>
+          <div className="mb-4 p-4 bg-blue-50 border border-blue-200 rounded-lg">
+            <div className="flex items-center gap-2 text-blue-700">
+              <Mail className="h-4 w-4" />
+              <span className="font-medium">Account Creation</span>
+            </div>
+            <p className="text-sm text-blue-600 mt-1">
+              A user account will be automatically created and login credentials will be sent to the client's email address.
+            </p>
+          </div>
+
           <form onSubmit={handleSubmit} className="space-y-6">
             {/* Personal Information */}
             <div>
@@ -141,6 +212,7 @@ const ClientRegistrationForm: React.FC<ClientRegistrationFormProps> = ({ onClose
                     value={formData.name}
                     onChange={(e) => updateFormData('name', e.target.value)}
                     className={errors.name ? 'border-red-500' : ''}
+                    disabled={isSubmitting}
                   />
                   {errors.name && <p className="text-sm text-red-500 mt-1">{errors.name}</p>}
                 </div>
@@ -151,6 +223,7 @@ const ClientRegistrationForm: React.FC<ClientRegistrationFormProps> = ({ onClose
                     value={formData.clientType}
                     onChange={(e) => updateFormData('clientType', e.target.value)}
                     className="w-full px-3 py-2 border border-gray-300 rounded-md"
+                    disabled={isSubmitting}
                   >
                     <option value="individual">Individual</option>
                     <option value="business">Business</option>
@@ -166,6 +239,7 @@ const ClientRegistrationForm: React.FC<ClientRegistrationFormProps> = ({ onClose
                     value={formData.email}
                     onChange={(e) => updateFormData('email', e.target.value)}
                     className={errors.email ? 'border-red-500' : ''}
+                    disabled={isSubmitting}
                   />
                   {errors.email && <p className="text-sm text-red-500 mt-1">{errors.email}</p>}
                 </div>
@@ -177,6 +251,7 @@ const ClientRegistrationForm: React.FC<ClientRegistrationFormProps> = ({ onClose
                     value={formData.phone}
                     onChange={(e) => updateFormData('phone', e.target.value)}
                     className={errors.phone ? 'border-red-500' : ''}
+                    disabled={isSubmitting}
                   />
                   {errors.phone && <p className="text-sm text-red-500 mt-1">{errors.phone}</p>}
                 </div>
@@ -187,6 +262,7 @@ const ClientRegistrationForm: React.FC<ClientRegistrationFormProps> = ({ onClose
                     placeholder="+254712345678 (optional)"
                     value={formData.mpesaNumber}
                     onChange={(e) => updateFormData('mpesaNumber', e.target.value)}
+                    disabled={isSubmitting}
                   />
                 </div>
                 <div>
@@ -196,6 +272,7 @@ const ClientRegistrationForm: React.FC<ClientRegistrationFormProps> = ({ onClose
                     value={formData.idNumber}
                     onChange={(e) => updateFormData('idNumber', e.target.value)}
                     className={errors.idNumber ? 'border-red-500' : ''}
+                    disabled={isSubmitting}
                   />
                   {errors.idNumber && <p className="text-sm text-red-500 mt-1">{errors.idNumber}</p>}
                 </div>
@@ -207,6 +284,7 @@ const ClientRegistrationForm: React.FC<ClientRegistrationFormProps> = ({ onClose
                       value={formData.kraPinNumber}
                       onChange={(e) => updateFormData('kraPinNumber', e.target.value)}
                       className={errors.kraPinNumber ? 'border-red-500' : ''}
+                      disabled={isSubmitting}
                     />
                     {errors.kraPinNumber && <p className="text-sm text-red-500 mt-1">{errors.kraPinNumber}</p>}
                   </div>
@@ -228,6 +306,7 @@ const ClientRegistrationForm: React.FC<ClientRegistrationFormProps> = ({ onClose
                     value={formData.address}
                     onChange={(e) => updateFormData('address', e.target.value)}
                     className={errors.address ? 'border-red-500' : ''}
+                    disabled={isSubmitting}
                   />
                   {errors.address && <p className="text-sm text-red-500 mt-1">{errors.address}</p>}
                 </div>
@@ -238,6 +317,7 @@ const ClientRegistrationForm: React.FC<ClientRegistrationFormProps> = ({ onClose
                     value={formData.county}
                     onChange={(e) => updateFormData('county', e.target.value)}
                     className="w-full px-3 py-2 border border-gray-300 rounded-md"
+                    disabled={isSubmitting}
                   >
                     {counties.map(county => (
                       <option key={county} value={county}>{county}</option>
@@ -251,6 +331,7 @@ const ClientRegistrationForm: React.FC<ClientRegistrationFormProps> = ({ onClose
                     value={formData.subCounty}
                     onChange={(e) => updateFormData('subCounty', e.target.value)}
                     className={`w-full px-3 py-2 border border-gray-300 rounded-md ${errors.subCounty ? 'border-red-500' : ''}`}
+                    disabled={isSubmitting}
                   >
                     <option value="">Select Sub-County</option>
                     {kisumuSubCounties.map(subCounty => (
@@ -276,6 +357,7 @@ const ClientRegistrationForm: React.FC<ClientRegistrationFormProps> = ({ onClose
                     value={formData.connectionType}
                     onChange={(e) => updateFormData('connectionType', e.target.value)}
                     className="w-full px-3 py-2 border border-gray-300 rounded-md"
+                    disabled={isSubmitting}
                   >
                     <option value="fiber">Fiber</option>
                     <option value="wireless">Wireless</option>
@@ -290,6 +372,7 @@ const ClientRegistrationForm: React.FC<ClientRegistrationFormProps> = ({ onClose
                     value={formData.servicePackage}
                     onChange={(e) => updateFormData('servicePackage', e.target.value)}
                     className={`w-full px-3 py-2 border border-gray-300 rounded-md ${errors.servicePackage ? 'border-red-500' : ''}`}
+                    disabled={isSubmitting}
                   >
                     <option value="">Select Package</option>
                     {servicePackages.map(pkg => (
@@ -305,12 +388,16 @@ const ClientRegistrationForm: React.FC<ClientRegistrationFormProps> = ({ onClose
 
             {/* Form Actions */}
             <div className="flex justify-end gap-3 pt-4 border-t">
-              <Button type="button" variant="outline" onClick={onClose}>
+              <Button type="button" variant="outline" onClick={onClose} disabled={isSubmitting}>
                 Cancel
               </Button>
-              <Button type="submit" className="gap-2">
-                <Save className="h-4 w-4" />
-                Register Client
+              <Button type="submit" className="gap-2" disabled={isSubmitting}>
+                {isSubmitting ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : (
+                  <Save className="h-4 w-4" />
+                )}
+                {isSubmitting ? 'Creating Account...' : 'Register Client'}
               </Button>
             </div>
           </form>
