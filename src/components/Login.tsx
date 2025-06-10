@@ -33,7 +33,7 @@ const Login = () => {
           </div>
           <CardTitle className="text-2xl">ISP Management Portal</CardTitle>
           <CardDescription>
-            Secure login for authorized personnel only
+            Administrative access for ISP personnel only
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -81,11 +81,23 @@ const Login = () => {
             </Button>
           </form>
           
-          <div className="mt-6 p-4 bg-blue-50 rounded-lg border border-blue-200">
+          <div className="mt-6 p-4 bg-red-50 rounded-lg border border-red-200">
+            <div className="text-xs text-red-800">
+              <p className="font-semibold mb-2">⚠️ Administrative Access Only</p>
+              <p>• This portal is for ISP staff members only</p>
+              <p>• Client accounts cannot access this system</p>
+              <p>• Contact your administrator for access</p>
+              <p className="mt-3 text-blue-700 font-medium">
+                Are you a customer? <a href="/customer-portal" className="underline">Visit Customer Portal</a>
+              </p>
+            </div>
+          </div>
+          
+          <div className="mt-4 p-4 bg-blue-50 rounded-lg border border-blue-200">
             <div className="text-xs text-blue-800">
               <p className="font-semibold mb-2">System Access Information:</p>
               <p>• This is a secure system for authorized ISP personnel only</p>
-              <p>• New accounts are created by system administrators</p>
+              <p>• New admin accounts are created by system administrators</p>
               <p>• Contact your IT administrator if you need access</p>
               <p className="mt-2 font-medium">Default Admin: admin@system.local | Password: AdminPass123!</p>
             </div>

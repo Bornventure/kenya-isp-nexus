@@ -95,7 +95,7 @@ serve(async (req) => {
     // Generate secure password
     const password = generateSecurePassword()
 
-    // Create user account
+    // Create user account with CLIENT role explicitly set
     const { data: newUser, error: userError } = await supabase.auth.admin.createUser({
       email: clientData.email,
       password: password,
@@ -103,7 +103,7 @@ serve(async (req) => {
       user_metadata: {
         first_name: clientData.name.split(' ')[0],
         last_name: clientData.name.split(' ').slice(1).join(' ') || '',
-        role: 'client'
+        role: 'client'  // Explicitly set to client role
       }
     })
 
@@ -114,7 +114,7 @@ serve(async (req) => {
 
     console.log('User account created successfully:', newUser.user.id);
 
-    // Create client profile
+    // Create client profile with CLIENT role
     const { data: client, error: clientError } = await supabase
       .from('clients')
       .insert({
@@ -143,6 +143,25 @@ serve(async (req) => {
       // If client creation fails, delete the user account
       await supabase.auth.admin.deleteUser(newUser.user.id)
       throw new Error(`Failed to create client profile: ${clientError.message}`);
+    }
+
+    // Create user profile with CLIENT role - this is critical for access control
+    const { error: profileCreationError } = await supabase
+      .from('profiles')
+      .insert({
+        id: newUser.user.id,
+        first_name: clientData.name.split(' ')[0],
+        last_name: clientData.name.split(' ').slice(1).join(' ') || '',
+        role: 'client',  // CRITICAL: Set role to 'client' to prevent ISP system access
+        isp_company_id: profile.isp_company_id,
+        is_active: true
+      })
+
+    if (profileCreationError) {
+      console.error('Profile creation error:', profileCreationError);
+      // Clean up on error
+      await supabase.auth.admin.deleteUser(newUser.user.id)
+      throw new Error(`Failed to create user profile: ${profileCreationError.message}`);
     }
 
     console.log('Client profile created successfully:', client);

@@ -17,7 +17,7 @@ import Support from "@/pages/Support";
 import Settings from "@/pages/Settings";
 
 const AppContent: React.FC = () => {
-  const { user, isLoading } = useAuth();
+  const { user, profile, isLoading } = useAuth();
   
   if (isLoading) {
     return (
@@ -26,6 +26,12 @@ const AppContent: React.FC = () => {
       </div>
     );
   }
+
+  // Define roles that have access to ISP management system
+  const ispManagementRoles = ['super_admin', 'isp_admin', 'technician', 'readonly'];
+  const hasIspAccess = user && profile && ispManagementRoles.includes(profile.role);
+
+  console.log('Auth state:', { user: !!user, profile, hasIspAccess });
   
   return (
     <Routes>
@@ -38,7 +44,8 @@ const AppContent: React.FC = () => {
           <Route path="/login" element={<Login />} />
           <Route path="*" element={<Navigate to="/login" replace />} />
         </>
-      ) : (
+      ) : hasIspAccess ? (
+        // User is authenticated AND has ISP management access
         <>
           <Route path="/login" element={<Navigate to="/" replace />} />
           <Route path="/" element={<DashboardLayout />}>
@@ -54,6 +61,13 @@ const AppContent: React.FC = () => {
             <Route path="settings" element={<Settings />} />
           </Route>
           <Route path="*" element={<Navigate to="/" replace />} />
+        </>
+      ) : (
+        // User is authenticated but doesn't have ISP access (client role)
+        <>
+          <Route path="/login" element={<Navigate to="/customer-portal" replace />} />
+          <Route path="/" element={<Navigate to="/customer-portal" replace />} />
+          <Route path="*" element={<Navigate to="/customer-portal" replace />} />
         </>
       )}
     </Routes>
