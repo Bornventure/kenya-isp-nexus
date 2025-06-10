@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -9,8 +8,8 @@ import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
 import { registerClientAuthenticated } from '@/services/customerPortalApi';
 import { useToast } from '@/hooks/use-toast';
+import { useServicePackages } from '@/hooks/useServicePackages';
 import { Client } from '@/types/client';
-import { servicePackages } from '@/data/mockData';
 import {
   X,
   Save,
@@ -32,6 +31,7 @@ interface ClientRegistrationFormProps {
 const ClientRegistrationForm: React.FC<ClientRegistrationFormProps> = ({ onClose, onSave }) => {
   const { user } = useAuth();
   const { toast } = useToast();
+  const { servicePackages, isLoading: packagesLoading } = useServicePackages();
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   const [formData, setFormData] = useState({
@@ -116,13 +116,12 @@ const ClientRegistrationForm: React.FC<ClientRegistrationFormProps> = ({ onClose
         address: formData.address,
         county: formData.county,
         sub_county: formData.subCounty,
-        service_package_id: formData.servicePackage, // This is now a proper UUID
-        monthly_rate: selectedPackage?.monthlyRate || 0,
+        service_package_id: formData.servicePackage,
+        monthly_rate: selectedPackage?.monthly_rate || 0,
       };
 
       console.log('Client data being sent:', clientData);
 
-      // Get the user's access token using the supabase client directly
       const { data: { session } } = await supabase.auth.getSession();
       if (!session?.access_token) {
         throw new Error('No valid session found');
@@ -135,7 +134,6 @@ const ClientRegistrationForm: React.FC<ClientRegistrationFormProps> = ({ onClose
         description: result.message || "Client registered successfully! Login credentials have been sent to their email.",
       });
 
-      // Create a client object for the parent component
       const newClient: Partial<Client> = {
         id: result.user_id,
         name: formData.name,
@@ -148,7 +146,7 @@ const ClientRegistrationForm: React.FC<ClientRegistrationFormProps> = ({ onClose
         status: 'pending',
         connectionType: formData.connectionType,
         servicePackage: selectedPackage?.name || '',
-        monthlyRate: selectedPackage?.monthlyRate || 0,
+        monthlyRate: selectedPackage?.monthly_rate || 0,
         installationDate: new Date().toISOString().split('T')[0],
         location: {
           address: formData.address,
@@ -375,12 +373,14 @@ const ClientRegistrationForm: React.FC<ClientRegistrationFormProps> = ({ onClose
                     value={formData.servicePackage}
                     onChange={(e) => updateFormData('servicePackage', e.target.value)}
                     className={`w-full px-3 py-2 border border-gray-300 rounded-md ${errors.servicePackage ? 'border-red-500' : ''}`}
-                    disabled={isSubmitting}
+                    disabled={isSubmitting || packagesLoading}
                   >
-                    <option value="">Select Package</option>
+                    <option value="">
+                      {packagesLoading ? 'Loading packages...' : 'Select Package'}
+                    </option>
                     {servicePackages.map(pkg => (
                       <option key={pkg.id} value={pkg.id}>
-                        {pkg.name} - {pkg.speed} (KES {pkg.monthlyRate.toLocaleString()}/month)
+                        {pkg.name} - {pkg.speed} (KES {pkg.monthly_rate.toLocaleString()}/month)
                       </option>
                     ))}
                   </select>
@@ -394,7 +394,7 @@ const ClientRegistrationForm: React.FC<ClientRegistrationFormProps> = ({ onClose
               <Button type="button" variant="outline" onClick={onClose} disabled={isSubmitting}>
                 Cancel
               </Button>
-              <Button type="submit" className="gap-2" disabled={isSubmitting}>
+              <Button type="submit" className="gap-2" disabled={isSubmitting || packagesLoading}>
                 {isSubmitting ? (
                   <Loader2 className="h-4 w-4 animate-spin" />
                 ) : (
