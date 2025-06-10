@@ -1,3 +1,4 @@
+
 import { Client, ServicePackage } from '@/types/client';
 
 export const servicePackages: ServicePackage[] = [
@@ -7,7 +8,7 @@ export const servicePackages: ServicePackage[] = [
     speed: '5 Mbps',
     monthlyRate: 2500,
     description: 'Perfect for basic internet browsing and email',
-    connectionTypes: ['fiber', 'wireless'],
+    connectionType: ['fiber', 'wireless'],
     isActive: true
   },
   {
@@ -16,7 +17,7 @@ export const servicePackages: ServicePackage[] = [
     speed: '10 Mbps',
     monthlyRate: 3500,
     description: 'Ideal for streaming and video calls',
-    connectionTypes: ['fiber', 'wireless'],
+    connectionType: ['fiber', 'wireless'],
     isActive: true
   },
   {
@@ -25,7 +26,7 @@ export const servicePackages: ServicePackage[] = [
     speed: '25 Mbps',
     monthlyRate: 5000,
     description: 'High-speed for multiple devices and HD streaming',
-    connectionTypes: ['fiber'],
+    connectionType: ['fiber'],
     isActive: true
   },
   {
@@ -34,7 +35,7 @@ export const servicePackages: ServicePackage[] = [
     speed: '50 Mbps',
     monthlyRate: 8000,
     description: 'Enterprise-grade connectivity for business use',
-    connectionTypes: ['fiber'],
+    connectionType: ['fiber'],
     isActive: true
   },
   {
@@ -43,7 +44,7 @@ export const servicePackages: ServicePackage[] = [
     speed: '100 Mbps',
     monthlyRate: 12000,
     description: 'Maximum speed for large organizations',
-    connectionTypes: ['fiber'],
+    connectionType: ['fiber'],
     isActive: true
   }
 ];
