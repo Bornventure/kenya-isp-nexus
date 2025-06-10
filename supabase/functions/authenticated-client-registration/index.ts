@@ -6,6 +6,7 @@ import { Resend } from 'npm:resend@2.0.0'
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+  'Access-Control-Allow-Methods': 'POST, OPTIONS'
 }
 
 const resend = new Resend(Deno.env.get('RESEND_API_KEY') as string)
@@ -23,33 +24,40 @@ interface RegistrationError {
   code: string;
   message: string;
   details?: any;
+  step?: string;
 }
 
-function createError(code: string, message: string, details?: any): RegistrationError {
-  return { code, message, details };
+function createError(code: string, message: string, details?: any, step?: string): RegistrationError {
+  return { code, message, details, step };
 }
 
 async function validateClientData(clientData: any): Promise<RegistrationError | null> {
+  console.log('Validating client data:', clientData);
+  
   // Validate required fields
   const requiredFields = ['name', 'email', 'phone', 'id_number', 'address', 'sub_county', 'client_type', 'connection_type'];
   for (const field of requiredFields) {
     if (!clientData[field]) {
-      return createError('MISSING_FIELD', `Missing required field: ${field}`);
+      console.log(`Missing required field: ${field}`);
+      return createError('MISSING_FIELD', `Missing required field: ${field}`, null, 'validation');
     }
   }
 
   // Validate email format
   const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
   if (!emailRegex.test(clientData.email)) {
-    return createError('INVALID_EMAIL', 'Invalid email format');
+    console.log('Invalid email format:', clientData.email);
+    return createError('INVALID_EMAIL', 'Invalid email format', null, 'validation');
   }
 
   // Validate phone format
   const phoneRegex = /^\+254[0-9]{9}$/;
   if (!phoneRegex.test(clientData.phone)) {
-    return createError('INVALID_PHONE', 'Phone must be in format +254XXXXXXXXX');
+    console.log('Invalid phone format:', clientData.phone);
+    return createError('INVALID_PHONE', 'Phone must be in format +254XXXXXXXXX', null, 'validation');
   }
 
+  console.log('Client data validation passed');
   return null;
 }
 
@@ -66,12 +74,12 @@ async function checkDuplicates(supabase: any, email: string, idNumber: string): 
 
     if (emailCheckError && emailCheckError.code !== 'PGRST116') {
       console.error('Error checking email duplicates:', emailCheckError);
-      return createError('DB_ERROR', 'Failed to validate email uniqueness');
+      return createError('DB_ERROR', 'Failed to validate email uniqueness', emailCheckError, 'duplicate_check');
     }
 
     if (existingClientByEmail) {
       console.log(`Client with email ${email} already exists`);
-      return createError('EMAIL_EXISTS', 'A client with this email already exists');
+      return createError('EMAIL_EXISTS', 'A client with this email already exists', null, 'duplicate_check');
     }
 
     // Check for existing client with ID number
@@ -83,36 +91,53 @@ async function checkDuplicates(supabase: any, email: string, idNumber: string): 
 
     if (idCheckError && idCheckError.code !== 'PGRST116') {
       console.error('Error checking ID duplicates:', idCheckError);
-      return createError('DB_ERROR', 'Failed to validate ID number uniqueness');
+      return createError('DB_ERROR', 'Failed to validate ID number uniqueness', idCheckError, 'duplicate_check');
     }
 
     if (existingClientById) {
       console.log(`Client with ID ${idNumber} already exists`);
-      return createError('ID_EXISTS', 'A client with this ID number already exists');
+      return createError('ID_EXISTS', 'A client with this ID number already exists', null, 'duplicate_check');
     }
 
-    // Check for existing auth user with email using the admin client
+    // Check for existing auth user with email - using listUsers with pagination
     try {
-      // Use listUsers with email filter instead of getUserByEmail
-      const { data: authUsers, error: authCheckError } = await supabase.auth.admin.listUsers({
-        page: 1,
-        perPage: 1
-      });
-
-      if (authCheckError) {
-        console.error('Error checking auth users:', authCheckError);
-        // Don't fail the registration if we can't check auth users
-        // This might happen due to permissions or other issues
-        console.log('Continuing without auth user validation due to error');
-        return null;
-      }
-
-      // Filter users by email manually since listUsers doesn't support email filtering directly
-      const existingAuthUser = authUsers?.users?.find(user => user.email === email);
+      console.log('Checking for existing auth users...');
       
-      if (existingAuthUser) {
-        console.log(`Auth user with email ${email} already exists`);
-        return createError('USER_EXISTS', 'A user account with this email already exists');
+      let existingAuthUser = null;
+      let page = 1;
+      const perPage = 1000; // Maximum allowed per page
+      
+      while (true) {
+        const { data: authData, error: authError } = await supabase.auth.admin.listUsers({
+          page: page,
+          perPage: perPage
+        });
+
+        if (authError) {
+          console.error('Error checking auth users:', authError);
+          // Don't fail registration for auth check errors - continue without validation
+          console.log('Continuing registration without auth user validation');
+          break;
+        }
+
+        if (!authData?.users || authData.users.length === 0) {
+          break; // No more users to check
+        }
+
+        // Check if any user has the same email
+        existingAuthUser = authData.users.find(user => user.email === email);
+        
+        if (existingAuthUser) {
+          console.log(`Auth user with email ${email} already exists`);
+          return createError('USER_EXISTS', 'A user account with this email already exists', null, 'duplicate_check');
+        }
+
+        // If we got less than the max per page, we've checked all users
+        if (authData.users.length < perPage) {
+          break;
+        }
+
+        page++;
       }
 
     } catch (authError) {
@@ -125,7 +150,7 @@ async function checkDuplicates(supabase: any, email: string, idNumber: string): 
     return null;
   } catch (error) {
     console.error('Duplicate check error:', error);
-    return createError('VALIDATION_ERROR', 'Failed to validate user data');
+    return createError('VALIDATION_ERROR', 'Failed to validate user data', error, 'duplicate_check');
   }
 }
 
@@ -146,7 +171,7 @@ async function createUserAccount(supabase: any, clientData: any, password: strin
 
     if (userError) {
       console.error('User creation error:', userError);
-      throw createError('USER_CREATION_FAILED', `Failed to create user account: ${userError.message}`, userError);
+      throw createError('USER_CREATION_FAILED', `Failed to create user account: ${userError.message}`, userError, 'user_creation');
     }
 
     console.log('User account created successfully:', userData.user.id);
@@ -154,7 +179,7 @@ async function createUserAccount(supabase: any, clientData: any, password: strin
   } catch (error) {
     if (error.code) throw error;
     console.error('Unexpected user creation error:', error);
-    throw createError('USER_CREATION_FAILED', 'Failed to create user account');
+    throw createError('USER_CREATION_FAILED', 'Failed to create user account', error, 'user_creation');
   }
 }
 
@@ -175,14 +200,14 @@ async function createUserProfile(supabase: any, userId: string, clientData: any,
 
     if (profileError) {
       console.error('Profile creation error:', profileError);
-      throw createError('PROFILE_CREATION_FAILED', `Failed to create user profile: ${profileError.message}`, profileError);
+      throw createError('PROFILE_CREATION_FAILED', `Failed to create user profile: ${profileError.message}`, profileError, 'profile_creation');
     }
 
     console.log('User profile created successfully');
   } catch (error) {
     if (error.code) throw error;
     console.error('Unexpected profile creation error:', error);
-    throw createError('PROFILE_CREATION_FAILED', 'Failed to create user profile');
+    throw createError('PROFILE_CREATION_FAILED', 'Failed to create user profile', error, 'profile_creation');
   }
 }
 
@@ -215,7 +240,7 @@ async function createClientRecord(supabase: any, userId: string, clientData: any
 
     if (clientError) {
       console.error('Client creation error:', clientError);
-      throw createError('CLIENT_CREATION_FAILED', `Failed to create client profile: ${clientError.message}`, clientError);
+      throw createError('CLIENT_CREATION_FAILED', `Failed to create client profile: ${clientError.message}`, clientError, 'client_creation');
     }
 
     console.log('Client profile created successfully:', client);
@@ -223,7 +248,7 @@ async function createClientRecord(supabase: any, userId: string, clientData: any
   } catch (error) {
     if (error.code) throw error;
     console.error('Unexpected client creation error:', error);
-    throw createError('CLIENT_CREATION_FAILED', 'Failed to create client profile');
+    throw createError('CLIENT_CREATION_FAILED', 'Failed to create client profile', error, 'client_creation');
   }
 }
 
@@ -303,6 +328,36 @@ async function cleanupOnFailure(supabase: any, userId: string | null, step: stri
   }
 }
 
+function createSuccessResponse(data: any) {
+  return new Response(
+    JSON.stringify(data),
+    {
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      status: 200,
+    }
+  );
+}
+
+function createErrorResponse(error: RegistrationError, statusCode: number = 400) {
+  const errorResponse = {
+    success: false,
+    error: error.message,
+    code: error.code,
+    step: error.step || 'unknown',
+    details: error.details || null
+  };
+
+  console.log('Sending error response:', errorResponse);
+  
+  return new Response(
+    JSON.stringify(errorResponse),
+    {
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      status: statusCode,
+    }
+  );
+}
+
 serve(async (req) => {
   // Handle CORS preflight requests
   if (req.method === 'OPTIONS') {
@@ -321,14 +376,14 @@ serve(async (req) => {
     const supabase = createClient(supabaseUrl, supabaseKey)
 
     if (req.method !== 'POST') {
-      throw createError('METHOD_NOT_ALLOWED', 'Method not allowed');
+      throw createError('METHOD_NOT_ALLOWED', 'Method not allowed', null, 'initialization');
     }
 
     currentStep = 'authentication';
     // Get the authorization header
     const authHeader = req.headers.get('authorization')
     if (!authHeader) {
-      throw createError('NO_AUTH', 'No authorization header provided');
+      throw createError('NO_AUTH', 'No authorization header provided', null, 'authentication');
     }
 
     // Verify the user making the request
@@ -338,7 +393,7 @@ serve(async (req) => {
 
     if (authError || !user) {
       console.error('Authentication failed:', authError);
-      throw createError('UNAUTHORIZED', 'Invalid or expired token');
+      throw createError('UNAUTHORIZED', 'Invalid or expired token', authError, 'authentication');
     }
 
     console.log(`Request authenticated for user: ${user.email}`);
@@ -352,13 +407,13 @@ serve(async (req) => {
 
     if (profileError || !profile) {
       console.error('Profile fetch error:', profileError);
-      throw createError('PROFILE_NOT_FOUND', 'User profile not found');
+      throw createError('PROFILE_NOT_FOUND', 'User profile not found', profileError, 'authentication');
     }
 
     // Check if user has permission to register clients
     const allowedRoles = ['super_admin', 'isp_admin', 'technician']
     if (!allowedRoles.includes(profile.role)) {
-      throw createError('INSUFFICIENT_PERMISSIONS', 'Insufficient permissions to register clients');
+      throw createError('INSUFFICIENT_PERMISSIONS', 'Insufficient permissions to register clients', null, 'authentication');
     }
 
     console.log(`User has role: ${profile.role}, Company: ${profile.isp_company_id}`);
@@ -405,18 +460,12 @@ serve(async (req) => {
 
     console.log('=== Client Registration Completed Successfully ===');
 
-    return new Response(
-      JSON.stringify({
-        success: true,
-        message: 'Client registered successfully! Login credentials have been sent to their email address.',
-        client: client,
-        user_id: userId
-      }),
-      {
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        status: 200,
-      }
-    );
+    return createSuccessResponse({
+      success: true,
+      message: 'Client registered successfully! Login credentials have been sent to their email address.',
+      client: client,
+      user_id: userId
+    });
 
   } catch (error: any) {
     console.error(`=== Registration Error at step ${currentStep} ===`);
@@ -429,7 +478,6 @@ serve(async (req) => {
     
     // Determine appropriate error response
     let statusCode = 400;
-    let errorMessage = error.message || 'Registration failed';
     
     if (error.code) {
       switch (error.code) {
@@ -458,21 +506,6 @@ serve(async (req) => {
       }
     }
     
-    const errorResponse = {
-      success: false,
-      error: errorMessage,
-      code: error.code || 'UNKNOWN_ERROR',
-      step: currentStep
-    };
-
-    console.log('Sending error response:', errorResponse);
-    
-    return new Response(
-      JSON.stringify(errorResponse),
-      {
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        status: statusCode,
-      }
-    );
+    return createErrorResponse(error, statusCode);
   }
 })
