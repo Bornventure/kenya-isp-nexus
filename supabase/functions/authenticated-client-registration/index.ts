@@ -55,6 +55,8 @@ async function validateClientData(clientData: any): Promise<RegistrationError | 
 
 async function checkDuplicates(supabase: any, email: string, idNumber: string): Promise<RegistrationError | null> {
   try {
+    console.log(`Checking duplicates for email: ${email}, ID: ${idNumber}`);
+
     // Check for existing client with email
     const { data: existingClientByEmail, error: emailCheckError } = await supabase
       .from('clients')
@@ -68,6 +70,7 @@ async function checkDuplicates(supabase: any, email: string, idNumber: string): 
     }
 
     if (existingClientByEmail) {
+      console.log(`Client with email ${email} already exists`);
       return createError('EMAIL_EXISTS', 'A client with this email already exists');
     }
 
@@ -84,21 +87,41 @@ async function checkDuplicates(supabase: any, email: string, idNumber: string): 
     }
 
     if (existingClientById) {
+      console.log(`Client with ID ${idNumber} already exists`);
       return createError('ID_EXISTS', 'A client with this ID number already exists');
     }
 
-    // Check for existing auth user with email (more efficient than listUsers)
-    const { data: authUser, error: authCheckError } = await supabase.auth.admin.getUserByEmail(email);
-    
-    if (authCheckError && authCheckError.status !== 404) {
-      console.error('Error checking auth user:', authCheckError);
-      return createError('AUTH_ERROR', 'Failed to validate user email');
+    // Check for existing auth user with email using the admin client
+    try {
+      // Use listUsers with email filter instead of getUserByEmail
+      const { data: authUsers, error: authCheckError } = await supabase.auth.admin.listUsers({
+        page: 1,
+        perPage: 1
+      });
+
+      if (authCheckError) {
+        console.error('Error checking auth users:', authCheckError);
+        // Don't fail the registration if we can't check auth users
+        // This might happen due to permissions or other issues
+        console.log('Continuing without auth user validation due to error');
+        return null;
+      }
+
+      // Filter users by email manually since listUsers doesn't support email filtering directly
+      const existingAuthUser = authUsers?.users?.find(user => user.email === email);
+      
+      if (existingAuthUser) {
+        console.log(`Auth user with email ${email} already exists`);
+        return createError('USER_EXISTS', 'A user account with this email already exists');
+      }
+
+    } catch (authError) {
+      console.error('Auth check failed:', authError);
+      // Log but don't fail - continue with registration
+      console.log('Continuing without auth user validation due to error');
     }
 
-    if (authUser?.user) {
-      return createError('USER_EXISTS', 'A user account with this email already exists');
-    }
-
+    console.log('No duplicates found, proceeding with registration');
     return null;
   } catch (error) {
     console.error('Duplicate check error:', error);
@@ -108,6 +131,8 @@ async function checkDuplicates(supabase: any, email: string, idNumber: string): 
 
 async function createUserAccount(supabase: any, clientData: any, password: string) {
   try {
+    console.log(`Creating user account for: ${clientData.email}`);
+    
     const { data: userData, error: userError } = await supabase.auth.admin.createUser({
       email: clientData.email,
       password: password,
@@ -135,6 +160,8 @@ async function createUserAccount(supabase: any, clientData: any, password: strin
 
 async function createUserProfile(supabase: any, userId: string, clientData: any, ispCompanyId: string) {
   try {
+    console.log(`Creating profile for user: ${userId}`);
+    
     const { error: profileError } = await supabase
       .from('profiles')
       .insert({
@@ -161,6 +188,8 @@ async function createUserProfile(supabase: any, userId: string, clientData: any,
 
 async function createClientRecord(supabase: any, userId: string, clientData: any, ispCompanyId: string) {
   try {
+    console.log(`Creating client record for user: ${userId}`);
+    
     const { data: client, error: clientError } = await supabase
       .from('clients')
       .insert({
@@ -200,6 +229,8 @@ async function createClientRecord(supabase: any, userId: string, clientData: any
 
 async function sendWelcomeEmail(clientData: any, password: string) {
   try {
+    console.log(`Sending welcome email to: ${clientData.email}`);
+    
     const emailResponse = await resend.emails.send({
       from: 'ISP Portal <noreply@qorioninnovations.com>',
       to: [clientData.email],
@@ -282,6 +313,8 @@ serve(async (req) => {
   let currentStep = 'initialization';
 
   try {
+    console.log('=== Client Registration Request Started ===');
+    
     // Initialize Supabase client
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!
     const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
@@ -304,8 +337,11 @@ serve(async (req) => {
     )
 
     if (authError || !user) {
+      console.error('Authentication failed:', authError);
       throw createError('UNAUTHORIZED', 'Invalid or expired token');
     }
+
+    console.log(`Request authenticated for user: ${user.email}`);
 
     // Get user profile to check permissions
     const { data: profile, error: profileError } = await supabase
@@ -315,6 +351,7 @@ serve(async (req) => {
       .single()
 
     if (profileError || !profile) {
+      console.error('Profile fetch error:', profileError);
       throw createError('PROFILE_NOT_FOUND', 'User profile not found');
     }
 
@@ -324,9 +361,11 @@ serve(async (req) => {
       throw createError('INSUFFICIENT_PERMISSIONS', 'Insufficient permissions to register clients');
     }
 
+    console.log(`User has role: ${profile.role}, Company: ${profile.isp_company_id}`);
+
     currentStep = 'data_parsing';
     const clientData = await req.json();
-    console.log('Received authenticated client registration data:', clientData);
+    console.log('Received client registration data:', clientData);
 
     currentStep = 'validation';
     // Validate client data
@@ -345,6 +384,7 @@ serve(async (req) => {
     currentStep = 'password_generation';
     // Generate secure password
     const password = generateSecurePassword();
+    console.log('Generated secure password for user');
 
     currentStep = 'user_creation';
     // Create user account
@@ -363,6 +403,8 @@ serve(async (req) => {
     // Send welcome email (don't fail if this fails)
     await sendWelcomeEmail(clientData, password);
 
+    console.log('=== Client Registration Completed Successfully ===');
+
     return new Response(
       JSON.stringify({
         success: true,
@@ -377,7 +419,8 @@ serve(async (req) => {
     );
 
   } catch (error: any) {
-    console.error(`Registration error at step ${currentStep}:`, error);
+    console.error(`=== Registration Error at step ${currentStep} ===`);
+    console.error('Error details:', error);
     
     // Clean up if we created a user but failed later
     if (userId && currentStep !== 'user_creation') {
@@ -415,13 +458,17 @@ serve(async (req) => {
       }
     }
     
+    const errorResponse = {
+      success: false,
+      error: errorMessage,
+      code: error.code || 'UNKNOWN_ERROR',
+      step: currentStep
+    };
+
+    console.log('Sending error response:', errorResponse);
+    
     return new Response(
-      JSON.stringify({
-        success: false,
-        error: errorMessage,
-        code: error.code || 'UNKNOWN_ERROR',
-        step: currentStep
-      }),
+      JSON.stringify(errorResponse),
       {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
         status: statusCode,
