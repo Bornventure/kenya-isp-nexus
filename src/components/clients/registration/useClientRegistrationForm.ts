@@ -14,7 +14,7 @@ interface UseClientRegistrationFormProps {
 }
 
 export const useClientRegistrationForm = ({ onClose, onSave }: UseClientRegistrationFormProps) => {
-  const { user } = useAuth();
+  const { user, profile } = useAuth();
   const { toast } = useToast();
   const { servicePackages, isLoading: packagesLoading } = useServicePackages();
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -52,10 +52,10 @@ export const useClientRegistrationForm = ({ onClose, onSave }: UseClientRegistra
       return;
     }
 
-    if (!user) {
+    if (!user || !profile?.isp_company_id) {
       toast({
         title: "Error",
-        description: "You must be logged in to register clients.",
+        description: "You must be logged in and have a valid company to register clients.",
         variant: "destructive",
       });
       return;
@@ -79,7 +79,7 @@ export const useClientRegistrationForm = ({ onClose, onSave }: UseClientRegistra
         county: formData.county,
         sub_county: formData.subCounty,
         service_package_id: formData.servicePackage,
-        monthly_rate: selectedPackage?.monthly_rate || 0,
+        isp_company_id: profile.isp_company_id, // Add the missing isp_company_id
       };
 
       console.log('Client data being sent:', clientData);

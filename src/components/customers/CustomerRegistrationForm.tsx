@@ -5,6 +5,7 @@ import { Label } from '@/components/ui/label';
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
 import { registerClient } from '@/services/customerPortalApi';
+import { supabase } from '@/integrations/supabase/client';
 import {
   X,
   Save,
@@ -90,7 +91,13 @@ const CustomerRegistrationForm: React.FC<CustomerRegistrationFormProps> = ({ onC
     console.log('Submitting customer registration form with data:', formData);
 
     try {
-      const result = await registerClient(formData);
+      // Get the session for authentication
+      const { data: sessionData } = await supabase.auth.getSession();
+      if (!sessionData.session?.access_token) {
+        throw new Error('No valid session found. Please log in first.');
+      }
+
+      const result = await registerClient(formData, sessionData.session.access_token);
       console.log('Registration successful:', result);
       
       toast({
