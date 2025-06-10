@@ -12,6 +12,12 @@ interface UseClientRegistrationFormProps {
   onSave: (client: Partial<Client>) => void;
 }
 
+interface RegistrationError {
+  code: string;
+  message: string;
+  step?: string;
+}
+
 export const useClientRegistrationForm = ({ onClose, onSave }: UseClientRegistrationFormProps) => {
   const { user, profile } = useAuth();
   const { toast } = useToast();
@@ -47,36 +53,47 @@ export const useClientRegistrationForm = ({ onClose, onSave }: UseClientRegistra
     }
   }, [errors]);
 
-  const validateDuplicates = async (email: string, idNumber: string): Promise<boolean> => {
-    try {
-      // Check for existing email in clients table
-      const { data: existingEmailClient } = await supabase
-        .from('clients')
-        .select('id')
-        .eq('email', email)
-        .maybeSingle();
+  const getErrorMessage = (error: RegistrationError): string => {
+    switch (error.code) {
+      case 'EMAIL_EXISTS':
+        return 'A client with this email already exists. Please use a different email address.';
+      case 'ID_EXISTS':
+        return 'A client with this ID number already exists. Please check the ID number.';
+      case 'USER_EXISTS':
+        return 'A user account with this email already exists. Please use a different email.';
+      case 'INVALID_EMAIL':
+        return 'Please enter a valid email address.';
+      case 'INVALID_PHONE':
+        return 'Phone number must be in format +254XXXXXXXXX.';
+      case 'MISSING_FIELD':
+        return `Missing required field: ${error.message.split(': ')[1] || 'unknown'}`;
+      case 'UNAUTHORIZED':
+        return 'You are not authorized to register clients. Please log in again.';
+      case 'INSUFFICIENT_PERMISSIONS':
+        return 'You do not have permission to register clients. Contact your administrator.';
+      case 'PROFILE_NOT_FOUND':
+        return 'Your profile could not be found. Please contact support.';
+      default:
+        return error.message || 'Registration failed. Please try again.';
+    }
+  };
 
-      if (existingEmailClient) {
-        setErrors(prev => ({ ...prev, email: 'A client with this email already exists' }));
-        return false;
-      }
-
-      // Check for existing ID number in clients table
-      const { data: existingIdClient } = await supabase
-        .from('clients')
-        .select('id')
-        .eq('id_number', idNumber)
-        .maybeSingle();
-
-      if (existingIdClient) {
-        setErrors(prev => ({ ...prev, idNumber: 'A client with this ID number already exists' }));
-        return false;
-      }
-
-      return true;
-    } catch (error) {
-      console.error('Error checking duplicates:', error);
-      return true; // Allow submission if check fails
+  const setFieldError = (error: RegistrationError) => {
+    switch (error.code) {
+      case 'EMAIL_EXISTS':
+      case 'USER_EXISTS':
+      case 'INVALID_EMAIL':
+        setErrors(prev => ({ ...prev, email: getErrorMessage(error) }));
+        break;
+      case 'ID_EXISTS':
+        setErrors(prev => ({ ...prev, idNumber: getErrorMessage(error) }));
+        break;
+      case 'INVALID_PHONE':
+        setErrors(prev => ({ ...prev, phone: getErrorMessage(error) }));
+        break;
+      default:
+        // Don't set field-specific errors for general errors
+        break;
     }
   };
 
@@ -99,15 +116,9 @@ export const useClientRegistrationForm = ({ onClose, onSave }: UseClientRegistra
     }
 
     setIsSubmitting(true);
+    setErrors({}); // Clear any previous errors
 
     try {
-      // Validate duplicates before submission
-      const isValid = await validateDuplicates(formData.email, formData.idNumber);
-      if (!isValid) {
-        setIsSubmitting(false);
-        return;
-      }
-
       // Calculate monthly rate from selected package
       const monthlyRate = selectedPackage?.monthly_rate || 0;
 
@@ -136,7 +147,7 @@ export const useClientRegistrationForm = ({ onClose, onSave }: UseClientRegistra
         throw new Error('No valid session found');
       }
 
-      // Call the edge function directly
+      // Call the edge function
       const { data: result, error: functionError } = await supabase.functions.invoke('authenticated-client-registration', {
         body: clientData,
         headers: {
@@ -146,11 +157,41 @@ export const useClientRegistrationForm = ({ onClose, onSave }: UseClientRegistra
 
       if (functionError) {
         console.error('Edge function error:', functionError);
-        throw new Error(functionError.message || 'Failed to register client');
+        
+        // Try to parse the error response for better error handling
+        let errorDetails: RegistrationError = {
+          code: 'UNKNOWN_ERROR',
+          message: functionError.message || 'Registration failed'
+        };
+
+        // If the error has context, try to extract it
+        if (functionError.context) {
+          try {
+            const errorData = typeof functionError.context === 'string' 
+              ? JSON.parse(functionError.context) 
+              : functionError.context;
+            
+            if (errorData.code) {
+              errorDetails = errorData;
+            }
+          } catch (parseError) {
+            console.error('Failed to parse error context:', parseError);
+          }
+        }
+
+        setFieldError(errorDetails);
+        throw new Error(getErrorMessage(errorDetails));
       }
 
-      if (!result.success) {
-        throw new Error(result.error || 'Failed to register client');
+      if (!result?.success) {
+        const errorDetails: RegistrationError = {
+          code: result?.code || 'REGISTRATION_FAILED',
+          message: result?.error || 'Failed to register client',
+          step: result?.step
+        };
+        
+        setFieldError(errorDetails);
+        throw new Error(getErrorMessage(errorDetails));
       }
 
       toast({
@@ -186,21 +227,9 @@ export const useClientRegistrationForm = ({ onClose, onSave }: UseClientRegistra
     } catch (error: any) {
       console.error('Registration failed:', error);
       
-      // Handle specific error types with better messaging
-      let errorMessage = error.message || "Failed to register client. Please try again.";
-      
-      if (error.message?.includes('duplicate key')) {
-        errorMessage = "A client with this email or ID number already exists. Please check your input.";
-      } else if (error.message?.includes('invalid email')) {
-        errorMessage = "Please enter a valid email address.";
-        setErrors(prev => ({ ...prev, email: 'Invalid email format' }));
-      } else if (error.message?.includes('Edge Function returned a non-2xx status code')) {
-        errorMessage = "Registration failed due to a server error. Please check your input and try again.";
-      }
-      
       toast({
         title: "Registration Failed",
-        description: errorMessage,
+        description: error.message || "Failed to register client. Please try again.",
         variant: "destructive",
       });
     } finally {

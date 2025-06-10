@@ -23,13 +23,7 @@ const ClientRegistrationForm: React.FC<ClientRegistrationFormProps> = ({ onClose
     packagesLoading,
     updateFormData,
     handleSubmit,
-  } = useClientRegistrationForm({ 
-    onClose, 
-    onSave: () => {
-      // Don't call the local onSave since the edge function handles everything
-      onClose();
-    }
-  });
+  } = useClientRegistrationForm({ onClose, onSave });
 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
