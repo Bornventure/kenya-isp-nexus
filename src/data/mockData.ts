@@ -1,4 +1,3 @@
-
 import { Client, ServicePackage } from '@/types/client';
 
 export const servicePackages: ServicePackage[] = [
@@ -8,8 +7,7 @@ export const servicePackages: ServicePackage[] = [
     speed: '5 Mbps',
     monthlyRate: 2500,
     description: 'Perfect for basic internet browsing and email',
-    connectionType: ['fiber', 'wireless'],
-    isActive: true
+    connectionType: ['fiber', 'wireless']
   },
   {
     id: '550e8400-e29b-41d4-a716-446655440002',
@@ -17,8 +15,7 @@ export const servicePackages: ServicePackage[] = [
     speed: '10 Mbps',
     monthlyRate: 3500,
     description: 'Ideal for streaming and video calls',
-    connectionType: ['fiber', 'wireless'],
-    isActive: true
+    connectionType: ['fiber', 'wireless']
   },
   {
     id: '550e8400-e29b-41d4-a716-446655440003',
@@ -26,8 +23,7 @@ export const servicePackages: ServicePackage[] = [
     speed: '25 Mbps',
     monthlyRate: 5000,
     description: 'High-speed for multiple devices and HD streaming',
-    connectionType: ['fiber'],
-    isActive: true
+    connectionType: ['fiber']
   },
   {
     id: '550e8400-e29b-41d4-a716-446655440004',
@@ -35,8 +31,7 @@ export const servicePackages: ServicePackage[] = [
     speed: '50 Mbps',
     monthlyRate: 8000,
     description: 'Enterprise-grade connectivity for business use',
-    connectionType: ['fiber'],
-    isActive: true
+    connectionType: ['fiber']
   },
   {
     id: '550e8400-e29b-41d4-a716-446655440005',
@@ -44,8 +39,7 @@ export const servicePackages: ServicePackage[] = [
     speed: '100 Mbps',
     monthlyRate: 12000,
     description: 'Maximum speed for large organizations',
-    connectionType: ['fiber'],
-    isActive: true
+    connectionType: ['fiber']
   }
 ];
 
