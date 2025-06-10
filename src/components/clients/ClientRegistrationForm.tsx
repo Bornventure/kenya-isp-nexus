@@ -6,6 +6,7 @@ import { Label } from '@/components/ui/label';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { useAuth } from '@/contexts/AuthContext';
+import { supabase } from '@/integrations/supabase/client';
 import { registerClientAuthenticated } from '@/services/customerPortalApi';
 import { useToast } from '@/hooks/use-toast';
 import { Client } from '@/types/client';
@@ -119,8 +120,8 @@ const ClientRegistrationForm: React.FC<ClientRegistrationFormProps> = ({ onClose
         monthly_rate: selectedPackage?.monthlyRate || 0,
       };
 
-      // Get the user's access token
-      const { data: { session } } = await user.supabase.auth.getSession();
+      // Get the user's access token using the supabase client directly
+      const { data: { session } } = await supabase.auth.getSession();
       if (!session?.access_token) {
         throw new Error('No valid session found');
       }
