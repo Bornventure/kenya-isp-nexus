@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -38,7 +37,7 @@ const CustomerRegistrationForm: React.FC<CustomerRegistrationFormProps> = ({ onC
     county: 'Kisumu',
     sub_county: '',
     service_package_id: '',
-    isp_company_id: 'test-isp-company-id' // You'll need to get this from your ISP admin
+    isp_company_id: '' // This should be set to the actual ISP company ID
   });
 
   const [errors, setErrors] = useState<Record<string, string>>({});
@@ -82,8 +81,13 @@ const CustomerRegistrationForm: React.FC<CustomerRegistrationFormProps> = ({ onC
     
     if (!validateForm()) return;
 
+    // Get the default ISP company ID from the database
+    if (!formData.isp_company_id) {
+      formData.isp_company_id = 'default-isp-company'; // This should be set to actual ISP company ID
+    }
+
     setIsSubmitting(true);
-    console.log('Submitting registration form with data:', formData);
+    console.log('Submitting customer registration form with data:', formData);
 
     try {
       const result = await registerClient(formData);
@@ -91,7 +95,7 @@ const CustomerRegistrationForm: React.FC<CustomerRegistrationFormProps> = ({ onC
       
       toast({
         title: "Registration Successful",
-        description: result.message || "Your application has been submitted successfully.",
+        description: result.message || "Your application has been submitted successfully. You will receive login credentials via email.",
       });
       
       if (onSuccess) {
@@ -127,6 +131,16 @@ const CustomerRegistrationForm: React.FC<CustomerRegistrationFormProps> = ({ onC
           </Button>
         </CardHeader>
         <CardContent>
+          <div className="mb-4 p-4 bg-blue-50 border border-blue-200 rounded-lg">
+            <div className="flex items-center gap-2 text-blue-700">
+              <Mail className="h-4 w-4" />
+              <span className="font-medium">Account Creation</span>
+            </div>
+            <p className="text-sm text-blue-600 mt-1">
+              Your login credentials will be sent to your email address after registration approval.
+            </p>
+          </div>
+
           <form onSubmit={handleSubmit} className="space-y-6">
             {/* Personal Information */}
             <div>
@@ -309,7 +323,7 @@ const CustomerRegistrationForm: React.FC<CustomerRegistrationFormProps> = ({ onC
                 ) : (
                   <Save className="h-4 w-4" />
                 )}
-                {isSubmitting ? 'Registering...' : 'Register Client'}
+                {isSubmitting ? 'Registering...' : 'Submit Application'}
               </Button>
             </div>
           </form>

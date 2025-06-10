@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -35,7 +34,7 @@ const Clients = () => {
   const [showClientDetails, setShowClientDetails] = useState(false);
   const [currentView, setCurrentView] = useState<ViewMode>('list');
 
-  const { clients, isLoading, addClient, updateClient, isAddingClient } = useClients();
+  const { clients, isLoading, updateClient, isUpdatingClient } = useClients();
 
   const filteredClients = clients.filter(client => {
     const matchesSearch = client.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -79,30 +78,11 @@ const Clients = () => {
     lastPayment: undefined, // TODO: Fetch from payments table
   }));
 
-  const handleAddClient = (newClientData: any) => {
-    // Transform the client data to match database schema
-    const dbClientData = {
-      name: newClientData.name,
-      email: newClientData.email || null,
-      phone: newClientData.phone,
-      mpesa_number: newClientData.mpesaNumber || null,
-      id_number: newClientData.idNumber,
-      kra_pin_number: newClientData.kraPinNumber || null,
-      client_type: newClientData.clientType,
-      status: 'pending' as const,
-      connection_type: newClientData.connectionType,
-      monthly_rate: newClientData.monthlyRate,
-      installation_date: newClientData.installationDate || null,
-      address: newClientData.location.address,
-      county: newClientData.location.county,
-      sub_county: newClientData.location.subCounty,
-      latitude: newClientData.location.coordinates?.lat || null,
-      longitude: newClientData.location.coordinates?.lng || null,
-      balance: 0,
-    };
-
-    addClient(dbClientData);
+  const handleAddClient = () => {
+    // The edge function handles everything, just close the form
     setShowRegistrationForm(false);
+    // Refresh the client list by invalidating queries
+    window.location.reload();
   };
 
   const handleViewClient = (client: any) => {
@@ -161,13 +141,8 @@ const Clients = () => {
           <Button 
             className="gap-2" 
             onClick={() => setShowRegistrationForm(true)}
-            disabled={isAddingClient}
           >
-            {isAddingClient ? (
-              <Loader2 className="h-4 w-4 animate-spin" />
-            ) : (
-              <UserPlus className="h-4 w-4" />
-            )}
+            <UserPlus className="h-4 w-4" />
             Add New Client
           </Button>
         </div>
