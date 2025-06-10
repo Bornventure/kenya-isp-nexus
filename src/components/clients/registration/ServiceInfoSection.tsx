@@ -1,5 +1,5 @@
 
-import React from 'react';
+import React, { useMemo } from 'react';
 import { Label } from '@/components/ui/label';
 import { Wifi, Loader2 } from 'lucide-react';
 import { FormData } from './formValidation';
@@ -23,9 +23,10 @@ const ServiceInfoSection: React.FC<ServiceInfoSectionProps> = ({
   packagesLoading,
   updateFormData,
 }) => {
-  console.log('ServiceInfoSection - servicePackages:', servicePackages);
-  console.log('ServiceInfoSection - packagesLoading:', packagesLoading);
-  console.log('ServiceInfoSection - formData.servicePackage:', formData.servicePackage);
+  // Memoize the selected package to prevent unnecessary calculations
+  const selectedPackage = useMemo(() => {
+    return servicePackages.find(pkg => pkg.id === formData.servicePackage);
+  }, [servicePackages, formData.servicePackage]);
 
   return (
     <div>
@@ -85,6 +86,11 @@ const ServiceInfoSection: React.FC<ServiceInfoSectionProps> = ({
           {!packagesLoading && servicePackages.length === 0 && (
             <p className="text-sm text-yellow-600 mt-1">
               No service packages found. Please contact your administrator.
+            </p>
+          )}
+          {selectedPackage && (
+            <p className="text-sm text-gray-600 mt-1">
+              Monthly Rate: KES {selectedPackage.monthly_rate.toLocaleString()}
             </p>
           )}
         </div>

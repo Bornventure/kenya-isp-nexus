@@ -1,5 +1,5 @@
 
-import { useState } from 'react';
+import { useState, useCallback, useMemo } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/hooks/use-toast';
 import { useServicePackages } from '@/hooks/useServicePackages';
@@ -35,10 +35,48 @@ export const useClientRegistrationForm = ({ onClose, onSave }: UseClientRegistra
 
   const [errors, setErrors] = useState<Record<string, string>>({});
 
-  const updateFormData = (field: string, value: string) => {
+  // Memoize the selected package for performance
+  const selectedPackage = useMemo(() => {
+    return servicePackages.find(pkg => pkg.id === formData.servicePackage);
+  }, [servicePackages, formData.servicePackage]);
+
+  const updateFormData = useCallback((field: string, value: string) => {
     setFormData(prev => ({ ...prev, [field]: value }));
     if (errors[field]) {
       setErrors(prev => ({ ...prev, [field]: '' }));
+    }
+  }, [errors]);
+
+  const validateDuplicates = async (email: string, idNumber: string): Promise<boolean> => {
+    try {
+      // Check for existing email in clients table
+      const { data: existingEmailClient } = await supabase
+        .from('clients')
+        .select('id')
+        .eq('email', email)
+        .maybeSingle();
+
+      if (existingEmailClient) {
+        setErrors(prev => ({ ...prev, email: 'A client with this email already exists' }));
+        return false;
+      }
+
+      // Check for existing ID number in clients table
+      const { data: existingIdClient } = await supabase
+        .from('clients')
+        .select('id')
+        .eq('id_number', idNumber)
+        .maybeSingle();
+
+      if (existingIdClient) {
+        setErrors(prev => ({ ...prev, idNumber: 'A client with this ID number already exists' }));
+        return false;
+      }
+
+      return true;
+    } catch (error) {
+      console.error('Error checking duplicates:', error);
+      return true; // Allow submission if check fails
     }
   };
 
@@ -63,8 +101,13 @@ export const useClientRegistrationForm = ({ onClose, onSave }: UseClientRegistra
     setIsSubmitting(true);
 
     try {
-      const selectedPackage = servicePackages.find(pkg => pkg.id === formData.servicePackage);
-      
+      // Validate duplicates before submission
+      const isValid = await validateDuplicates(formData.email, formData.idNumber);
+      if (!isValid) {
+        setIsSubmitting(false);
+        return;
+      }
+
       const clientData = {
         name: formData.name,
         email: formData.email,
@@ -77,7 +120,8 @@ export const useClientRegistrationForm = ({ onClose, onSave }: UseClientRegistra
         address: formData.address,
         county: formData.county,
         sub_county: formData.subCounty,
-        service_package_id: formData.servicePackage,
+        service_package_id: formData.servicePackage || null,
+        monthly_rate: selectedPackage?.monthly_rate || 0,
         isp_company_id: profile.isp_company_id,
       };
 

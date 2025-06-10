@@ -2,6 +2,7 @@
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
+import { useMemo } from 'react';
 
 export interface ServicePackage {
   id: string;
@@ -16,24 +17,20 @@ export interface ServicePackage {
 export const useServicePackages = () => {
   const { user, profile } = useAuth();
 
-  console.log('useServicePackages - user:', user?.id);
-  console.log('useServicePackages - profile:', profile);
-  console.log('useServicePackages - isp_company_id:', profile?.isp_company_id);
+  // Memoize the company ID to prevent unnecessary re-renders
+  const companyId = useMemo(() => profile?.isp_company_id, [profile?.isp_company_id]);
 
   const { data: servicePackages = [], isLoading, error } = useQuery({
-    queryKey: ['service-packages', user?.id, profile?.isp_company_id],
+    queryKey: ['service-packages', companyId],
     queryFn: async () => {
-      console.log('Fetching service packages...');
-      
-      if (!user || !profile?.isp_company_id) {
-        console.log('No user or isp_company_id, returning empty array');
+      if (!user || !companyId) {
         return [];
       }
 
       const { data, error } = await supabase
         .from('service_packages')
         .select('*')
-        .eq('isp_company_id', profile.isp_company_id)
+        .eq('isp_company_id', companyId)
         .eq('is_active', true)
         .order('monthly_rate', { ascending: true });
 
@@ -42,13 +39,10 @@ export const useServicePackages = () => {
         throw error;
       }
 
-      console.log('Fetched service packages:', data);
       return data as ServicePackage[];
     },
-    enabled: !!user && !!profile?.isp_company_id,
+    enabled: !!user && !!companyId,
   });
-
-  console.log('useServicePackages - final result:', { servicePackages, isLoading, error });
 
   return {
     servicePackages,

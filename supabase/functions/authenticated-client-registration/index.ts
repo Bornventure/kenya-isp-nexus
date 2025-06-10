@@ -97,7 +97,7 @@ serve(async (req) => {
       .from('clients')
       .select('id')
       .eq('id_number', clientData.id_number)
-      .single()
+      .maybeSingle()
 
     if (existingClient) {
       throw new Error('A client with this ID number already exists')
@@ -106,7 +106,7 @@ serve(async (req) => {
     // Generate secure password
     const password = generateSecurePassword()
 
-    // Create user account with appropriate metadata - don't set role to 'client'
+    // Create user account with appropriate metadata
     const { data: newUser, error: userError } = await supabase.auth.admin.createUser({
       email: clientData.email,
       password: password,
@@ -114,7 +114,7 @@ serve(async (req) => {
       user_metadata: {
         first_name: clientData.name.split(' ')[0],
         last_name: clientData.name.split(' ').slice(1).join(' ') || '',
-        user_type: 'client'  // Use user_type instead of role in metadata
+        user_type: 'client'
       }
     })
 
@@ -125,11 +125,11 @@ serve(async (req) => {
 
     console.log('User account created successfully:', newUser.user.id);
 
-    // Create client profile first
+    // Create client profile
     const { data: client, error: clientError } = await supabase
       .from('clients')
       .insert({
-        id: newUser.user.id, // Use the auth user ID as client ID
+        id: newUser.user.id,
         name: clientData.name,
         email: clientData.email,
         phone: clientData.phone,
@@ -156,14 +156,14 @@ serve(async (req) => {
       throw new Error(`Failed to create client profile: ${clientError.message}`);
     }
 
-    // Create user profile with 'readonly' role (which is accepted by the enum)
+    // Create user profile with 'readonly' role
     const { error: profileCreationError } = await supabase
       .from('profiles')
       .insert({
         id: newUser.user.id,
         first_name: clientData.name.split(' ')[0],
         last_name: clientData.name.split(' ').slice(1).join(' ') || '',
-        role: 'readonly',  // Use 'readonly' instead of 'client' which isn't a valid enum value
+        role: 'readonly',
         isp_company_id: profile.isp_company_id,
         is_active: true
       })
@@ -206,6 +206,7 @@ serve(async (req) => {
               <li><strong>Service Type:</strong> ${clientData.connection_type}</li>
               <li><strong>Location:</strong> ${clientData.address}, ${clientData.sub_county}</li>
               <li><strong>Phone:</strong> ${clientData.phone}</li>
+              ${clientData.monthly_rate ? `<li><strong>Monthly Rate:</strong> KES ${clientData.monthly_rate}</li>` : ''}
             </ul>
             
             <p>Our technical team will contact you within 24 hours to schedule the installation of your internet service.</p>
