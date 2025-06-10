@@ -45,7 +45,7 @@ const AppContent: React.FC = () => {
           <Route path="*" element={<Navigate to="/login" replace />} />
         </>
       ) : hasIspAccess ? (
-        // User is authenticated AND has ISP management access
+        // User is authenticated AND has ISP management access - go to dashboard
         <>
           <Route path="/login" element={<Navigate to="/" replace />} />
           <Route path="/" element={<DashboardLayout />}>
@@ -63,11 +63,29 @@ const AppContent: React.FC = () => {
           <Route path="*" element={<Navigate to="/" replace />} />
         </>
       ) : (
-        // User is authenticated but doesn't have ISP access (client role)
+        // User is authenticated but doesn't have ISP access - show access denied
         <>
-          <Route path="/login" element={<Navigate to="/customer-portal" replace />} />
-          <Route path="/" element={<Navigate to="/customer-portal" replace />} />
-          <Route path="*" element={<Navigate to="/customer-portal" replace />} />
+          <Route path="/login" element={<Navigate to="/access-denied" replace />} />
+          <Route path="/access-denied" element={
+            <div className="min-h-screen flex items-center justify-center bg-gray-50">
+              <div className="max-w-md w-full bg-white shadow-lg rounded-lg p-6">
+                <div className="text-center">
+                  <h1 className="text-2xl font-bold text-gray-900 mb-4">Access Denied</h1>
+                  <p className="text-gray-600 mb-6">
+                    You don't have permission to access the ISP management system. 
+                    Please contact your administrator if you believe this is an error.
+                  </p>
+                  <button 
+                    onClick={() => window.location.href = '/customer-portal'}
+                    className="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700"
+                  >
+                    Go to Customer Portal
+                  </button>
+                </div>
+              </div>
+            </div>
+          } />
+          <Route path="*" element={<Navigate to="/access-denied" replace />} />
         </>
       )}
     </Routes>
