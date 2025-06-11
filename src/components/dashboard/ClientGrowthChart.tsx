@@ -1,61 +1,80 @@
 
 import React from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { ChartContainer, ChartTooltip, ChartTooltipContent } from '@/components/ui/chart';
-import { LineChart, Line, XAxis, YAxis, ResponsiveContainer } from 'recharts';
-
-const chartData = [
-  { month: 'Jan', clients: 1089, newClients: 45 },
-  { month: 'Feb', clients: 1124, newClients: 62 },
-  { month: 'Mar', clients: 1168, newClients: 78 },
-  { month: 'Apr', clients: 1195, newClients: 56 },
-  { month: 'May', clients: 1228, newClients: 84 },
-  { month: 'Jun', clients: 1247, newClients: 89 },
-];
-
-const chartConfig = {
-  clients: {
-    label: 'Total Clients',
-    color: 'hsl(var(--chart-1))',
-  },
-  newClients: {
-    label: 'New Clients',
-    color: 'hsl(var(--chart-2))',
-  },
-};
+import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
+import { useRevenueData } from '@/hooks/useDashboardAnalytics';
 
 const ClientGrowthChart = () => {
+  const { data: revenueData, isLoading } = useRevenueData(6); // Last 6 months
+
+  if (isLoading) {
+    return (
+      <Card>
+        <CardHeader>
+          <CardTitle>Client Growth</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="h-80 flex items-center justify-center">
+            <div className="animate-pulse text-gray-500">Loading growth data...</div>
+          </div>
+        </CardContent>
+      </Card>
+    );
+  }
+
+  // Transform data for chart and calculate cumulative clients
+  let cumulativeClients = 0;
+  const chartData = revenueData?.data?.map(item => {
+    cumulativeClients += item.clients;
+    return {
+      month: new Date(item.month + '-01').toLocaleDateString('en-US', { month: 'short' }),
+      new_clients: item.clients,
+      total_clients: cumulativeClients
+    };
+  }) || [];
+
+  // If no data, show sample data
+  const displayData = chartData.length > 0 ? chartData : [
+    { month: 'Jan', new_clients: 12, total_clients: 120 },
+    { month: 'Feb', new_clients: 15, total_clients: 135 },
+    { month: 'Mar', new_clients: 18, total_clients: 153 },
+    { month: 'Apr', new_clients: 22, total_clients: 175 },
+    { month: 'May', new_clients: 25, total_clients: 200 },
+    { month: 'Jun', new_clients: 28, total_clients: 228 },
+  ];
+
   return (
     <Card>
       <CardHeader>
         <CardTitle>Client Growth</CardTitle>
         <p className="text-sm text-muted-foreground">
-          Total clients and monthly acquisitions
+          {chartData.length > 0 ? 'New and total clients over the last 6 months' : 'Sample data - add clients to see real growth data'}
         </p>
       </CardHeader>
       <CardContent>
-        <ChartContainer config={chartConfig}>
-          <LineChart data={chartData} margin={{ top: 20, right: 30, left: 20, bottom: 5 }}>
+        <ResponsiveContainer width="100%" height={300}>
+          <LineChart data={displayData}>
+            <CartesianGrid strokeDasharray="3 3" />
             <XAxis dataKey="month" />
             <YAxis />
-            <ChartTooltip content={<ChartTooltipContent />} />
-            <Line
-              type="monotone"
-              dataKey="clients"
-              stroke="var(--color-clients)"
+            <Tooltip />
+            <Line 
+              type="monotone" 
+              dataKey="new_clients" 
+              stroke="#10b981" 
               strokeWidth={3}
-              dot={{ fill: 'var(--color-clients)', strokeWidth: 2 }}
+              name="New Clients"
             />
-            <Line
-              type="monotone"
-              dataKey="newClients"
-              stroke="var(--color-newClients)"
+            <Line 
+              type="monotone" 
+              dataKey="total_clients" 
+              stroke="#3b82f6" 
               strokeWidth={2}
               strokeDasharray="5 5"
-              dot={{ fill: 'var(--color-newClients)', strokeWidth: 2 }}
+              name="Total Clients"
             />
           </LineChart>
-        </ChartContainer>
+        </ResponsiveContainer>
       </CardContent>
     </Card>
   );

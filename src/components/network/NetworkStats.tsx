@@ -9,20 +9,43 @@ import {
   AlertTriangle,
   CheckCircle
 } from 'lucide-react';
+import { useClients } from '@/hooks/useClients';
+import { useDashboardStats } from '@/hooks/useDashboardAnalytics';
 
-interface NetworkStatsProps {
-  stats: {
-    totalClients: number;
-    activeConnections: number;
-    fiberConnections: number;
-    wirelessConnections: number;
-    suspendedClients: number;
-  };
-}
+const NetworkStats: React.FC = () => {
+  const { clients, isLoading: clientsLoading } = useClients();
+  const { data: dashboardStats, isLoading: statsLoading } = useDashboardStats();
 
-const NetworkStats: React.FC<NetworkStatsProps> = ({ stats }) => {
-  const uptime = 99.2; // Mock uptime percentage
-  const avgSpeed = 42.5; // Mock average speed in Mbps
+  if (clientsLoading || statsLoading) {
+    return (
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+        {[...Array(4)].map((_, i) => (
+          <Card key={i}>
+            <CardContent className="p-6">
+              <div className="animate-pulse space-y-4">
+                <div className="h-4 bg-gray-200 rounded w-3/4"></div>
+                <div className="h-8 bg-gray-200 rounded w-1/2"></div>
+                <div className="h-3 bg-gray-200 rounded w-full"></div>
+              </div>
+            </CardContent>
+          </Card>
+        ))}
+      </div>
+    );
+  }
+
+  const stats = dashboardStats?.data;
+  const totalClients = stats?.totalClients || 0;
+  const activeConnections = stats?.activeClients || 0;
+  const suspendedClients = stats?.suspendedClients || 0;
+  
+  // Calculate connection types from clients data
+  const fiberConnections = clients?.filter(client => client.connection_type === 'fiber').length || 0;
+  const wirelessConnections = clients?.filter(client => client.connection_type === 'wireless').length || 0;
+  const satelliteConnections = clients?.filter(client => client.connection_type === 'satellite').length || 0;
+  const dslConnections = clients?.filter(client => client.connection_type === 'dsl').length || 0;
+
+  const uptime = 99.2; // This would come from actual network monitoring
 
   return (
     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
@@ -32,9 +55,9 @@ const NetworkStats: React.FC<NetworkStatsProps> = ({ stats }) => {
           <Users className="h-4 w-4 text-muted-foreground" />
         </CardHeader>
         <CardContent>
-          <div className="text-2xl font-bold">{stats.totalClients}</div>
+          <div className="text-2xl font-bold">{totalClients}</div>
           <p className="text-xs text-muted-foreground">
-            {stats.activeConnections} active connections
+            {activeConnections} active connections
           </p>
         </CardContent>
       </Card>
@@ -59,12 +82,24 @@ const NetworkStats: React.FC<NetworkStatsProps> = ({ stats }) => {
           <div className="space-y-1">
             <div className="flex justify-between text-sm">
               <span>Fiber:</span>
-              <span className="font-medium">{stats.fiberConnections}</span>
+              <span className="font-medium">{fiberConnections}</span>
             </div>
             <div className="flex justify-between text-sm">
               <span>Wireless:</span>
-              <span className="font-medium">{stats.wirelessConnections}</span>
+              <span className="font-medium">{wirelessConnections}</span>
             </div>
+            {satelliteConnections > 0 && (
+              <div className="flex justify-between text-sm">
+                <span>Satellite:</span>
+                <span className="font-medium">{satelliteConnections}</span>
+              </div>
+            )}
+            {dslConnections > 0 && (
+              <div className="flex justify-between text-sm">
+                <span>DSL:</span>
+                <span className="font-medium">{dslConnections}</span>
+              </div>
+            )}
           </div>
         </CardContent>
       </Card>
@@ -75,7 +110,7 @@ const NetworkStats: React.FC<NetworkStatsProps> = ({ stats }) => {
           <AlertTriangle className="h-4 w-4 text-yellow-500" />
         </CardHeader>
         <CardContent>
-          <div className="text-2xl font-bold text-yellow-600">{stats.suspendedClients}</div>
+          <div className="text-2xl font-bold text-yellow-600">{suspendedClients}</div>
           <p className="text-xs text-muted-foreground">Suspended clients</p>
         </CardContent>
       </Card>

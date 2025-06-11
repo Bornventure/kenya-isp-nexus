@@ -1,65 +1,67 @@
 
 import React from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { ChartContainer, ChartTooltip, ChartTooltipContent } from '@/components/ui/chart';
-import { AreaChart, Area, XAxis, YAxis, ResponsiveContainer } from 'recharts';
-
-const chartData = [
-  { month: 'Jan', revenue: 2100000, target: 2200000 },
-  { month: 'Feb', revenue: 2350000, target: 2300000 },
-  { month: 'Mar', revenue: 2680000, target: 2400000 },
-  { month: 'Apr', revenue: 2520000, target: 2500000 },
-  { month: 'May', revenue: 2750000, target: 2600000 },
-  { month: 'Jun', revenue: 2847500, target: 2700000 },
-];
-
-const chartConfig = {
-  revenue: {
-    label: 'Revenue',
-    color: 'hsl(var(--chart-1))',
-  },
-  target: {
-    label: 'Target',
-    color: 'hsl(var(--chart-2))',
-  },
-};
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
+import { useRevenueData } from '@/hooks/useDashboardAnalytics';
 
 const RevenueChart = () => {
+  const { data: revenueData, isLoading } = useRevenueData(6); // Last 6 months
+
+  if (isLoading) {
+    return (
+      <Card>
+        <CardHeader>
+          <CardTitle>Monthly Revenue</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="h-80 flex items-center justify-center">
+            <div className="animate-pulse text-gray-500">Loading revenue data...</div>
+          </div>
+        </CardContent>
+      </Card>
+    );
+  }
+
+  // Transform data for chart
+  const chartData = revenueData?.data?.map(item => ({
+    month: new Date(item.month + '-01').toLocaleDateString('en-US', { month: 'short' }),
+    revenue: item.revenue / 1000, // Convert to thousands for better display
+    clients: item.clients
+  })) || [];
+
+  // If no data, show sample data
+  const displayData = chartData.length > 0 ? chartData : [
+    { month: 'Jan', revenue: 245, clients: 12 },
+    { month: 'Feb', revenue: 280, clients: 15 },
+    { month: 'Mar', revenue: 320, clients: 18 },
+    { month: 'Apr', revenue: 390, clients: 22 },
+    { month: 'May', revenue: 420, clients: 25 },
+    { month: 'Jun', revenue: 485, clients: 28 },
+  ];
+
   return (
     <Card>
       <CardHeader>
-        <CardTitle>Revenue Trend</CardTitle>
+        <CardTitle>Monthly Revenue</CardTitle>
         <p className="text-sm text-muted-foreground">
-          Monthly revenue vs targets (KES)
+          {chartData.length > 0 ? 'Revenue and client growth over the last 6 months' : 'Sample data - connect clients and payments for real data'}
         </p>
       </CardHeader>
       <CardContent>
-        <ChartContainer config={chartConfig}>
-          <AreaChart data={chartData} margin={{ top: 20, right: 30, left: 20, bottom: 5 }}>
+        <ResponsiveContainer width="100%" height={300}>
+          <BarChart data={displayData}>
+            <CartesianGrid strokeDasharray="3 3" />
             <XAxis dataKey="month" />
-            <YAxis tickFormatter={(value) => `${(value / 1000000).toFixed(1)}M`} />
-            <ChartTooltip 
-              content={<ChartTooltipContent />}
-              formatter={(value: number) => [`KES ${value.toLocaleString()}`, '']}
+            <YAxis />
+            <Tooltip 
+              formatter={(value, name) => [
+                name === 'revenue' ? `KES ${(value * 1000).toLocaleString()}` : value,
+                name === 'revenue' ? 'Revenue' : 'New Clients'
+              ]}
             />
-            <Area
-              type="monotone"
-              dataKey="target"
-              stackId="1"
-              stroke="var(--color-target)"
-              fill="var(--color-target)"
-              fillOpacity={0.2}
-            />
-            <Area
-              type="monotone"
-              dataKey="revenue"
-              stackId="2"
-              stroke="var(--color-revenue)"
-              fill="var(--color-revenue)"
-              fillOpacity={0.6}
-            />
-          </AreaChart>
-        </ChartContainer>
+            <Bar dataKey="revenue" fill="#3b82f6" name="revenue" />
+          </BarChart>
+        </ResponsiveContainer>
       </CardContent>
     </Card>
   );
