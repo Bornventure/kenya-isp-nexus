@@ -88,6 +88,152 @@ export const registerClientAuthenticated = async (clientData: ClientRegistration
 // Alias for backward compatibility
 export const registerClient = registerClientAuthenticated;
 
+// Submit a support ticket
+export const submitSupportTicket = async (ticketData: {
+  client_email: string;
+  client_id_number: string;
+  title: string;
+  description: string;
+  priority?: 'low' | 'medium' | 'high';
+}) => {
+  try {
+    console.log('Submitting support ticket:', ticketData.title);
+
+    const { data, error } = await supabase.functions.invoke('submit-support-ticket', {
+      body: ticketData
+    });
+
+    if (error) {
+      console.error('Edge function error:', error);
+      throw new Error(error.message || 'Failed to submit support ticket');
+    }
+
+    if (!data?.success) {
+      throw new Error(data?.error || 'Failed to submit support ticket');
+    }
+
+    console.log('Support ticket submitted successfully:', data.ticket.id);
+    return data;
+
+  } catch (error: any) {
+    console.error('Submit support ticket error:', error);
+    throw new Error(error.message || 'Failed to submit support ticket');
+  }
+};
+
+// Update client profile
+export const updateClientProfile = async (profileData: {
+  client_email: string;
+  client_id_number: string;
+  updates: {
+    phone?: string;
+    mpesa_number?: string;
+    address?: string;
+    county?: string;
+    sub_county?: string;
+  };
+}) => {
+  try {
+    console.log('Updating client profile for:', profileData.client_email);
+
+    const { data, error } = await supabase.functions.invoke('update-client-profile', {
+      body: profileData
+    });
+
+    if (error) {
+      console.error('Edge function error:', error);
+      throw new Error(error.message || 'Failed to update profile');
+    }
+
+    if (!data?.success) {
+      throw new Error(data?.error || 'Failed to update profile');
+    }
+
+    console.log('Client profile updated successfully');
+    return data;
+
+  } catch (error: any) {
+    console.error('Update client profile error:', error);
+    throw new Error(error.message || 'Failed to update profile');
+  }
+};
+
+// Get payment history with pagination
+export const getPaymentHistory = async (params: {
+  client_email: string;
+  client_id_number: string;
+  page?: number;
+  limit?: number;
+}) => {
+  try {
+    const queryParams = new URLSearchParams({
+      client_email: params.client_email,
+      client_id_number: params.client_id_number,
+      page: (params.page || 1).toString(),
+      limit: (params.limit || 10).toString()
+    });
+
+    console.log('Fetching payment history for:', params.client_email);
+
+    const { data, error } = await supabase.functions.invoke('get-payment-history?' + queryParams.toString());
+
+    if (error) {
+      console.error('Edge function error:', error);
+      throw new Error(error.message || 'Failed to fetch payment history');
+    }
+
+    if (!data?.success) {
+      throw new Error(data?.error || 'Failed to fetch payment history');
+    }
+
+    console.log('Payment history fetched:', data.payments.length, 'payments');
+    return data;
+
+  } catch (error: any) {
+    console.error('Get payment history error:', error);
+    throw new Error(error.message || 'Failed to fetch payment history');
+  }
+};
+
+// Get invoice details (single invoice or list with pagination)
+export const getInvoiceDetails = async (params: {
+  client_email: string;
+  client_id_number: string;
+  invoice_id?: string;
+  page?: number;
+  limit?: number;
+}) => {
+  try {
+    const queryParams = new URLSearchParams({
+      client_email: params.client_email,
+      client_id_number: params.client_id_number,
+      ...(params.invoice_id && { invoice_id: params.invoice_id }),
+      ...(params.page && { page: params.page.toString() }),
+      ...(params.limit && { limit: params.limit.toString() })
+    });
+
+    console.log('Fetching invoice details for:', params.client_email);
+
+    const { data, error } = await supabase.functions.invoke('get-invoice-details?' + queryParams.toString());
+
+    if (error) {
+      console.error('Edge function error:', error);
+      throw new Error(error.message || 'Failed to fetch invoice details');
+    }
+
+    if (!data?.success) {
+      throw new Error(data?.error || 'Failed to fetch invoice details');
+    }
+
+    console.log('Invoice details fetched successfully');
+    return data;
+
+  } catch (error: any) {
+    console.error('Get invoice details error:', error);
+    throw new Error(error.message || 'Failed to fetch invoice details');
+  }
+};
+
 // Get client profile data
 export const getClientProfile = async () => {
   try {
