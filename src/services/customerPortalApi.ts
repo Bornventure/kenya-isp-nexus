@@ -22,27 +22,33 @@ export interface ClientRegistrationData {
   isp_company_id: string;
 }
 
-// Customer login using email and ID number verification
+// Customer login using the correct Supabase edge function
 export const customerLogin = async (loginData: CustomerLoginData) => {
   try {
     console.log('Attempting customer login with:', { email: loginData.email, idNumber: loginData.idNumber });
     
-    // Use standard Supabase authentication
-    const { data: authData, error: authError } = await supabase.auth.signInWithPassword({
-      email: loginData.email,
-      password: loginData.idNumber
+    // Use the Supabase client to call the edge function directly
+    const { data, error } = await supabase.functions.invoke('client-auth', {
+      body: {
+        email: loginData.email,
+        id_number: loginData.idNumber
+      }
     });
 
-    if (authError) {
-      console.error('Authentication failed:', authError);
-      throw new Error('Invalid email or ID number. Please check your credentials.');
+    if (error) {
+      console.error('Edge function error:', error);
+      throw new Error(error.message || 'Authentication failed');
     }
 
-    console.log('Customer login successful:', authData);
+    if (!data?.success) {
+      console.error('Authentication failed:', data?.error);
+      throw new Error(data?.error || 'Invalid email or ID number. Please check your credentials.');
+    }
+
+    console.log('Customer login successful:', data);
     return {
       success: true,
-      user: authData.user,
-      session: authData.session
+      client: data.client
     };
 
   } catch (error: any) {
@@ -51,29 +57,28 @@ export const customerLogin = async (loginData: CustomerLoginData) => {
   }
 };
 
-// Register a new client through the customer portal (exported as registerClientAuthenticated for compatibility)
+// Register a new client through the customer portal
 export const registerClientAuthenticated = async (clientData: ClientRegistrationData, accessToken: string) => {
   try {
     console.log('Registering client via customer portal:', clientData);
 
-    const response = await fetch('/api/supabase/functions/v1/authenticated-client-registration', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${accessToken}`,
-      },
-      body: JSON.stringify(clientData),
+    // Use the Supabase client to call the edge function
+    const { data, error } = await supabase.functions.invoke('client-registration', {
+      body: clientData
     });
 
-    if (!response.ok) {
-      const errorData = await response.json();
-      throw new Error(errorData.error || 'Registration failed');
+    if (error) {
+      console.error('Edge function error:', error);
+      throw new Error(error.message || 'Registration failed');
     }
 
-    const result = await response.json();
-    console.log('Client registration successful:', result);
+    if (!data?.success) {
+      throw new Error(data?.error || 'Registration failed');
+    }
+
+    console.log('Client registration successful:', data);
+    return data;
     
-    return result;
   } catch (error: any) {
     console.error('Client registration error:', error);
     throw new Error(error.message || 'Registration failed. Please try again.');
