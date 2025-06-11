@@ -40,14 +40,6 @@ const NetworkMap = () => {
     return statusMatch && typeMatch && searchMatch;
   });
 
-  const networkStats = {
-    totalClients: mockClients.length,
-    activeConnections: mockClients.filter(c => c.status === 'active').length,
-    fiberConnections: mockClients.filter(c => c.connectionType === 'fiber').length,
-    wirelessConnections: mockClients.filter(c => c.connectionType === 'wireless').length,
-    suspendedClients: mockClients.filter(c => c.status === 'suspended').length,
-  };
-
   const handleViewClient = (client: any) => {
     console.log('View client:', client);
   };
@@ -75,7 +67,7 @@ const NetworkMap = () => {
       </div>
 
       {/* Network Statistics */}
-      <NetworkStats stats={networkStats} />
+      <NetworkStats />
 
       {/* Filters and Search */}
       <Card>

@@ -25,7 +25,7 @@ const RevenueChart = () => {
   // Transform data for chart
   const chartData = revenueData?.data?.map(item => ({
     month: new Date(item.month + '-01').toLocaleDateString('en-US', { month: 'short' }),
-    revenue: item.revenue / 1000, // Convert to thousands for better display
+    revenue: Number(item.revenue) / 1000, // Convert to thousands for better display and ensure it's a number
     clients: item.clients
   })) || [];
 
@@ -55,7 +55,7 @@ const RevenueChart = () => {
             <YAxis />
             <Tooltip 
               formatter={(value, name) => [
-                name === 'revenue' ? `KES ${(value * 1000).toLocaleString()}` : value,
+                name === 'revenue' ? `KES ${(Number(value) * 1000).toLocaleString()}` : value,
                 name === 'revenue' ? 'Revenue' : 'New Clients'
               ]}
             />
