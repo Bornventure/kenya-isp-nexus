@@ -71,6 +71,7 @@ export type Database = {
           id: string
           id_number: string
           installation_date: string | null
+          is_active: boolean
           isp_company_id: string | null
           kra_pin_number: string | null
           latitude: number | null
@@ -95,6 +96,7 @@ export type Database = {
           id?: string
           id_number: string
           installation_date?: string | null
+          is_active?: boolean
           isp_company_id?: string | null
           kra_pin_number?: string | null
           latitude?: number | null
@@ -119,6 +121,7 @@ export type Database = {
           id?: string
           id_number?: string
           installation_date?: string | null
+          is_active?: boolean
           isp_company_id?: string | null
           kra_pin_number?: string | null
           latitude?: number | null
