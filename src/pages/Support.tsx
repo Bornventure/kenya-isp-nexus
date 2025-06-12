@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -28,81 +27,29 @@ import {
   User,
   Search,
   Plus,
-  Filter
+  Filter,
+  Loader2
 } from 'lucide-react';
+import { useSupportTickets, useTicketMutations } from '@/hooks/useApiQueries';
+import { useAuth } from '@/contexts/AuthContext';
+import { useToast } from '@/hooks/use-toast';
 
 const Support = () => {
+  const { profile } = useAuth();
+  const { toast } = useToast();
+  const { data: tickets, isLoading, error } = useSupportTickets();
+  const { createTicket, updateTicket } = useTicketMutations();
+
   const [newTicketTitle, setNewTicketTitle] = useState('');
   const [newTicketDescription, setNewTicketDescription] = useState('');
   const [newTicketPriority, setNewTicketPriority] = useState('medium');
-  const [newTicketCategory, setNewTicketCategory] = useState('technical');
   const [searchTerm, setSearchTerm] = useState('');
   const [filterStatus, setFilterStatus] = useState('all');
-
-  // Mock support tickets data
-  const supportTickets = [
-    {
-      id: 'TICK-001',
-      title: 'Internet connection issues in Milimani',
-      description: 'Multiple clients in Milimani area reporting slow internet speeds',
-      client: 'John Otieno',
-      clientId: '1',
-      status: 'open',
-      priority: 'high',
-      category: 'technical',
-      createdAt: '2024-06-01T09:00:00',
-      updatedAt: '2024-06-01T14:30:00',
-      assignedTo: 'Tech Support Team',
-      responses: 3
-    },
-    {
-      id: 'TICK-002',
-      title: 'Billing inquiry - incorrect charges',
-      description: 'Client questioning charges on recent invoice',
-      client: 'Grace Nyongo',
-      clientId: '2',
-      status: 'in-progress',
-      priority: 'medium',
-      category: 'billing',
-      createdAt: '2024-05-30T11:15:00',
-      updatedAt: '2024-06-01T10:00:00',
-      assignedTo: 'Billing Team',
-      responses: 2
-    },
-    {
-      id: 'TICK-003',
-      title: 'Equipment replacement request',
-      description: 'Router needs replacement due to frequent disconnections',
-      client: 'Peter Ouma',
-      clientId: '4',
-      status: 'resolved',
-      priority: 'medium',
-      category: 'equipment',
-      createdAt: '2024-05-28T16:20:00',
-      updatedAt: '2024-05-30T09:45:00',
-      assignedTo: 'Field Team',
-      responses: 5
-    },
-    {
-      id: 'TICK-004',
-      title: 'New service installation request',
-      description: 'Request for fiber installation at new location',
-      client: 'Kisumu Medical Center',
-      clientId: '3',
-      status: 'open',
-      priority: 'low',
-      category: 'installation',
-      createdAt: '2024-05-25T14:00:00',
-      updatedAt: '2024-05-26T11:30:00',
-      assignedTo: 'Installation Team',
-      responses: 1
-    }
-  ];
 
   const getStatusIcon = (status: string) => {
     switch (status) {
       case 'open': return <AlertCircle className="h-4 w-4 text-red-500" />;
-      case 'in-progress': return <Clock className="h-4 w-4 text-yellow-500" />;
+      case 'in_progress': return <Clock className="h-4 w-4 text-yellow-500" />;
       case 'resolved': return <CheckCircle className="h-4 w-4 text-green-500" />;
       default: return <MessageSquare className="h-4 w-4 text-gray-500" />;
     }
@@ -111,7 +58,7 @@ const Support = () => {
   const getStatusColor = (status: string) => {
     switch (status) {
       case 'open': return 'bg-red-500';
-      case 'in-progress': return 'bg-yellow-500';
+      case 'in_progress': return 'bg-yellow-500';
       case 'resolved': return 'bg-green-500';
       default: return 'bg-gray-500';
     }
@@ -126,38 +73,78 @@ const Support = () => {
     }
   };
 
-  const filteredTickets = supportTickets.filter(ticket => {
+  const filteredTickets = tickets?.data?.filter(ticket => {
     const statusMatch = filterStatus === 'all' || ticket.status === filterStatus;
     const searchMatch = searchTerm === '' || 
       ticket.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      ticket.client.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      ticket.clients?.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
       ticket.id.toLowerCase().includes(searchTerm.toLowerCase());
     
     return statusMatch && searchMatch;
-  });
+  }) || [];
 
-  const handleCreateTicket = () => {
-    console.log('Creating new ticket:', {
-      title: newTicketTitle,
-      description: newTicketDescription,
-      priority: newTicketPriority,
-      category: newTicketCategory
-    });
-    // Reset form
-    setNewTicketTitle('');
-    setNewTicketDescription('');
-    setNewTicketPriority('medium');
-    setNewTicketCategory('technical');
+  const handleCreateTicket = async () => {
+    if (!newTicketTitle.trim() || !newTicketDescription.trim()) {
+      toast({
+        title: "Missing information",
+        description: "Please fill in both title and description",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    try {
+      await createTicket.mutateAsync({
+        title: newTicketTitle,
+        description: newTicketDescription,
+        priority: newTicketPriority as 'low' | 'medium' | 'high',
+        status: 'open',
+        isp_company_id: profile?.isp_company_id,
+        created_by: profile?.id,
+      });
+
+      // Reset form
+      setNewTicketTitle('');
+      setNewTicketDescription('');
+      setNewTicketPriority('medium');
+    } catch (error) {
+      console.error('Error creating ticket:', error);
+    }
+  };
+
+  const handleStatusChange = async (ticketId: string, newStatus: string) => {
+    try {
+      await updateTicket.mutateAsync({
+        id: ticketId,
+        updates: { 
+          status: newStatus as 'open' | 'in_progress' | 'resolved',
+          resolved_at: newStatus === 'resolved' ? new Date().toISOString() : null
+        }
+      });
+    } catch (error) {
+      console.error('Error updating ticket status:', error);
+    }
   };
 
   const ticketStats = {
-    total: supportTickets.length,
-    open: supportTickets.filter(t => t.status === 'open').length,
-    inProgress: supportTickets.filter(t => t.status === 'in-progress').length,
-    resolved: supportTickets.filter(t => t.status === 'resolved').length,
+    total: tickets?.data?.length || 0,
+    open: tickets?.data?.filter(t => t.status === 'open').length || 0,
+    inProgress: tickets?.data?.filter(t => t.status === 'in_progress').length || 0,
+    resolved: tickets?.data?.filter(t => t.status === 'resolved').length || 0,
     avgResponseTime: '2.5 hours',
-    resolutionRate: '85%'
+    resolutionRate: tickets?.data?.length ? 
+      Math.round((tickets.data.filter(t => t.status === 'resolved').length / tickets.data.length) * 100) + '%' : '0%'
   };
+
+  if (error) {
+    return (
+      <div className="p-6 text-center">
+        <AlertCircle className="h-12 w-12 text-red-500 mx-auto mb-4" />
+        <h2 className="text-lg font-semibold mb-2">Error Loading Support Tickets</h2>
+        <p className="text-muted-foreground">Failed to load support tickets. Please try again.</p>
+      </div>
+    );
+  }
 
   return (
     <div className="p-6 space-y-6">
@@ -262,7 +249,7 @@ const Support = () => {
                       <SelectContent>
                         <SelectItem value="all">All Status</SelectItem>
                         <SelectItem value="open">Open</SelectItem>
-                        <SelectItem value="in-progress">In Progress</SelectItem>
+                        <SelectItem value="in_progress">In Progress</SelectItem>
                         <SelectItem value="resolved">Resolved</SelectItem>
                       </SelectContent>
                     </Select>
@@ -272,57 +259,107 @@ const Support = () => {
             </CardContent>
           </Card>
 
+          {/* Loading State */}
+          {isLoading && (
+            <Card>
+              <CardContent className="p-8 text-center">
+                <Loader2 className="h-8 w-8 animate-spin mx-auto mb-4" />
+                <p className="text-muted-foreground">Loading support tickets...</p>
+              </CardContent>
+            </Card>
+          )}
+
           {/* Tickets List */}
-          <Card>
-            <CardContent className="p-0">
-              <div className="space-y-0">
-                {filteredTickets.map((ticket) => (
-                  <div key={ticket.id} className="border-b last:border-b-0 p-4 hover:bg-muted/50">
-                    <div className="flex items-start justify-between">
-                      <div className="flex items-start gap-3 flex-1">
-                        {getStatusIcon(ticket.status)}
-                        <div className="flex-1">
-                          <div className="flex items-center gap-2 mb-1">
-                            <h4 className="font-medium">{ticket.title}</h4>
-                            <Badge variant="outline" className="text-xs">
-                              {ticket.id}
-                            </Badge>
+          {!isLoading && (
+            <Card>
+              <CardContent className="p-0">
+                {filteredTickets.length === 0 ? (
+                  <div className="p-8 text-center">
+                    <MessageSquare className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
+                    <h3 className="text-lg font-semibold mb-2">No tickets found</h3>
+                    <p className="text-muted-foreground">
+                      {searchTerm || filterStatus !== 'all' 
+                        ? 'Try adjusting your search or filters' 
+                        : 'Create your first support ticket to get started'}
+                    </p>
+                  </div>
+                ) : (
+                  <div className="space-y-0">
+                    {filteredTickets.map((ticket) => (
+                      <div key={ticket.id} className="border-b last:border-b-0 p-4 hover:bg-muted/50">
+                        <div className="flex items-start justify-between">
+                          <div className="flex items-start gap-3 flex-1">
+                            {getStatusIcon(ticket.status)}
+                            <div className="flex-1">
+                              <div className="flex items-center gap-2 mb-1">
+                                <h4 className="font-medium">{ticket.title}</h4>
+                                <Badge variant="outline" className="text-xs">
+                                  {ticket.id.slice(0, 8)}
+                                </Badge>
+                              </div>
+                              <p className="text-sm text-muted-foreground mb-2">
+                                {ticket.description}
+                              </p>
+                              <div className="flex items-center gap-4 text-xs text-muted-foreground">
+                                <div className="flex items-center gap-1">
+                                  <User className="h-3 w-3" />
+                                  {ticket.clients?.name || 'No client assigned'}
+                                </div>
+                                <div className="flex items-center gap-1">
+                                  <Clock className="h-3 w-3" />
+                                  {new Date(ticket.created_at).toLocaleDateString()}
+                                </div>
+                              </div>
+                            </div>
                           </div>
-                          <p className="text-sm text-muted-foreground mb-2">
-                            {ticket.description}
-                          </p>
-                          <div className="flex items-center gap-4 text-xs text-muted-foreground">
-                            <div className="flex items-center gap-1">
-                              <User className="h-3 w-3" />
-                              {ticket.client}
-                            </div>
-                            <div className="flex items-center gap-1">
-                              <Clock className="h-3 w-3" />
-                              {new Date(ticket.createdAt).toLocaleDateString()}
-                            </div>
-                            <div>
-                              Assigned to: {ticket.assignedTo}
-                            </div>
-                            <div>
-                              {ticket.responses} responses
+                          <div className="flex items-center gap-2">
+                            <Badge className={`text-white ${getPriorityColor(ticket.priority)}`}>
+                              {ticket.priority}
+                            </Badge>
+                            <Badge className={`text-white ${getStatusColor(ticket.status)}`}>
+                              {ticket.status.replace('_', ' ')}
+                            </Badge>
+                            <div className="flex gap-1 ml-2">
+                              {ticket.status === 'open' && (
+                                <Button
+                                  size="sm"
+                                  variant="outline"
+                                  onClick={() => handleStatusChange(ticket.id, 'in_progress')}
+                                  disabled={updateTicket.isPending}
+                                >
+                                  Start
+                                </Button>
+                              )}
+                              {ticket.status === 'in_progress' && (
+                                <Button
+                                  size="sm"
+                                  variant="outline"
+                                  onClick={() => handleStatusChange(ticket.id, 'resolved')}
+                                  disabled={updateTicket.isPending}
+                                >
+                                  Resolve
+                                </Button>
+                              )}
+                              {ticket.status === 'resolved' && (
+                                <Button
+                                  size="sm"
+                                  variant="outline"
+                                  onClick={() => handleStatusChange(ticket.id, 'open')}
+                                  disabled={updateTicket.isPending}
+                                >
+                                  Reopen
+                                </Button>
+                              )}
                             </div>
                           </div>
                         </div>
                       </div>
-                      <div className="flex items-center gap-2">
-                        <Badge className={`text-white ${getPriorityColor(ticket.priority)}`}>
-                          {ticket.priority}
-                        </Badge>
-                        <Badge className={`text-white ${getStatusColor(ticket.status)}`}>
-                          {ticket.status}
-                        </Badge>
-                      </div>
-                    </div>
+                    ))}
                   </div>
-                ))}
-              </div>
-            </CardContent>
-          </Card>
+                )}
+              </CardContent>
+            </Card>
+          )}
         </TabsContent>
 
         <TabsContent value="create" className="space-y-4">
@@ -343,36 +380,18 @@ const Support = () => {
                 />
               </div>
               
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div>
-                  <label className="text-sm font-medium mb-1 block">Priority</label>
-                  <Select value={newTicketPriority} onValueChange={setNewTicketPriority}>
-                    <SelectTrigger>
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="low">Low</SelectItem>
-                      <SelectItem value="medium">Medium</SelectItem>
-                      <SelectItem value="high">High</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-                
-                <div>
-                  <label className="text-sm font-medium mb-1 block">Category</label>
-                  <Select value={newTicketCategory} onValueChange={setNewTicketCategory}>
-                    <SelectTrigger>
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="technical">Technical Issue</SelectItem>
-                      <SelectItem value="billing">Billing Inquiry</SelectItem>
-                      <SelectItem value="equipment">Equipment</SelectItem>
-                      <SelectItem value="installation">Installation</SelectItem>
-                      <SelectItem value="other">Other</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
+              <div>
+                <label className="text-sm font-medium mb-1 block">Priority</label>
+                <Select value={newTicketPriority} onValueChange={setNewTicketPriority}>
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="low">Low</SelectItem>
+                    <SelectItem value="medium">Medium</SelectItem>
+                    <SelectItem value="high">High</SelectItem>
+                  </SelectContent>
+                </Select>
               </div>
               
               <div>
@@ -385,8 +404,19 @@ const Support = () => {
                 />
               </div>
               
-              <Button onClick={handleCreateTicket} className="w-full">
-                Create Ticket
+              <Button 
+                onClick={handleCreateTicket} 
+                className="w-full"
+                disabled={createTicket.isPending}
+              >
+                {createTicket.isPending ? (
+                  <>
+                    <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                    Creating...
+                  </>
+                ) : (
+                  'Create Ticket'
+                )}
               </Button>
             </CardContent>
           </Card>
