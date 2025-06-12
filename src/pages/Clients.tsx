@@ -22,7 +22,9 @@ import {
   UserPlus,
   Users,
   Loader2,
+  RefreshCw,
 } from 'lucide-react';
+import { useQueryClient } from '@tanstack/react-query';
 
 const Clients = () => {
   const [searchTerm, setSearchTerm] = useState('');
@@ -34,7 +36,8 @@ const Clients = () => {
   const [showClientDetails, setShowClientDetails] = useState(false);
   const [currentView, setCurrentView] = useState<ViewMode>('list');
 
-  const { clients, isLoading, updateClient, isUpdatingClient } = useClients();
+  const { clients, isLoading, updateClient, deleteClient, isUpdatingClient, isDeletingClient } = useClients();
+  const queryClient = useQueryClient();
 
   const filteredClients = clients.filter(client => {
     const matchesSearch = client.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -108,6 +111,16 @@ const Clients = () => {
     }
   };
 
+  const handleDeleteClient = (clientId: string) => {
+    deleteClient(clientId);
+    setShowClientDetails(false);
+    setSelectedClient(null);
+  };
+
+  const handleRefreshData = () => {
+    queryClient.invalidateQueries({ queryKey: ['clients'] });
+  };
+
   const renderCurrentView = () => {
     switch (currentView) {
       case 'grid':
@@ -138,13 +151,24 @@ const Clients = () => {
               Manage your internet service subscribers
             </p>
           </div>
-          <Button 
-            className="gap-2" 
-            onClick={() => setShowRegistrationForm(true)}
-          >
-            <UserPlus className="h-4 w-4" />
-            Add New Client
-          </Button>
+          <div className="flex gap-2">
+            <Button 
+              variant="outline"
+              size="sm"
+              onClick={handleRefreshData}
+              className="gap-2"
+            >
+              <RefreshCw className="h-4 w-4" />
+              Refresh
+            </Button>
+            <Button 
+              className="gap-2" 
+              onClick={() => setShowRegistrationForm(true)}
+            >
+              <UserPlus className="h-4 w-4" />
+              Add New Client
+            </Button>
+          </div>
         </div>
 
         {/* Search and Filters */}
@@ -311,6 +335,9 @@ const Clients = () => {
           onClose={() => setShowClientDetails(false)}
           onEdit={handleEditClient}
           onStatusChange={handleStatusChange}
+          onDelete={handleDeleteClient}
+          isUpdating={isUpdatingClient}
+          isDeleting={isDeletingClient}
         />
       )}
     </div>

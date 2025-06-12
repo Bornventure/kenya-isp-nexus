@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
@@ -130,13 +129,42 @@ export const useClients = () => {
     },
   });
 
+  const deleteClientMutation = useMutation({
+    mutationFn: async (clientId: string) => {
+      const { error } = await supabase
+        .from('clients')
+        .delete()
+        .eq('id', clientId);
+
+      if (error) throw error;
+      return clientId;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['clients'] });
+      toast({
+        title: "Client Deleted",
+        description: "Client has been successfully deleted.",
+      });
+    },
+    onError: (error) => {
+      console.error('Error deleting client:', error);
+      toast({
+        title: "Error",
+        description: "Failed to delete client. Please try again.",
+        variant: "destructive",
+      });
+    },
+  });
+
   return {
     clients,
     isLoading,
     error,
     addClient: addClientMutation.mutate,
     updateClient: updateClientMutation.mutate,
+    deleteClient: deleteClientMutation.mutate,
     isAddingClient: addClientMutation.isPending,
     isUpdatingClient: updateClientMutation.isPending,
+    isDeletingClient: deleteClientMutation.isPending,
   };
 };
