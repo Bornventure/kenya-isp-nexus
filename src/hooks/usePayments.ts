@@ -71,11 +71,13 @@ export const usePayments = () => {
 
       if (error) throw error;
 
-      // Update client balance
-      const { error: balanceError } = await supabase.rpc('update_client_balance', {
-        client_id: paymentData.client_id,
-        payment_amount: paymentData.amount
-      });
+      // Update client balance by adding the payment amount
+      const { error: balanceError } = await supabase
+        .from('clients')
+        .update({ 
+          balance: supabase.raw(`balance + ${paymentData.amount}`)
+        })
+        .eq('id', paymentData.client_id);
 
       if (balanceError) {
         console.error('Error updating client balance:', balanceError);

@@ -39,10 +39,27 @@ const ReceiptViewer: React.FC<ReceiptViewerProps> = ({
         
         <div className="bg-white p-8 border rounded-lg">
           {/* Header */}
-          <div className="text-center mb-8">
-            <h1 className="text-2xl font-bold text-gray-900">ISP Company</h1>
-            <p className="text-gray-600">Internet Service Provider</p>
-            <p className="text-sm text-gray-500">P.O. Box 123, Nairobi, Kenya</p>
+          <div className="flex items-center justify-between mb-8">
+            <div className="flex items-center gap-4">
+              <img 
+                src="/lovable-uploads/29dec1bf-11a7-44c4-b61f-4cdfe1cbdc5c.png" 
+                alt="DataDefender Logo" 
+                className="h-16 w-16 object-contain"
+              />
+              <div>
+                <h1 className="text-2xl font-bold text-gray-900">DataDefender</h1>
+                <p className="text-gray-600">Internet Service Provider</p>
+                <p className="text-sm text-gray-500">
+                  P.O. Box 12345, Nairobi, Kenya<br />
+                  Email: billing@datadefender.co.ke<br />
+                  Phone: +254 700 123 456
+                </p>
+              </div>
+            </div>
+            <div className="text-right">
+              <h2 className="text-xl font-bold text-gray-900">RECEIPT</h2>
+              <p className="text-gray-600">#{receipt.receiptNumber}</p>
+            </div>
           </div>
 
           {/* Receipt Info */}
@@ -82,7 +99,8 @@ const ReceiptViewer: React.FC<ReceiptViewerProps> = ({
           {/* Footer */}
           <div className="text-center text-sm text-gray-500 border-t pt-4">
             <p>Thank you for your payment!</p>
-            <p>For support, contact us at support@ispcompany.com</p>
+            <p>For support, contact us at support@datadefender.co.ke</p>
+            <p>Visit us at www.datadefender.co.ke</p>
           </div>
         </div>
 

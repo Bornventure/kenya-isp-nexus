@@ -32,64 +32,42 @@ import {
   Users,
   AlertCircle,
   CheckCircle,
-  Clock
+  Clock,
+  RefreshCw
 } from 'lucide-react';
-
-// Mock invoice data
-const mockInvoices = [
-  {
-    id: 'INV-2024-001',
-    clientId: '1',
-    clientName: 'John Doe',
-    amount: 5000,
-    status: 'paid',
-    dueDate: '2024-01-15',
-    issueDate: '2024-01-01',
-    description: 'Internet Service - January 2024'
-  },
-  {
-    id: 'INV-2024-002',
-    clientId: '2',
-    clientName: 'Jane Smith',
-    amount: 7500,
-    status: 'pending',
-    dueDate: '2024-01-20',
-    issueDate: '2024-01-05',
-    description: 'Internet Service - January 2024'
-  },
-  {
-    id: 'INV-2024-003',
-    clientId: '3',
-    clientName: 'Tech Solutions Ltd',
-    amount: 25000,
-    status: 'overdue',
-    dueDate: '2024-01-10',
-    issueDate: '2023-12-26',
-    description: 'Corporate Internet Package - January 2024'
-  },
-  {
-    id: 'INV-2024-004',
-    clientId: '4',
-    clientName: 'Sarah Wilson',
-    amount: 6000,
-    status: 'draft',
-    dueDate: '2024-02-01',
-    issueDate: '2024-01-15',
-    description: 'Internet Service - February 2024'
-  }
-];
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from '@/components/ui/dialog';
+import { useInvoices } from '@/hooks/useInvoices';
+import { usePayments } from '@/hooks/usePayments';
+import { formatKenyanCurrency } from '@/utils/kenyanValidation';
+import InvoiceGenerator from '@/components/billing/InvoiceGenerator';
+import InvoiceViewer from '@/components/billing/InvoiceViewer';
+import PaymentDialog from '@/components/billing/PaymentDialog';
+import InvoiceActions from '@/components/billing/InvoiceActions';
+import { useToast } from '@/hooks/use-toast';
 
 const Invoices = () => {
+  const { invoices, isLoading, updateInvoice } = useInvoices();
+  const { createPayment } = usePayments();
+  const { toast } = useToast();
+  
   const [searchTerm, setSearchTerm] = useState('');
   const [filterStatus, setFilterStatus] = useState<string>('all');
   const [filterPeriod, setFilterPeriod] = useState<string>('all');
+  const [selectedInvoice, setSelectedInvoice] = useState<any>(null);
+  const [showInvoiceViewer, setShowInvoiceViewer] = useState(false);
+  const [showPaymentDialog, setShowPaymentDialog] = useState(false);
 
-  const filteredInvoices = mockInvoices.filter(invoice => {
+  const filteredInvoices = invoices.filter(invoice => {
     const statusMatch = filterStatus === 'all' || invoice.status === filterStatus;
     const searchMatch = searchTerm === '' || 
-      invoice.clientName.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      invoice.id.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      invoice.description.toLowerCase().includes(searchTerm.toLowerCase());
+      invoice.clients?.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      invoice.invoice_number.toLowerCase().includes(searchTerm.toLowerCase());
     
     return statusMatch && searchMatch;
   });
@@ -114,14 +92,6 @@ const Invoices = () => {
     }
   };
 
-  const formatCurrency = (amount: number) => {
-    return new Intl.NumberFormat('en-KE', {
-      style: 'currency',
-      currency: 'KES',
-      minimumFractionDigits: 0
-    }).format(amount);
-  };
-
   const formatDate = (dateString: string) => {
     return new Date(dateString).toLocaleDateString('en-KE', {
       year: 'numeric',
@@ -130,10 +100,81 @@ const Invoices = () => {
     });
   };
 
-  const totalAmount = filteredInvoices.reduce((sum, invoice) => sum + invoice.amount, 0);
-  const paidAmount = filteredInvoices.filter(inv => inv.status === 'paid').reduce((sum, invoice) => sum + invoice.amount, 0);
-  const pendingAmount = filteredInvoices.filter(inv => inv.status === 'pending').reduce((sum, invoice) => sum + invoice.amount, 0);
-  const overdueAmount = filteredInvoices.filter(inv => inv.status === 'overdue').reduce((sum, invoice) => sum + invoice.amount, 0);
+  const handleViewInvoice = (invoice: any) => {
+    setSelectedInvoice(invoice);
+    setShowInvoiceViewer(true);
+  };
+
+  const handleDownloadInvoice = (invoice: any) => {
+    // TODO: Implement PDF generation
+    toast({
+      title: "Download Started",
+      description: `Invoice ${invoice.invoice_number} is being prepared for download.`,
+    });
+  };
+
+  const handleSendEmail = (invoice: any) => {
+    // TODO: Implement email sending
+    toast({
+      title: "Email Sent",
+      description: `Invoice ${invoice.invoice_number} has been sent to ${invoice.clients?.email}.`,
+    });
+  };
+
+  const handleMarkPaid = (invoice: any) => {
+    updateInvoice({
+      id: invoice.id,
+      updates: { status: 'paid' }
+    });
+    
+    // Create a payment record
+    createPayment({
+      client_id: invoice.client_id,
+      invoice_id: invoice.id,
+      amount: invoice.total_amount,
+      payment_method: 'manual' as any,
+      payment_date: new Date().toISOString(),
+      reference_number: `Manual-${Date.now()}`,
+      mpesa_receipt_number: null,
+      notes: 'Manually marked as paid',
+    });
+  };
+
+  const handleInitiatePayment = (invoice: any) => {
+    setSelectedInvoice(invoice);
+    setShowPaymentDialog(true);
+  };
+
+  const handlePaymentComplete = (paymentData: any) => {
+    // Update invoice status to paid
+    if (selectedInvoice) {
+      updateInvoice({
+        id: selectedInvoice.id,
+        updates: { status: 'paid' }
+      });
+    }
+    
+    toast({
+      title: "Payment Completed",
+      description: "Invoice has been marked as paid and receipt generated.",
+    });
+  };
+
+  const totalAmount = filteredInvoices.reduce((sum, invoice) => sum + invoice.total_amount, 0);
+  const paidAmount = filteredInvoices.filter(inv => inv.status === 'paid').reduce((sum, invoice) => sum + invoice.total_amount, 0);
+  const pendingAmount = filteredInvoices.filter(inv => inv.status === 'pending').reduce((sum, invoice) => sum + invoice.total_amount, 0);
+  const overdueAmount = filteredInvoices.filter(inv => inv.status === 'overdue').reduce((sum, invoice) => sum + invoice.total_amount, 0);
+
+  if (isLoading) {
+    return (
+      <div className="p-6">
+        <div className="flex items-center gap-2">
+          <RefreshCw className="h-4 w-4 animate-spin" />
+          <span>Loading invoices...</span>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="p-6 space-y-6">
@@ -150,10 +191,20 @@ const Invoices = () => {
             <Download className="h-4 w-4 mr-2" />
             Export
           </Button>
-          <Button size="sm">
-            <Plus className="h-4 w-4 mr-2" />
-            New Invoice
-          </Button>
+          <Dialog>
+            <DialogTrigger asChild>
+              <Button size="sm">
+                <Plus className="h-4 w-4 mr-2" />
+                New Invoice
+              </Button>
+            </DialogTrigger>
+            <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+              <DialogHeader>
+                <DialogTitle>Generate New Invoice</DialogTitle>
+              </DialogHeader>
+              <InvoiceGenerator />
+            </DialogContent>
+          </Dialog>
         </div>
       </div>
 
@@ -165,7 +216,7 @@ const Invoices = () => {
               <DollarSign className="h-8 w-8 text-blue-600" />
               <div className="ml-4">
                 <p className="text-sm font-medium text-muted-foreground">Total Amount</p>
-                <p className="text-2xl font-bold">{formatCurrency(totalAmount)}</p>
+                <p className="text-2xl font-bold">{formatKenyanCurrency(totalAmount)}</p>
               </div>
             </div>
           </CardContent>
@@ -177,7 +228,7 @@ const Invoices = () => {
               <CheckCircle className="h-8 w-8 text-green-600" />
               <div className="ml-4">
                 <p className="text-sm font-medium text-muted-foreground">Paid</p>
-                <p className="text-2xl font-bold text-green-600">{formatCurrency(paidAmount)}</p>
+                <p className="text-2xl font-bold text-green-600">{formatKenyanCurrency(paidAmount)}</p>
               </div>
             </div>
           </CardContent>
@@ -189,7 +240,7 @@ const Invoices = () => {
               <Clock className="h-8 w-8 text-yellow-600" />
               <div className="ml-4">
                 <p className="text-sm font-medium text-muted-foreground">Pending</p>
-                <p className="text-2xl font-bold text-yellow-600">{formatCurrency(pendingAmount)}</p>
+                <p className="text-2xl font-bold text-yellow-600">{formatKenyanCurrency(pendingAmount)}</p>
               </div>
             </div>
           </CardContent>
@@ -201,7 +252,7 @@ const Invoices = () => {
               <AlertCircle className="h-8 w-8 text-red-600" />
               <div className="ml-4">
                 <p className="text-sm font-medium text-muted-foreground">Overdue</p>
-                <p className="text-2xl font-bold text-red-600">{formatCurrency(overdueAmount)}</p>
+                <p className="text-2xl font-bold text-red-600">{formatKenyanCurrency(overdueAmount)}</p>
               </div>
             </div>
           </CardContent>
@@ -243,20 +294,6 @@ const Invoices = () => {
                   </SelectContent>
                 </Select>
               </div>
-              <div className="flex items-center gap-2">
-                <label className="text-sm font-medium whitespace-nowrap">Period:</label>
-                <Select value={filterPeriod} onValueChange={setFilterPeriod}>
-                  <SelectTrigger className="w-32">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">All Time</SelectItem>
-                    <SelectItem value="month">This Month</SelectItem>
-                    <SelectItem value="quarter">This Quarter</SelectItem>
-                    <SelectItem value="year">This Year</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
             </div>
           </div>
         </CardContent>
@@ -266,7 +303,7 @@ const Invoices = () => {
       <Card>
         <CardHeader>
           <CardTitle>
-            Invoices ({filteredInvoices.length} of {mockInvoices.length})
+            Invoices ({filteredInvoices.length} of {invoices.length})
           </CardTitle>
         </CardHeader>
         <CardContent>
@@ -276,49 +313,35 @@ const Invoices = () => {
                 <TableRow>
                   <TableHead>Invoice ID</TableHead>
                   <TableHead>Client</TableHead>
-                  <TableHead>Description</TableHead>
                   <TableHead>Amount</TableHead>
-                  <TableHead>Status</TableHead>
                   <TableHead>Issue Date</TableHead>
                   <TableHead>Due Date</TableHead>
-                  <TableHead>Actions</TableHead>
+                  <TableHead>Status & Actions</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {filteredInvoices.map((invoice) => (
                   <TableRow key={invoice.id}>
-                    <TableCell className="font-medium">{invoice.id}</TableCell>
-                    <TableCell>{invoice.clientName}</TableCell>
-                    <TableCell className="max-w-xs truncate">{invoice.description}</TableCell>
+                    <TableCell className="font-medium">{invoice.invoice_number}</TableCell>
+                    <TableCell>{invoice.clients?.name || 'N/A'}</TableCell>
                     <TableCell className="font-medium">
-                      {formatCurrency(invoice.amount)}
+                      {formatKenyanCurrency(invoice.total_amount)}
                     </TableCell>
-                    <TableCell>
-                      <Badge className={getStatusColor(invoice.status)}>
-                        {getStatusIcon(invoice.status)}
-                        {invoice.status}
-                      </Badge>
-                    </TableCell>
-                    <TableCell>{formatDate(invoice.issueDate)}</TableCell>
+                    <TableCell>{formatDate(invoice.created_at)}</TableCell>
                     <TableCell>
                       <span className={invoice.status === 'overdue' ? 'text-red-600 font-medium' : ''}>
-                        {formatDate(invoice.dueDate)}
+                        {formatDate(invoice.due_date)}
                       </span>
                     </TableCell>
                     <TableCell>
-                      <div className="flex items-center gap-1">
-                        <Button variant="ghost" size="sm">
-                          <Eye className="h-4 w-4" />
-                        </Button>
-                        <Button variant="ghost" size="sm">
-                          <Download className="h-4 w-4" />
-                        </Button>
-                        {invoice.status !== 'paid' && (
-                          <Button variant="ghost" size="sm">
-                            <Send className="h-4 w-4" />
-                          </Button>
-                        )}
-                      </div>
+                      <InvoiceActions
+                        invoice={invoice}
+                        onView={handleViewInvoice}
+                        onDownload={handleDownloadInvoice}
+                        onSendEmail={handleSendEmail}
+                        onMarkPaid={handleMarkPaid}
+                        onInitiatePayment={handleInitiatePayment}
+                      />
                     </TableCell>
                   </TableRow>
                 ))}
@@ -339,6 +362,23 @@ const Invoices = () => {
           </div>
         </CardContent>
       </Card>
+
+      {/* Invoice Viewer Dialog */}
+      <InvoiceViewer
+        invoice={selectedInvoice}
+        open={showInvoiceViewer}
+        onClose={() => setShowInvoiceViewer(false)}
+        onDownload={handleDownloadInvoice}
+        onSendEmail={handleSendEmail}
+      />
+
+      {/* Payment Dialog */}
+      <PaymentDialog
+        invoice={selectedInvoice}
+        open={showPaymentDialog}
+        onClose={() => setShowPaymentDialog(false)}
+        onPaymentComplete={handlePaymentComplete}
+      />
     </div>
   );
 };
