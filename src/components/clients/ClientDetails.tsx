@@ -1,4 +1,3 @@
-
 import React from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -18,7 +17,8 @@ import {
   Play,
   AlertCircle,
   CheckCircle,
-  Clock
+  Clock,
+  WifiOff
 } from 'lucide-react';
 
 interface ClientDetailsProps {
@@ -275,14 +275,24 @@ const ClientDetails: React.FC<ClientDetailsProps> = ({
             </Button>
             
             {client.status === 'active' && (
-              <Button 
-                variant="outline" 
-                onClick={() => onStatusChange('suspended')}
-                className="gap-2 text-red-600 border-red-200 hover:bg-red-50"
-              >
-                <Ban className="h-4 w-4" />
-                Suspend
-              </Button>
+              <>
+                <Button 
+                  variant="outline" 
+                  onClick={() => onStatusChange('suspended')}
+                  className="gap-2 text-red-600 border-red-200 hover:bg-red-50"
+                >
+                  <Ban className="h-4 w-4" />
+                  Suspend
+                </Button>
+                <Button 
+                  variant="outline" 
+                  onClick={() => onStatusChange('disconnected')}
+                  className="gap-2 text-gray-600 border-gray-200 hover:bg-gray-50"
+                >
+                  <WifiOff className="h-4 w-4" />
+                  Disconnect
+                </Button>
+              </>
             )}
             
             {(client.status === 'suspended' || client.status === 'pending') && (
@@ -296,14 +306,14 @@ const ClientDetails: React.FC<ClientDetailsProps> = ({
               </Button>
             )}
             
-            {client.status !== 'disconnected' && (
+            {client.status === 'disconnected' && (
               <Button 
                 variant="outline" 
-                onClick={() => onStatusChange('disconnected')}
-                className="gap-2 text-gray-600 border-gray-200 hover:bg-gray-50"
+                onClick={() => onStatusChange('active')}
+                className="gap-2 text-green-600 border-green-200 hover:bg-green-50"
               >
-                <AlertCircle className="h-4 w-4" />
-                Disconnect
+                <Wifi className="h-4 w-4" />
+                Reconnect
               </Button>
             )}
           </div>
