@@ -1,5 +1,5 @@
 
-import React from 'react';
+import React, { useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -13,18 +13,29 @@ import {
 } from '@/utils/kenyanPayments';
 import { formatKenyanCurrency } from '@/utils/kenyanValidation';
 import { Smartphone, Building2, CreditCard, Wallet } from 'lucide-react';
+import MpesaPayment from './MpesaPayment';
 
 interface PaymentProviderSelectorProps {
+  clientId: string;
   amount: number;
+  invoiceId?: string;
+  accountReference: string;
   selectedProvider?: PaymentProvider;
   onProviderSelect: (provider: PaymentProvider) => void;
+  onPaymentComplete?: (paymentData: any) => void;
 }
 
 const PaymentProviderSelector: React.FC<PaymentProviderSelectorProps> = ({
+  clientId,
   amount,
+  invoiceId,
+  accountReference,
   selectedProvider,
   onProviderSelect,
+  onPaymentComplete,
 }) => {
+  const [showMpesaPayment, setShowMpesaPayment] = useState(false);
+
   const getProviderIcon = (type: string) => {
     switch (type) {
       case 'mobile_money': return <Smartphone className="h-5 w-5" />;
@@ -40,6 +51,16 @@ const PaymentProviderSelector: React.FC<PaymentProviderSelectorProps> = ({
       case 'bank': return 'bg-blue-100 text-blue-800';
       case 'payment_gateway': return 'bg-purple-100 text-purple-800';
       default: return 'bg-gray-100 text-gray-800';
+    }
+  };
+
+  const handleProviderSelect = (provider: PaymentProvider) => {
+    onProviderSelect(provider);
+    
+    if (provider.id === 'mpesa') {
+      setShowMpesaPayment(true);
+    } else {
+      setShowMpesaPayment(false);
     }
   };
 
@@ -61,7 +82,7 @@ const PaymentProviderSelector: React.FC<PaymentProviderSelectorProps> = ({
               className={`cursor-pointer transition-all hover:shadow-md ${
                 isSelected ? 'ring-2 ring-blue-500 bg-blue-50' : ''
               }`}
-              onClick={() => onProviderSelect(provider)}
+              onClick={() => handleProviderSelect(provider)}
             >
               <CardContent className="p-4">
                 <div className="flex items-center justify-between mb-2">
@@ -112,6 +133,29 @@ const PaymentProviderSelector: React.FC<PaymentProviderSelectorProps> = ({
           <p className="text-muted-foreground">Enter an amount to see payment options</p>
         </CardContent>
       </Card>
+    );
+  }
+
+  if (showMpesaPayment && selectedProvider?.id === 'mpesa') {
+    return (
+      <div className="space-y-6">
+        <MpesaPayment
+          clientId={clientId}
+          amount={amount}
+          invoiceId={invoiceId}
+          accountReference={accountReference}
+          onPaymentComplete={onPaymentComplete}
+        />
+        
+        <div className="text-center">
+          <Button 
+            variant="outline" 
+            onClick={() => setShowMpesaPayment(false)}
+          >
+            Choose Different Payment Method
+          </Button>
+        </div>
+      </div>
     );
   }
 

@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -55,6 +54,9 @@ const InvoiceGenerator: React.FC<InvoiceGeneratorProps> = ({ onInvoiceGenerated 
       service_period_start: formData.servicePeriodStart || new Date().toISOString().split('T')[0],
       service_period_end: formData.servicePeriodEnd || new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
       notes: formData.notes,
+      status: 'pending' as const,
+      invoice_number: `INV-${Date.now()}`,
+      invoice_id: null,
     };
 
     createInvoice(invoiceData);

@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -65,6 +64,7 @@ const PaymentForm: React.FC = () => {
       reference_number: formData.referenceNumber || null,
       mpesa_receipt_number: formData.paymentMethod === 'mpesa' ? formData.mpesaReceiptNumber : null,
       notes: formData.notes || null,
+      invoice_id: null,
     };
 
     createPayment(paymentData);
