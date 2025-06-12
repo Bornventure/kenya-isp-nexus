@@ -1,3 +1,4 @@
+
 import React, { useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -18,49 +19,15 @@ import {
   DialogTitle,
   DialogTrigger,
 } from '@/components/ui/dialog';
-import { Plus, Download, Eye, Send, Receipt } from 'lucide-react';
+import { Plus, Download, Eye, Send, Receipt, RefreshCw } from 'lucide-react';
 import InvoiceGenerator from '@/components/billing/InvoiceGenerator';
 import PaymentTracker from '@/components/billing/PaymentTracker';
+import PaymentForm from '@/components/billing/PaymentForm';
+import VATCalculator from '@/components/billing/VATCalculator';
 import ReceiptManager from '@/components/billing/ReceiptManager';
-
-const mockInvoices = [
-  {
-    id: 'INV-2024-001',
-    clientName: 'John Doe',
-    amount: 3500,
-    dueDate: '2024-01-15',
-    status: 'paid',
-    issueDate: '2023-12-15',
-    servicePackage: 'Premium Fiber 50Mbps'
-  },
-  {
-    id: 'INV-2024-002',
-    clientName: 'Jane Smith',
-    amount: 2800,
-    dueDate: '2024-01-20',
-    status: 'pending',
-    issueDate: '2023-12-20',
-    servicePackage: 'Standard Fiber 25Mbps'
-  },
-  {
-    id: 'INV-2024-003',
-    clientName: 'Tech Solutions Ltd',
-    amount: 15000,
-    dueDate: '2024-01-10',
-    status: 'overdue',
-    issueDate: '2023-12-10',
-    servicePackage: 'Business Fiber 100Mbps'
-  },
-  {
-    id: 'INV-2024-004',
-    clientName: 'Mary Johnson',
-    amount: 2200,
-    dueDate: '2024-01-25',
-    status: 'draft',
-    issueDate: '2023-12-25',
-    servicePackage: 'Basic Wireless 10Mbps'
-  }
-];
+import { useInvoices } from '@/hooks/useInvoices';
+import { usePayments } from '@/hooks/usePayments';
+import { formatKenyanCurrency } from '@/utils/kenyanValidation';
 
 const getStatusColor = (status: string) => {
   switch (status) {
@@ -78,12 +45,32 @@ const getStatusColor = (status: string) => {
 };
 
 const Billing = () => {
-  const [invoices, setInvoices] = useState(mockInvoices);
+  const { invoices, isLoading: invoicesLoading } = useInvoices();
+  const { payments, isLoading: paymentsLoading } = usePayments();
   const [activeTab, setActiveTab] = useState('overview');
 
-  const totalRevenue = invoices.filter(inv => inv.status === 'paid').reduce((sum, inv) => sum + inv.amount, 0);
-  const pendingAmount = invoices.filter(inv => inv.status === 'pending').reduce((sum, inv) => sum + inv.amount, 0);
-  const overdueAmount = invoices.filter(inv => inv.status === 'overdue').reduce((sum, inv) => sum + inv.amount, 0);
+  const totalRevenue = payments.reduce((sum, payment) => sum + payment.amount, 0);
+  const pendingAmount = invoices.filter(inv => inv.status === 'pending').reduce((sum, inv) => sum + inv.total_amount, 0);
+  const overdueAmount = invoices.filter(inv => inv.status === 'overdue').reduce((sum, inv) => sum + inv.total_amount, 0);
+
+  const formatDate = (dateString: string) => {
+    return new Date(dateString).toLocaleDateString('en-KE', {
+      year: 'numeric',
+      month: 'short',
+      day: 'numeric'
+    });
+  };
+
+  if (invoicesLoading || paymentsLoading) {
+    return (
+      <div className="p-6">
+        <div className="flex items-center gap-2">
+          <RefreshCw className="h-4 w-4 animate-spin" />
+          <span>Loading billing data...</span>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="p-6">
@@ -93,30 +80,45 @@ const Billing = () => {
             <h1 className="text-3xl font-bold text-gray-900">Billing & Payments</h1>
             <p className="text-gray-600 mt-2">Manage invoices, payments, receipts, and billing</p>
           </div>
-          <Dialog>
-            <DialogTrigger asChild>
-              <Button>
-                <Plus className="h-4 w-4 mr-2" />
-                Generate Invoice
-              </Button>
-            </DialogTrigger>
-            <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
-              <DialogHeader>
-                <DialogTitle>Generate New Invoice</DialogTitle>
-              </DialogHeader>
-              <InvoiceGenerator onInvoiceGenerated={(invoice) => {
-                setInvoices([...invoices, invoice]);
-              }} />
-            </DialogContent>
-          </Dialog>
+          <div className="flex gap-2">
+            <Dialog>
+              <DialogTrigger asChild>
+                <Button variant="outline">
+                  <Receipt className="h-4 w-4 mr-2" />
+                  Record Payment
+                </Button>
+              </DialogTrigger>
+              <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+                <DialogHeader>
+                  <DialogTitle>Record New Payment</DialogTitle>
+                </DialogHeader>
+                <PaymentForm />
+              </DialogContent>
+            </Dialog>
+            <Dialog>
+              <DialogTrigger asChild>
+                <Button>
+                  <Plus className="h-4 w-4 mr-2" />
+                  Generate Invoice
+                </Button>
+              </DialogTrigger>
+              <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+                <DialogHeader>
+                  <DialogTitle>Generate New Invoice</DialogTitle>
+                </DialogHeader>
+                <InvoiceGenerator />
+              </DialogContent>
+            </Dialog>
+          </div>
         </div>
       </div>
 
       <Tabs value={activeTab} onValueChange={setActiveTab}>
-        <TabsList className="grid w-full grid-cols-3">
+        <TabsList className="grid w-full grid-cols-4">
           <TabsTrigger value="overview">Overview</TabsTrigger>
           <TabsTrigger value="payments">Payments</TabsTrigger>
           <TabsTrigger value="receipts">Receipts</TabsTrigger>
+          <TabsTrigger value="tools">Tools</TabsTrigger>
         </TabsList>
 
         <TabsContent value="overview" className="space-y-6">
@@ -127,7 +129,7 @@ const Billing = () => {
                 <CardTitle className="text-sm font-medium text-gray-600">Total Revenue</CardTitle>
               </CardHeader>
               <CardContent>
-                <div className="text-2xl font-bold text-green-600">KES {totalRevenue.toLocaleString()}</div>
+                <div className="text-2xl font-bold text-green-600">{formatKenyanCurrency(totalRevenue)}</div>
                 <p className="text-xs text-gray-500">This month</p>
               </CardContent>
             </Card>
@@ -137,7 +139,7 @@ const Billing = () => {
                 <CardTitle className="text-sm font-medium text-gray-600">Pending Payments</CardTitle>
               </CardHeader>
               <CardContent>
-                <div className="text-2xl font-bold text-yellow-600">KES {pendingAmount.toLocaleString()}</div>
+                <div className="text-2xl font-bold text-yellow-600">{formatKenyanCurrency(pendingAmount)}</div>
                 <p className="text-xs text-gray-500">Awaiting payment</p>
               </CardContent>
             </Card>
@@ -147,7 +149,7 @@ const Billing = () => {
                 <CardTitle className="text-sm font-medium text-gray-600">Overdue Amount</CardTitle>
               </CardHeader>
               <CardContent>
-                <div className="text-2xl font-bold text-red-600">KES {overdueAmount.toLocaleString()}</div>
+                <div className="text-2xl font-bold text-red-600">{formatKenyanCurrency(overdueAmount)}</div>
                 <p className="text-xs text-gray-500">Past due date</p>
               </CardContent>
             </Card>
@@ -163,7 +165,7 @@ const Billing = () => {
             </Card>
           </div>
 
-          {/* Invoices Table */}
+          {/* Recent Invoices */}
           <Card>
             <CardHeader>
               <CardTitle>Recent Invoices</CardTitle>
@@ -172,9 +174,8 @@ const Billing = () => {
               <Table>
                 <TableHeader>
                   <TableRow>
-                    <TableHead>Invoice ID</TableHead>
+                    <TableHead>Invoice Number</TableHead>
                     <TableHead>Client</TableHead>
-                    <TableHead>Service</TableHead>
                     <TableHead>Amount</TableHead>
                     <TableHead>Due Date</TableHead>
                     <TableHead>Status</TableHead>
@@ -182,13 +183,12 @@ const Billing = () => {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {invoices.map((invoice) => (
+                  {invoices.slice(0, 10).map((invoice) => (
                     <TableRow key={invoice.id}>
-                      <TableCell className="font-medium">{invoice.id}</TableCell>
-                      <TableCell>{invoice.clientName}</TableCell>
-                      <TableCell>{invoice.servicePackage}</TableCell>
-                      <TableCell>KES {invoice.amount.toLocaleString()}</TableCell>
-                      <TableCell>{invoice.dueDate}</TableCell>
+                      <TableCell className="font-medium">{invoice.invoice_number}</TableCell>
+                      <TableCell>{invoice.clients?.name || 'Unknown'}</TableCell>
+                      <TableCell>{formatKenyanCurrency(invoice.total_amount)}</TableCell>
+                      <TableCell>{formatDate(invoice.due_date)}</TableCell>
                       <TableCell>
                         <Badge className={getStatusColor(invoice.status)}>
                           {invoice.status.charAt(0).toUpperCase() + invoice.status.slice(1)}
@@ -221,6 +221,25 @@ const Billing = () => {
 
         <TabsContent value="receipts">
           <ReceiptManager />
+        </TabsContent>
+
+        <TabsContent value="tools">
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            <VATCalculator />
+            <Card>
+              <CardHeader>
+                <CardTitle>Payment Methods</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <p className="text-muted-foreground mb-4">
+                  Configure and manage Kenyan payment methods including M-Pesa, Airtel Money, and bank transfers.
+                </p>
+                <Button variant="outline" className="w-full">
+                  Configure Payment Methods
+                </Button>
+              </CardContent>
+            </Card>
+          </div>
         </TabsContent>
       </Tabs>
     </div>

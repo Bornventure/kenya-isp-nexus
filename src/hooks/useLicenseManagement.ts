@@ -51,7 +51,7 @@ export const useLicenseManagement = () => {
       const features = getLicenseFeatures(company.license_type);
 
       return {
-        license_type: company.license_type,
+        license_type: company.license_type as 'starter' | 'professional' | 'enterprise',
         client_limit: company.client_limit || 0,
         current_client_count: clientCount || 0,
         is_active: company.is_active || false,

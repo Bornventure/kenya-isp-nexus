@@ -11,6 +11,13 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from '@/components/ui/dialog';
 import { 
   Router, 
   Wifi, 
@@ -24,110 +31,71 @@ import {
   CheckCircle,
   XCircle,
 } from 'lucide-react';
-
-// Mock equipment data
-const mockEquipment = [
-  {
-    id: 'EQ001',
-    name: 'Main Tower - Kilimani',
-    type: 'Tower',
-    status: 'active',
-    location: 'Kilimani, Nairobi',
-    coordinates: { lat: -1.2921, lng: 36.8219 },
-    installDate: '2023-01-15',
-    lastMaintenance: '2024-05-20',
-    nextMaintenance: '2024-08-20',
-    connectedClients: 45,
-    signalStrength: 95,
-    uptime: 99.8,
-  },
-  {
-    id: 'EQ002',
-    name: 'Sector Antenna A1',
-    type: 'Antenna',
-    status: 'active',
-    location: 'Westlands, Nairobi',
-    coordinates: { lat: -1.2634, lng: 36.8078 },
-    installDate: '2023-03-10',
-    lastMaintenance: '2024-04-15',
-    nextMaintenance: '2024-07-15',
-    connectedClients: 32,
-    signalStrength: 88,
-    uptime: 98.5,
-  },
-  {
-    id: 'EQ003',
-    name: 'Fiber Node - Karen',
-    type: 'Fiber Node',
-    status: 'maintenance',
-    location: 'Karen, Nairobi',
-    coordinates: { lat: -1.3197, lng: 36.6859 },
-    installDate: '2022-11-20',
-    lastMaintenance: '2024-06-01',
-    nextMaintenance: '2024-06-08',
-    connectedClients: 28,
-    signalStrength: 0,
-    uptime: 0,
-  },
-  {
-    id: 'EQ004',
-    name: 'Wireless Bridge - Industrial Area',
-    type: 'Bridge',
-    status: 'warning',
-    location: 'Industrial Area, Nairobi',
-    coordinates: { lat: -1.3031, lng: 36.8506 },
-    installDate: '2023-06-12',
-    lastMaintenance: '2024-03-10',
-    nextMaintenance: '2024-06-10',
-    connectedClients: 18,
-    signalStrength: 72,
-    uptime: 94.2,
-  },
-];
+import { useEquipment } from '@/hooks/useEquipment';
+import { useClients } from '@/hooks/useClients';
+import EquipmentForm from '@/components/equipment/EquipmentForm';
 
 const Equipment = () => {
+  const { equipment, isLoading } = useEquipment();
+  const { clients } = useClients();
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
   const [typeFilter, setTypeFilter] = useState('all');
 
-  const filteredEquipment = mockEquipment.filter(equipment => {
+  const filteredEquipment = equipment.filter(equipment => {
     const statusMatch = statusFilter === 'all' || equipment.status === statusFilter;
     const typeMatch = typeFilter === 'all' || equipment.type === typeFilter;
     const searchMatch = searchTerm === '' || 
-      equipment.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      equipment.location.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      equipment.id.toLowerCase().includes(searchTerm.toLowerCase());
+      equipment.serial_number.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      equipment.type.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      equipment.brand?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      equipment.model?.toLowerCase().includes(searchTerm.toLowerCase());
     
     return statusMatch && typeMatch && searchMatch;
   });
 
   const getStatusColor = (status: string) => {
     switch (status) {
-      case 'active': return 'bg-green-500';
+      case 'available': return 'bg-green-500';
+      case 'assigned': return 'bg-blue-500';
       case 'maintenance': return 'bg-yellow-500';
-      case 'warning': return 'bg-orange-500';
-      case 'offline': return 'bg-red-500';
+      case 'damaged': return 'bg-red-500';
       default: return 'bg-gray-500';
     }
   };
 
   const getStatusIcon = (status: string) => {
     switch (status) {
-      case 'active': return <CheckCircle className="h-4 w-4" />;
+      case 'available': return <CheckCircle className="h-4 w-4" />;
+      case 'assigned': return <Wifi className="h-4 w-4" />;
       case 'maintenance': return <Settings className="h-4 w-4" />;
-      case 'warning': return <AlertTriangle className="h-4 w-4" />;
-      case 'offline': return <XCircle className="h-4 w-4" />;
+      case 'damaged': return <XCircle className="h-4 w-4" />;
       default: return <Server className="h-4 w-4" />;
     }
   };
 
-  const formatDate = (dateString: string) => {
+  const formatDate = (dateString: string | null) => {
+    if (!dateString) return 'N/A';
     return new Date(dateString).toLocaleDateString('en-US', {
       year: 'numeric',
       month: 'short',
       day: 'numeric'
     });
   };
+
+  const getClientName = (clientId: string | null) => {
+    if (!clientId) return 'Unassigned';
+    const client = clients.find(c => c.id === clientId);
+    return client ? client.name : 'Unknown Client';
+  };
+
+  if (isLoading) {
+    return (
+      <div className="p-6">
+        <div className="text-center">Loading equipment...</div>
+      </div>
+    );
+  }
 
   return (
     <div className="p-6 space-y-6">
@@ -144,10 +112,20 @@ const Equipment = () => {
             <Settings className="h-4 w-4 mr-2" />
             Maintenance Schedule
           </Button>
-          <Button size="sm">
-            <Plus className="h-4 w-4 mr-2" />
-            Add Equipment
-          </Button>
+          <Dialog>
+            <DialogTrigger asChild>
+              <Button size="sm">
+                <Plus className="h-4 w-4 mr-2" />
+                Add Equipment
+              </Button>
+            </DialogTrigger>
+            <DialogContent className="max-w-2xl">
+              <DialogHeader>
+                <DialogTitle>Add New Equipment</DialogTitle>
+              </DialogHeader>
+              <EquipmentForm />
+            </DialogContent>
+          </Dialog>
         </div>
       </div>
 
@@ -159,7 +137,7 @@ const Equipment = () => {
               <Server className="h-5 w-5 text-blue-600" />
               <div>
                 <p className="text-sm font-medium">Total Equipment</p>
-                <p className="text-2xl font-bold">{mockEquipment.length}</p>
+                <p className="text-2xl font-bold">{equipment.length}</p>
               </div>
             </div>
           </CardContent>
@@ -169,9 +147,22 @@ const Equipment = () => {
             <div className="flex items-center space-x-2">
               <CheckCircle className="h-5 w-5 text-green-600" />
               <div>
-                <p className="text-sm font-medium">Active</p>
+                <p className="text-sm font-medium">Available</p>
                 <p className="text-2xl font-bold">
-                  {mockEquipment.filter(e => e.status === 'active').length}
+                  {equipment.filter(e => e.status === 'available').length}
+                </p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardContent className="p-4">
+            <div className="flex items-center space-x-2">
+              <Wifi className="h-5 w-5 text-blue-600" />
+              <div>
+                <p className="text-sm font-medium">Assigned</p>
+                <p className="text-2xl font-bold">
+                  {equipment.filter(e => e.status === 'assigned').length}
                 </p>
               </div>
             </div>
@@ -184,20 +175,7 @@ const Equipment = () => {
               <div>
                 <p className="text-sm font-medium">Needs Attention</p>
                 <p className="text-2xl font-bold">
-                  {mockEquipment.filter(e => e.status === 'warning' || e.status === 'maintenance').length}
-                </p>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardContent className="p-4">
-            <div className="flex items-center space-x-2">
-              <Wifi className="h-5 w-5 text-purple-600" />
-              <div>
-                <p className="text-sm font-medium">Connected Clients</p>
-                <p className="text-2xl font-bold">
-                  {mockEquipment.reduce((sum, e) => sum + e.connectedClients, 0)}
+                  {equipment.filter(e => e.status === 'maintenance' || e.status === 'damaged').length}
                 </p>
               </div>
             </div>
@@ -215,7 +193,7 @@ const Equipment = () => {
             <div className="relative flex-1">
               <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
               <Input
-                placeholder="Search equipment by name, ID, or location..."
+                placeholder="Search equipment by serial, type, brand, or model..."
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
                 className="pl-10"
@@ -230,10 +208,10 @@ const Equipment = () => {
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="all">All</SelectItem>
-                    <SelectItem value="active">Active</SelectItem>
-                    <SelectItem value="warning">Warning</SelectItem>
+                    <SelectItem value="available">Available</SelectItem>
+                    <SelectItem value="assigned">Assigned</SelectItem>
                     <SelectItem value="maintenance">Maintenance</SelectItem>
-                    <SelectItem value="offline">Offline</SelectItem>
+                    <SelectItem value="damaged">Damaged</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
@@ -245,10 +223,11 @@ const Equipment = () => {
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="all">All</SelectItem>
-                    <SelectItem value="Tower">Tower</SelectItem>
+                    <SelectItem value="Router">Router</SelectItem>
+                    <SelectItem value="Switch">Switch</SelectItem>
+                    <SelectItem value="Access Point">Access Point</SelectItem>
+                    <SelectItem value="Modem">Modem</SelectItem>
                     <SelectItem value="Antenna">Antenna</SelectItem>
-                    <SelectItem value="Fiber Node">Fiber Node</SelectItem>
-                    <SelectItem value="Bridge">Bridge</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
@@ -259,64 +238,58 @@ const Equipment = () => {
 
       {/* Equipment List */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {filteredEquipment.map((equipment) => (
-          <Card key={equipment.id} className="hover:shadow-lg transition-shadow">
+        {filteredEquipment.map((item) => (
+          <Card key={item.id} className="hover:shadow-lg transition-shadow">
             <CardHeader>
               <div className="flex items-center justify-between">
-                <CardTitle className="text-lg">{equipment.name}</CardTitle>
+                <CardTitle className="text-lg">{item.type}</CardTitle>
                 <Badge 
-                  className={`text-white ${getStatusColor(equipment.status)}`}
+                  className={`text-white ${getStatusColor(item.status)}`}
                 >
                   <span className="flex items-center gap-1">
-                    {getStatusIcon(equipment.status)}
-                    {equipment.status}
+                    {getStatusIcon(item.status)}
+                    {item.status}
                   </span>
                 </Badge>
               </div>
-              <p className="text-sm text-muted-foreground">{equipment.id} • {equipment.type}</p>
+              <p className="text-sm text-muted-foreground">
+                S/N: {item.serial_number}
+                {item.brand && item.model && ` • ${item.brand} ${item.model}`}
+              </p>
             </CardHeader>
             <CardContent className="space-y-4">
-              <div className="flex items-center gap-2 text-sm">
-                <MapPin className="h-4 w-4 text-muted-foreground" />
-                {equipment.location}
-              </div>
-              
               <div className="grid grid-cols-2 gap-4 text-sm">
                 <div>
-                  <p className="font-medium">Connected Clients</p>
-                  <p className="text-muted-foreground">{equipment.connectedClients}</p>
+                  <p className="font-medium">Assigned to</p>
+                  <p className="text-muted-foreground">{getClientName(item.client_id)}</p>
                 </div>
                 <div>
-                  <p className="font-medium">Signal Strength</p>
-                  <p className="text-muted-foreground">{equipment.signalStrength}%</p>
+                  <p className="font-medium">MAC Address</p>
+                  <p className="text-muted-foreground">{item.mac_address || 'N/A'}</p>
                 </div>
                 <div>
-                  <p className="font-medium">Uptime</p>
-                  <p className="text-muted-foreground">{equipment.uptime}%</p>
+                  <p className="font-medium">Purchase Date</p>
+                  <p className="text-muted-foreground">{formatDate(item.purchase_date)}</p>
                 </div>
                 <div>
-                  <p className="font-medium">Install Date</p>
-                  <p className="text-muted-foreground">{formatDate(equipment.installDate)}</p>
+                  <p className="font-medium">Warranty End</p>
+                  <p className="text-muted-foreground">{formatDate(item.warranty_end_date)}</p>
                 </div>
               </div>
               
-              <div className="pt-2 border-t">
-                <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                  <Calendar className="h-4 w-4" />
-                  <span>Last Maintenance: {formatDate(equipment.lastMaintenance)}</span>
+              {item.notes && (
+                <div className="pt-2 border-t">
+                  <p className="text-sm font-medium">Notes:</p>
+                  <p className="text-sm text-muted-foreground">{item.notes}</p>
                 </div>
-                <div className="flex items-center gap-2 text-sm text-muted-foreground mt-1">
-                  <Calendar className="h-4 w-4" />
-                  <span>Next Maintenance: {formatDate(equipment.nextMaintenance)}</span>
-                </div>
-              </div>
+              )}
               
               <div className="flex gap-2 pt-2">
                 <Button variant="outline" size="sm" className="flex-1">
-                  View Details
+                  Edit
                 </Button>
                 <Button variant="outline" size="sm" className="flex-1">
-                  Schedule Maintenance
+                  Assign
                 </Button>
               </div>
             </CardContent>

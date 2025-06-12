@@ -12,52 +12,52 @@ import {
 } from '@/components/ui/select';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Textarea } from '@/components/ui/textarea';
+import { useClients } from '@/hooks/useClients';
+import { useServicePackages } from '@/hooks/useServicePackages';
+import { useInvoices } from '@/hooks/useInvoices';
+import { calculateVAT, formatKenyanCurrency } from '@/utils/kenyanValidation';
 
 interface InvoiceGeneratorProps {
-  onInvoiceGenerated: (invoice: any) => void;
+  onInvoiceGenerated?: (invoice: any) => void;
 }
 
-const mockClients = [
-  { id: '1', name: 'John Doe', email: 'john@example.com' },
-  { id: '2', name: 'Jane Smith', email: 'jane@example.com' },
-  { id: '3', name: 'Tech Solutions Ltd', email: 'contact@techsolutions.com' },
-  { id: '4', name: 'Mary Johnson', email: 'mary@example.com' },
-];
-
-const servicePackages = [
-  { id: '1', name: 'Basic Wireless 10Mbps', price: 2200 },
-  { id: '2', name: 'Standard Fiber 25Mbps', price: 2800 },
-  { id: '3', name: 'Premium Fiber 50Mbps', price: 3500 },
-  { id: '4', name: 'Business Fiber 100Mbps', price: 15000 },
-];
-
 const InvoiceGenerator: React.FC<InvoiceGeneratorProps> = ({ onInvoiceGenerated }) => {
+  const { clients } = useClients();
+  const { servicePackages } = useServicePackages();
+  const { createInvoice, isCreating } = useInvoices();
+  
   const [formData, setFormData] = useState({
     clientId: '',
     servicePackageId: '',
     amount: '',
     dueDate: '',
     notes: '',
+    servicePeriodStart: '',
+    servicePeriodEnd: '',
   });
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     
-    const selectedClient = mockClients.find(c => c.id === formData.clientId);
-    const selectedPackage = servicePackages.find(p => p.id === formData.servicePackageId);
+    if (!formData.clientId || !formData.amount || !formData.dueDate) {
+      return;
+    }
+
+    const baseAmount = parseFloat(formData.amount);
+    const { vat, total } = calculateVAT(baseAmount);
     
-    const newInvoice = {
-      id: `INV-2024-${String(Math.floor(Math.random() * 1000)).padStart(3, '0')}`,
-      clientName: selectedClient?.name || '',
-      amount: parseInt(formData.amount) || selectedPackage?.price || 0,
-      dueDate: formData.dueDate,
-      status: 'draft',
-      issueDate: new Date().toISOString().split('T')[0],
-      servicePackage: selectedPackage?.name || '',
+    const invoiceData = {
+      client_id: formData.clientId,
+      amount: baseAmount,
+      vat_amount: vat,
+      total_amount: total,
+      due_date: formData.dueDate,
+      service_period_start: formData.servicePeriodStart || new Date().toISOString().split('T')[0],
+      service_period_end: formData.servicePeriodEnd || new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
       notes: formData.notes,
     };
 
-    onInvoiceGenerated(newInvoice);
+    createInvoice(invoiceData);
     
     // Reset form
     setFormData({
@@ -66,10 +66,18 @@ const InvoiceGenerator: React.FC<InvoiceGeneratorProps> = ({ onInvoiceGenerated 
       amount: '',
       dueDate: '',
       notes: '',
+      servicePeriodStart: '',
+      servicePeriodEnd: '',
     });
+
+    if (onInvoiceGenerated) {
+      onInvoiceGenerated(invoiceData);
+    }
   };
 
   const selectedPackage = servicePackages.find(p => p.id === formData.servicePackageId);
+  const baseAmount = parseFloat(formData.amount) || 0;
+  const { vat, total } = calculateVAT(baseAmount);
 
   return (
     <Card>
@@ -89,7 +97,7 @@ const InvoiceGenerator: React.FC<InvoiceGeneratorProps> = ({ onInvoiceGenerated 
                   <SelectValue placeholder="Choose a client" />
                 </SelectTrigger>
                 <SelectContent>
-                  {mockClients.map((client) => (
+                  {clients.map((client) => (
                     <SelectItem key={client.id} value={client.id}>
                       {client.name}
                     </SelectItem>
@@ -107,7 +115,7 @@ const InvoiceGenerator: React.FC<InvoiceGeneratorProps> = ({ onInvoiceGenerated 
                   setFormData({ 
                     ...formData, 
                     servicePackageId: value,
-                    amount: pkg?.price.toString() || ''
+                    amount: pkg?.monthly_rate.toString() || ''
                   });
                 }}
               >
@@ -117,7 +125,7 @@ const InvoiceGenerator: React.FC<InvoiceGeneratorProps> = ({ onInvoiceGenerated 
                 <SelectContent>
                   {servicePackages.map((pkg) => (
                     <SelectItem key={pkg.id} value={pkg.id}>
-                      {pkg.name} - KES {pkg.price.toLocaleString()}
+                      {pkg.name} - {formatKenyanCurrency(pkg.monthly_rate)}
                     </SelectItem>
                   ))}
                 </SelectContent>
@@ -125,7 +133,7 @@ const InvoiceGenerator: React.FC<InvoiceGeneratorProps> = ({ onInvoiceGenerated 
             </div>
 
             <div>
-              <Label htmlFor="amount">Amount (KES)</Label>
+              <Label htmlFor="amount">Base Amount (KES)</Label>
               <Input
                 id="amount"
                 type="number"
@@ -135,7 +143,7 @@ const InvoiceGenerator: React.FC<InvoiceGeneratorProps> = ({ onInvoiceGenerated 
               />
               {selectedPackage && (
                 <p className="text-sm text-gray-500 mt-1">
-                  Default: KES {selectedPackage.price.toLocaleString()}
+                  Default: {formatKenyanCurrency(selectedPackage.monthly_rate)}
                 </p>
               )}
             </div>
@@ -149,7 +157,47 @@ const InvoiceGenerator: React.FC<InvoiceGeneratorProps> = ({ onInvoiceGenerated 
                 onChange={(e) => setFormData({ ...formData, dueDate: e.target.value })}
               />
             </div>
+
+            <div>
+              <Label htmlFor="servicePeriodStart">Service Period Start</Label>
+              <Input
+                id="servicePeriodStart"
+                type="date"
+                value={formData.servicePeriodStart}
+                onChange={(e) => setFormData({ ...formData, servicePeriodStart: e.target.value })}
+              />
+            </div>
+
+            <div>
+              <Label htmlFor="servicePeriodEnd">Service Period End</Label>
+              <Input
+                id="servicePeriodEnd"
+                type="date"
+                value={formData.servicePeriodEnd}
+                onChange={(e) => setFormData({ ...formData, servicePeriodEnd: e.target.value })}
+              />
+            </div>
           </div>
+
+          {baseAmount > 0 && (
+            <div className="bg-gray-50 p-4 rounded-lg">
+              <h4 className="font-semibold mb-2">Invoice Summary</h4>
+              <div className="space-y-1">
+                <div className="flex justify-between">
+                  <span>Base Amount:</span>
+                  <span>{formatKenyanCurrency(baseAmount)}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span>VAT (16%):</span>
+                  <span>{formatKenyanCurrency(vat)}</span>
+                </div>
+                <div className="flex justify-between font-semibold border-t pt-1">
+                  <span>Total Amount:</span>
+                  <span>{formatKenyanCurrency(total)}</span>
+                </div>
+              </div>
+            </div>
+          )}
 
           <div>
             <Label htmlFor="notes">Notes (Optional)</Label>
@@ -166,8 +214,8 @@ const InvoiceGenerator: React.FC<InvoiceGeneratorProps> = ({ onInvoiceGenerated 
             <Button type="button" variant="outline">
               Save as Draft
             </Button>
-            <Button type="submit">
-              Generate Invoice
+            <Button type="submit" disabled={isCreating}>
+              {isCreating ? 'Creating...' : 'Generate Invoice'}
             </Button>
           </div>
         </form>

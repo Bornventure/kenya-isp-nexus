@@ -9,7 +9,7 @@ export interface ServicePackage {
   name: string;
   speed: string;
   monthly_rate: number;
-  connection_types: string[];
+  connection_types: ('fiber' | 'wireless' | 'satellite' | 'dsl')[];
   description: string | null;
   is_active: boolean;
   isp_company_id: string;
@@ -80,7 +80,7 @@ export const useServicePackages = () => {
   });
 
   const updatePackageMutation = useMutation({
-    mutationFn: async ({ id, updates }: { id: string; updates: Partial<ServicePackage> }) => {
+    mutationFn: async ({ id, updates }: { id: string; updates: Partial<Omit<ServicePackage, 'id' | 'created_at' | 'updated_at' | 'isp_company_id'>> }) => {
       const { data, error } = await supabase
         .from('service_packages')
         .update(updates)
