@@ -45,11 +45,13 @@ const Sidebar = () => {
       {/* Logo */}
       <div className="flex h-16 items-center justify-center border-b px-4">
         <div className="flex items-center gap-2">
-          <div className="bg-blue-600 p-2 rounded-lg">
-            <Wifi className="h-6 w-6 text-white" />
-          </div>
+          <img 
+            src="/lovable-uploads/bfa196dc-eae7-40b2-826b-7a96fffbd83d.png" 
+            alt="DataDefender Logo" 
+            className="h-8 w-8 object-contain"
+          />
           <div className="flex flex-col">
-            <span className="text-lg font-semibold text-gray-900">ISP Manager</span>
+            <span className="text-lg font-semibold text-gray-900">DataDefender</span>
             {profile?.isp_companies?.name && (
               <span className="text-xs text-gray-500 truncate max-w-[150px]">
                 {profile.isp_companies.name}

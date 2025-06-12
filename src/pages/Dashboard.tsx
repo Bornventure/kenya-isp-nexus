@@ -33,7 +33,14 @@ const Dashboard = () => {
     return (
       <div className="p-6">
         <div className="mb-8">
-          <h1 className="text-3xl font-bold text-gray-900">Dashboard</h1>
+          <div className="flex items-center gap-3 mb-4">
+            <img 
+              src="/lovable-uploads/bfa196dc-eae7-40b2-826b-7a96fffbd83d.png" 
+              alt="DataDefender Logo" 
+              className="h-8 w-8 object-contain"
+            />
+            <h1 className="text-3xl font-bold text-gray-900">DataDefender Dashboard</h1>
+          </div>
           <p className="text-gray-600 mt-2">Loading your ISP operations overview...</p>
         </div>
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
@@ -50,7 +57,14 @@ const Dashboard = () => {
   return (
     <div className="p-6">
       <div className="mb-8">
-        <h1 className="text-3xl font-bold text-gray-900">Dashboard</h1>
+        <div className="flex items-center gap-3 mb-4">
+          <img 
+            src="/lovable-uploads/bfa196dc-eae7-40b2-826b-7a96fffbd83d.png" 
+            alt="DataDefender Logo" 
+            className="h-8 w-8 object-contain"
+          />
+          <h1 className="text-3xl font-bold text-gray-900">DataDefender Dashboard</h1>
+        </div>
         <p className="text-gray-600 mt-2">
           Welcome back! Here's an overview of your ISP operations.
         </p>

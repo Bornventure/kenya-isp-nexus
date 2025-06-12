@@ -4,7 +4,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { useAuth } from '@/contexts/AuthContext';
-import { Wifi, AlertCircle, Mail, Shield } from 'lucide-react';
+import { AlertCircle, Mail, Shield } from 'lucide-react';
 
 const Login = () => {
   const [email, setEmail] = useState('');
@@ -27,13 +27,15 @@ const Login = () => {
       <Card className="w-full max-w-md">
         <CardHeader className="text-center">
           <div className="flex justify-center mb-4">
-            <div className="bg-blue-600 p-3 rounded-full">
-              <Wifi className="h-8 w-8 text-white" />
-            </div>
+            <img 
+              src="/lovable-uploads/bfa196dc-eae7-40b2-826b-7a96fffbd83d.png" 
+              alt="DataDefender Logo" 
+              className="h-16 w-16 object-contain"
+            />
           </div>
-          <CardTitle className="text-2xl">ISP Management Portal</CardTitle>
+          <CardTitle className="text-2xl">DataDefender</CardTitle>
           <CardDescription>
-            For technicians and administrative staff
+            ISP Management Portal - For technicians and administrative staff
           </CardDescription>
         </CardHeader>
         <CardContent>
