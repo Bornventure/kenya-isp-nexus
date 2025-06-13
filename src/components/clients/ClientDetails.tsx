@@ -11,10 +11,11 @@ import PaymentInfoSection from './details/PaymentInfoSection';
 import ClientActionButtons from './details/ClientActionButtons';
 
 interface ClientDetailsProps {
-  client: Client;
+  client: Client & { isActive?: boolean };
   onClose: () => void;
   onEdit: () => void;
   onStatusChange: (status: Client['status']) => void;
+  onActivateToggle?: (isActive: boolean) => void;
   onDelete?: (clientId: string) => void;
   isUpdating?: boolean;
   isDeleting?: boolean;
@@ -25,6 +26,7 @@ const ClientDetails: React.FC<ClientDetailsProps> = ({
   onClose, 
   onEdit, 
   onStatusChange,
+  onActivateToggle,
   onDelete,
   isUpdating = false,
   isDeleting = false
@@ -66,6 +68,7 @@ const ClientDetails: React.FC<ClientDetailsProps> = ({
                   client={client} 
                   onEdit={onEdit} 
                   onStatusChange={onStatusChange}
+                  onActivateToggle={onActivateToggle}
                   onDelete={onDelete}
                   isUpdating={isUpdating}
                   isDeleting={isDeleting}

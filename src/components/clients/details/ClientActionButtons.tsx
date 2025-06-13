@@ -7,7 +7,9 @@ import {
   Trash2,
   Power,
   PowerOff,
-  AlertCircle 
+  AlertCircle,
+  CheckCircle,
+  XCircle 
 } from 'lucide-react';
 import { Client } from '@/types/client';
 import {
@@ -23,9 +25,10 @@ import {
 } from "@/components/ui/alert-dialog";
 
 interface ClientActionButtonsProps {
-  client: Client;
+  client: Client & { isActive?: boolean };
   onEdit: () => void;
   onStatusChange: (status: Client['status']) => void;
+  onActivateToggle?: (isActive: boolean) => void;
   onDelete?: (clientId: string) => void;
   isUpdating?: boolean;
   isDeleting?: boolean;
@@ -35,6 +38,7 @@ const ClientActionButtons: React.FC<ClientActionButtonsProps> = ({
   client, 
   onEdit, 
   onStatusChange,
+  onActivateToggle,
   onDelete,
   isUpdating = false,
   isDeleting = false
@@ -59,6 +63,8 @@ const ClientActionButtons: React.FC<ClientActionButtonsProps> = ({
     }
   };
 
+  const isClientActive = client.isActive !== false; // Default to true if not specified
+
   return (
     <div>
       <div className="flex items-center justify-between mb-4">
@@ -66,10 +72,25 @@ const ClientActionButtons: React.FC<ClientActionButtonsProps> = ({
           <h3 className="text-lg font-medium">Status & Actions</h3>
           <p className="text-sm text-gray-600">Manage client status and account</p>
         </div>
-        <Badge className={getStatusColor(client.status)}>
-          {getStatusIcon(client.status)}
-          {client.status}
-        </Badge>
+        <div className="flex gap-2">
+          <Badge className={getStatusColor(client.status)}>
+            {getStatusIcon(client.status)}
+            {client.status}
+          </Badge>
+          <Badge className={isClientActive ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}>
+            {isClientActive ? (
+              <>
+                <CheckCircle className="h-3 w-3 mr-1" />
+                Active
+              </>
+            ) : (
+              <>
+                <XCircle className="h-3 w-3 mr-1" />
+                Deactivated
+              </>
+            )}
+          </Badge>
+        </div>
       </div>
 
       <div className="space-y-3">
@@ -118,7 +139,50 @@ const ClientActionButtons: React.FC<ClientActionButtonsProps> = ({
           )}
         </div>
 
+        {/* Activate/Deactivate Controls */}
+        {onActivateToggle && (
+          <div className="grid grid-cols-1 gap-2">
+            {isClientActive ? (
+              <Button 
+                variant="outline" 
+                size="sm"
+                onClick={() => onActivateToggle(false)}
+                disabled={isUpdating}
+                className="text-red-600 hover:text-red-700 hover:bg-red-50"
+              >
+                <XCircle className="h-4 w-4 mr-2" />
+                Deactivate Account
+              </Button>
+            ) : (
+              <Button 
+                variant="outline" 
+                size="sm"
+                onClick={() => onActivateToggle(true)}
+                disabled={isUpdating}
+                className="text-green-600 hover:text-green-700 hover:bg-green-50"
+              >
+                <CheckCircle className="h-4 w-4 mr-2" />
+                Activate Account
+              </Button>
+            )}
+          </div>
+        )}
+
+        {/* Status Controls */}
         <div className="grid grid-cols-2 gap-2">
+          {client.status === 'pending' && (
+            <Button 
+              variant="outline" 
+              size="sm"
+              onClick={() => onStatusChange('active')}
+              disabled={isUpdating}
+              className="text-green-600 hover:text-green-700 hover:bg-green-50 col-span-2"
+            >
+              <Power className="h-4 w-4 mr-2" />
+              Approve & Set Active
+            </Button>
+          )}
+
           {client.status === 'active' && (
             <Button 
               variant="outline" 
@@ -164,18 +228,6 @@ const ClientActionButtons: React.FC<ClientActionButtonsProps> = ({
             >
               <Power className="h-4 w-4 mr-2" />
               Reconnect Service
-            </Button>
-          )}
-          
-          {client.status === 'pending' && (
-            <Button 
-              variant="outline" 
-              size="sm"
-              onClick={() => onStatusChange('active')}
-              disabled={isUpdating}
-              className="text-green-600 hover:text-green-700 hover:bg-green-50 col-span-2"
-            >
-              Approve & Activate
             </Button>
           )}
         </div>

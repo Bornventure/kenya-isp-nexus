@@ -36,7 +36,7 @@ const Clients = () => {
   const [showClientDetails, setShowClientDetails] = useState(false);
   const [currentView, setCurrentView] = useState<ViewMode>('list');
 
-  const { clients, isLoading, updateClient, deleteClient, isUpdatingClient, isDeletingClient } = useClients();
+  const { clients, isLoading, updateClient, toggleClientActive, deleteClient, isUpdatingClient, isTogglingActive, isDeletingClient } = useClients();
   const queryClient = useQueryClient();
 
   const filteredClients = clients.filter(client => {
@@ -78,6 +78,7 @@ const Clients = () => {
       } : undefined,
     },
     balance: client.balance,
+    isActive: client.is_active, // Add the is_active field
     lastPayment: undefined, // TODO: Fetch from payments table
   }));
 
@@ -108,6 +109,16 @@ const Clients = () => {
         updates: { status: newStatus }
       });
       setSelectedClient({ ...selectedClient, status: newStatus });
+    }
+  };
+
+  const handleActivateToggle = (isActive: boolean) => {
+    if (selectedClient) {
+      toggleClientActive({
+        id: selectedClient.id,
+        isActive: isActive
+      });
+      setSelectedClient({ ...selectedClient, is_active: isActive });
     }
   };
 
@@ -252,17 +263,17 @@ const Clients = () => {
         <Card>
           <CardContent className="p-4">
             <div className="text-2xl font-bold text-green-600">
-              {clients.filter(c => c.status === 'active').length}
+              {clients.filter(c => c.status === 'active' && c.is_active).length}
             </div>
-            <div className="text-sm text-gray-600">Active Clients</div>
+            <div className="text-sm text-gray-600">Active & Available</div>
           </CardContent>
         </Card>
         <Card>
           <CardContent className="p-4">
             <div className="text-2xl font-bold text-red-600">
-              {clients.filter(c => c.status === 'suspended').length}
+              {clients.filter(c => c.status === 'suspended' || !c.is_active).length}
             </div>
-            <div className="text-sm text-gray-600">Suspended</div>
+            <div className="text-sm text-gray-600">Suspended/Deactivated</div>
           </CardContent>
         </Card>
         <Card>
@@ -270,7 +281,7 @@ const Clients = () => {
             <div className="text-2xl font-bold text-yellow-600">
               {clients.filter(c => c.status === 'pending').length}
             </div>
-            <div className="text-sm text-gray-600">Pending</div>
+            <div className="text-sm text-gray-600">Pending Approval</div>
           </CardContent>
         </Card>
         <Card>
@@ -331,12 +342,14 @@ const Clients = () => {
               } : undefined,
             },
             balance: selectedClient.balance,
+            isActive: selectedClient.is_active,
           }}
           onClose={() => setShowClientDetails(false)}
           onEdit={handleEditClient}
           onStatusChange={handleStatusChange}
+          onActivateToggle={handleActivateToggle}
           onDelete={handleDeleteClient}
-          isUpdating={isUpdatingClient}
+          isUpdating={isUpdatingClient || isTogglingActive}
           isDeleting={isDeletingClient}
         />
       )}
