@@ -60,7 +60,6 @@ serve(async (req) => {
         id_number,
         client_type,
         status,
-        is_active,
         connection_type,
         monthly_rate,
         installation_date,
@@ -96,21 +95,13 @@ serve(async (req) => {
       )
     }
 
-    console.log('Client found:', client.name, 'Status:', client.status, 'Is Active:', client.is_active)
+    console.log('Client found:', client.name, 'Status:', client.status)
 
-    // Check if client account is active - both status should be 'active' AND is_active should be true
-    const isClientActive = client.status === 'active' && client.is_active === true
-    
-    if (!isClientActive) {
-      console.log('Client account is not active. Status:', client.status, 'Is Active:', client.is_active)
+    // Check if client account is active - only clients with 'active' status can login
+    if (client.status !== 'active') {
+      console.log('Client account is not active. Status:', client.status)
       
-      let errorMessage = 'Your account is currently not active. Please contact support.'
-      
-      if (client.status !== 'active') {
-        errorMessage = `Your account is currently ${client.status}. Please contact support.`
-      } else if (!client.is_active) {
-        errorMessage = 'Your account has been deactivated. Please contact support.'
-      }
+      let errorMessage = `Your account is currently ${client.status}. Please contact support.`
       
       return new Response(
         JSON.stringify({

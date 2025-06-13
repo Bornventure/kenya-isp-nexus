@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
@@ -129,37 +130,6 @@ export const useClients = () => {
     },
   });
 
-  const toggleClientActiveMutation = useMutation({
-    mutationFn: async ({ id, isActive }: { id: string; isActive: boolean }) => {
-      const { data, error } = await supabase
-        .from('clients')
-        .update({ is_active: isActive })
-        .eq('id', id)
-        .select()
-        .single();
-
-      if (error) throw error;
-      return data;
-    },
-    onSuccess: (data) => {
-      queryClient.invalidateQueries({ queryKey: ['clients'] });
-      toast({
-        title: data.is_active ? "Client Activated" : "Client Deactivated",
-        description: data.is_active 
-          ? "Client can now log in to their account." 
-          : "Client can no longer log in to their account.",
-      });
-    },
-    onError: (error) => {
-      console.error('Error toggling client active status:', error);
-      toast({
-        title: "Error",
-        description: "Failed to update client status. Please try again.",
-        variant: "destructive",
-      });
-    },
-  });
-
   const deleteClientMutation = useMutation({
     mutationFn: async (clientId: string) => {
       const { error } = await supabase
@@ -193,11 +163,9 @@ export const useClients = () => {
     error,
     addClient: addClientMutation.mutate,
     updateClient: updateClientMutation.mutate,
-    toggleClientActive: toggleClientActiveMutation.mutate,
     deleteClient: deleteClientMutation.mutate,
     isAddingClient: addClientMutation.isPending,
     isUpdatingClient: updateClientMutation.isPending,
-    isTogglingActive: toggleClientActiveMutation.isPending,
     isDeletingClient: deleteClientMutation.isPending,
   };
 };

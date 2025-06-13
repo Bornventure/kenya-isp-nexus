@@ -25,10 +25,9 @@ import {
 } from "@/components/ui/alert-dialog";
 
 interface ClientActionButtonsProps {
-  client: Client & { isActive?: boolean };
+  client: Client;
   onEdit: () => void;
   onStatusChange: (status: Client['status']) => void;
-  onActivateToggle?: (isActive: boolean) => void;
   onDelete?: (clientId: string) => void;
   isUpdating?: boolean;
   isDeleting?: boolean;
@@ -38,7 +37,6 @@ const ClientActionButtons: React.FC<ClientActionButtonsProps> = ({
   client, 
   onEdit, 
   onStatusChange,
-  onActivateToggle,
   onDelete,
   isUpdating = false,
   isDeleting = false
@@ -55,15 +53,15 @@ const ClientActionButtons: React.FC<ClientActionButtonsProps> = ({
 
   const getStatusIcon = (status: Client['status']) => {
     switch (status) {
-      case 'active': return <Power className="h-3 w-3 mr-1" />;
+      case 'active': return <CheckCircle className="h-3 w-3 mr-1" />;
       case 'suspended': return <PowerOff className="h-3 w-3 mr-1" />;
-      case 'disconnected': return <AlertCircle className="h-3 w-3 mr-1" />;
+      case 'disconnected': return <XCircle className="h-3 w-3 mr-1" />;
       case 'pending': return <AlertCircle className="h-3 w-3 mr-1" />;
       default: return null;
     }
   };
 
-  const isClientActive = client.isActive !== false; // Default to true if not specified
+  const canClientLogin = client.status === 'active';
 
   return (
     <div>
@@ -77,16 +75,16 @@ const ClientActionButtons: React.FC<ClientActionButtonsProps> = ({
             {getStatusIcon(client.status)}
             {client.status}
           </Badge>
-          <Badge className={isClientActive ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}>
-            {isClientActive ? (
+          <Badge className={canClientLogin ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}>
+            {canClientLogin ? (
               <>
                 <CheckCircle className="h-3 w-3 mr-1" />
-                Active
+                Can Login
               </>
             ) : (
               <>
                 <XCircle className="h-3 w-3 mr-1" />
-                Deactivated
+                Cannot Login
               </>
             )}
           </Badge>
@@ -139,64 +137,46 @@ const ClientActionButtons: React.FC<ClientActionButtonsProps> = ({
           )}
         </div>
 
-        {/* Activate/Deactivate Controls */}
-        {onActivateToggle && (
-          <div className="grid grid-cols-1 gap-2">
-            {isClientActive ? (
-              <Button 
-                variant="outline" 
-                size="sm"
-                onClick={() => onActivateToggle(false)}
-                disabled={isUpdating}
-                className="text-red-600 hover:text-red-700 hover:bg-red-50"
-              >
-                <XCircle className="h-4 w-4 mr-2" />
-                Deactivate Account
-              </Button>
-            ) : (
-              <Button 
-                variant="outline" 
-                size="sm"
-                onClick={() => onActivateToggle(true)}
-                disabled={isUpdating}
-                className="text-green-600 hover:text-green-700 hover:bg-green-50"
-              >
-                <CheckCircle className="h-4 w-4 mr-2" />
-                Activate Account
-              </Button>
-            )}
-          </div>
-        )}
-
         {/* Status Controls */}
-        <div className="grid grid-cols-2 gap-2">
+        <div className="grid grid-cols-1 gap-2">
           {client.status === 'pending' && (
             <Button 
               variant="outline" 
               size="sm"
               onClick={() => onStatusChange('active')}
               disabled={isUpdating}
-              className="text-green-600 hover:text-green-700 hover:bg-green-50 col-span-2"
+              className="text-green-600 hover:text-green-700 hover:bg-green-50"
             >
               <Power className="h-4 w-4 mr-2" />
-              Approve & Set Active
+              Activate Client
             </Button>
           )}
 
           {client.status === 'active' && (
-            <Button 
-              variant="outline" 
-              size="sm"
-              onClick={() => onStatusChange('suspended')}
-              disabled={isUpdating}
-              className="text-orange-600 hover:text-orange-700 hover:bg-orange-50"
-            >
-              Suspend Service
-            </Button>
+            <div className="grid grid-cols-2 gap-2">
+              <Button 
+                variant="outline" 
+                size="sm"
+                onClick={() => onStatusChange('suspended')}
+                disabled={isUpdating}
+                className="text-orange-600 hover:text-orange-700 hover:bg-orange-50"
+              >
+                Suspend
+              </Button>
+              <Button 
+                variant="outline" 
+                size="sm"
+                onClick={() => onStatusChange('pending')}
+                disabled={isUpdating}
+                className="text-gray-600 hover:text-gray-700 hover:bg-gray-50"
+              >
+                Deactivate
+              </Button>
+            </div>
           )}
           
           {client.status === 'suspended' && (
-            <>
+            <div className="grid grid-cols-2 gap-2">
               <Button 
                 variant="outline" 
                 size="sm"
@@ -215,7 +195,7 @@ const ClientActionButtons: React.FC<ClientActionButtonsProps> = ({
               >
                 Disconnect
               </Button>
-            </>
+            </div>
           )}
           
           {client.status === 'disconnected' && (
@@ -224,7 +204,7 @@ const ClientActionButtons: React.FC<ClientActionButtonsProps> = ({
               size="sm"
               onClick={() => onStatusChange('active')}
               disabled={isUpdating}
-              className="text-green-600 hover:text-green-700 hover:bg-green-50 col-span-2"
+              className="text-green-600 hover:text-green-700 hover:bg-green-50"
             >
               <Power className="h-4 w-4 mr-2" />
               Reconnect Service
