@@ -58,6 +58,7 @@ serve(async (req) => {
         status,
         monthly_rate,
         service_package_id,
+        isp_company_id,
         service_packages (
           id,
           name,
@@ -82,6 +83,60 @@ serve(async (req) => {
           headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
         }
       )
+    }
+
+    // Get or create a default ISP company if none exists
+    let ispCompanyId = client.isp_company_id
+    
+    if (!ispCompanyId) {
+      console.log('No ISP company associated with client, checking for default company...')
+      
+      // Try to find any existing ISP company
+      const { data: existingCompany } = await supabase
+        .from('isp_companies')
+        .select('id')
+        .limit(1)
+        .single()
+      
+      if (existingCompany) {
+        ispCompanyId = existingCompany.id
+        console.log('Using existing ISP company:', ispCompanyId)
+      } else {
+        // Create a default ISP company
+        const { data: newCompany, error: companyError } = await supabase
+          .from('isp_companies')
+          .insert({
+            name: 'Default ISP Company',
+            license_key: 'DEFAULT-' + Date.now(),
+            license_type: 'starter'
+          })
+          .select('id')
+          .single()
+        
+        if (companyError) {
+          console.error('Error creating default ISP company:', companyError)
+          return new Response(
+            JSON.stringify({
+              success: false,
+              error: 'Failed to setup ISP company',
+              code: 'ISP_COMPANY_ERROR'
+            }),
+            { 
+              status: 500, 
+              headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
+            }
+          )
+        }
+        
+        ispCompanyId = newCompany.id
+        console.log('Created default ISP company:', ispCompanyId)
+      }
+      
+      // Update client with ISP company ID
+      await supabase
+        .from('clients')
+        .update({ isp_company_id: ispCompanyId })
+        .eq('id', client.id)
     }
 
     // Update M-Pesa number if provided
@@ -123,7 +178,7 @@ serve(async (req) => {
         service_period_end: dueDate.toISOString(),
         status: 'pending',
         notes: 'Package renewal - Testing',
-        isp_company_id: client.isp_company_id || '00000000-0000-0000-0000-000000000000'
+        isp_company_id: ispCompanyId
       })
       .select()
       .single()
