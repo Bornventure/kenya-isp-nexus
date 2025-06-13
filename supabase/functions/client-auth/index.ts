@@ -154,16 +154,37 @@ serve(async (req) => {
 
     console.log('Client authentication successful for:', client.name)
 
+    // Structure the response to match frontend expectations
+    const clientData = {
+      id: client.id,
+      name: client.name,
+      email: client.email,
+      phone: client.phone,
+      mpesaNumber: client.mpesa_number,
+      idNumber: client.id_number,
+      clientType: client.client_type,
+      status: client.status, // This is the key field that was missing
+      connectionType: client.connection_type,
+      monthlyRate: client.monthly_rate,
+      installationDate: client.installation_date,
+      location: {
+        address: client.address,
+        county: client.county,
+        subCounty: client.sub_county
+      },
+      balance: client.balance,
+      servicePackage: client.service_packages?.name || 'No Package',
+      createdAt: client.created_at,
+      payments: payments || [],
+      invoices: invoices || [],
+      supportTickets: supportTickets || []
+    }
+
     // Return client data with related information
     return new Response(
       JSON.stringify({
         success: true,
-        client: {
-          ...client,
-          payments: payments || [],
-          invoices: invoices || [],
-          support_tickets: supportTickets || []
-        }
+        client: clientData
       }),
       { 
         headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
