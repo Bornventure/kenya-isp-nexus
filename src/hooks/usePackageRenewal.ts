@@ -43,11 +43,23 @@ export const usePackageRenewal = () => {
         body: request,
       });
 
+      console.log('Package renewal response:', { data, error });
+
       if (error) {
-        console.error('Package renewal error:', error);
+        console.error('Supabase function invoke error:', error);
         toast({
           title: "Renewal Failed",
-          description: "Failed to initiate package renewal. Please try again.",
+          description: `Network error: ${error.message || 'Failed to connect to server'}`,
+          variant: "destructive",
+        });
+        return null;
+      }
+
+      if (!data) {
+        console.error('No data received from package renewal function');
+        toast({
+          title: "Renewal Failed",
+          description: "No response received from server",
           variant: "destructive",
         });
         return null;
@@ -60,12 +72,13 @@ export const usePackageRenewal = () => {
         });
         return data;
       } else {
+        console.error('Package renewal failed with error:', data.error, 'Code:', data.code);
         toast({
           title: "Renewal Failed",
           description: data.error || "Failed to initiate renewal.",
           variant: "destructive",
         });
-        return null;
+        return data; // Return the error response so caller can handle it
       }
     } catch (error) {
       console.error('Package renewal error:', error);
