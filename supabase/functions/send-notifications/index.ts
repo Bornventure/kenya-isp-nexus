@@ -16,10 +16,11 @@ interface NotificationRequest {
   data?: any;
 }
 
-// Africa's Talking SMS function
+// Africa's Talking SMS function with sender ID
 async function sendSMS(phoneNumber: string, message: string) {
   const apiKey = Deno.env.get('AFRICASTALKING_API_KEY')
   const username = Deno.env.get('AFRICASTALKING_USERNAME')
+  const senderId = Deno.env.get('AFRICASTALKING_SENDER_ID') || 'AFRICASTKNG' // Default sender ID
   
   if (!apiKey || !username) {
     console.log('Africa\'s Talking credentials not configured')
@@ -31,6 +32,7 @@ async function sendSMS(phoneNumber: string, message: string) {
     formData.append('username', username)
     formData.append('to', phoneNumber)
     formData.append('message', message)
+    formData.append('from', senderId) // Add sender ID
 
     const response = await fetch('https://api.africastalking.com/version1/messaging', {
       method: 'POST',
