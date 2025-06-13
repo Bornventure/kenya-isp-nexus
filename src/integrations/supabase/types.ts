@@ -581,6 +581,10 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      check_renewal_reminders: {
+        Args: Record<PropertyKey, never>
+        Returns: undefined
+      }
       get_current_user_company_id: {
         Args: Record<PropertyKey, never>
         Returns: string
@@ -588,6 +592,10 @@ export type Database = {
       get_current_user_role: {
         Args: Record<PropertyKey, never>
         Returns: string
+      }
+      handle_service_expiry: {
+        Args: Record<PropertyKey, never>
+        Returns: undefined
       }
       is_admin: {
         Args: Record<PropertyKey, never>
