@@ -33,6 +33,9 @@ export interface Client {
     amount: number;
     method: 'mpesa' | 'bank' | 'cash';
   };
+  payments?: any[];
+  invoices?: any[];
+  supportTickets?: any[];
 }
 
 export interface ServicePackage {
@@ -42,4 +45,9 @@ export interface ServicePackage {
   monthlyRate: number;
   connectionType: string[];
   description: string;
+}
+
+export interface ClientLoginCredentials {
+  email: string;
+  id_number: string;
 }

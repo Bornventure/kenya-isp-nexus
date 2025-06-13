@@ -27,7 +27,7 @@ export const clientToUser = (client: Client): User => {
       sub_county: client.location.subCounty,
       balance: client.balance,
       phone: client.phone,
-      mpesa_number: client.mpesaNumber,
+      mpesa_number: client.mpesaNumber || '',
       service_packages: client.servicePackage,
       payments: client.payments || [],
       invoices: client.invoices || [],
