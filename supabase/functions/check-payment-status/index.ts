@@ -43,7 +43,7 @@ serve(async (req) => {
       )
     }
 
-    // First check if we have an invoice with this ID
+    // Check if we have an invoice with this ID
     console.log('Looking for invoice with ID:', paymentId)
     const { data: invoice, error: invoiceError } = await supabase
       .from('invoices')
@@ -83,7 +83,7 @@ serve(async (req) => {
       )
     }
 
-    // Query M-Pesa payment status using existing mpesa-query-status function
+    // Query M-Pesa payment status
     console.log('Querying M-Pesa status for checkout request:', checkoutRequestId)
     
     const { data: mpesaStatus, error: mpesaError } = await supabase.functions.invoke('mpesa-query-status', {
@@ -118,7 +118,30 @@ serve(async (req) => {
       status = 'completed'
       message = 'Payment completed successfully'
       
-      console.log('Payment successful, updating invoice status...')
+      console.log('Payment successful, processing payment...')
+      
+      // Create payment record in payments table
+      const { data: paymentRecord, error: paymentError } = await supabase
+        .from('payments')
+        .insert({
+          client_id: invoice.client_id,
+          invoice_id: invoice.id,
+          amount: invoice.total_amount,
+          payment_method: 'mpesa',
+          payment_date: new Date().toISOString(),
+          reference_number: checkoutRequestId,
+          mpesa_receipt_number: mpesaStatus?.MpesaReceiptNumber || 'TEST_RECEIPT',
+          notes: 'Package renewal payment via M-Pesa',
+          isp_company_id: invoice.isp_company_id
+        })
+        .select()
+        .single()
+
+      if (paymentError) {
+        console.error('Error creating payment record:', paymentError)
+      } else {
+        console.log('Payment record created:', paymentRecord)
+      }
       
       // Update invoice status to paid
       const { error: updateError } = await supabase
@@ -131,21 +154,42 @@ serve(async (req) => {
       } else {
         console.log('Invoice status updated to paid')
         
-        // Update client status to active if suspended
+        // Update client status to active and balance
         const { error: clientUpdateError } = await supabase
           .from('clients')
-          .update({ status: 'active' })
+          .update({ 
+            status: 'active',
+            balance: invoice.total_amount // Add payment to balance
+          })
           .eq('id', invoice.client_id)
 
         if (clientUpdateError) {
           console.error('Error updating client status:', clientUpdateError)
         } else {
-          console.log('Client status updated to active')
+          console.log('Client status updated to active with balance')
+        }
+
+        // Send success notification
+        try {
+          await supabase.functions.invoke('send-notifications', {
+            body: {
+              client_id: invoice.client_id,
+              type: 'payment_success',
+              data: {
+                amount: invoice.total_amount,
+                receipt_number: mpesaStatus?.MpesaReceiptNumber || 'TEST_RECEIPT'
+              }
+            }
+          })
+          console.log('Payment success notification sent')
+        } catch (notificationError) {
+          console.error('Error sending payment notification:', notificationError)
         }
       }
     } else if (isPaymentFailed) {
       status = 'failed'
       message = mpesaStatus?.ResultDesc || 'Payment failed'
+      console.log('Payment failed with message:', message)
     }
 
     return new Response(

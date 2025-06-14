@@ -10,8 +10,8 @@ const corsHeaders = {
 interface PackageRenewalRequest {
   client_email: string;
   client_id_number: string;
-  mpesa_number?: string; // Optional, will use existing if not provided
-  package_id?: string; // Optional, will use current package if not provided
+  mpesa_number?: string;
+  package_id?: string;
 }
 
 serve(async (req) => {
@@ -85,13 +85,12 @@ serve(async (req) => {
       )
     }
 
-    // Get or create a default ISP company if none exists
+    // Get or create ISP company
     let ispCompanyId = client.isp_company_id
     
     if (!ispCompanyId) {
       console.log('No ISP company associated with client, checking for default company...')
       
-      // Try to find any existing ISP company
       const { data: existingCompany } = await supabase
         .from('isp_companies')
         .select('id')
@@ -102,7 +101,6 @@ serve(async (req) => {
         ispCompanyId = existingCompany.id
         console.log('Using existing ISP company:', ispCompanyId)
       } else {
-        // Create a default ISP company
         const { data: newCompany, error: companyError } = await supabase
           .from('isp_companies')
           .insert({
@@ -132,7 +130,6 @@ serve(async (req) => {
         console.log('Created default ISP company:', ispCompanyId)
       }
       
-      // Update client with ISP company ID
       await supabase
         .from('clients')
         .update({ isp_company_id: ispCompanyId })
@@ -153,31 +150,29 @@ serve(async (req) => {
       }
     }
 
-    // Get package details
+    // Get package details and calculate correct amounts
     const currentPackage = client.service_packages
-    const renewalAmount = currentPackage?.monthly_rate || client.monthly_rate || 10
+    const baseAmount = currentPackage?.monthly_rate || client.monthly_rate || 10
 
-    // Generate invoice for renewal
+    // Generate invoice for renewal - EXACTLY 30 minutes from now
     const invoiceNumber = `INV-${Date.now()}`
     const dueDate = new Date()
-    dueDate.setMinutes(dueDate.getMinutes() + 30) // 30 minutes for testing
+    dueDate.setMinutes(dueDate.getMinutes() + 30) // Exactly 30 minutes
 
-    const vatAmount = renewalAmount * 0.16
-    const totalAmount = renewalAmount + vatAmount
-
+    // IMPORTANT: Don't add VAT here - use base amount only
     const { data: invoice, error: invoiceError } = await supabase
       .from('invoices')
       .insert({
         invoice_number: invoiceNumber,
         client_id: client.id,
-        amount: renewalAmount,
-        vat_amount: vatAmount,
-        total_amount: totalAmount,
+        amount: baseAmount, // Base amount without VAT
+        vat_amount: 0, // No VAT for testing
+        total_amount: baseAmount, // Total = base amount (no VAT)
         due_date: dueDate.toISOString(),
         service_period_start: new Date().toISOString(),
         service_period_end: dueDate.toISOString(),
         status: 'pending',
-        notes: 'Package renewal - Testing',
+        notes: 'Package renewal - 30min test package',
         isp_company_id: ispCompanyId
       })
       .select()
@@ -198,15 +193,15 @@ serve(async (req) => {
       )
     }
 
-    // Initiate M-Pesa STK Push
+    // Initiate M-Pesa STK Push with base amount only
     const mpesaPayload = {
       phoneNumber: mpesa_number || client.mpesa_number,
-      amount: Math.round(totalAmount),
+      amount: Math.round(baseAmount), // Use base amount only
       accountReference: invoiceNumber,
       transactionDesc: `Package renewal for ${client.name}`
     }
 
-    console.log('Initiating M-Pesa payment:', mpesaPayload)
+    console.log('Initiating M-Pesa payment with correct amount:', mpesaPayload)
 
     const { data: mpesaResponse, error: mpesaError } = await supabase.functions.invoke('mpesa-stk-push', {
       body: mpesaPayload,
@@ -229,6 +224,7 @@ serve(async (req) => {
     }
 
     console.log('Package renewal initiated successfully for:', client.name)
+    console.log('Invoice created with base amount:', baseAmount, 'due at:', dueDate.toISOString())
 
     return new Response(
       JSON.stringify({
@@ -237,7 +233,7 @@ serve(async (req) => {
           invoice: {
             id: invoice.id,
             invoice_number: invoiceNumber,
-            amount: totalAmount,
+            amount: baseAmount, // Return base amount
             due_date: dueDate.toISOString()
           },
           mpesa_response: mpesaResponse,
