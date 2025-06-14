@@ -116,31 +116,26 @@ serve(async (req) => {
 
     if (isPaymentSuccessful) {
       status = 'completed'
-      message = 'Payment completed successfully'
+      message = 'Payment completed successfully - credited to wallet'
       
-      console.log('Payment successful, processing payment...')
+      console.log('Payment successful, crediting wallet...')
       
-      // Create payment record in payments table
-      const { data: paymentRecord, error: paymentError } = await supabase
-        .from('payments')
-        .insert({
+      // Credit the client's wallet instead of direct payment processing
+      const { data: walletCredit, error: walletError } = await supabase.functions.invoke('wallet-credit', {
+        body: {
           client_id: invoice.client_id,
-          invoice_id: invoice.id,
           amount: invoice.total_amount,
           payment_method: 'mpesa',
-          payment_date: new Date().toISOString(),
           reference_number: checkoutRequestId,
           mpesa_receipt_number: mpesaStatus?.MpesaReceiptNumber || 'TEST_RECEIPT',
-          notes: 'Package renewal payment via M-Pesa',
-          isp_company_id: invoice.isp_company_id
-        })
-        .select()
-        .single()
+          description: 'Wallet credit via M-Pesa payment'
+        }
+      })
 
-      if (paymentError) {
-        console.error('Error creating payment record:', paymentError)
+      if (walletError) {
+        console.error('Error crediting wallet:', walletError)
       } else {
-        console.log('Payment record created:', paymentRecord)
+        console.log('Wallet credited successfully:', walletCredit)
       }
       
       // Update invoice status to paid
@@ -153,38 +148,25 @@ serve(async (req) => {
         console.error('Error updating invoice status:', updateError)
       } else {
         console.log('Invoice status updated to paid')
-        
-        // Update client status to active and balance
-        const { error: clientUpdateError } = await supabase
-          .from('clients')
-          .update({ 
-            status: 'active',
-            balance: invoice.total_amount // Add payment to balance
-          })
-          .eq('id', invoice.client_id)
+      }
 
-        if (clientUpdateError) {
-          console.error('Error updating client status:', clientUpdateError)
-        } else {
-          console.log('Client status updated to active with balance')
-        }
-
-        // Send success notification
-        try {
-          await supabase.functions.invoke('send-notifications', {
-            body: {
-              client_id: invoice.client_id,
-              type: 'payment_success',
-              data: {
-                amount: invoice.total_amount,
-                receipt_number: mpesaStatus?.MpesaReceiptNumber || 'TEST_RECEIPT'
-              }
+      // Send wallet credit notification
+      try {
+        await supabase.functions.invoke('send-notifications', {
+          body: {
+            client_id: invoice.client_id,
+            type: 'wallet_credit',
+            data: {
+              amount: invoice.total_amount,
+              new_balance: walletCredit?.data?.new_balance,
+              auto_renewed: walletCredit?.data?.auto_renewed,
+              receipt_number: mpesaStatus?.MpesaReceiptNumber || 'TEST_RECEIPT'
             }
-          })
-          console.log('Payment success notification sent')
-        } catch (notificationError) {
-          console.error('Error sending payment notification:', notificationError)
-        }
+          }
+        })
+        console.log('Wallet credit notification sent')
+      } catch (notificationError) {
+        console.error('Error sending wallet credit notification:', notificationError)
       }
     } else if (isPaymentFailed) {
       status = 'failed'

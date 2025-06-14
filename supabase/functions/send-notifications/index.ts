@@ -12,7 +12,7 @@ const resend = new Resend(Deno.env.get("RESEND_API_KEY"))
 
 interface NotificationRequest {
   client_id: string;
-  type: 'payment_reminder' | 'payment_success' | 'service_expiry' | 'service_activation';
+  type: 'wallet_reminder' | 'payment_success' | 'service_expiry' | 'service_activation' | 'wallet_credit';
   data?: any;
 }
 
@@ -20,7 +20,7 @@ interface NotificationRequest {
 async function sendSMS(phoneNumber: string, message: string) {
   const apiKey = Deno.env.get('AFRICASTALKING_API_KEY')
   const username = Deno.env.get('AFRICASTALKING_USERNAME')
-  const senderId = Deno.env.get('AFRICASTALKING_SENDER_ID') || 'AFRICASTKNG' // Default sender ID
+  const senderId = Deno.env.get('AFRICASTALKING_SENDER_ID') || 'AFRICASTKNG'
   
   if (!apiKey || !username) {
     console.log('Africa\'s Talking credentials not configured')
@@ -32,7 +32,7 @@ async function sendSMS(phoneNumber: string, message: string) {
     formData.append('username', username)
     formData.append('to', phoneNumber)
     formData.append('message', message)
-    formData.append('from', senderId) // Add sender ID
+    formData.append('from', senderId)
 
     const response = await fetch('https://api.africastalking.com/version1/messaging', {
       method: 'POST',
@@ -50,6 +50,14 @@ async function sendSMS(phoneNumber: string, message: string) {
     console.error('SMS sending failed:', error)
     return { success: false, error: error.message }
   }
+}
+
+function formatCurrency(amount: number): string {
+  return new Intl.NumberFormat('en-KE', {
+    style: 'currency',
+    currency: 'KES',
+    minimumFractionDigits: 2
+  }).format(amount).replace('KES', 'KES ')
 }
 
 serve(async (req) => {
@@ -81,43 +89,68 @@ serve(async (req) => {
 
     // Generate notification content based on type
     switch (type) {
-      case 'payment_reminder':
-        const daysUntilExpiry = data?.days_until_expiry || 1
-        emailSubject = `Payment Reminder - ${daysUntilExpiry} day(s) remaining`
+      case 'wallet_reminder':
+        const daysText = data?.days_until_expiry === 1 ? 'Today!' : 
+                        data?.days_until_expiry === 2 ? '2 Days!' : '3 Days!'
+        const requiredAmount = formatCurrency(data?.required_amount || 0)
+        
+        emailSubject = `Plan Expiry Alert - ${daysText}`
         emailContent = `
-          <h2>Payment Reminder</h2>
+          <h2>Plan Expiry Reminder</h2>
           <p>Dear ${client.name},</p>
-          <p>This is a friendly reminder that your internet service will expire in ${daysUntilExpiry} day(s).</p>
-          <p>Please renew your package to avoid service interruption.</p>
-          <p>Amount due: KES ${data?.amount || client.monthly_rate}</p>
-          <p>Thank you for choosing our services!</p>
+          <p>Your plan expires in <strong>${daysText}</strong></p>
+          <p>Current wallet balance: ${formatCurrency(data?.current_balance || 0)}</p>
+          <p>Plan amount: ${formatCurrency(data?.package_amount || 0)}</p>
+          ${data?.required_amount > 0 ? `
+            <p><strong>Top-up required: ${requiredAmount}</strong></p>
+            <p>To credit your account, pay exactly ${requiredAmount} via M-Pesa Paybill ${data?.paybill_number || '123456'} using ${data?.account_number || client.phone} as the account number.</p>
+          ` : `
+            <p>✅ Your wallet has sufficient balance for auto-renewal!</p>
+          `}
+          <p>Plan and top-up before expiry to avoid interruptions.</p>
         `
-        smsMessage = `Hi ${client.name}, your internet service expires in ${daysUntilExpiry} day(s). Renew now to avoid disconnection. Amount: KES ${data?.amount || client.monthly_rate}`
+        
+        smsMessage = `Dear ${client.name}, your plan expires in ${daysText} ${data?.required_amount > 0 ? 
+          `Top-up ${requiredAmount} via M-Pesa Paybill ${data?.paybill_number || '123456'}, Account: ${data?.account_number || client.phone}` : 
+          'Your wallet has sufficient balance for auto-renewal!'
+        }`
+        break
+
+      case 'wallet_credit':
+        emailSubject = 'Wallet Credit Confirmation'
+        emailContent = `
+          <h2>Wallet Credited Successfully!</h2>
+          <p>Dear ${client.name},</p>
+          <p>Your wallet has been credited with ${formatCurrency(data?.amount)}.</p>
+          <p>New wallet balance: ${formatCurrency(data?.new_balance)}</p>
+          ${data?.auto_renewed ? '<p>✅ Your subscription has been automatically renewed!</p>' : ''}
+          <p>Thank you for your payment!</p>
+        `
+        smsMessage = `Wallet credited: ${formatCurrency(data?.amount)}. New balance: ${formatCurrency(data?.new_balance)}. ${data?.auto_renewed ? 'Subscription auto-renewed!' : ''}`
         break
 
       case 'payment_success':
-        emailSubject = 'Payment Confirmation - Service Renewed'
+        emailSubject = 'Payment Confirmation - Wallet Credited'
         emailContent = `
           <h2>Payment Successful!</h2>
           <p>Dear ${client.name},</p>
-          <p>Your payment of KES ${data?.amount} has been received successfully.</p>
-          <p>Your internet service has been renewed and will remain active.</p>
+          <p>Your payment of ${formatCurrency(data?.amount)} has been received and added to your wallet.</p>
           <p>Receipt Number: ${data?.receipt_number}</p>
           <p>Thank you for your payment!</p>
         `
-        smsMessage = `Payment of KES ${data?.amount} received. Your internet service has been renewed. Receipt: ${data?.receipt_number}. Thank you!`
+        smsMessage = `Payment of ${formatCurrency(data?.amount)} received and added to wallet. Receipt: ${data?.receipt_number}. Thank you!`
         break
 
       case 'service_expiry':
-        emailSubject = 'Service Expired - Immediate Action Required'
+        emailSubject = 'Service Expired - Wallet Top-up Required'
         emailContent = `
           <h2>Service Expired</h2>
           <p>Dear ${client.name},</p>
           <p>Your internet service has expired and has been temporarily suspended.</p>
-          <p>Please renew your package immediately to restore your connection.</p>
-          <p>Contact support if you need assistance.</p>
+          <p>Please top-up your wallet to restore your connection.</p>
+          <p>Top-up via M-Pesa Paybill ${data?.paybill_number || '123456'} using ${client.phone} as account number.</p>
         `
-        smsMessage = `Your internet service has expired and is suspended. Please renew immediately to restore connection. Contact support for help.`
+        smsMessage = `Your internet service has expired. Top-up your wallet via M-Pesa Paybill ${data?.paybill_number || '123456'}, Account: ${client.phone} to restore connection.`
         break
 
       case 'service_activation':
@@ -126,9 +159,10 @@ serve(async (req) => {
           <h2>Service Activated</h2>
           <p>Dear ${client.name},</p>
           <p>Your internet service has been activated and is now fully operational.</p>
+          <p>Current wallet balance: ${formatCurrency(data?.wallet_balance || 0)}</p>
           <p>Enjoy your high-speed internet connection!</p>
         `
-        smsMessage = `Your internet service is now active and operational. Enjoy your connection!`
+        smsMessage = `Your internet service is now active! Wallet balance: ${formatCurrency(data?.wallet_balance || 0)}. Enjoy your connection!`
         break
     }
 

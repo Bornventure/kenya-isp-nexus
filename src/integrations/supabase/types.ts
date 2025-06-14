@@ -83,7 +83,11 @@ export type Database = {
           service_package_id: string | null
           status: Database["public"]["Enums"]["client_status"] | null
           sub_county: string
+          subscription_end_date: string | null
+          subscription_start_date: string | null
+          subscription_type: string | null
           updated_at: string | null
+          wallet_balance: number | null
         }
         Insert: {
           address: string
@@ -108,7 +112,11 @@ export type Database = {
           service_package_id?: string | null
           status?: Database["public"]["Enums"]["client_status"] | null
           sub_county: string
+          subscription_end_date?: string | null
+          subscription_start_date?: string | null
+          subscription_type?: string | null
           updated_at?: string | null
+          wallet_balance?: number | null
         }
         Update: {
           address?: string
@@ -133,7 +141,11 @@ export type Database = {
           service_package_id?: string | null
           status?: Database["public"]["Enums"]["client_status"] | null
           sub_county?: string
+          subscription_end_date?: string | null
+          subscription_start_date?: string | null
+          subscription_type?: string | null
           updated_at?: string | null
+          wallet_balance?: number | null
         }
         Relationships: [
           {
@@ -337,6 +349,45 @@ export type Database = {
           phone?: string | null
           sub_county?: string | null
           subscription_end_date?: string | null
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
+      mpesa_settings: {
+        Row: {
+          consumer_key: string | null
+          consumer_secret: string | null
+          created_at: string | null
+          id: string
+          is_active: boolean | null
+          isp_company_id: string | null
+          passkey: string | null
+          paybill_number: string
+          shortcode: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          consumer_key?: string | null
+          consumer_secret?: string | null
+          created_at?: string | null
+          id?: string
+          is_active?: boolean | null
+          isp_company_id?: string | null
+          passkey?: string | null
+          paybill_number: string
+          shortcode?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          consumer_key?: string | null
+          consumer_secret?: string | null
+          created_at?: string | null
+          id?: string
+          is_active?: boolean | null
+          isp_company_id?: string | null
+          passkey?: string | null
+          paybill_number?: string
+          shortcode?: string | null
           updated_at?: string | null
         }
         Relationships: []
@@ -576,12 +627,60 @@ export type Database = {
           },
         ]
       }
+      wallet_transactions: {
+        Row: {
+          amount: number
+          client_id: string | null
+          created_at: string | null
+          description: string | null
+          id: string
+          isp_company_id: string | null
+          mpesa_receipt_number: string | null
+          reference_number: string | null
+          transaction_type: string
+        }
+        Insert: {
+          amount: number
+          client_id?: string | null
+          created_at?: string | null
+          description?: string | null
+          id?: string
+          isp_company_id?: string | null
+          mpesa_receipt_number?: string | null
+          reference_number?: string | null
+          transaction_type: string
+        }
+        Update: {
+          amount?: number
+          client_id?: string | null
+          created_at?: string | null
+          description?: string | null
+          id?: string
+          isp_company_id?: string | null
+          mpesa_receipt_number?: string | null
+          reference_number?: string | null
+          transaction_type?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "wallet_transactions_client_id_fkey"
+            columns: ["client_id"]
+            isOneToOne: false
+            referencedRelation: "clients"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Views: {
       [_ in never]: never
     }
     Functions: {
       check_renewal_reminders: {
+        Args: Record<PropertyKey, never>
+        Returns: undefined
+      }
+      check_wallet_based_renewals: {
         Args: Record<PropertyKey, never>
         Returns: undefined
       }
@@ -593,6 +692,10 @@ export type Database = {
         Args: Record<PropertyKey, never>
         Returns: string
       }
+      handle_automatic_renewals: {
+        Args: Record<PropertyKey, never>
+        Returns: undefined
+      }
       handle_service_expiry: {
         Args: Record<PropertyKey, never>
         Returns: undefined
@@ -600,6 +703,10 @@ export type Database = {
       is_admin: {
         Args: Record<PropertyKey, never>
         Returns: boolean
+      }
+      process_subscription_renewal: {
+        Args: { p_client_id: string }
+        Returns: Json
       }
     }
     Enums: {

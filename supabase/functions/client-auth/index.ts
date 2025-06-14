@@ -43,7 +43,7 @@ serve(async (req) => {
       )
     }
 
-    // Find client with full details
+    // Find client with wallet information
     const { data: client, error: clientError } = await supabase
       .from('clients')
       .select(`
@@ -55,25 +55,14 @@ serve(async (req) => {
           speed,
           description
         ),
-        invoices!client_id (
+        wallet_transactions!client_id (
           id,
-          invoice_number,
+          transaction_type,
           amount,
-          vat_amount,
-          total_amount,
-          due_date,
-          status,
-          created_at,
-          service_period_start,
-          service_period_end
-        ),
-        payments!client_id (
-          id,
-          amount,
-          payment_method,
-          payment_date,
+          description,
           reference_number,
-          mpesa_receipt_number
+          mpesa_receipt_number,
+          created_at
         )
       `)
       .eq('email', email)
@@ -97,8 +86,7 @@ serve(async (req) => {
 
     console.log('Client found:', client.name, 'Status:', client.status)
 
-    // IMPORTANT: Allow suspended clients to log in so they can make payments
-    // Only block completely disconnected or pending clients
+    // Allow suspended clients to access for payments, block only disconnected/pending
     if (client.status === 'disconnected' || client.status === 'pending') {
       console.log('Client account is not accessible. Status:', client.status)
       return new Response(
@@ -116,7 +104,14 @@ serve(async (req) => {
       )
     }
 
-    // Allow active and suspended clients to access the portal
+    // Get M-Pesa paybill settings for wallet top-ups
+    const { data: mpesaSettings } = await supabase
+      .from('mpesa_settings')
+      .select('paybill_number')
+      .eq('isp_company_id', client.isp_company_id)
+      .eq('is_active', true)
+      .single()
+
     console.log('Client authentication successful for:', client.name)
 
     return new Response(
@@ -130,8 +125,11 @@ serve(async (req) => {
           mpesa_number: client.mpesa_number,
           id_number: client.id_number,
           status: client.status,
-          balance: client.balance || 0,
+          wallet_balance: client.wallet_balance || 0,
           monthly_rate: client.monthly_rate,
+          subscription_start_date: client.subscription_start_date,
+          subscription_end_date: client.subscription_end_date,
+          subscription_type: client.subscription_type || 'monthly',
           installation_date: client.installation_date,
           location: {
             address: client.address,
@@ -139,8 +137,11 @@ serve(async (req) => {
             sub_county: client.sub_county
           },
           service_package: client.service_packages,
-          invoices: client.invoices || [],
-          payments: client.payments || []
+          wallet_transactions: client.wallet_transactions || [],
+          payment_settings: {
+            paybill_number: mpesaSettings?.paybill_number || '123456',
+            account_number: client.phone
+          }
         }
       }),
       { 
