@@ -9,7 +9,7 @@ const corsHeaders = {
 
 interface ClientAuthRequest {
   email: string;
-  id_number: string;
+  id_number?: string;
 }
 
 serve(async (req) => {
@@ -29,12 +29,12 @@ serve(async (req) => {
 
     const { email, id_number } = requestBody
 
-    if (!email || !id_number) {
+    if (!email) {
       return new Response(
         JSON.stringify({
           success: false,
-          error: 'Email and ID number are required',
-          code: 'MISSING_CREDENTIALS'
+          error: 'Email is required',
+          code: 'MISSING_EMAIL'
         }),
         { 
           status: 400, 
@@ -43,8 +43,8 @@ serve(async (req) => {
       )
     }
 
-    // Find client with wallet information
-    const { data: client, error: clientError } = await supabase
+    // Find client with wallet information - try with ID number if provided, otherwise just email
+    let clientQuery = supabase
       .from('clients')
       .select(`
         *,
@@ -66,15 +66,19 @@ serve(async (req) => {
         )
       `)
       .eq('email', email)
-      .eq('id_number', id_number)
-      .single()
+
+    if (id_number) {
+      clientQuery = clientQuery.eq('id_number', id_number)
+    }
+
+    const { data: client, error: clientError } = await clientQuery.single()
 
     if (clientError || !client) {
       console.error('Client not found:', clientError)
       return new Response(
         JSON.stringify({
           success: false,
-          error: 'Invalid credentials',
+          error: id_number ? 'Invalid email or ID number combination' : 'Client not found with this email',
           code: 'CLIENT_NOT_FOUND'
         }),
         { 
@@ -86,22 +90,12 @@ serve(async (req) => {
 
     console.log('Client found:', client.name, 'Status:', client.status)
 
-    // Allow suspended clients to access for payments, block only disconnected/pending
-    if (client.status === 'disconnected' || client.status === 'pending') {
-      console.log('Client account is not accessible. Status:', client.status)
-      return new Response(
-        JSON.stringify({
-          success: false,
-          error: client.status === 'pending' 
-            ? 'Account is pending activation. Please contact support.'
-            : 'Account is disconnected. Please contact support.',
-          code: 'ACCOUNT_NOT_ACCESSIBLE'
-        }),
-        { 
-          status: 403, 
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
-        }
-      )
+    // Allow all clients to access the portal, but inform them of their status
+    let accessMessage = 'Access granted'
+    if (client.status === 'suspended') {
+      accessMessage = 'Account suspended - you can make payments to reactivate'
+    } else if (client.status === 'pending') {
+      accessMessage = 'Account pending activation - please contact support'
     }
 
     // Get M-Pesa paybill settings for wallet top-ups
@@ -117,6 +111,7 @@ serve(async (req) => {
     return new Response(
       JSON.stringify({
         success: true,
+        access_message: accessMessage,
         client: {
           id: client.id,
           name: client.name,
@@ -137,10 +132,10 @@ serve(async (req) => {
             sub_county: client.sub_county
           },
           service_package: client.service_packages,
-          wallet_transactions: client.wallet_transactions || [],
+          wallet_transactions: (client.wallet_transactions || []).slice(0, 10), // Last 10 transactions
           payment_settings: {
             paybill_number: mpesaSettings?.paybill_number || '123456',
-            account_number: client.phone
+            account_number: client.phone || client.mpesa_number
           }
         }
       }),

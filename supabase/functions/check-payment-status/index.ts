@@ -47,7 +47,20 @@ serve(async (req) => {
     console.log('Looking for invoice with ID:', paymentId)
     const { data: invoice, error: invoiceError } = await supabase
       .from('invoices')
-      .select('*')
+      .select(`
+        *,
+        clients (
+          id,
+          name,
+          email,
+          phone,
+          status,
+          wallet_balance,
+          monthly_rate,
+          subscription_end_date,
+          isp_company_id
+        )
+      `)
       .eq('id', paymentId)
       .single()
 
@@ -66,7 +79,7 @@ serve(async (req) => {
       )
     }
 
-    console.log('Found invoice:', invoice)
+    console.log('Found invoice:', invoice.invoice_number, 'for client:', invoice.clients?.name)
 
     // If invoice is already paid, return success immediately
     if (invoice.status === 'paid') {
@@ -116,19 +129,20 @@ serve(async (req) => {
 
     if (isPaymentSuccessful) {
       status = 'completed'
-      message = 'Payment completed successfully - credited to wallet'
+      message = 'Payment completed successfully'
       
-      console.log('Payment successful, crediting wallet...')
+      console.log('Payment successful, processing...')
       
-      // Credit the client's wallet instead of direct payment processing
+      // 1. Credit the client's wallet
+      console.log('Crediting wallet with amount:', invoice.total_amount)
       const { data: walletCredit, error: walletError } = await supabase.functions.invoke('wallet-credit', {
         body: {
           client_id: invoice.client_id,
           amount: invoice.total_amount,
           payment_method: 'mpesa',
           reference_number: checkoutRequestId,
-          mpesa_receipt_number: mpesaStatus?.MpesaReceiptNumber || 'TEST_RECEIPT',
-          description: 'Wallet credit via M-Pesa payment'
+          mpesa_receipt_number: mpesaStatus?.MpesaReceiptNumber || checkoutRequestId,
+          description: `Payment for invoice ${invoice.invoice_number}`
         }
       })
 
@@ -138,10 +152,13 @@ serve(async (req) => {
         console.log('Wallet credited successfully:', walletCredit)
       }
       
-      // Update invoice status to paid
+      // 2. Update invoice status to paid
       const { error: updateError } = await supabase
         .from('invoices')
-        .update({ status: 'paid' })
+        .update({ 
+          status: 'paid',
+          updated_at: new Date().toISOString()
+        })
         .eq('id', paymentId)
 
       if (updateError) {
@@ -150,24 +167,72 @@ serve(async (req) => {
         console.log('Invoice status updated to paid')
       }
 
-      // Send wallet credit notification
+      // 3. Create payment record
+      const { error: paymentError } = await supabase
+        .from('payments')
+        .insert({
+          client_id: invoice.client_id,
+          invoice_id: invoice.id,
+          amount: invoice.total_amount,
+          payment_method: 'mpesa',
+          payment_date: new Date().toISOString(),
+          reference_number: checkoutRequestId,
+          mpesa_receipt_number: mpesaStatus?.MpesaReceiptNumber || checkoutRequestId,
+          notes: `M-Pesa payment for ${invoice.invoice_number}`,
+          isp_company_id: invoice.clients?.isp_company_id
+        })
+
+      if (paymentError) {
+        console.error('Error creating payment record:', paymentError)
+      } else {
+        console.log('Payment record created successfully')
+      }
+
+      // 4. Check if client needs to be reactivated and process renewal
+      if (invoice.clients?.status === 'suspended') {
+        console.log('Client is suspended, attempting to reactivate...')
+        
+        // Try to process subscription renewal
+        const { data: renewalResult, error: renewalError } = await supabase.rpc('process_subscription_renewal', {
+          p_client_id: invoice.client_id
+        })
+
+        if (!renewalError && renewalResult?.success) {
+          console.log('Subscription renewed successfully:', renewalResult)
+          message = 'Payment successful and subscription renewed!'
+        } else {
+          console.log('Renewal failed, but wallet credited:', renewalResult)
+          
+          // If renewal failed but they paid, at least reactivate them temporarily
+          await supabase
+            .from('clients')
+            .update({ status: 'active' })
+            .eq('id', invoice.client_id)
+          
+          message = 'Payment successful! Please contact support for subscription renewal.'
+        }
+      }
+
+      // 5. Send payment success notification
       try {
         await supabase.functions.invoke('send-notifications', {
           body: {
             client_id: invoice.client_id,
-            type: 'wallet_credit',
+            type: 'payment_success',
             data: {
               amount: invoice.total_amount,
+              receipt_number: mpesaStatus?.MpesaReceiptNumber || checkoutRequestId,
+              invoice_number: invoice.invoice_number,
               new_balance: walletCredit?.data?.new_balance,
-              auto_renewed: walletCredit?.data?.auto_renewed,
-              receipt_number: mpesaStatus?.MpesaReceiptNumber || 'TEST_RECEIPT'
+              auto_renewed: walletCredit?.data?.auto_renewed
             }
           }
         })
-        console.log('Wallet credit notification sent')
+        console.log('Payment success notification sent')
       } catch (notificationError) {
-        console.error('Error sending wallet credit notification:', notificationError)
+        console.error('Error sending notification:', notificationError)
       }
+
     } else if (isPaymentFailed) {
       status = 'failed'
       message = mpesaStatus?.ResultDesc || 'Payment failed'

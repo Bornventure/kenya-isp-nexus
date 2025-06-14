@@ -5,7 +5,7 @@ import { useToast } from '@/hooks/use-toast';
 
 export interface PackageRenewalRequest {
   client_email: string;
-  client_id_number: string;
+  client_id_number?: string;
   mpesa_number?: string;
   package_id?: string;
 }
@@ -73,9 +73,21 @@ export const usePackageRenewal = () => {
         return data;
       } else {
         console.error('Package renewal failed with error:', data.error, 'Code:', data.code);
+        
+        // Provide specific error messages based on error codes
+        let errorMessage = data.error || "Failed to initiate renewal.";
+        
+        if (data.code === 'CLIENT_NOT_FOUND') {
+          errorMessage = "Client not found. Please check your email and ID number.";
+        } else if (data.code === 'MPESA_ERROR') {
+          errorMessage = "Failed to initiate M-Pesa payment. Please try again or contact support.";
+        } else if (data.code === 'MISSING_EMAIL') {
+          errorMessage = "Email is required for package renewal.";
+        }
+        
         toast({
           title: "Renewal Failed",
-          description: data.error || "Failed to initiate renewal.",
+          description: errorMessage,
           variant: "destructive",
         });
         return data; // Return the error response so caller can handle it

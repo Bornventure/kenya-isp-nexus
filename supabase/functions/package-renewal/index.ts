@@ -9,7 +9,7 @@ const corsHeaders = {
 
 interface PackageRenewalRequest {
   client_email: string;
-  client_id_number: string;
+  client_id_number?: string;
   mpesa_number?: string;
   package_id?: string;
 }
@@ -27,16 +27,16 @@ serve(async (req) => {
     const supabase = createClient(supabaseUrl, supabaseServiceKey)
 
     const requestBody: PackageRenewalRequest = await req.json()
-    console.log('Received renewal request for email:', requestBody.client_email)
+    console.log('Received renewal request:', requestBody)
 
     const { client_email, client_id_number, mpesa_number, package_id } = requestBody
 
-    if (!client_email || !client_id_number) {
+    if (!client_email) {
       return new Response(
         JSON.stringify({
           success: false,
-          error: 'Email and ID number are required',
-          code: 'MISSING_FIELDS'
+          error: 'Email is required',
+          code: 'MISSING_EMAIL'
         }),
         { 
           status: 400, 
@@ -45,8 +45,8 @@ serve(async (req) => {
       )
     }
 
-    // Find client
-    const { data: client, error: clientError } = await supabase
+    // Find client - try with ID number first, then email only
+    let clientQuery = supabase
       .from('clients')
       .select(`
         id,
@@ -67,15 +67,19 @@ serve(async (req) => {
         )
       `)
       .eq('email', client_email)
-      .eq('id_number', client_id_number)
-      .single()
+
+    if (client_id_number) {
+      clientQuery = clientQuery.eq('id_number', client_id_number)
+    }
+
+    const { data: client, error: clientError } = await clientQuery.single()
 
     if (clientError || !client) {
       console.error('Client not found:', clientError)
       return new Response(
         JSON.stringify({
           success: false,
-          error: 'Client not found',
+          error: 'Client not found with provided credentials',
           code: 'CLIENT_NOT_FOUND'
         }),
         { 
@@ -85,11 +89,13 @@ serve(async (req) => {
       )
     }
 
+    console.log('Client found:', client.name, 'Status:', client.status)
+
     // Get or create ISP company
     let ispCompanyId = client.isp_company_id
     
     if (!ispCompanyId) {
-      console.log('No ISP company associated with client, checking for default company...')
+      console.log('No ISP company associated with client, creating default...')
       
       const { data: existingCompany } = await supabase
         .from('isp_companies')
@@ -99,7 +105,6 @@ serve(async (req) => {
       
       if (existingCompany) {
         ispCompanyId = existingCompany.id
-        console.log('Using existing ISP company:', ispCompanyId)
       } else {
         const { data: newCompany, error: companyError } = await supabase
           .from('isp_companies')
@@ -127,7 +132,6 @@ serve(async (req) => {
         }
         
         ispCompanyId = newCompany.id
-        console.log('Created default ISP company:', ispCompanyId)
       }
       
       await supabase
@@ -143,36 +147,33 @@ serve(async (req) => {
         .update({ mpesa_number })
         .eq('id', client.id)
 
-      if (updateError) {
-        console.error('Error updating M-Pesa number:', updateError)
-      } else {
+      if (!updateError) {
         console.log('Updated M-Pesa number for client:', client.name)
       }
     }
 
-    // Get package details and calculate correct amounts
+    // Calculate package amount
     const currentPackage = client.service_packages
-    const baseAmount = currentPackage?.monthly_rate || client.monthly_rate || 10
+    const baseAmount = currentPackage?.monthly_rate || client.monthly_rate || 100
 
-    // Generate invoice for renewal - EXACTLY 30 minutes from now
+    // Generate invoice for payment
     const invoiceNumber = `INV-${Date.now()}`
     const dueDate = new Date()
-    dueDate.setMinutes(dueDate.getMinutes() + 30) // Exactly 30 minutes
+    dueDate.setHours(dueDate.getHours() + 1) // 1 hour to pay
 
-    // IMPORTANT: Don't add VAT here - use base amount only
     const { data: invoice, error: invoiceError } = await supabase
       .from('invoices')
       .insert({
         invoice_number: invoiceNumber,
         client_id: client.id,
-        amount: baseAmount, // Base amount without VAT
-        vat_amount: 0, // No VAT for testing
-        total_amount: baseAmount, // Total = base amount (no VAT)
+        amount: baseAmount,
+        vat_amount: 0,
+        total_amount: baseAmount,
         due_date: dueDate.toISOString(),
         service_period_start: new Date().toISOString(),
-        service_period_end: dueDate.toISOString(),
+        service_period_end: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(), // 30 days
         status: 'pending',
-        notes: 'Package renewal - 30min test package',
+        notes: 'Package renewal payment',
         isp_company_id: ispCompanyId
       })
       .select()
@@ -193,27 +194,30 @@ serve(async (req) => {
       )
     }
 
-    // Initiate M-Pesa STK Push with base amount only
+    console.log('Invoice created:', invoice.id, 'Amount:', baseAmount)
+
+    // Initiate M-Pesa STK Push
     const mpesaPayload = {
-      phoneNumber: mpesa_number || client.mpesa_number,
-      amount: Math.round(baseAmount), // Use base amount only
+      phoneNumber: mpesa_number || client.mpesa_number || client.phone,
+      amount: Math.round(baseAmount),
       accountReference: invoiceNumber,
       transactionDesc: `Package renewal for ${client.name}`
     }
 
-    console.log('Initiating M-Pesa payment with correct amount:', mpesaPayload)
+    console.log('Initiating M-Pesa payment:', mpesaPayload)
 
     const { data: mpesaResponse, error: mpesaError } = await supabase.functions.invoke('mpesa-stk-push', {
       body: mpesaPayload,
     })
 
-    if (mpesaError || !mpesaResponse) {
-      console.error('M-Pesa STK Push failed:', mpesaError)
+    if (mpesaError || !mpesaResponse?.ResponseCode || mpesaResponse.ResponseCode !== '0') {
+      console.error('M-Pesa STK Push failed:', mpesaError || mpesaResponse)
       return new Response(
         JSON.stringify({
           success: false,
           error: 'Failed to initiate M-Pesa payment',
           code: 'MPESA_ERROR',
+          details: mpesaResponse,
           invoice_id: invoice.id
         }),
         { 
@@ -224,7 +228,6 @@ serve(async (req) => {
     }
 
     console.log('Package renewal initiated successfully for:', client.name)
-    console.log('Invoice created with base amount:', baseAmount, 'due at:', dueDate.toISOString())
 
     return new Response(
       JSON.stringify({
@@ -233,14 +236,14 @@ serve(async (req) => {
           invoice: {
             id: invoice.id,
             invoice_number: invoiceNumber,
-            amount: baseAmount, // Return base amount
+            amount: baseAmount,
             due_date: dueDate.toISOString()
           },
           mpesa_response: mpesaResponse,
           client: {
             name: client.name,
             email: client.email,
-            mpesa_number: mpesa_number || client.mpesa_number
+            mpesa_number: mpesa_number || client.mpesa_number || client.phone
           }
         }
       }),

@@ -2,7 +2,7 @@ import { supabase } from '@/integrations/supabase/client';
 
 export interface CustomerLoginData {
   email: string;
-  idNumber: string;
+  idNumber?: string;
 }
 
 export interface ClientRegistrationData {
@@ -21,12 +21,11 @@ export interface ClientRegistrationData {
   isp_company_id: string;
 }
 
-// Customer login using the correct Supabase edge function
+// Customer login using the improved client-auth function
 export const customerLogin = async (loginData: CustomerLoginData) => {
   try {
-    console.log('Attempting customer login with:', { email: loginData.email, idNumber: loginData.idNumber });
+    console.log('Attempting customer login with:', { email: loginData.email, hasIdNumber: !!loginData.idNumber });
     
-    // Use the Supabase client to call the edge function directly
     const { data, error } = await supabase.functions.invoke('client-auth', {
       body: {
         email: loginData.email,
@@ -41,13 +40,14 @@ export const customerLogin = async (loginData: CustomerLoginData) => {
 
     if (!data?.success) {
       console.error('Authentication failed:', data?.error);
-      throw new Error(data?.error || 'Invalid email or ID number. Please check your credentials.');
+      throw new Error(data?.error || 'Invalid credentials. Please check your email and ID number.');
     }
 
     console.log('Customer login successful:', data);
     return {
       success: true,
-      client: data.client
+      client: data.client,
+      access_message: data.access_message
     };
 
   } catch (error: any) {
@@ -56,12 +56,103 @@ export const customerLogin = async (loginData: CustomerLoginData) => {
   }
 };
 
+// Enhanced package renewal with better error handling
+export const renewPackage = async (renewalData: {
+  client_email: string;
+  client_id_number?: string;
+  mpesa_number?: string;
+  package_id?: string;
+}) => {
+  try {
+    console.log('Initiating package renewal:', renewalData);
+
+    const { data, error } = await supabase.functions.invoke('package-renewal', {
+      body: renewalData
+    });
+
+    if (error) {
+      console.error('Package renewal error:', error);
+      throw new Error(error.message || 'Failed to initiate renewal');
+    }
+
+    if (!data?.success) {
+      console.error('Package renewal failed:', data?.error);
+      throw new Error(data?.error || 'Failed to initiate renewal');
+    }
+
+    console.log('Package renewal initiated successfully');
+    return data;
+
+  } catch (error: any) {
+    console.error('Package renewal error:', error);
+    throw new Error(error.message || 'Failed to initiate package renewal');
+  }
+};
+
+// Check payment status with enhanced error handling
+export const checkPaymentStatus = async (paymentData: {
+  paymentId: string;
+  checkoutRequestId: string;
+}) => {
+  try {
+    console.log('Checking payment status:', paymentData);
+
+    const { data, error } = await supabase.functions.invoke('check-payment-status', {
+      body: paymentData
+    });
+
+    if (error) {
+      console.error('Payment status check error:', error);
+      throw new Error(error.message || 'Failed to check payment status');
+    }
+
+    console.log('Payment status checked:', data);
+    return data;
+
+  } catch (error: any) {
+    console.error('Payment status check error:', error);
+    throw new Error(error.message || 'Failed to check payment status');
+  }
+};
+
+// Generate receipt for payments or invoices
+export const generateReceipt = async (receiptData: {
+  client_email: string;
+  client_id_number?: string;
+  payment_id?: string;
+  invoice_id?: string;
+}) => {
+  try {
+    console.log('Generating receipt:', receiptData);
+
+    const { data, error } = await supabase.functions.invoke('generate-receipt', {
+      body: receiptData
+    });
+
+    if (error) {
+      console.error('Receipt generation error:', error);
+      throw new Error(error.message || 'Failed to generate receipt');
+    }
+
+    if (!data?.success) {
+      console.error('Receipt generation failed:', data?.error);
+      throw new Error(data?.error || 'Failed to generate receipt');
+    }
+
+    console.log('Receipt generated successfully');
+    return data;
+
+  } catch (error: any) {
+    console.error('Receipt generation error:', error);
+    throw new Error(error.message || 'Failed to generate receipt');
+  }
+};
+
 // Register a new client through the customer portal
 export const registerClientAuthenticated = async (clientData: ClientRegistrationData, accessToken: string) => {
   try {
     console.log('Registering client via customer portal:', clientData);
 
-    // Use the Supabase client to call the edge function
     const { data, error } = await supabase.functions.invoke('client-registration', {
       body: clientData
     });
