@@ -56,7 +56,7 @@ export const customerLogin = async (loginData: CustomerLoginData) => {
   }
 };
 
-// Enhanced package renewal with better error handling
+// Enhanced package renewal with paybill payment instructions
 export const renewPackage = async (renewalData: {
   client_email: string;
   client_id_number?: string;
@@ -387,5 +387,47 @@ export const customerLogout = async () => {
   } catch (error: any) {
     console.error('Customer logout error:', error);
     throw new Error(error.message || 'Logout failed');
+  }
+};
+
+// Add new function for getting paybill payment instructions
+export const getPaybillInstructions = async (clientData: {
+  client_email: string;
+  client_id_number?: string;
+}) => {
+  try {
+    console.log('Getting paybill instructions for:', clientData.client_email);
+
+    // Get client authentication to retrieve payment settings
+    const authData = await customerLogin(clientData);
+    
+    if (!authData.success) {
+      throw new Error('Failed to authenticate client');
+    }
+
+    const paymentSettings = authData.client.payment_settings;
+    
+    return {
+      success: true,
+      instructions: {
+        paybill_number: paymentSettings.paybill_number,
+        account_number: paymentSettings.account_number,
+        steps: [
+          'Go to M-Pesa menu on your phone',
+          'Select "Lipa na M-Pesa"',
+          'Select "Pay Bill"',
+          `Enter Business Number: ${paymentSettings.paybill_number}`,
+          `Enter Account Number: ${paymentSettings.account_number}`,
+          'Enter the amount you want to pay',
+          'Enter your M-Pesa PIN',
+          'Confirm the payment',
+          'Your wallet will be credited automatically within minutes'
+        ]
+      }
+    };
+
+  } catch (error: any) {
+    console.error('Get paybill instructions error:', error);
+    throw new Error(error.message || 'Failed to get payment instructions');
   }
 };
