@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -6,7 +7,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Smartphone, CheckCircle, Clock, AlertCircle } from 'lucide-react';
 import { useMpesa } from '@/hooks/useMpesa';
-import { usePayments } from '@/hooks/usePayments';
+import { usePaymentStatus } from '@/hooks/usePaymentStatus';
 import { validateMpesaNumber, formatMpesaNumber, formatKenyanCurrency } from '@/utils/kenyanValidation';
 
 interface MpesaPaymentProps {
@@ -29,8 +30,8 @@ const MpesaPayment: React.FC<MpesaPaymentProps> = ({
   const [checkoutRequestID, setCheckoutRequestID] = useState<string>('');
   const [errors, setErrors] = useState<Record<string, string>>({});
 
-  const { initiateSTKPush, queryPaymentStatus, isLoading } = useMpesa();
-  const { createPayment } = usePayments();
+  const { initiateSTKPush, isLoading } = useMpesa();
+  const { startPaymentMonitoring } = usePaymentStatus();
 
   const validateForm = () => {
     const newErrors: Record<string, string> = {};
@@ -48,6 +49,8 @@ const MpesaPayment: React.FC<MpesaPaymentProps> = ({
   const handlePayment = async () => {
     if (!validateForm()) return;
 
+    console.log('Initiating STK Push for invoice:', invoiceId);
+
     const stkResponse = await initiateSTKPush({
       phoneNumber,
       amount,
@@ -55,56 +58,54 @@ const MpesaPayment: React.FC<MpesaPaymentProps> = ({
       transactionDesc: `Payment for ${accountReference}`,
     });
 
+    console.log('STK Push response:', stkResponse);
+
     if (stkResponse && stkResponse.ResponseCode === '0') {
       setCheckoutRequestID(stkResponse.CheckoutRequestID);
       setPaymentStatus('pending');
       
-      // Start checking payment status
-      setTimeout(() => {
-        checkPaymentStatus(stkResponse.CheckoutRequestID);
-      }, 10000); // Wait 10 seconds before first check
-    }
-  };
+      // Start payment monitoring using the invoice ID and checkout request ID
+      const paymentId = invoiceId || `payment-${Date.now()}`;
+      
+      console.log('Starting payment monitoring for:', {
+        paymentId,
+        checkoutRequestId: stkResponse.CheckoutRequestID
+      });
 
-  const checkPaymentStatus = async (requestID: string) => {
-    setPaymentStatus('checking');
-    
-    const statusResponse = await queryPaymentStatus(requestID);
-    
-    if (statusResponse) {
-      if (statusResponse.ResultCode === '0') {
-        // Payment successful
-        setPaymentStatus('success');
-        
-        // Record payment in database
-        const paymentData = {
-          client_id: clientId,
-          amount,
-          payment_method: 'mpesa' as const,
-          payment_date: new Date().toISOString(),
-          reference_number: phoneNumber,
-          mpesa_receipt_number: requestID,
-          notes: `M-Pesa payment for ${accountReference}`,
-          invoice_id: invoiceId || null,
-        };
-
-        createPayment(paymentData);
-        
-        if (onPaymentComplete) {
-          onPaymentComplete(paymentData);
+      startPaymentMonitoring(
+        paymentId,
+        stkResponse.CheckoutRequestID,
+        {
+          onSuccess: (statusData) => {
+            console.log('Payment monitoring success:', statusData);
+            setPaymentStatus('success');
+            
+            if (onPaymentComplete) {
+              onPaymentComplete({
+                client_id: clientId,
+                amount,
+                payment_method: 'mpesa',
+                payment_date: new Date().toISOString(),
+                reference_number: phoneNumber,
+                mpesa_receipt_number: stkResponse.CheckoutRequestID,
+                notes: `M-Pesa payment for ${accountReference}`,
+                invoice_id: invoiceId || null,
+              });
+            }
+          },
+          onFailure: (statusData) => {
+            console.log('Payment monitoring failure:', statusData);
+            setPaymentStatus('failed');
+          },
+          onTimeout: () => {
+            console.log('Payment monitoring timeout');
+            setPaymentStatus('failed');
+          }
         }
-      } else if (statusResponse.ResultCode === '1032') {
-        // User cancelled
-        setPaymentStatus('failed');
-      } else {
-        // Other failure
-        setPaymentStatus('failed');
-      }
+      );
     } else {
-      // Still pending, check again
-      setTimeout(() => {
-        checkPaymentStatus(requestID);
-      }, 15000);
+      console.error('STK Push failed:', stkResponse);
+      setPaymentStatus('failed');
     }
   };
 
@@ -163,6 +164,12 @@ const MpesaPayment: React.FC<MpesaPaymentProps> = ({
             <span className="text-sm text-gray-600">Reference:</span>
             <span className="text-sm font-medium">{accountReference}</span>
           </div>
+          {invoiceId && (
+            <div className="flex justify-between items-center mt-1">
+              <span className="text-sm text-gray-600">Invoice ID:</span>
+              <span className="text-sm font-medium">{invoiceId}</span>
+            </div>
+          )}
         </div>
 
         {paymentStatus === 'idle' && (
@@ -203,11 +210,18 @@ const MpesaPayment: React.FC<MpesaPaymentProps> = ({
               <div className="text-center text-sm text-gray-600">
                 <p>Check your phone for the M-Pesa payment prompt.</p>
                 <p>Enter your M-Pesa PIN to complete the payment.</p>
+                <p className="text-xs mt-2 text-blue-600">
+                  Payment processing may take a few seconds...
+                </p>
               </div>
             )}
 
             {paymentStatus === 'success' && (
               <div className="text-center">
+                <div className="text-sm text-green-600 mb-3">
+                  <p>✅ Payment processed successfully!</p>
+                  <p>Your account has been updated.</p>
+                </div>
                 <Button 
                   variant="outline" 
                   onClick={() => {
@@ -223,6 +237,10 @@ const MpesaPayment: React.FC<MpesaPaymentProps> = ({
 
             {paymentStatus === 'failed' && (
               <div className="text-center">
+                <div className="text-sm text-red-600 mb-3">
+                  <p>Payment was not completed successfully.</p>
+                  <p>Please try again or contact support.</p>
+                </div>
                 <Button 
                   variant="outline" 
                   onClick={() => {

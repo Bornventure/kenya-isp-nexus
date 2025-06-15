@@ -75,9 +75,14 @@ export const usePackageRenewal = () => {
           description: "Please check your phone for M-Pesa payment prompt.",
         });
 
-        // Start monitoring payment status
+        // Start monitoring payment status using the invoice ID and checkout request ID
         if (data.data?.checkout_request_id && data.data?.invoice?.id) {
           setIsProcessing(true);
+          
+          console.log('Starting payment monitoring for package renewal:', {
+            invoiceId: data.data.invoice.id,
+            checkoutRequestId: data.data.checkout_request_id
+          });
           
           startPaymentMonitoring(
             data.data.invoice.id,
@@ -89,6 +94,7 @@ export const usePackageRenewal = () => {
                   title: "Renewal Successful!",
                   description: "Your package has been renewed and account activated.",
                 });
+                console.log('Package renewal payment successful:', statusData);
               },
               onFailure: (statusData) => {
                 setIsProcessing(false);
@@ -97,6 +103,7 @@ export const usePackageRenewal = () => {
                   description: statusData.message || "Payment was not completed successfully.",
                   variant: "destructive",
                 });
+                console.log('Package renewal payment failed:', statusData);
               },
               onTimeout: () => {
                 setIsProcessing(false);
@@ -105,6 +112,7 @@ export const usePackageRenewal = () => {
                   description: "Please check your account status or contact support.",
                   variant: "destructive",
                 });
+                console.log('Package renewal payment monitoring timeout');
               }
             }
           );
