@@ -1,3 +1,4 @@
+
 import React, { useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -36,7 +37,7 @@ const Clients = () => {
   const [showClientDetails, setShowClientDetails] = useState(false);
   const [currentView, setCurrentView] = useState<ViewMode>('list');
 
-  const { clients, isLoading, updateClient, deleteClient, isUpdatingClient, isDeletingClient } = useClients();
+  const { clients, isLoading, updateClient, deleteClient, isUpdating, isDeleting } = useClients();
   const queryClient = useQueryClient();
 
   const filteredClients = clients.filter(client => {
@@ -62,9 +63,9 @@ const Clients = () => {
     mpesaNumber: client.mpesa_number || '',
     idNumber: client.id_number,
     kraPinNumber: client.kra_pin_number || '',
-    clientType: client.client_type,
-    status: client.status,
-    connectionType: client.connection_type,
+    clientType: client.client_type as 'individual' | 'business' | 'corporate' | 'government',
+    status: client.status as 'active' | 'suspended' | 'disconnected' | 'pending',
+    connectionType: client.connection_type as 'fiber' | 'wireless' | 'satellite' | 'dsl',
     servicePackage: client.service_packages?.name || `${client.monthly_rate} KES/month`,
     monthlyRate: client.monthly_rate,
     installationDate: client.installation_date || '',
@@ -315,9 +316,9 @@ const Clients = () => {
             mpesaNumber: selectedClient.mpesa_number || '',
             idNumber: selectedClient.id_number,
             kraPinNumber: selectedClient.kra_pin_number || '',
-            clientType: selectedClient.client_type,
-            status: selectedClient.status,
-            connectionType: selectedClient.connection_type,
+            clientType: selectedClient.client_type as 'individual' | 'business' | 'corporate' | 'government',
+            status: selectedClient.status as 'active' | 'suspended' | 'disconnected' | 'pending',
+            connectionType: selectedClient.connection_type as 'fiber' | 'wireless' | 'satellite' | 'dsl',
             servicePackage: selectedClient.service_packages?.name || `${selectedClient.monthly_rate} KES/month`,
             monthlyRate: selectedClient.monthly_rate,
             installationDate: selectedClient.installation_date || '',
@@ -336,8 +337,8 @@ const Clients = () => {
           onEdit={handleEditClient}
           onStatusChange={handleStatusChange}
           onDelete={handleDeleteClient}
-          isUpdating={isUpdatingClient}
-          isDeleting={isDeletingClient}
+          isUpdating={isUpdating}
+          isDeleting={isDeleting}
         />
       )}
     </div>

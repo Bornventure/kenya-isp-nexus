@@ -4,16 +4,16 @@ import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/hooks/use-toast';
 
-export interface Client {
+export interface DatabaseClient {
   id: string;
   name: string;
   email: string | null;
   phone: string;
   id_number: string;
   mpesa_number: string | null;
-  client_type: string;
-  status: string;
-  connection_type: string;
+  client_type: 'individual' | 'business' | 'corporate' | 'government';
+  status: 'active' | 'suspended' | 'disconnected' | 'pending';
+  connection_type: 'fiber' | 'wireless' | 'satellite' | 'dsl';
   monthly_rate: number;
   installation_date: string | null;
   address: string;
@@ -29,11 +29,54 @@ export interface Client {
   isp_company_id: string;
   created_at: string;
   updated_at: string;
+  latitude: number | null;
+  longitude: number | null;
+  kra_pin_number: string | null;
   service_packages?: {
     name: string;
     speed: string;
     monthly_rate: number;
   };
+}
+
+// Legacy Client interface for backwards compatibility
+export interface Client {
+  id: string;
+  name: string;
+  email: string;
+  phone: string;
+  mpesaNumber?: string;
+  idNumber: string;
+  kraPinNumber?: string;
+  clientType: 'individual' | 'business' | 'corporate' | 'government';
+  status: 'active' | 'suspended' | 'disconnected' | 'pending';
+  connectionType: 'fiber' | 'wireless' | 'satellite' | 'dsl';
+  servicePackage: string;
+  monthlyRate: number;
+  installationDate: string;
+  location: {
+    address: string;
+    county: string;
+    subCounty: string;
+    coordinates?: {
+      lat: number;
+      lng: number;
+    };
+  };
+  equipment?: {
+    router?: string;
+    modem?: string;
+    serialNumbers: string[];
+  };
+  balance: number;
+  lastPayment?: {
+    date: string;
+    amount: number;
+    method: 'mpesa' | 'bank' | 'cash';
+  };
+  payments?: any[];
+  invoices?: any[];
+  supportTickets?: any[];
 }
 
 export const useClients = () => {
@@ -96,14 +139,14 @@ export const useClients = () => {
         throw error;
       }
 
-      return data as Client[];
+      return data as DatabaseClient[];
     },
     enabled: !!profile?.isp_company_id,
     refetchInterval: 30000, // Refetch every 30 seconds for real-time updates
   });
 
   const updateClientMutation = useMutation({
-    mutationFn: async ({ id, updates }: { id: string; updates: Partial<Client> }) => {
+    mutationFn: async ({ id, updates }: { id: string; updates: Partial<Omit<DatabaseClient, 'id' | 'created_at' | 'updated_at' | 'service_packages'>> }) => {
       const { data, error } = await supabase
         .from('clients')
         .update(updates)
@@ -132,7 +175,7 @@ export const useClients = () => {
   });
 
   const createClientMutation = useMutation({
-    mutationFn: async (clientData: Omit<Client, 'id' | 'created_at' | 'updated_at' | 'isp_company_id' | 'service_packages'>) => {
+    mutationFn: async (clientData: Omit<DatabaseClient, 'id' | 'created_at' | 'updated_at' | 'isp_company_id' | 'service_packages'>) => {
       if (!profile?.isp_company_id) {
         throw new Error('No ISP company associated with user');
       }
@@ -166,6 +209,33 @@ export const useClients = () => {
     },
   });
 
+  const deleteClientMutation = useMutation({
+    mutationFn: async (clientId: string) => {
+      const { error } = await supabase
+        .from('clients')
+        .delete()
+        .eq('id', clientId);
+
+      if (error) throw error;
+      return clientId;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['clients'] });
+      toast({
+        title: "Client Deleted",
+        description: "Client has been deleted successfully.",
+      });
+    },
+    onError: (error) => {
+      console.error('Error deleting client:', error);
+      toast({
+        title: "Error",
+        description: "Failed to delete client. Please try again.",
+        variant: "destructive",
+      });
+    },
+  });
+
   // Helper functions for client statistics
   const getClientStats = () => {
     const totalClients = clients.length;
@@ -189,8 +259,10 @@ export const useClients = () => {
     error,
     updateClient: updateClientMutation.mutate,
     createClient: createClientMutation.mutate,
+    deleteClient: deleteClientMutation.mutate,
     isUpdating: updateClientMutation.isPending,
     isCreating: createClientMutation.isPending,
+    isDeleting: deleteClientMutation.isPending,
     getClientStats,
   };
 };
