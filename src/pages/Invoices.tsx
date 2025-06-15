@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -122,12 +121,9 @@ const Invoices = () => {
   };
 
   const handleMarkPaid = (invoice: any) => {
-    updateInvoice({
-      id: invoice.id,
-      updates: { status: 'paid' }
-    });
+    console.log('Marking invoice as paid:', invoice.id);
     
-    // Create a payment record
+    // Create a comprehensive payment record that triggers all processing
     createPayment({
       client_id: invoice.client_id,
       invoice_id: invoice.id,

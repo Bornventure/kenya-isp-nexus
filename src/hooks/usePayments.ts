@@ -60,7 +60,10 @@ export const usePayments = () => {
         throw new Error('No ISP company associated with user');
       }
 
-      const { data, error } = await supabase
+      console.log('Processing manual payment:', paymentData);
+
+      // Create payment record
+      const { data: payment, error: paymentError } = await supabase
         .from('payments')
         .insert({
           ...paymentData,
@@ -69,45 +72,129 @@ export const usePayments = () => {
         .select()
         .single();
 
-      if (error) throw error;
+      if (paymentError) throw paymentError;
+      console.log('Payment record created:', payment.id);
 
-      // Get current client balance first
-      const { data: client, error: clientError } = await supabase
-        .from('clients')
-        .select('balance')
-        .eq('id', paymentData.client_id)
-        .single();
+      // If there's an associated invoice, update it to paid
+      if (paymentData.invoice_id) {
+        const { error: invoiceUpdateError } = await supabase
+          .from('invoices')
+          .update({ status: 'paid' })
+          .eq('id', paymentData.invoice_id);
 
-      if (clientError) {
-        console.error('Error fetching client balance:', clientError);
-      } else {
-        // Update client balance by adding the payment amount
-        const newBalance = (client.balance || 0) + paymentData.amount;
-        const { error: balanceError } = await supabase
-          .from('clients')
-          .update({ balance: newBalance })
-          .eq('id', paymentData.client_id);
-
-        if (balanceError) {
-          console.error('Error updating client balance:', balanceError);
+        if (invoiceUpdateError) {
+          console.error('Error updating invoice status:', invoiceUpdateError);
+        } else {
+          console.log('Invoice marked as paid:', paymentData.invoice_id);
         }
       }
 
-      return data;
+      // Credit the client's wallet
+      console.log('Crediting wallet for client:', paymentData.client_id);
+      const { data: walletCredit, error: walletError } = await supabase.functions.invoke('wallet-credit', {
+        body: {
+          client_id: paymentData.client_id,
+          amount: paymentData.amount,
+          payment_method: paymentData.payment_method,
+          reference_number: paymentData.reference_number || `Manual-${Date.now()}`,
+          mpesa_receipt_number: paymentData.mpesa_receipt_number,
+          description: `Manual payment - ${paymentData.payment_method}`
+        }
+      });
+
+      if (walletError) {
+        console.error('Error crediting wallet:', walletError);
+      } else {
+        console.log('Wallet credited successfully:', walletCredit);
+      }
+
+      // Try to process subscription renewal
+      console.log('Processing subscription renewal for client:', paymentData.client_id);
+      const { data: renewalResult, error: renewalError } = await supabase.rpc('process_subscription_renewal', {
+        p_client_id: paymentData.client_id
+      });
+
+      if (!renewalError && renewalResult?.success) {
+        console.log('Subscription renewed successfully:', renewalResult);
+      } else {
+        console.log('Subscription renewal not needed or failed:', renewalResult);
+        
+        // If renewal failed but they paid, at least reactivate them temporarily
+        await supabase
+          .from('clients')
+          .update({ 
+            status: 'active',
+            subscription_start_date: new Date().toISOString(),
+            subscription_end_date: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString() // 30 days
+          })
+          .eq('id', paymentData.client_id);
+        
+        console.log('Client reactivated manually');
+      }
+
+      // Send payment success notification
+      try {
+        await supabase.functions.invoke('send-notifications', {
+          body: {
+            client_id: paymentData.client_id,
+            type: 'payment_success',
+            data: {
+              amount: paymentData.amount,
+              receipt_number: paymentData.mpesa_receipt_number || paymentData.reference_number,
+              payment_method: paymentData.payment_method,
+              new_balance: walletCredit?.data?.new_balance,
+              auto_renewed: walletCredit?.data?.auto_renewed || renewalResult?.success
+            }
+          }
+        });
+        console.log('Payment success notification sent');
+      } catch (notificationError) {
+        console.error('Error sending notification:', notificationError);
+      }
+
+      // Generate receipt
+      try {
+        const { data: clientData } = await supabase
+          .from('clients')
+          .select('email, id_number')
+          .eq('id', paymentData.client_id)
+          .single();
+
+        if (clientData) {
+          const { data: receiptData, error: receiptError } = await supabase.functions.invoke('generate-receipt', {
+            body: {
+              client_email: clientData.email,
+              client_id_number: clientData.id_number,
+              payment_id: payment.id,
+              invoice_id: paymentData.invoice_id
+            }
+          });
+          
+          if (!receiptError) {
+            console.log('Receipt generated successfully');
+          }
+        }
+      } catch (receiptError) {
+        console.error('Error generating receipt:', receiptError);
+      }
+
+      return payment;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['payments'] });
       queryClient.invalidateQueries({ queryKey: ['clients'] });
+      queryClient.invalidateQueries({ queryKey: ['invoices'] });
+      queryClient.invalidateQueries({ queryKey: ['wallet-transactions'] });
       toast({
-        title: "Payment Recorded",
-        description: "Payment has been successfully recorded.",
+        title: "Payment Processed",
+        description: "Payment has been recorded and account updated successfully.",
       });
     },
     onError: (error) => {
-      console.error('Error creating payment:', error);
+      console.error('Error processing payment:', error);
       toast({
         title: "Error",
-        description: "Failed to record payment. Please try again.",
+        description: "Failed to process payment. Please try again.",
         variant: "destructive",
       });
     },
