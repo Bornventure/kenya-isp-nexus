@@ -131,8 +131,8 @@ export const usePayments = () => {
         p_client_id: paymentData.client_id
       });
 
-      // Type assertion for renewal response
-      const renewalResponse = renewalResult as RenewalResponse;
+      // Type assertion for renewal response - cast to unknown first, then to RenewalResponse
+      const renewalResponse = renewalResult as unknown as RenewalResponse;
 
       if (!renewalError && renewalResponse?.success) {
         console.log('Subscription renewed successfully:', renewalResult);
