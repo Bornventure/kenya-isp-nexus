@@ -63,9 +63,28 @@ const handler = async (req: Request): Promise<Response> => {
   }
 
   try {
-    const { checkoutRequestID }: QueryStatusRequest = await req.json();
+    const requestBody = await req.json();
+    console.log('M-Pesa query request body:', requestBody);
+
+    const { checkoutRequestID }: QueryStatusRequest = requestBody;
 
     console.log('Querying M-Pesa status for:', checkoutRequestID);
+
+    // Validate checkoutRequestID
+    if (!checkoutRequestID) {
+      console.error('Missing checkoutRequestID parameter');
+      return new Response(
+        JSON.stringify({ 
+          error: "Missing checkoutRequestID parameter",
+          ResponseCode: "1",
+          ResponseDescription: "Invalid request - missing checkoutRequestID"
+        }),
+        {
+          status: 400,
+          headers: { "Content-Type": "application/json", ...corsHeaders },
+        }
+      );
+    }
 
     // Get M-Pesa configuration
     const shortcode = Deno.env.get("MPESA_SHORTCODE");
@@ -102,12 +121,24 @@ const handler = async (req: Request): Promise<Response> => {
       body: JSON.stringify(queryPayload),
     });
 
-    if (!queryResponse.ok) {
-      throw new Error("M-Pesa query request failed");
-    }
-
     const queryData = await queryResponse.json();
     console.log("M-Pesa query response:", queryData);
+
+    if (!queryResponse.ok) {
+      console.error("M-Pesa query HTTP error:", queryResponse.status, queryData);
+      return new Response(
+        JSON.stringify({ 
+          error: `M-Pesa API error: ${queryResponse.status}`,
+          ResponseCode: "1",
+          ResponseDescription: "M-Pesa query failed",
+          details: queryData
+        }),
+        {
+          status: 500,
+          headers: { "Content-Type": "application/json", ...corsHeaders },
+        }
+      );
+    }
 
     return new Response(JSON.stringify(queryData), {
       status: 200,

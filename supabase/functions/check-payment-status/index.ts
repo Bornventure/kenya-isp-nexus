@@ -24,7 +24,43 @@ serve(async (req) => {
     const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
     const supabase = createClient(supabaseUrl, supabaseServiceKey)
 
-    const { paymentId, checkoutRequestId }: PaymentStatusRequest = await req.json()
+    const requestBody = await req.json()
+    console.log('Raw request body:', requestBody)
+
+    const { paymentId, checkoutRequestId }: PaymentStatusRequest = requestBody
+    console.log('Parsed parameters:', { paymentId, checkoutRequestId })
+
+    // Validate required parameters
+    if (!checkoutRequestId) {
+      console.error('Missing checkoutRequestId parameter')
+      return new Response(
+        JSON.stringify({
+          success: false,
+          status: 'error',
+          message: 'Missing checkoutRequestId parameter'
+        }),
+        { 
+          status: 400, 
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
+        }
+      )
+    }
+
+    if (!paymentId) {
+      console.error('Missing paymentId parameter')
+      return new Response(
+        JSON.stringify({
+          success: false,
+          status: 'error',
+          message: 'Missing paymentId parameter'
+        }),
+        { 
+          status: 400, 
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
+        }
+      )
+    }
+
     console.log('Checking payment status for:', { paymentId, checkoutRequestId })
 
     // Query M-Pesa status
@@ -38,7 +74,7 @@ serve(async (req) => {
         JSON.stringify({
           success: false,
           status: 'error',
-          message: 'Failed to check payment status'
+          message: 'Failed to check payment status with M-Pesa'
         }),
         { 
           status: 500, 
@@ -48,6 +84,22 @@ serve(async (req) => {
     }
 
     console.log('M-Pesa status response:', mpesaStatus)
+
+    // Handle case where M-Pesa returns error response
+    if (!mpesaStatus || mpesaStatus.error) {
+      console.error('M-Pesa returned error:', mpesaStatus)
+      return new Response(
+        JSON.stringify({
+          success: false,
+          status: 'error',
+          message: mpesaStatus?.error || 'M-Pesa query failed'
+        }),
+        { 
+          status: 500, 
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
+        }
+      )
+    }
 
     // Check if payment was successful
     if (mpesaStatus.ResponseCode === '0' && mpesaStatus.ResultCode === '0') {
