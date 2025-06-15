@@ -9,7 +9,7 @@ const corsHeaders = {
 
 interface NotificationRequest {
   client_id: string;
-  type: 'payment_success' | 'payment_reminder' | 'service_expiry' | 'wallet_reminder' | 'receipt';
+  type: 'payment_success' | 'payment_reminder' | 'service_expiry' | 'service_renewal' | 'wallet_reminder' | 'receipt';
   data?: any;
 }
 
@@ -60,6 +60,14 @@ serve(async (req) => {
       case 'payment_success':
         subject = 'Payment Confirmation'
         message = `Dear ${client.name}, your payment of KES ${data?.amount} has been received successfully. Receipt: ${data?.receipt_number}. New balance: KES ${data?.new_balance || 0}.`
+        if (data?.auto_renewed) {
+          message += ` Your subscription has been automatically renewed and your internet connection is now active.`
+        }
+        break
+
+      case 'service_renewal':
+        subject = 'Service Renewed - Internet Connection Restored'
+        message = `Dear ${client.name}, your internet service has been successfully renewed. Your subscription is now active until ${new Date(data?.service_period_end).toLocaleDateString()}. Your internet connection has been restored. Thank you for your payment!`
         break
 
       case 'payment_reminder':

@@ -25,14 +25,11 @@ serve(async (req) => {
     const supabase = createClient(supabaseUrl, supabaseServiceKey)
 
     const requestBody = await req.json()
-    console.log('Raw request body:', requestBody)
+    console.log('Payment status check request:', requestBody)
 
     const { paymentId, checkoutRequestId }: PaymentStatusRequest = requestBody
-    console.log('Parsed parameters:', { paymentId, checkoutRequestId })
 
-    // Validate required parameters
     if (!checkoutRequestId) {
-      console.error('Missing checkoutRequestId parameter')
       return new Response(
         JSON.stringify({
           success: false,
@@ -46,29 +43,14 @@ serve(async (req) => {
       )
     }
 
-    if (!paymentId) {
-      console.error('Missing paymentId parameter')
-      return new Response(
-        JSON.stringify({
-          success: false,
-          status: 'error',
-          message: 'Missing paymentId parameter'
-        }),
-        { 
-          status: 400, 
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
-        }
-      )
-    }
-
-    console.log('Checking payment status for:', { paymentId, checkoutRequestId })
-
     // Query M-Pesa status
     const { data: mpesaStatus, error: mpesaError } = await supabase.functions.invoke('mpesa-query-status', {
       body: { checkoutRequestID: checkoutRequestId }
     })
 
-    if (mpesaError) {
+    console.log('M-Pesa status response:', mpesaStatus)
+
+    if (mpesaError || !mpesaStatus) {
       console.error('M-Pesa query error:', mpesaError)
       return new Response(
         JSON.stringify({
@@ -83,68 +65,49 @@ serve(async (req) => {
       )
     }
 
-    console.log('M-Pesa status response:', mpesaStatus)
-
-    // Handle case where M-Pesa returns error response
-    if (!mpesaStatus || mpesaStatus.error) {
-      console.error('M-Pesa returned error:', mpesaStatus)
-      return new Response(
-        JSON.stringify({
-          success: false,
-          status: 'error',
-          message: mpesaStatus?.error || 'M-Pesa query failed'
-        }),
-        { 
-          status: 500, 
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
-        }
-      )
-    }
-
-    // Check if payment was successful
+    // Handle different M-Pesa response scenarios
     if (mpesaStatus.ResponseCode === '0' && mpesaStatus.ResultCode === '0') {
-      // Payment successful - find the invoice/payment record
-      let paymentRecord = null
+      // Payment successful - process it
+      console.log('Payment confirmed successful, processing...')
       
-      // Try to find invoice first
-      if (paymentId.startsWith('INV-') || paymentId.includes('-')) {
-        const { data: invoice } = await supabase
-          .from('invoices')
-          .select('*')
-          .eq('id', paymentId)
-          .single()
+      // Extract payment details from M-Pesa response
+      const amount = parseFloat(mpesaStatus.TransAmount || '0')
+      const phoneNumber = mpesaStatus.PhoneNumber
+      const mpesaReceiptNumber = mpesaStatus.MpesaReceiptNumber || checkoutRequestId
 
-        if (invoice) {
-          paymentRecord = invoice
-          
-          // Update invoice status
-          await supabase
-            .from('invoices')
-            .update({ status: 'paid' })
-            .eq('id', paymentId)
-
-          // Credit client wallet and process renewal
-          const { data: creditResult } = await supabase.functions.invoke('wallet-credit', {
-            body: {
-              client_id: invoice.client_id,
-              amount: invoice.total_amount,
-              payment_method: 'mpesa',
-              reference_number: checkoutRequestId,
-              mpesa_receipt_number: mpesaStatus.MpesaReceiptNumber || checkoutRequestId,
-              description: `Payment for invoice ${invoice.invoice_number}`
-            }
-          })
-
-          console.log('Wallet credited for invoice payment:', creditResult)
+      // Process the payment
+      const { data: processResult, error: processError } = await supabase.functions.invoke('process-payment', {
+        body: {
+          checkoutRequestId: checkoutRequestId,
+          amount: amount,
+          paymentMethod: 'mpesa',
+          mpesaReceiptNumber: mpesaReceiptNumber,
+          phoneNumber: phoneNumber
         }
+      })
+
+      if (processError) {
+        console.error('Error processing confirmed payment:', processError)
+        return new Response(
+          JSON.stringify({
+            success: false,
+            status: 'error',
+            message: 'Payment confirmed but processing failed'
+          }),
+          { 
+            status: 500, 
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
+          }
+        )
       }
 
       return new Response(
         JSON.stringify({
           success: true,
           status: 'completed',
-          message: 'Payment completed successfully',
-          mpesaResponse: mpesaStatus
+          message: 'Payment completed and processed successfully',
+          mpesaResponse: mpesaStatus,
+          processResult: processResult
         }),
         { 
           headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
@@ -184,7 +147,8 @@ serve(async (req) => {
       JSON.stringify({
         success: false,
         status: 'error',
-        message: 'Failed to check payment status'
+        message: 'Failed to check payment status',
+        details: error.message
       }),
       { 
         status: 500, 

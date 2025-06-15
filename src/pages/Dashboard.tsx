@@ -1,188 +1,261 @@
 
 import React from 'react';
-import MetricCard from '@/components/dashboard/MetricCard';
-import RevenueChart from '@/components/dashboard/RevenueChart';
-import ClientGrowthChart from '@/components/dashboard/ClientGrowthChart';
-import NetworkStatusChart from '@/components/dashboard/NetworkStatusChart';
-import { useDashboardStats } from '@/hooks/useDashboardAnalytics';
-import { useClients } from '@/hooks/useClients';
-import { useAuth } from '@/contexts/AuthContext';
-import {
-  Users,
-  Wifi,
-  DollarSign,
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Badge } from '@/components/ui/badge';
+import { 
+  Users, 
+  DollarSign, 
+  TrendingUp, 
   AlertCircle,
-  TrendingUp,
-  Network,
-  CreditCard,
-  UserCheck
+  CheckCircle,
+  Clock,
+  Wifi,
+  WifiOff
 } from 'lucide-react';
+import { useClients } from '@/hooks/useClients';
+import { usePayments } from '@/hooks/usePayments';
+import { useInvoices } from '@/hooks/useInvoices';
+import { useWalletTransactions } from '@/hooks/useWalletTransactions';
+import { formatKenyanCurrency } from '@/utils/kenyanValidation';
+import RealtimeNotifications from '@/components/dashboard/RealtimeNotifications';
 
 const Dashboard = () => {
-  const { profile } = useAuth();
-  const { data: dashboardStats, isLoading: statsLoading } = useDashboardStats();
-  const { clients, isLoading: clientsLoading } = useClients();
+  const { clients, isLoading: clientsLoading, getClientStats } = useClients();
+  const { payments, isLoading: paymentsLoading } = usePayments();
+  const { invoices, isLoading: invoicesLoading } = useInvoices();
+  const { transactions, isLoading: transactionsLoading } = useWalletTransactions();
 
-  // Calculate additional metrics from clients data
-  const activeConnections = clients?.filter(client => client.status === 'active').length || 0;
-  const fiberConnections = clients?.filter(client => client.connection_type === 'fiber').length || 0;
-  const wirelessConnections = clients?.filter(client => client.connection_type === 'wireless').length || 0;
-  const avgUptime = 99.7; // This would come from network monitoring system
+  const clientStats = getClientStats();
+  
+  // Calculate financial metrics
+  const todaysPayments = payments.filter(p => 
+    new Date(p.payment_date).toDateString() === new Date().toDateString()
+  );
+  const todaysRevenue = todaysPayments.reduce((sum, p) => sum + p.amount, 0);
+  
+  const thisMonthPayments = payments.filter(p => {
+    const paymentDate = new Date(p.payment_date);
+    const now = new Date();
+    return paymentDate.getMonth() === now.getMonth() && paymentDate.getFullYear() === now.getFullYear();
+  });
+  const monthlyRevenue = thisMonthPayments.reduce((sum, p) => sum + p.amount, 0);
 
-  if (statsLoading || clientsLoading) {
+  const pendingInvoices = invoices.filter(inv => inv.status === 'pending');
+  const pendingRevenue = pendingInvoices.reduce((sum, inv) => sum + inv.total_amount, 0);
+
+  if (clientsLoading || paymentsLoading || invoicesLoading || transactionsLoading) {
     return (
       <div className="p-6">
-        <div className="mb-8">
-          <div className="flex items-center gap-3 mb-4">
-            <img 
-              src="/lovable-uploads/bfa196dc-eae7-40b2-826b-7a96fffbd83d.png" 
-              alt="DataDefender Logo" 
-              className="h-8 w-8 object-contain"
-            />
-            <h1 className="text-3xl font-bold text-gray-900">DataDefender Dashboard</h1>
+        <div className="animate-pulse">
+          <div className="h-8 bg-gray-200 rounded w-1/4 mb-4"></div>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+            {[...Array(4)].map((_, i) => (
+              <div key={i} className="h-32 bg-gray-200 rounded"></div>
+            ))}
           </div>
-          <p className="text-gray-600 mt-2">Loading your ISP operations overview...</p>
-        </div>
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-          {[...Array(4)].map((_, i) => (
-            <div key={i} className="animate-pulse bg-gray-200 h-32 rounded-lg"></div>
-          ))}
         </div>
       </div>
     );
   }
 
-  const stats = dashboardStats?.data;
-
   return (
-    <div className="p-6">
-      <div className="mb-8">
-        <div className="flex items-center gap-3 mb-4">
-          <img 
-            src="/lovable-uploads/bfa196dc-eae7-40b2-826b-7a96fffbd83d.png" 
-            alt="DataDefender Logo" 
-            className="h-8 w-8 object-contain"
-          />
-          <h1 className="text-3xl font-bold text-gray-900">DataDefender Dashboard</h1>
-        </div>
-        <p className="text-gray-600 mt-2">
-          Welcome back! Here's an overview of your ISP operations.
+    <div className="p-6 space-y-6">
+      <RealtimeNotifications />
+      
+      {/* Header */}
+      <div>
+        <h1 className="text-3xl font-bold">Dashboard</h1>
+        <p className="text-muted-foreground">
+          Real-time overview of your ISP operations
         </p>
       </div>
 
       {/* Key Metrics */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-        <MetricCard
-          title="Total Clients"
-          value={stats?.totalClients?.toString() || "0"}
-          change={`${activeConnections} active connections`}
-          changeType="increase"
-          icon={Users}
-          description="Active internet subscribers"
-        />
-        <MetricCard
-          title="Active Connections"
-          value={activeConnections.toString()}
-          change={`${avgUptime}% uptime`}
-          changeType="increase"
-          icon={Wifi}
-          description="Currently connected clients"
-        />
-        <MetricCard
-          title="Monthly Revenue"
-          value={`KES ${(stats?.monthlyRevenue || 0).toLocaleString()}`}
-          change={`Target: KES ${(stats?.totalRevenue || 0).toLocaleString()}`}
-          changeType="increase"
-          icon={DollarSign}
-          description="Current month earnings"
-        />
-        <MetricCard
-          title="Outstanding Issues"
-          value={stats?.pendingTickets?.toString() || "0"}
-          change={`${stats?.resolvedTickets || 0} resolved this month`}
-          changeType="decrease"
-          icon={AlertCircle}
-          description="Open support tickets"
-        />
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+        <Card>
+          <CardContent className="p-6">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm font-medium text-muted-foreground">Total Clients</p>
+                <p className="text-2xl font-bold">{clientStats.totalClients}</p>
+              </div>
+              <Users className="h-8 w-8 text-blue-600" />
+            </div>
+            <div className="flex items-center gap-2 mt-2">
+              <Badge variant="secondary" className="text-xs">
+                <Wifi className="h-3 w-3 mr-1" />
+                {clientStats.activeClients} Active
+              </Badge>
+              <Badge variant="destructive" className="text-xs">
+                <WifiOff className="h-3 w-3 mr-1" />
+                {clientStats.suspendedClients} Suspended
+              </Badge>
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardContent className="p-6">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm font-medium text-muted-foreground">Today's Revenue</p>
+                <p className="text-2xl font-bold text-green-600">
+                  {formatKenyanCurrency(todaysRevenue)}
+                </p>
+              </div>
+              <DollarSign className="h-8 w-8 text-green-600" />
+            </div>
+            <p className="text-xs text-muted-foreground mt-2">
+              {todaysPayments.length} payments today
+            </p>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardContent className="p-6">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm font-medium text-muted-foreground">Monthly Revenue</p>
+                <p className="text-2xl font-bold text-blue-600">
+                  {formatKenyanCurrency(monthlyRevenue)}
+                </p>
+              </div>
+              <TrendingUp className="h-8 w-8 text-blue-600" />
+            </div>
+            <p className="text-xs text-muted-foreground mt-2">
+              {thisMonthPayments.length} payments this month
+            </p>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardContent className="p-6">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm font-medium text-muted-foreground">Pending Revenue</p>
+                <p className="text-2xl font-bold text-orange-600">
+                  {formatKenyanCurrency(pendingRevenue)}
+                </p>
+              </div>
+              <AlertCircle className="h-8 w-8 text-orange-600" />
+            </div>
+            <p className="text-xs text-muted-foreground mt-2">
+              {pendingInvoices.length} pending invoices
+            </p>
+          </CardContent>
+        </Card>
       </div>
 
-      {/* Charts Section */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
-        <RevenueChart />
-        <ClientGrowthChart />
+      {/* Recent Activities */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        {/* Recent Payments */}
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <CheckCircle className="h-5 w-5 text-green-600" />
+              Recent Payments
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-3">
+              {payments.slice(0, 5).map((payment) => (
+                <div key={payment.id} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+                  <div>
+                    <p className="font-medium">{payment.clients?.name || 'Unknown'}</p>
+                    <p className="text-sm text-muted-foreground">
+                      {payment.payment_method.toUpperCase()} • {new Date(payment.payment_date).toLocaleDateString()}
+                    </p>
+                  </div>
+                  <p className="font-bold text-green-600">
+                    {formatKenyanCurrency(payment.amount)}
+                  </p>
+                </div>
+              ))}
+              {payments.length === 0 && (
+                <p className="text-center text-muted-foreground py-4">No payments yet</p>
+              )}
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Client Status Overview */}
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Users className="h-5 w-5 text-blue-600" />
+              Client Status Overview
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-4">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <div className="w-3 h-3 bg-green-500 rounded-full"></div>
+                  <span>Active Clients</span>
+                </div>
+                <span className="font-bold">{clientStats.activeClients}</span>
+              </div>
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <div className="w-3 h-3 bg-red-500 rounded-full"></div>
+                  <span>Suspended Clients</span>
+                </div>
+                <span className="font-bold">{clientStats.suspendedClients}</span>
+              </div>
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <div className="w-3 h-3 bg-yellow-500 rounded-full"></div>
+                  <span>Pending Activation</span>
+                </div>
+                <span className="font-bold">{clientStats.pendingClients}</span>
+              </div>
+              <div className="border-t pt-3 mt-3">
+                <div className="flex items-center justify-between">
+                  <span className="font-medium">Total Wallet Balance</span>
+                  <span className="font-bold text-blue-600">
+                    {formatKenyanCurrency(clientStats.totalRevenue)}
+                  </span>
+                </div>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
-        <NetworkStatusChart />
-        
-        {/* Secondary Metrics */}
-        <div className="grid grid-cols-1 gap-6">
-          <MetricCard
-            title="New Clients (30d)"
-            value={(stats?.totalClients || 0) > 0 ? Math.floor((stats?.totalClients || 0) * 0.15).toString() : "0"}
-            change="Growth trending upward"
-            changeType="increase"
-            icon={UserCheck}
-          />
-          <MetricCard
-            title="Network Performance"
-            value={`${avgUptime}%`}
-            change="Excellent uptime"
-            changeType="increase"
-            icon={Network}
-          />
-          <MetricCard
-            title="Equipment Status"
-            value={`${stats?.availableEquipment || 0}/${stats?.totalEquipment || 0}`}
-            change="Equipment available"
-            changeType="neutral"
-            icon={CreditCard}
-          />
-          <MetricCard
-            title="Connection Types"
-            value={`${fiberConnections + wirelessConnections}`}
-            change={`${fiberConnections} fiber, ${wirelessConnections} wireless`}
-            changeType="increase"
-            icon={TrendingUp}
-          />
-        </div>
-      </div>
-
-      {/* Quick Actions */}
-      <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
-        <h2 className="text-xl font-semibold text-gray-900 mb-4">Quick Actions</h2>
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          <div className="p-4 bg-blue-50 rounded-lg border border-blue-200">
-            <h3 className="font-medium text-blue-900 mb-2">Network Status</h3>
-            <p className="text-sm text-blue-700 mb-3">
-              {activeConnections} active connections. Average uptime: {avgUptime}%
-            </p>
-            <button className="text-blue-600 text-sm font-medium hover:text-blue-800">
-              View Details →
-            </button>
+      {/* System Status */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <Wifi className="h-5 w-5 text-green-600" />
+            System Status
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div className="flex items-center gap-3 p-3 bg-green-50 rounded-lg">
+              <CheckCircle className="h-6 w-6 text-green-600" />
+              <div>
+                <p className="font-medium">Payment System</p>
+                <p className="text-sm text-muted-foreground">Operational</p>
+              </div>
+            </div>
+            <div className="flex items-center gap-3 p-3 bg-green-50 rounded-lg">
+              <CheckCircle className="h-6 w-6 text-green-600" />
+              <div>
+                <p className="font-medium">Billing System</p>
+                <p className="text-sm text-muted-foreground">Operational</p>
+              </div>
+            </div>
+            <div className="flex items-center gap-3 p-3 bg-green-50 rounded-lg">
+              <CheckCircle className="h-6 w-6 text-green-600" />
+              <div>
+                <p className="font-medium">Notifications</p>
+                <p className="text-sm text-muted-foreground">Operational</p>
+              </div>
+            </div>
           </div>
-          
-          <div className="p-4 bg-green-50 rounded-lg border border-green-200">
-            <h3 className="font-medium text-green-900 mb-2">Recent Payments</h3>
-            <p className="text-sm text-green-700 mb-3">
-              KES {(stats?.monthlyRevenue || 0).toLocaleString()} received this month
-            </p>
-            <button className="text-green-600 text-sm font-medium hover:text-green-800">
-              View Payments →
-            </button>
-          </div>
-          
-          <div className="p-4 bg-amber-50 rounded-lg border border-amber-200">
-            <h3 className="font-medium text-amber-900 mb-2">Pending Tasks</h3>
-            <p className="text-sm text-amber-700 mb-3">
-              {stats?.pendingTickets || 0} support tickets pending resolution
-            </p>
-            <button className="text-amber-600 text-sm font-medium hover:text-amber-800">
-              Manage Tasks →
-            </button>
-          </div>
-        </div>
-      </div>
+        </CardContent>
+      </Card>
     </div>
   );
 };
