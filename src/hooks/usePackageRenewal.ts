@@ -2,6 +2,7 @@
 import { useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
+import { usePaymentStatus } from './usePaymentStatus';
 
 export interface PackageRenewalRequest {
   client_email: string;
@@ -25,6 +26,7 @@ export interface PackageRenewalResponse {
       email: string;
       mpesa_number: string;
     };
+    checkout_request_id: string;
   };
   error?: string;
   code?: string;
@@ -32,7 +34,9 @@ export interface PackageRenewalResponse {
 
 export const usePackageRenewal = () => {
   const [isLoading, setIsLoading] = useState(false);
+  const [isProcessing, setIsProcessing] = useState(false);
   const { toast } = useToast();
+  const { startPaymentMonitoring } = usePaymentStatus();
 
   const renewPackage = async (request: PackageRenewalRequest): Promise<PackageRenewalResponse | null> => {
     setIsLoading(true);
@@ -67,9 +71,45 @@ export const usePackageRenewal = () => {
 
       if (data.success) {
         toast({
-          title: "Renewal Initiated",
+          title: "Payment Initiated",
           description: "Please check your phone for M-Pesa payment prompt.",
         });
+
+        // Start monitoring payment status
+        if (data.data?.checkout_request_id && data.data?.invoice?.id) {
+          setIsProcessing(true);
+          
+          startPaymentMonitoring(
+            data.data.invoice.id,
+            data.data.checkout_request_id,
+            {
+              onSuccess: (statusData) => {
+                setIsProcessing(false);
+                toast({
+                  title: "Renewal Successful!",
+                  description: "Your package has been renewed and account activated.",
+                });
+              },
+              onFailure: (statusData) => {
+                setIsProcessing(false);
+                toast({
+                  title: "Payment Failed",
+                  description: statusData.message || "Payment was not completed successfully.",
+                  variant: "destructive",
+                });
+              },
+              onTimeout: () => {
+                setIsProcessing(false);
+                toast({
+                  title: "Payment Status Unknown",
+                  description: "Please check your account status or contact support.",
+                  variant: "destructive",
+                });
+              }
+            }
+          );
+        }
+
         return data;
       } else {
         console.error('Package renewal failed with error:', data.error, 'Code:', data.code);
@@ -90,7 +130,7 @@ export const usePackageRenewal = () => {
           description: errorMessage,
           variant: "destructive",
         });
-        return data; // Return the error response so caller can handle it
+        return data;
       }
     } catch (error) {
       console.error('Package renewal error:', error);
@@ -108,5 +148,6 @@ export const usePackageRenewal = () => {
   return {
     renewPackage,
     isLoading,
+    isProcessing
   };
 };

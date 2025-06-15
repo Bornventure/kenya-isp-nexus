@@ -157,9 +157,12 @@ serve(async (req) => {
     const baseAmount = currentPackage?.monthly_rate || client.monthly_rate || 100
 
     // Generate invoice for payment
-    const invoiceNumber = `INV-${Date.now()}`
+    const invoiceNumber = `INV-${Date.now()}-${client.id.substring(0, 8)}`
     const dueDate = new Date()
     dueDate.setHours(dueDate.getHours() + 1) // 1 hour to pay
+
+    const serviceStartDate = new Date()
+    const serviceEndDate = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000) // 30 days
 
     const { data: invoice, error: invoiceError } = await supabase
       .from('invoices')
@@ -170,8 +173,8 @@ serve(async (req) => {
         vat_amount: 0,
         total_amount: baseAmount,
         due_date: dueDate.toISOString(),
-        service_period_start: new Date().toISOString(),
-        service_period_end: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(), // 30 days
+        service_period_start: serviceStartDate.toISOString(),
+        service_period_end: serviceEndDate.toISOString(),
         status: 'pending',
         notes: 'Package renewal payment',
         isp_company_id: ispCompanyId
@@ -200,8 +203,8 @@ serve(async (req) => {
     const mpesaPayload = {
       phoneNumber: mpesa_number || client.mpesa_number || client.phone,
       amount: Math.round(baseAmount),
-      accountReference: invoiceNumber,
-      transactionDesc: `Package renewal for ${client.name}`
+      accountReference: client.id_number || invoiceNumber,
+      transactionDesc: `Package renewal for ${client.name} - ${invoiceNumber}`
     }
 
     console.log('Initiating M-Pesa payment:', mpesaPayload)
@@ -244,7 +247,8 @@ serve(async (req) => {
             name: client.name,
             email: client.email,
             mpesa_number: mpesa_number || client.mpesa_number || client.phone
-          }
+          },
+          checkout_request_id: mpesaResponse.CheckoutRequestID
         }
       }),
       { 
