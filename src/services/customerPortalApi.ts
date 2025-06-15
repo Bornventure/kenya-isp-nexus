@@ -399,7 +399,10 @@ export const getPaybillInstructions = async (clientData: {
     console.log('Getting paybill instructions for:', clientData.client_email);
 
     // Get client authentication to retrieve payment settings
-    const authData = await customerLogin(clientData);
+    const authData = await customerLogin({
+      email: clientData.client_email,
+      idNumber: clientData.client_id_number
+    });
     
     if (!authData.success) {
       throw new Error('Failed to authenticate client');
@@ -411,13 +414,13 @@ export const getPaybillInstructions = async (clientData: {
       success: true,
       instructions: {
         paybill_number: paymentSettings.paybill_number,
-        account_number: paymentSettings.account_number,
+        account_number: authData.client.id_number, // Use ID number as account reference
         steps: [
           'Go to M-Pesa menu on your phone',
           'Select "Lipa na M-Pesa"',
           'Select "Pay Bill"',
           `Enter Business Number: ${paymentSettings.paybill_number}`,
-          `Enter Account Number: ${paymentSettings.account_number}`,
+          `Enter Account Number: ${authData.client.id_number}`,
           'Enter the amount you want to pay',
           'Enter your M-Pesa PIN',
           'Confirm the payment',

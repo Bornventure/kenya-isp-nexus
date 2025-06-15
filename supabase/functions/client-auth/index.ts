@@ -134,8 +134,8 @@ serve(async (req) => {
           service_package: client.service_packages,
           wallet_transactions: (client.wallet_transactions || []).slice(0, 10), // Last 10 transactions
           payment_settings: {
-            paybill_number: mpesaSettings?.paybill_number || '123456',
-            account_number: client.phone || client.mpesa_number
+            paybill_number: mpesaSettings?.paybill_number || '174379',
+            account_number: client.id_number // Use ID number as account reference
           }
         }
       }),

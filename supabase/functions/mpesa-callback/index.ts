@@ -53,36 +53,27 @@ serve(async (req) => {
     const phoneNumber = MSISDN
     const mpesaReceiptNumber = TransID
     const customerName = `${FirstName} ${LastName}`.trim()
+    const accountReference = BillRefNumber // This should be the client's ID number
 
     console.log(`Payment received: ${amount} from ${phoneNumber} (${customerName})`)
+    console.log(`Account reference: ${accountReference}`)
 
-    // Find client by phone number or M-Pesa number
+    // Find client by ID number (account reference)
     let client = null
     
-    // First try to find by M-Pesa number
-    const { data: clientByMpesa } = await supabase
-      .from('clients')
-      .select('*')
-      .eq('mpesa_number', phoneNumber)
-      .single()
-
-    if (clientByMpesa) {
-      client = clientByMpesa
-      console.log('Client found by M-Pesa number:', client.name)
-    } else {
-      // Try to find by phone number
-      const { data: clientByPhone } = await supabase
+    if (accountReference) {
+      const { data: clientByIdNumber } = await supabase
         .from('clients')
         .select('*')
-        .eq('phone', phoneNumber)
+        .eq('id_number', accountReference)
         .single()
 
-      if (clientByPhone) {
-        client = clientByPhone
-        console.log('Client found by phone number:', client.name)
+      if (clientByIdNumber) {
+        client = clientByIdNumber
+        console.log('Client found by ID number:', client.name)
         
-        // Update M-Pesa number if not set
-        if (!client.mpesa_number) {
+        // Update M-Pesa number if not set or different
+        if (!client.mpesa_number || client.mpesa_number !== phoneNumber) {
           await supabase
             .from('clients')
             .update({ mpesa_number: phoneNumber })
@@ -92,8 +83,36 @@ serve(async (req) => {
       }
     }
 
+    // Fallback: try to find by phone number if ID number lookup failed
     if (!client) {
-      console.error('No client found for phone number:', phoneNumber)
+      console.log('Client not found by ID number, trying phone number...')
+      
+      const { data: clientByPhone } = await supabase
+        .from('clients')
+        .select('*')
+        .eq('phone', phoneNumber)
+        .single()
+
+      if (clientByPhone) {
+        client = clientByPhone
+        console.log('Client found by phone number (fallback):', client.name)
+      } else {
+        // Try M-Pesa number as well
+        const { data: clientByMpesa } = await supabase
+          .from('clients')
+          .select('*')
+          .eq('mpesa_number', phoneNumber)
+          .single()
+
+        if (clientByMpesa) {
+          client = clientByMpesa
+          console.log('Client found by M-Pesa number (fallback):', client.name)
+        }
+      }
+    }
+
+    if (!client) {
+      console.error('No client found for account reference or phone number:', accountReference, phoneNumber)
       
       // Log unmatched payment for manual review
       await supabase
@@ -101,7 +120,7 @@ serve(async (req) => {
         .insert({
           transaction_type: 'credit',
           amount: amount,
-          description: `Unmatched M-Pesa payment from ${phoneNumber} (${customerName})`,
+          description: `Unmatched M-Pesa payment - Account: ${accountReference || 'N/A'}, Phone: ${phoneNumber}, Name: ${customerName}`,
           reference_number: BillRefNumber || TransID,
           mpesa_receipt_number: mpesaReceiptNumber,
           isp_company_id: null // Will need manual assignment
@@ -110,7 +129,8 @@ serve(async (req) => {
       return new Response(
         JSON.stringify({
           success: false,
-          message: 'Client not found for this phone number',
+          message: 'Client not found for this account reference or phone number',
+          account_reference: accountReference,
           phone_number: phoneNumber
         }),
         { 
@@ -130,7 +150,7 @@ serve(async (req) => {
         payment_method: 'mpesa',
         reference_number: BillRefNumber || TransID,
         mpesa_receipt_number: mpesaReceiptNumber,
-        description: `Direct M-Pesa payment from ${phoneNumber}`
+        description: `Direct M-Pesa payment - Account: ${accountReference || client.id_number}, Phone: ${phoneNumber}`
       }
     })
 
@@ -161,6 +181,7 @@ serve(async (req) => {
             amount: amount,
             receipt_number: mpesaReceiptNumber,
             payment_method: 'Direct M-Pesa Payment',
+            account_reference: accountReference || client.id_number,
             new_balance: creditResult?.data?.new_balance,
             auto_renewed: creditResult?.data?.auto_renewed
           }
@@ -178,6 +199,7 @@ serve(async (req) => {
         message: 'Payment processed successfully',
         client_name: client.name,
         amount_credited: amount,
+        account_reference: accountReference || client.id_number,
         new_balance: creditResult?.data?.new_balance
       }),
       { 
