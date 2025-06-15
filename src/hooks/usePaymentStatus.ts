@@ -1,5 +1,5 @@
 
-import { useState, useEffect } from 'react';
+import { useState, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 
@@ -14,7 +14,7 @@ export const usePaymentStatus = () => {
   const [isChecking, setIsChecking] = useState(false);
   const { toast } = useToast();
 
-  const checkPaymentStatus = async (
+  const checkPaymentStatus = useCallback(async (
     paymentId: string, 
     checkoutRequestId: string,
     onSuccess?: (data: PaymentStatusData) => void,
@@ -23,7 +23,13 @@ export const usePaymentStatus = () => {
     setIsChecking(true);
     
     try {
-      console.log('Checking payment status for:', { paymentId, checkoutRequestId });
+      console.log('Checking payment status for:', checkoutRequestId);
+      console.log('Payment status request data:', {
+        checkout_request_id: checkoutRequestId,
+        checkoutRequestId: checkoutRequestId,
+        payment_id: paymentId,
+        paymentId: paymentId
+      });
 
       const { data, error } = await supabase.functions.invoke('check-payment-status', {
         body: {
@@ -32,7 +38,7 @@ export const usePaymentStatus = () => {
         }
       });
 
-      console.log('Payment status response:', data);
+      console.log('Payment status result:', data || { success: false, error: error?.message, code: 'HTTP_500' });
 
       if (error) {
         console.error('Payment status check error:', error);
@@ -81,9 +87,9 @@ export const usePaymentStatus = () => {
     } finally {
       setIsChecking(false);
     }
-  };
+  }, [toast]);
 
-  const startPaymentMonitoring = (
+  const startPaymentMonitoring = useCallback((
     paymentId: string,
     checkoutRequestId: string,
     options: {
@@ -95,14 +101,15 @@ export const usePaymentStatus = () => {
     } = {}
   ) => {
     const {
-      maxAttempts = 20,
-      intervalMs = 10000,
+      maxAttempts = 10, // Reduced from 20 to prevent excessive calls
+      intervalMs = 15000, // Increased from 10s to 15s
       onSuccess,
       onFailure,
       onTimeout
     } = options;
 
     let attempts = 0;
+    let timeoutId: ReturnType<typeof setTimeout>;
     
     const checkStatus = async () => {
       attempts++;
@@ -115,7 +122,7 @@ export const usePaymentStatus = () => {
       }
       
       if (attempts < maxAttempts) {
-        setTimeout(checkStatus, intervalMs);
+        timeoutId = setTimeout(checkStatus, intervalMs);
       } else {
         console.log('Payment monitoring timeout reached');
         toast({
@@ -128,8 +135,15 @@ export const usePaymentStatus = () => {
     };
 
     // Start monitoring after initial delay
-    setTimeout(checkStatus, 5000); // Wait 5 seconds before first check
-  };
+    timeoutId = setTimeout(checkStatus, 10000); // Wait 10 seconds before first check
+
+    // Return cleanup function
+    return () => {
+      if (timeoutId) {
+        clearTimeout(timeoutId);
+      }
+    };
+  }, [checkPaymentStatus, toast]);
 
   return {
     checkPaymentStatus,

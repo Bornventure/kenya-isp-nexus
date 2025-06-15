@@ -44,46 +44,81 @@ serve(async (req) => {
       phoneNumber 
     } = requestBody
 
-    // Step 1: Find the client
+    if (!amount || amount <= 0) {
+      console.error('Invalid amount:', amount)
+      return new Response(
+        JSON.stringify({
+          success: false,
+          error: 'Invalid payment amount',
+          code: 'INVALID_AMOUNT'
+        }),
+        { 
+          status: 400, 
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
+        }
+      )
+    }
+
+    // Step 1: Find the client using multiple strategies
     let client = null
+    console.log('Searching for client with:', { clientId, clientEmail, clientIdNumber, phoneNumber })
     
     if (clientId) {
+      console.log('Searching by client ID:', clientId)
       const { data } = await supabase
         .from('clients')
         .select('*')
         .eq('id', clientId)
         .single()
       client = data
-    } else if (clientEmail) {
+      console.log('Client found by ID:', client?.name)
+    } 
+    
+    if (!client && clientEmail) {
+      console.log('Searching by email:', clientEmail)
       const { data } = await supabase
         .from('clients')
         .select('*')
         .eq('email', clientEmail)
         .single()
       client = data
-    } else if (clientIdNumber) {
+      console.log('Client found by email:', client?.name)
+    }
+    
+    if (!client && clientIdNumber) {
+      console.log('Searching by ID number:', clientIdNumber)
       const { data } = await supabase
         .from('clients')
         .select('*')
         .eq('id_number', clientIdNumber)
         .single()
       client = data
-    } else if (phoneNumber) {
-      const { data } = await supabase
+      console.log('Client found by ID number:', client?.name)
+    }
+    
+    if (!client && phoneNumber) {
+      console.log('Searching by phone number:', phoneNumber)
+      // Clean phone number for comparison
+      const cleanPhone = phoneNumber.replace(/[^0-9]/g, '')
+      const { data: phoneClients } = await supabase
         .from('clients')
         .select('*')
-        .or(`phone.eq.${phoneNumber},mpesa_number.eq.${phoneNumber}`)
-        .single()
-      client = data
+        .or(`phone.like.*${cleanPhone.slice(-9)},mpesa_number.like.*${cleanPhone.slice(-9)}`)
+      
+      if (phoneClients && phoneClients.length > 0) {
+        client = phoneClients[0]
+        console.log('Client found by phone:', client?.name)
+      }
     }
 
     if (!client) {
-      console.error('Client not found for payment processing')
+      console.error('Client not found with any of the provided identifiers')
       return new Response(
         JSON.stringify({
           success: false,
           error: 'Client not found',
-          code: 'CLIENT_NOT_FOUND'
+          code: 'CLIENT_NOT_FOUND',
+          details: { clientId, clientEmail, clientIdNumber, phoneNumber }
         }),
         { 
           status: 404, 
@@ -95,22 +130,25 @@ serve(async (req) => {
     console.log('Found client:', client.name, 'ID:', client.id)
 
     // Step 2: Update client's wallet balance
-    const newWalletBalance = (client.wallet_balance || 0) + amount
+    const currentBalance = client.wallet_balance || 0
+    const newWalletBalance = currentBalance + amount
+    
+    console.log('Updating wallet balance from', currentBalance, 'to', newWalletBalance)
     
     const { error: walletUpdateError } = await supabase
       .from('clients')
       .update({ 
         wallet_balance: newWalletBalance,
-        mpesa_number: phoneNumber || client.mpesa_number // Update M-Pesa number if provided
+        mpesa_number: phoneNumber || client.mpesa_number
       })
       .eq('id', client.id)
 
     if (walletUpdateError) {
       console.error('Error updating wallet:', walletUpdateError)
-      throw new Error('Failed to update client wallet')
+      throw new Error(`Failed to update client wallet: ${walletUpdateError.message}`)
     }
 
-    console.log('Wallet updated. New balance:', newWalletBalance)
+    console.log('Wallet updated successfully. New balance:', newWalletBalance)
 
     // Step 3: Record wallet transaction
     const { error: transactionError } = await supabase
@@ -126,7 +164,9 @@ serve(async (req) => {
       })
 
     if (transactionError) {
-      console.error('Error recording transaction:', transactionError)
+      console.error('Error recording wallet transaction:', transactionError)
+    } else {
+      console.log('Wallet transaction recorded successfully')
     }
 
     // Step 4: Record payment
@@ -147,6 +187,8 @@ serve(async (req) => {
 
     if (paymentError) {
       console.error('Error recording payment:', paymentError)
+    } else {
+      console.log('Payment recorded successfully:', paymentRecord?.id)
     }
 
     // Step 5: Check if subscription renewal is needed and possible
@@ -157,10 +199,17 @@ serve(async (req) => {
     const isSuspended = client.status === 'suspended'
     const hasEnoughBalance = newWalletBalance >= client.monthly_rate
 
-    console.log('Renewal check:', { isSubscriptionExpired, isSuspended, hasEnoughBalance, monthlyRate: client.monthly_rate })
+    console.log('Renewal check:', { 
+      isSubscriptionExpired, 
+      isSuspended, 
+      hasEnoughBalance, 
+      monthlyRate: client.monthly_rate,
+      currentStatus: client.status
+    })
 
     if ((isSubscriptionExpired || isSuspended) && hasEnoughBalance) {
-      // Perform automatic renewal
+      console.log('Starting automatic renewal process...')
+      
       const renewalAmount = client.monthly_rate
       const newStartDate = new Date()
       const newEndDate = new Date()
@@ -170,6 +219,8 @@ serve(async (req) => {
       } else {
         newEndDate.setDate(newEndDate.getDate() + 30)
       }
+
+      console.log('Renewal period:', newStartDate.toISOString(), 'to', newEndDate.toISOString())
 
       // Deduct renewal amount from wallet
       const postRenewalBalance = newWalletBalance - renewalAmount
@@ -186,7 +237,7 @@ serve(async (req) => {
 
       if (!renewalError) {
         renewalPerformed = true
-        console.log('Subscription renewed successfully')
+        console.log('Subscription renewed successfully. New balance:', postRenewalBalance)
 
         // Record debit transaction for renewal
         await supabase
@@ -234,13 +285,17 @@ serve(async (req) => {
               .update({ invoice_id: invoice.id })
               .eq('id', paymentRecord.id)
           }
+        } else {
+          console.error('Error generating invoice:', invoiceError)
         }
+      } else {
+        console.error('Error during renewal:', renewalError)
       }
     }
 
     // Step 6: Send notifications
     try {
-      // Payment success notification
+      console.log('Sending payment success notification...')
       await supabase.functions.invoke('send-notifications', {
         body: {
           client_id: client.id,
@@ -257,6 +312,7 @@ serve(async (req) => {
 
       // Renewal notification if subscription was renewed
       if (renewalPerformed) {
+        console.log('Sending renewal notification...')
         await supabase.functions.invoke('send-notifications', {
           body: {
             client_id: client.id,
@@ -275,24 +331,7 @@ serve(async (req) => {
       console.error('Error sending notifications:', notificationError)
     }
 
-    // Step 7: Generate receipt
-    try {
-      await supabase.functions.invoke('generate-receipt', {
-        body: {
-          client_email: client.email,
-          client_id_number: client.id_number,
-          payment_id: paymentRecord?.id,
-          invoice_id: invoiceGenerated?.id,
-          amount: amount,
-          payment_method: paymentMethod,
-          reference_number: checkoutRequestId,
-          description: `Payment for ${client.name} - ${paymentMethod.toUpperCase()}`
-        }
-      })
-      console.log('Receipt generated and sent')
-    } catch (receiptError) {
-      console.error('Error generating receipt:', receiptError)
-    }
+    console.log('Payment processing completed successfully')
 
     return new Response(
       JSON.stringify({
