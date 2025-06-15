@@ -6,7 +6,7 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
-interface QueryRequest {
+interface QueryStatusRequest {
   checkoutRequestID: string;
 }
 
@@ -63,7 +63,9 @@ const handler = async (req: Request): Promise<Response> => {
   }
 
   try {
-    const { checkoutRequestID }: QueryRequest = await req.json();
+    const { checkoutRequestID }: QueryStatusRequest = await req.json();
+
+    console.log('Querying M-Pesa status for:', checkoutRequestID);
 
     // Get M-Pesa configuration
     const shortcode = Deno.env.get("MPESA_SHORTCODE");
@@ -80,13 +82,15 @@ const handler = async (req: Request): Promise<Response> => {
     const timestamp = generateTimestamp();
     const password = generatePassword(shortcode, passkey, timestamp);
 
-    // Query request payload
+    // Query status payload
     const queryPayload = {
       BusinessShortCode: shortcode,
       Password: password,
       Timestamp: timestamp,
       CheckoutRequestID: checkoutRequestID,
     };
+
+    console.log('Querying M-Pesa with payload:', queryPayload);
 
     // Make query request
     const queryResponse = await fetch("https://sandbox.safaricom.co.ke/mpesa/stkpushquery/v1/query", {
@@ -99,12 +103,11 @@ const handler = async (req: Request): Promise<Response> => {
     });
 
     if (!queryResponse.ok) {
-      throw new Error("Query request failed");
+      throw new Error("M-Pesa query request failed");
     }
 
     const queryData = await queryResponse.json();
-
-    console.log("Query response:", queryData);
+    console.log("M-Pesa query response:", queryData);
 
     return new Response(JSON.stringify(queryData), {
       status: 200,
@@ -117,7 +120,11 @@ const handler = async (req: Request): Promise<Response> => {
   } catch (error: any) {
     console.error("Error in mpesa-query-status function:", error);
     return new Response(
-      JSON.stringify({ error: error.message }),
+      JSON.stringify({ 
+        error: error.message,
+        ResponseCode: "1",
+        ResponseDescription: "Query failed"
+      }),
       {
         status: 500,
         headers: { "Content-Type": "application/json", ...corsHeaders },

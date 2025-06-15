@@ -1,63 +1,16 @@
 
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
-import { Resend } from "npm:resend@2.0.0"
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 }
 
-const resend = new Resend(Deno.env.get("RESEND_API_KEY"))
-
 interface NotificationRequest {
   client_id: string;
-  type: 'wallet_reminder' | 'payment_success' | 'service_expiry' | 'service_activation' | 'wallet_credit';
+  type: 'payment_success' | 'payment_reminder' | 'service_expiry' | 'wallet_reminder' | 'receipt';
   data?: any;
-}
-
-// Africa's Talking SMS function with sender ID
-async function sendSMS(phoneNumber: string, message: string) {
-  const apiKey = Deno.env.get('AFRICASTALKING_API_KEY')
-  const username = Deno.env.get('AFRICASTALKING_USERNAME')
-  const senderId = Deno.env.get('AFRICASTALKING_SENDER_ID') || 'AFRICASTKNG'
-  
-  if (!apiKey || !username) {
-    console.log('Africa\'s Talking credentials not configured')
-    return { success: false, error: 'SMS service not configured' }
-  }
-
-  try {
-    const formData = new FormData()
-    formData.append('username', username)
-    formData.append('to', phoneNumber)
-    formData.append('message', message)
-    formData.append('from', senderId)
-
-    const response = await fetch('https://api.africastalking.com/version1/messaging', {
-      method: 'POST',
-      headers: {
-        'apiKey': apiKey,
-        'Accept': 'application/json'
-      },
-      body: formData
-    })
-
-    const result = await response.json()
-    console.log('SMS sent:', result)
-    return { success: true, data: result }
-  } catch (error) {
-    console.error('SMS sending failed:', error)
-    return { success: false, error: error.message }
-  }
-}
-
-function formatCurrency(amount: number): string {
-  return new Intl.NumberFormat('en-KE', {
-    style: 'currency',
-    currency: 'KES',
-    minimumFractionDigits: 2
-  }).format(amount).replace('KES', 'KES ')
 }
 
 serve(async (req) => {
@@ -66,11 +19,16 @@ serve(async (req) => {
   }
 
   try {
+    console.log('=== Notification Request Started ===')
+
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!
     const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
     const supabase = createClient(supabaseUrl, supabaseServiceKey)
 
-    const { client_id, type, data }: NotificationRequest = await req.json()
+    const requestBody: NotificationRequest = await req.json()
+    console.log('Sending notification:', requestBody.type, 'to client:', requestBody.client_id)
+
+    const { client_id, type, data } = requestBody
 
     // Get client details
     const { data: client, error: clientError } = await supabase
@@ -80,110 +38,73 @@ serve(async (req) => {
       .single()
 
     if (clientError || !client) {
-      throw new Error('Client not found')
+      console.error('Client not found for notification:', clientError)
+      return new Response(
+        JSON.stringify({
+          success: false,
+          error: 'Client not found',
+          code: 'CLIENT_NOT_FOUND'
+        }),
+        { 
+          status: 404, 
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
+        }
+      )
     }
 
-    let emailSubject = ''
-    let emailContent = ''
-    let smsMessage = ''
-
     // Generate notification content based on type
+    let message = ''
+    let subject = ''
+
     switch (type) {
-      case 'wallet_reminder':
-        const daysText = data?.days_until_expiry === 1 ? 'Today!' : 
-                        data?.days_until_expiry === 2 ? '2 Days!' : '3 Days!'
-        const requiredAmount = formatCurrency(data?.required_amount || 0)
-        
-        emailSubject = `Plan Expiry Alert - ${daysText}`
-        emailContent = `
-          <h2>Plan Expiry Reminder</h2>
-          <p>Dear ${client.name},</p>
-          <p>Your plan expires in <strong>${daysText}</strong></p>
-          <p>Current wallet balance: ${formatCurrency(data?.current_balance || 0)}</p>
-          <p>Plan amount: ${formatCurrency(data?.package_amount || 0)}</p>
-          ${data?.required_amount > 0 ? `
-            <p><strong>Top-up required: ${requiredAmount}</strong></p>
-            <p>To credit your account, pay exactly ${requiredAmount} via M-Pesa Paybill ${data?.paybill_number || '123456'} using ${data?.account_number || client.phone} as the account number.</p>
-          ` : `
-            <p>✅ Your wallet has sufficient balance for auto-renewal!</p>
-          `}
-          <p>Plan and top-up before expiry to avoid interruptions.</p>
-        `
-        
-        smsMessage = `Dear ${client.name}, your plan expires in ${daysText} ${data?.required_amount > 0 ? 
-          `Top-up ${requiredAmount} via M-Pesa Paybill ${data?.paybill_number || '123456'}, Account: ${data?.account_number || client.phone}` : 
-          'Your wallet has sufficient balance for auto-renewal!'
-        }`
-        break
-
-      case 'wallet_credit':
-        emailSubject = 'Wallet Credit Confirmation'
-        emailContent = `
-          <h2>Wallet Credited Successfully!</h2>
-          <p>Dear ${client.name},</p>
-          <p>Your wallet has been credited with ${formatCurrency(data?.amount)}.</p>
-          <p>New wallet balance: ${formatCurrency(data?.new_balance)}</p>
-          ${data?.auto_renewed ? '<p>✅ Your subscription has been automatically renewed!</p>' : ''}
-          <p>Thank you for your payment!</p>
-        `
-        smsMessage = `Wallet credited: ${formatCurrency(data?.amount)}. New balance: ${formatCurrency(data?.new_balance)}. ${data?.auto_renewed ? 'Subscription auto-renewed!' : ''}`
-        break
-
       case 'payment_success':
-        emailSubject = 'Payment Confirmation - Wallet Credited'
-        emailContent = `
-          <h2>Payment Successful!</h2>
-          <p>Dear ${client.name},</p>
-          <p>Your payment of ${formatCurrency(data?.amount)} has been received and added to your wallet.</p>
-          <p>Receipt Number: ${data?.receipt_number}</p>
-          <p>Thank you for your payment!</p>
-        `
-        smsMessage = `Payment of ${formatCurrency(data?.amount)} received and added to wallet. Receipt: ${data?.receipt_number}. Thank you!`
+        subject = 'Payment Confirmation'
+        message = `Dear ${client.name}, your payment of KES ${data?.amount} has been received successfully. Receipt: ${data?.receipt_number}. New balance: KES ${data?.new_balance || 0}.`
+        break
+
+      case 'payment_reminder':
+        subject = 'Payment Reminder'
+        message = `Dear ${client.name}, your service expires in ${data?.days_until_expiry} day(s). Please pay KES ${data?.amount} to continue enjoying our services.`
         break
 
       case 'service_expiry':
-        emailSubject = 'Service Expired - Wallet Top-up Required'
-        emailContent = `
-          <h2>Service Expired</h2>
-          <p>Dear ${client.name},</p>
-          <p>Your internet service has expired and has been temporarily suspended.</p>
-          <p>Please top-up your wallet to restore your connection.</p>
-          <p>Top-up via M-Pesa Paybill ${data?.paybill_number || '123456'} using ${client.phone} as account number.</p>
-        `
-        smsMessage = `Your internet service has expired. Top-up your wallet via M-Pesa Paybill ${data?.paybill_number || '123456'}, Account: ${client.phone} to restore connection.`
+        subject = 'Service Suspended'
+        message = `Dear ${client.name}, your internet service has been suspended due to non-payment. Please make payment to reactivate your service.`
         break
 
-      case 'service_activation':
-        emailSubject = 'Service Activated - Welcome Back!'
-        emailContent = `
-          <h2>Service Activated</h2>
-          <p>Dear ${client.name},</p>
-          <p>Your internet service has been activated and is now fully operational.</p>
-          <p>Current wallet balance: ${formatCurrency(data?.wallet_balance || 0)}</p>
-          <p>Enjoy your high-speed internet connection!</p>
-        `
-        smsMessage = `Your internet service is now active! Wallet balance: ${formatCurrency(data?.wallet_balance || 0)}. Enjoy your connection!`
+      case 'wallet_reminder':
+        subject = 'Wallet Top-up Reminder'
+        message = `Dear ${client.name}, your service expires in ${data?.days_until_expiry} day(s). Current balance: KES ${data?.current_balance}. Top up KES ${data?.required_amount} using Paybill ${data?.paybill_number}, Account: ${data?.account_number}.`
         break
+
+      case 'receipt':
+        subject = 'Payment Receipt'
+        message = `Dear ${client.name}, please find your payment receipt attached. Thank you for your payment.`
+        break
+
+      default:
+        subject = 'Service Notification'
+        message = `Dear ${client.name}, this is a notification regarding your internet service.`
     }
 
-    // Send email notification
+    // Send SMS notification if phone number exists
+    if (client.phone) {
+      try {
+        await sendSMS(client.phone, message)
+        console.log('SMS sent to:', client.phone)
+      } catch (smsError) {
+        console.error('SMS sending failed:', smsError)
+      }
+    }
+
+    // Send email notification if email exists
     if (client.email) {
       try {
-        await resend.emails.send({
-          from: 'Qorion Innovations <noreply@qorion.co.ke>',
-          to: [client.email],
-          subject: emailSubject,
-          html: emailContent,
-        })
+        await sendEmail(client.email, subject, message, data?.receipt_html)
         console.log('Email sent to:', client.email)
       } catch (emailError) {
         console.error('Email sending failed:', emailError)
       }
-    }
-
-    // Send SMS notification
-    if (client.phone) {
-      await sendSMS(client.phone, smsMessage)
     }
 
     return new Response(
@@ -201,7 +122,8 @@ serve(async (req) => {
     return new Response(
       JSON.stringify({
         success: false,
-        error: 'Failed to send notifications'
+        error: 'Failed to send notifications',
+        code: 'INTERNAL_ERROR'
       }),
       { 
         status: 500, 
@@ -210,3 +132,58 @@ serve(async (req) => {
     )
   }
 })
+
+async function sendSMS(phoneNumber: string, message: string) {
+  const apiKey = Deno.env.get('AFRICASTALKING_API_KEY')
+  const username = Deno.env.get('AFRICASTALKING_USERNAME')
+  const senderId = Deno.env.get('AFRICASTALKING_SENDER_ID')
+
+  if (!apiKey || !username) {
+    console.log('SMS service not configured')
+    return
+  }
+
+  const response = await fetch('https://api.africastalking.com/version1/messaging', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/x-www-form-urlencoded',
+      'apiKey': apiKey,
+    },
+    body: new URLSearchParams({
+      username: username,
+      to: phoneNumber,
+      message: message,
+      from: senderId || 'ISP'
+    }),
+  })
+
+  const result = await response.text()
+  console.log('SMS API response:', result)
+}
+
+async function sendEmail(email: string, subject: string, message: string, htmlContent?: string) {
+  const resendKey = Deno.env.get('RESEND_API_KEY')
+
+  if (!resendKey) {
+    console.log('Email service not configured')
+    return
+  }
+
+  const response = await fetch('https://api.resend.com/emails', {
+    method: 'POST',
+    headers: {
+      'Authorization': `Bearer ${resendKey}`,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({
+      from: 'noreply@yourisp.co.ke',
+      to: email,
+      subject: subject,
+      text: message,
+      html: htmlContent || `<p>${message}</p>`,
+    }),
+  })
+
+  const result = await response.json()
+  console.log('Email API response:', result)
+}

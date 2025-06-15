@@ -8,10 +8,14 @@ const corsHeaders = {
 }
 
 interface ReceiptRequest {
-  payment_id?: string;
-  invoice_id?: string;
   client_email: string;
   client_id_number?: string;
+  payment_id?: string;
+  invoice_id?: string;
+  amount?: number;
+  payment_method?: string;
+  reference_number?: string;
+  description?: string;
 }
 
 serve(async (req) => {
@@ -27,23 +31,18 @@ serve(async (req) => {
     const supabase = createClient(supabaseUrl, supabaseServiceKey)
 
     const requestBody: ReceiptRequest = await req.json()
-    console.log('Receipt generation request:', requestBody)
+    console.log('Generating receipt for:', requestBody.client_email)
 
-    const { payment_id, invoice_id, client_email, client_id_number } = requestBody
-
-    if (!client_email) {
-      return new Response(
-        JSON.stringify({
-          success: false,
-          error: 'Client email is required',
-          code: 'MISSING_EMAIL'
-        }),
-        { 
-          status: 400, 
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
-        }
-      )
-    }
+    const { 
+      client_email, 
+      client_id_number, 
+      payment_id, 
+      invoice_id, 
+      amount, 
+      payment_method, 
+      reference_number, 
+      description 
+    } = requestBody
 
     // Find client
     let clientQuery = supabase
@@ -58,6 +57,7 @@ serve(async (req) => {
     const { data: client, error: clientError } = await clientQuery.single()
 
     if (clientError || !client) {
+      console.error('Client not found for receipt:', clientError)
       return new Response(
         JSON.stringify({
           success: false,
@@ -71,101 +71,87 @@ serve(async (req) => {
       )
     }
 
-    // Get payment and invoice data
-    let receiptData: any = {}
+    // Get payment or invoice details
+    let receiptData: any = {
+      client_name: client.name,
+      client_email: client.email,
+      client_phone: client.phone,
+      date: new Date().toISOString(),
+      receipt_number: `RCP-${Date.now()}`,
+    }
 
     if (payment_id) {
-      const { data: payment, error: paymentError } = await supabase
+      const { data: payment } = await supabase
         .from('payments')
-        .select(`
-          *,
-          invoices (
-            invoice_number,
-            service_period_start,
-            service_period_end,
-            amount,
-            total_amount
-          )
-        `)
+        .select('*')
         .eq('id', payment_id)
-        .eq('client_id', client.id)
         .single()
 
       if (payment) {
         receiptData = {
-          type: 'payment',
-          receipt_number: `RCP-${payment.id.substring(0, 8).toUpperCase()}`,
-          payment_id: payment.id,
-          invoice_number: payment.invoices?.invoice_number || 'N/A',
+          ...receiptData,
           amount: payment.amount,
           payment_method: payment.payment_method,
-          payment_date: payment.payment_date,
           reference_number: payment.reference_number,
           mpesa_receipt: payment.mpesa_receipt_number,
-          service_period: payment.invoices ? {
-            start: payment.invoices.service_period_start,
-            end: payment.invoices.service_period_end
-          } : null
+          description: payment.notes || 'Payment received',
+          payment_date: payment.payment_date
         }
       }
-    }
-
-    if (invoice_id && !receiptData.type) {
-      const { data: invoice, error: invoiceError } = await supabase
+    } else if (invoice_id) {
+      const { data: invoice } = await supabase
         .from('invoices')
         .select('*')
         .eq('id', invoice_id)
-        .eq('client_id', client.id)
         .single()
 
       if (invoice) {
         receiptData = {
-          type: 'invoice',
-          receipt_number: `INV-${invoice.id.substring(0, 8).toUpperCase()}`,
-          invoice_id: invoice.id,
-          invoice_number: invoice.invoice_number,
+          ...receiptData,
           amount: invoice.total_amount,
-          status: invoice.status,
-          due_date: invoice.due_date,
-          service_period: {
-            start: invoice.service_period_start,
-            end: invoice.service_period_end
-          }
+          invoice_number: invoice.invoice_number,
+          description: invoice.notes || 'Invoice payment',
+          service_period: `${invoice.service_period_start} to ${invoice.service_period_end}`
         }
+      }
+    } else {
+      // Direct receipt generation
+      receiptData = {
+        ...receiptData,
+        amount: amount || 0,
+        payment_method: payment_method || 'mpesa',
+        reference_number: reference_number,
+        description: description || 'Payment received'
       }
     }
 
-    if (!receiptData.type) {
-      return new Response(
-        JSON.stringify({
-          success: false,
-          error: 'No payment or invoice found',
-          code: 'NO_DATA_FOUND'
-        }),
-        { 
-          status: 404, 
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
-        }
-      )
-    }
+    // Generate receipt HTML/PDF content
+    const receiptHTML = generateReceiptHTML(receiptData)
 
-    // Generate receipt HTML
-    const receiptHtml = generateReceiptHtml(client, receiptData)
+    console.log('Receipt generated for:', client.name)
+
+    // Send receipt via email if notification service is available
+    try {
+      await supabase.functions.invoke('send-notifications', {
+        body: {
+          client_id: client.id,
+          type: 'receipt',
+          data: {
+            receipt_html: receiptHTML,
+            receipt_data: receiptData
+          }
+        }
+      })
+      console.log('Receipt sent via email to:', client.email)
+    } catch (emailError) {
+      console.error('Failed to send receipt email:', emailError)
+    }
 
     return new Response(
       JSON.stringify({
         success: true,
-        receipt: {
-          ...receiptData,
-          client: {
-            name: client.name,
-            email: client.email,
-            phone: client.phone,
-            id_number: client.id_number
-          },
-          generated_at: new Date().toISOString()
-        },
-        html: receiptHtml
+        receipt: receiptData,
+        receipt_html: receiptHTML
       }),
       { 
         headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
@@ -177,7 +163,7 @@ serve(async (req) => {
     return new Response(
       JSON.stringify({
         success: false,
-        error: 'Receipt generation failed',
+        error: 'Failed to generate receipt',
         code: 'INTERNAL_ERROR'
       }),
       { 
@@ -188,93 +174,43 @@ serve(async (req) => {
   }
 })
 
-function generateReceiptHtml(client: any, receiptData: any): string {
-  const formatDate = (dateString: string) => {
-    return new Date(dateString).toLocaleDateString('en-KE', {
-      year: 'numeric',
-      month: 'long',
-      day: 'numeric'
-    })
-  }
-
-  const formatCurrency = (amount: number) => {
-    return new Intl.NumberFormat('en-KE', {
-      style: 'currency',
-      currency: 'KES'
-    }).format(amount)
-  }
-
+function generateReceiptHTML(data: any): string {
   return `
     <!DOCTYPE html>
     <html>
     <head>
-      <meta charset="UTF-8">
-      <title>Receipt - ${receiptData.receipt_number}</title>
-      <style>
-        body { font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; }
-        .header { text-align: center; border-bottom: 2px solid #333; padding-bottom: 20px; margin-bottom: 20px; }
-        .company-name { font-size: 24px; font-weight: bold; color: #333; }
-        .receipt-title { font-size: 20px; color: #666; margin-top: 10px; }
-        .section { margin-bottom: 20px; }
-        .section-title { font-weight: bold; color: #333; margin-bottom: 10px; border-bottom: 1px solid #ddd; padding-bottom: 5px; }
-        .row { display: flex; justify-content: space-between; margin-bottom: 8px; }
-        .label { font-weight: bold; }
-        .total { border-top: 2px solid #333; padding-top: 10px; font-size: 18px; font-weight: bold; }
-        .footer { text-align: center; margin-top: 30px; padding-top: 20px; border-top: 1px solid #ddd; color: #666; }
-        @media print { body { margin: 0; } }
-      </style>
+        <style>
+            body { font-family: Arial, sans-serif; margin: 20px; }
+            .header { text-align: center; border-bottom: 2px solid #333; padding-bottom: 20px; }
+            .details { margin: 20px 0; }
+            .amount { font-size: 24px; font-weight: bold; color: #2563eb; }
+            .footer { margin-top: 30px; text-align: center; font-size: 12px; color: #666; }
+        </style>
     </head>
     <body>
-      <div class="header">
-        <div class="company-name">ISP Management System</div>
-        <div class="receipt-title">${receiptData.type === 'payment' ? 'Payment Receipt' : 'Invoice'}</div>
-        <div>Receipt #: ${receiptData.receipt_number}</div>
-      </div>
-
-      <div class="section">
-        <div class="section-title">Client Information</div>
-        <div class="row"><span class="label">Name:</span><span>${client.name}</span></div>
-        <div class="row"><span class="label">Email:</span><span>${client.email}</span></div>
-        <div class="row"><span class="label">Phone:</span><span>${client.phone}</span></div>
-        <div class="row"><span class="label">ID Number:</span><span>${client.id_number}</span></div>
-      </div>
-
-      ${receiptData.type === 'payment' ? `
-      <div class="section">
-        <div class="section-title">Payment Details</div>
-        <div class="row"><span class="label">Payment Date:</span><span>${formatDate(receiptData.payment_date)}</span></div>
-        <div class="row"><span class="label">Payment Method:</span><span>${receiptData.payment_method.toUpperCase()}</span></div>
-        <div class="row"><span class="label">Reference:</span><span>${receiptData.reference_number || 'N/A'}</span></div>
-        ${receiptData.mpesa_receipt ? `<div class="row"><span class="label">M-Pesa Receipt:</span><span>${receiptData.mpesa_receipt}</span></div>` : ''}
-        <div class="row"><span class="label">Invoice:</span><span>${receiptData.invoice_number}</span></div>
-      </div>
-      ` : `
-      <div class="section">
-        <div class="section-title">Invoice Details</div>
-        <div class="row"><span class="label">Invoice Number:</span><span>${receiptData.invoice_number}</span></div>
-        <div class="row"><span class="label">Status:</span><span>${receiptData.status.toUpperCase()}</span></div>
-        <div class="row"><span class="label">Due Date:</span><span>${formatDate(receiptData.due_date)}</span></div>
-      </div>
-      `}
-
-      ${receiptData.service_period ? `
-      <div class="section">
-        <div class="section-title">Service Period</div>
-        <div class="row"><span class="label">From:</span><span>${formatDate(receiptData.service_period.start)}</span></div>
-        <div class="row"><span class="label">To:</span><span>${formatDate(receiptData.service_period.end)}</span></div>
-      </div>
-      ` : ''}
-
-      <div class="section">
-        <div class="total">
-          <div class="row"><span class="label">Total Amount:</span><span>${formatCurrency(receiptData.amount)}</span></div>
+        <div class="header">
+            <h1>Payment Receipt</h1>
+            <p>Receipt #: ${data.receipt_number}</p>
+            <p>Date: ${new Date(data.date).toLocaleDateString()}</p>
         </div>
-      </div>
-
-      <div class="footer">
-        <p>Thank you for your business!</p>
-        <p>Generated on ${formatDate(new Date().toISOString())}</p>
-      </div>
+        
+        <div class="details">
+            <p><strong>Client:</strong> ${data.client_name}</p>
+            <p><strong>Email:</strong> ${data.client_email}</p>
+            <p><strong>Phone:</strong> ${data.client_phone}</p>
+            ${data.invoice_number ? `<p><strong>Invoice:</strong> ${data.invoice_number}</p>` : ''}
+            <p><strong>Description:</strong> ${data.description}</p>
+            ${data.service_period ? `<p><strong>Service Period:</strong> ${data.service_period}</p>` : ''}
+            <p><strong>Payment Method:</strong> ${data.payment_method?.toUpperCase() || 'N/A'}</p>
+            ${data.reference_number ? `<p><strong>Reference:</strong> ${data.reference_number}</p>` : ''}
+            ${data.mpesa_receipt ? `<p><strong>M-Pesa Receipt:</strong> ${data.mpesa_receipt}</p>` : ''}
+            <p class="amount"><strong>Amount Paid: KES ${data.amount?.toLocaleString() || '0'}</strong></p>
+        </div>
+        
+        <div class="footer">
+            <p>Thank you for your payment!</p>
+            <p>This is an automatically generated receipt.</p>
+        </div>
     </body>
     </html>
   `
