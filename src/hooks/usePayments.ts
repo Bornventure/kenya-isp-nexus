@@ -22,6 +22,20 @@ export interface Payment {
   };
 }
 
+interface WalletCreditResponse {
+  success: boolean;
+  data?: {
+    new_balance: number;
+    auto_renewed: boolean;
+  };
+  error?: string;
+}
+
+interface RenewalResponse {
+  success: boolean;
+  message?: string;
+}
+
 export const usePayments = () => {
   const { profile } = useAuth();
   const { toast } = useToast();
@@ -108,13 +122,19 @@ export const usePayments = () => {
         console.log('Wallet credited successfully:', walletCredit);
       }
 
+      // Type assertion for wallet credit response
+      const walletResponse = walletCredit as WalletCreditResponse;
+
       // Try to process subscription renewal
       console.log('Processing subscription renewal for client:', paymentData.client_id);
       const { data: renewalResult, error: renewalError } = await supabase.rpc('process_subscription_renewal', {
         p_client_id: paymentData.client_id
       });
 
-      if (!renewalError && renewalResult?.success) {
+      // Type assertion for renewal response
+      const renewalResponse = renewalResult as RenewalResponse;
+
+      if (!renewalError && renewalResponse?.success) {
         console.log('Subscription renewed successfully:', renewalResult);
       } else {
         console.log('Subscription renewal not needed or failed:', renewalResult);
@@ -142,8 +162,8 @@ export const usePayments = () => {
               amount: paymentData.amount,
               receipt_number: paymentData.mpesa_receipt_number || paymentData.reference_number,
               payment_method: paymentData.payment_method,
-              new_balance: walletCredit?.data?.new_balance,
-              auto_renewed: walletCredit?.data?.auto_renewed || renewalResult?.success
+              new_balance: walletResponse?.data?.new_balance,
+              auto_renewed: walletResponse?.data?.auto_renewed || renewalResponse?.success
             }
           }
         });
