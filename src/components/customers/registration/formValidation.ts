@@ -15,6 +15,7 @@ export interface CustomerFormData {
   location?: string;
   latitude?: string;
   longitude?: string;
+  isp_company_id: string;
 }
 
 export const validateCustomerForm = (formData: CustomerFormData): Record<string, string> => {
