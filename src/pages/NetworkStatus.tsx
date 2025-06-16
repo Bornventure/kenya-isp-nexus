@@ -1,9 +1,10 @@
-
 import React, { useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import NetworkManagementPanel from '@/components/network/NetworkManagementPanel';
 import {
   Select,
   SelectContent,
@@ -132,9 +133,9 @@ const NetworkStatus = () => {
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-3xl font-bold">Network Status</h1>
+          <h1 className="text-3xl font-bold">Network Status & Management</h1>
           <p className="text-muted-foreground">
-            Real-time monitoring of network infrastructure and performance
+            Real-time monitoring of network infrastructure and SNMP-based client management
           </p>
         </div>
         <div className="flex items-center gap-2">
@@ -207,75 +208,89 @@ const NetworkStatus = () => {
         </Card>
       </div>
 
-      {/* Network Nodes Status */}
-      <Card>
-        <CardHeader>
-          <CardTitle>Network Infrastructure</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="space-y-4">
-            {networkNodes.map((node) => (
-              <div key={node.id} className="border rounded-lg p-4">
-                <div className="flex items-center justify-between mb-3">
-                  <div className="flex items-center gap-3">
-                    {getTypeIcon(node.type)}
-                    <div>
-                      <h4 className="font-medium">{node.name}</h4>
-                      <p className="text-sm text-muted-foreground">{node.type}</p>
-                    </div>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    {getStatusIcon(node.status)}
-                    <Badge className={`text-white ${getStatusColor(node.status)}`}>
-                      {node.status}
-                    </Badge>
-                  </div>
-                </div>
-
-                <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
-                  <div>
-                    <span className="text-muted-foreground">Uptime:</span>
-                    <div className="font-medium">{node.uptime}%</div>
-                  </div>
-                  
-                  {node.type !== 'Network Switch' && (
-                    <>
-                      <div>
-                        <span className="text-muted-foreground">Clients:</span>
-                        <div className="font-medium">
-                          {node.connectedClients}/{node.capacity}
+      {/* Tabs for different views */}
+      <Tabs defaultValue="infrastructure" className="space-y-4">
+        <TabsList>
+          <TabsTrigger value="infrastructure">Network Infrastructure</TabsTrigger>
+          <TabsTrigger value="management">SNMP Management</TabsTrigger>
+        </TabsList>
+        
+        <TabsContent value="infrastructure">
+          {/* Network Nodes Status */}
+          <Card>
+            <CardHeader>
+              <CardTitle>Network Infrastructure</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-4">
+                {networkNodes.map((node) => (
+                  <div key={node.id} className="border rounded-lg p-4">
+                    <div className="flex items-center justify-between mb-3">
+                      <div className="flex items-center gap-3">
+                        {getTypeIcon(node.type)}
+                        <div>
+                          <h4 className="font-medium">{node.name}</h4>
+                          <p className="text-sm text-muted-foreground">{node.type}</p>
                         </div>
                       </div>
-                      <div>
-                        <span className="text-muted-foreground">Signal:</span>
-                        <div className="font-medium">{node.signalStrength}%</div>
+                      <div className="flex items-center gap-2">
+                        {getStatusIcon(node.status)}
+                        <Badge className={`text-white ${getStatusColor(node.status)}`}>
+                          {node.status}
+                        </Badge>
                       </div>
-                    </>
-                  )}
-                  
-                  <div>
-                    <span className="text-muted-foreground">Last Maintenance:</span>
-                    <div className="font-medium">{node.lastMaintenance}</div>
-                  </div>
-                </div>
-
-                {node.type !== 'Network Switch' && (
-                  <div className="mt-3">
-                    <div className="flex justify-between text-sm mb-1">
-                      <span>Capacity</span>
-                      <span>{node.connectedClients}/{node.capacity}</span>
                     </div>
-                    <Progress 
-                      value={(node.connectedClients / node.capacity) * 100} 
-                      className="h-2"
-                    />
+
+                    <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
+                      <div>
+                        <span className="text-muted-foreground">Uptime:</span>
+                        <div className="font-medium">{node.uptime}%</div>
+                      </div>
+                      
+                      {node.type !== 'Network Switch' && (
+                        <>
+                          <div>
+                            <span className="text-muted-foreground">Clients:</span>
+                            <div className="font-medium">
+                              {node.connectedClients}/{node.capacity}
+                            </div>
+                          </div>
+                          <div>
+                            <span className="text-muted-foreground">Signal:</span>
+                            <div className="font-medium">{node.signalStrength}%</div>
+                          </div>
+                        </>
+                      )}
+                      
+                      <div>
+                        <span className="text-muted-foreground">Last Maintenance:</span>
+                        <div className="font-medium">{node.lastMaintenance}</div>
+                      </div>
+                    </div>
+
+                    {node.type !== 'Network Switch' && (
+                      <div className="mt-3">
+                        <div className="flex justify-between text-sm mb-1">
+                          <span>Capacity</span>
+                          <span>{node.connectedClients}/{node.capacity}</span>
+                        </div>
+                        <Progress 
+                          value={(node.connectedClients / node.capacity) * 100} 
+                          className="h-2"
+                        />
+                      </div>
+                    )}
                   </div>
-                )}
+                ))}
               </div>
-            ))}
-          </div>
-        </CardContent>
-      </Card>
+            </CardContent>
+          </Card>
+        </TabsContent>
+        
+        <TabsContent value="management">
+          <NetworkManagementPanel />
+        </TabsContent>
+      </Tabs>
     </div>
   );
 };

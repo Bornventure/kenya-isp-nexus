@@ -1,4 +1,3 @@
-
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
@@ -101,7 +100,27 @@ export const useClients = () => {
             table: 'clients',
             filter: `isp_company_id=eq.${profile.isp_company_id}`
           },
-          () => {
+          (payload) => {
+            // Handle automatic network management for status changes
+            if (payload.eventType === 'UPDATE' && payload.old && payload.new) {
+              const oldStatus = payload.old.status;
+              const newStatus = payload.new.status;
+              const clientId = payload.new.id;
+              
+              if (oldStatus !== newStatus) {
+                console.log(`Client ${clientId} status changed: ${oldStatus} -> ${newStatus}`);
+                
+                // Import and trigger network management
+                import('@/services/snmpService').then(({ snmpService }) => {
+                  if (oldStatus === 'active' && newStatus === 'suspended') {
+                    snmpService.disconnectClient(clientId);
+                  } else if (oldStatus === 'suspended' && newStatus === 'active') {
+                    snmpService.reconnectClient(clientId);
+                  }
+                });
+              }
+            }
+            
             // Invalidate clients query when changes occur
             queryClient.invalidateQueries({ queryKey: ['clients'] });
             console.log('Clients data updated - refreshing...');
