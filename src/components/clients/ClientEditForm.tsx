@@ -24,8 +24,8 @@ const ClientEditForm: React.FC<ClientEditFormProps> = ({ client, onClose, onSave
     address: client.address,
     sub_county: client.sub_county,
     location: '',
-    latitude: client.latitude || '',
-    longitude: client.longitude || '',
+    latitude: client.latitude?.toString() || '',
+    longitude: client.longitude?.toString() || '',
   });
 
   const [errors, setErrors] = useState<Record<string, string>>({});

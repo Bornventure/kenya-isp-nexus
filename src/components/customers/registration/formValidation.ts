@@ -8,11 +8,13 @@ export interface CustomerFormData {
   kra_pin_number: string;
   client_type: 'individual' | 'business' | 'corporate' | 'government';
   connection_type: 'fiber' | 'wireless' | 'satellite' | 'dsl';
+  service_package_id: string;
   address: string;
   county: string;
   sub_county: string;
-  service_package_id: string;
-  isp_company_id: string;
+  location?: string;
+  latitude?: string;
+  longitude?: string;
 }
 
 export const validateCustomerForm = (formData: CustomerFormData): Record<string, string> => {
@@ -22,8 +24,10 @@ export const validateCustomerForm = (formData: CustomerFormData): Record<string,
   if (!formData.email.trim()) newErrors.email = 'Email is required';
   if (!formData.phone.trim()) newErrors.phone = 'Phone number is required';
   if (!formData.id_number.trim()) newErrors.id_number = 'ID Number is required';
+  if (!formData.service_package_id) newErrors.service_package_id = 'Service package is required';
   if (!formData.address.trim()) newErrors.address = 'Address is required';
   if (!formData.sub_county) newErrors.sub_county = 'Sub-county is required';
+  if (!formData.location) newErrors.location = 'Specific location is required';
 
   // Validate email format
   const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;

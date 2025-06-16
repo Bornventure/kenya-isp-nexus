@@ -1,4 +1,6 @@
 
+export const counties = ['Kisumu', 'Nairobi', 'Mombasa', 'Nakuru', 'Eldoret'];
+
 export const kisumuSubCounties = [
   'Kisumu Central', 
   'Kisumu East', 

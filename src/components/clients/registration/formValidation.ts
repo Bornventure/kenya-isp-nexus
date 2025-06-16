@@ -12,6 +12,9 @@ export interface FormData {
   address: string;
   county: string;
   subCounty: string;
+  location?: string;
+  latitude?: string;
+  longitude?: string;
 }
 
 export const validateForm = (formData: FormData): Record<string, string> => {
@@ -24,6 +27,7 @@ export const validateForm = (formData: FormData): Record<string, string> => {
   if (!formData.servicePackage) newErrors.servicePackage = 'Service package is required';
   if (!formData.address.trim()) newErrors.address = 'Address is required';
   if (!formData.subCounty) newErrors.subCounty = 'Sub-county is required';
+  if (!formData.location) newErrors.location = 'Specific location is required';
 
   // Validate email format
   const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
