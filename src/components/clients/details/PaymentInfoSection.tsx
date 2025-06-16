@@ -1,22 +1,14 @@
 
 import React from 'react';
 import { CreditCard } from 'lucide-react';
-import { Client } from '@/types/client';
+import { formatKenyanCurrency } from '@/utils/currencyFormat';
 
 interface PaymentInfoSectionProps {
-  client: Client;
+  client: any;
 }
 
 const PaymentInfoSection: React.FC<PaymentInfoSectionProps> = ({ client }) => {
   if (!client.lastPayment) return null;
-
-  const formatCurrency = (amount: number) => {
-    return new Intl.NumberFormat('en-KE', {
-      style: 'currency',
-      currency: 'KES',
-      minimumFractionDigits: 0
-    }).format(amount);
-  };
 
   const formatDate = (dateString: string) => {
     return new Date(dateString).toLocaleDateString('en-KE', {
@@ -39,7 +31,7 @@ const PaymentInfoSection: React.FC<PaymentInfoSectionProps> = ({ client }) => {
         </div>
         <div>
           <label className="font-medium text-gray-600">Amount</label>
-          <p className="font-semibold">{formatCurrency(client.lastPayment.amount)}</p>
+          <p className="font-semibold">{formatKenyanCurrency(client.lastPayment.amount)}</p>
         </div>
         <div>
           <label className="font-medium text-gray-600">Method</label>

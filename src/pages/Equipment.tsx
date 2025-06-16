@@ -12,90 +12,128 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger,
-} from '@/components/ui/dialog';
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from '@/components/ui/table';
 import { 
   Router, 
-  Wifi, 
-  Server,
   Search,
-  Plus,
-  Settings,
-  MapPin,
-  Calendar,
-  AlertTriangle,
+  Filter,
   CheckCircle,
-  XCircle,
+  AlertCircle,
+  Clock,
+  XCircle
 } from 'lucide-react';
-import { useEquipment } from '@/hooks/useEquipment';
-import { useClients } from '@/hooks/useClients';
-import EquipmentForm from '@/components/equipment/EquipmentForm';
+import EquipmentActions from '@/components/equipment/EquipmentActions';
+
+// Mock data for equipment
+const mockEquipment = [
+  {
+    id: 1,
+    type: 'Router',
+    brand: 'Mikrotik',
+    model: 'hAP ac2',
+    serialNumber: 'MT2021001',
+    macAddress: '4C:5E:0C:12:34:56',
+    status: 'active',
+    clientName: 'John Doe',
+    location: 'Nairobi CBD',
+    installDate: '2024-01-15',
+    warrantyEnd: '2026-01-15'
+  },
+  {
+    id: 2,
+    type: 'Modem',
+    brand: 'Huawei',
+    model: 'HG8245H',
+    serialNumber: 'HW2021002',
+    macAddress: '00:25:9E:FE:12:34',
+    status: 'maintenance',
+    clientName: 'Jane Smith',
+    location: 'Westlands',
+    installDate: '2024-02-10',
+    warrantyEnd: '2026-02-10'
+  },
+  {
+    id: 3,
+    type: 'Antenna',
+    brand: 'Ubiquiti',
+    model: 'NanoStation 5AC',
+    serialNumber: 'UB2021003',
+    macAddress: '24:A4:3C:12:34:56',
+    status: 'available',
+    clientName: null,
+    location: 'Warehouse',
+    installDate: null,
+    warrantyEnd: '2025-12-31'
+  }
+];
 
 const Equipment = () => {
-  const { equipment, isLoading } = useEquipment();
-  const { clients } = useClients();
   const [searchTerm, setSearchTerm] = useState('');
-  const [statusFilter, setStatusFilter] = useState('all');
-  const [typeFilter, setTypeFilter] = useState('all');
+  const [filterStatus, setFilterStatus] = useState<string>('all');
+  const [filterType, setFilterType] = useState<string>('all');
+  const [equipment, setEquipment] = useState(mockEquipment);
 
-  const filteredEquipment = equipment.filter(equipment => {
-    const statusMatch = statusFilter === 'all' || equipment.status === statusFilter;
-    const typeMatch = typeFilter === 'all' || equipment.type === typeFilter;
+  const filteredEquipment = equipment.filter(item => {
+    const statusMatch = filterStatus === 'all' || item.status === filterStatus;
+    const typeMatch = filterType === 'all' || item.type.toLowerCase() === filterType;
     const searchMatch = searchTerm === '' || 
-      equipment.serial_number.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      equipment.type.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      equipment.brand?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      equipment.model?.toLowerCase().includes(searchTerm.toLowerCase());
+      item.serialNumber.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      item.brand.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      item.model.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      item.clientName?.toLowerCase().includes(searchTerm.toLowerCase());
     
     return statusMatch && typeMatch && searchMatch;
   });
 
   const getStatusColor = (status: string) => {
     switch (status) {
-      case 'available': return 'bg-green-500';
-      case 'assigned': return 'bg-blue-500';
-      case 'maintenance': return 'bg-yellow-500';
-      case 'damaged': return 'bg-red-500';
-      default: return 'bg-gray-500';
+      case 'active': return 'bg-green-100 text-green-800';
+      case 'maintenance': return 'bg-yellow-100 text-yellow-800';
+      case 'available': return 'bg-blue-100 text-blue-800';
+      case 'faulty': return 'bg-red-100 text-red-800';
+      default: return 'bg-gray-100 text-gray-800';
     }
   };
 
   const getStatusIcon = (status: string) => {
     switch (status) {
-      case 'available': return <CheckCircle className="h-4 w-4" />;
-      case 'assigned': return <Wifi className="h-4 w-4" />;
-      case 'maintenance': return <Settings className="h-4 w-4" />;
-      case 'damaged': return <XCircle className="h-4 w-4" />;
-      default: return <Server className="h-4 w-4" />;
+      case 'active': return <CheckCircle className="h-3 w-3 mr-1" />;
+      case 'maintenance': return <Clock className="h-3 w-3 mr-1" />;
+      case 'available': return <CheckCircle className="h-3 w-3 mr-1" />;
+      case 'faulty': return <XCircle className="h-3 w-3 mr-1" />;
+      default: return <AlertCircle className="h-3 w-3 mr-1" />;
     }
   };
 
   const formatDate = (dateString: string | null) => {
     if (!dateString) return 'N/A';
-    return new Date(dateString).toLocaleDateString('en-US', {
+    return new Date(dateString).toLocaleDateString('en-KE', {
       year: 'numeric',
       month: 'short',
       day: 'numeric'
     });
   };
 
-  const getClientName = (clientId: string | null) => {
-    if (!clientId) return 'Unassigned';
-    const client = clients.find(c => c.id === clientId);
-    return client ? client.name : 'Unknown Client';
+  const handleEquipmentAdded = () => {
+    // Refresh equipment list
+    console.log('Equipment added, refreshing list...');
   };
 
-  if (isLoading) {
-    return (
-      <div className="p-6">
-        <div className="text-center">Loading equipment...</div>
-      </div>
-    );
-  }
+  const handleMaintenanceScheduled = () => {
+    // Refresh maintenance schedule
+    console.log('Maintenance scheduled, refreshing...');
+  };
+
+  const totalEquipment = equipment.length;
+  const activeEquipment = equipment.filter(e => e.status === 'active').length;
+  const availableEquipment = equipment.filter(e => e.status === 'available').length;
+  const maintenanceEquipment = equipment.filter(e => e.status === 'maintenance').length;
 
   return (
     <div className="p-6 space-y-6">
@@ -104,79 +142,60 @@ const Equipment = () => {
         <div>
           <h1 className="text-3xl font-bold">Equipment Management</h1>
           <p className="text-muted-foreground">
-            Monitor and manage network infrastructure equipment
+            Track and manage network equipment inventory
           </p>
         </div>
-        <div className="flex items-center gap-2">
-          <Button variant="outline" size="sm">
-            <Settings className="h-4 w-4 mr-2" />
-            Maintenance Schedule
-          </Button>
-          <Dialog>
-            <DialogTrigger asChild>
-              <Button size="sm">
-                <Plus className="h-4 w-4 mr-2" />
-                Add Equipment
-              </Button>
-            </DialogTrigger>
-            <DialogContent className="max-w-2xl">
-              <DialogHeader>
-                <DialogTitle>Add New Equipment</DialogTitle>
-              </DialogHeader>
-              <EquipmentForm />
-            </DialogContent>
-          </Dialog>
-        </div>
+        <EquipmentActions
+          onEquipmentAdded={handleEquipmentAdded}
+          onMaintenanceScheduled={handleMaintenanceScheduled}
+        />
       </div>
 
-      {/* Equipment Statistics */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+      {/* Statistics Cards */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
         <Card>
-          <CardContent className="p-4">
-            <div className="flex items-center space-x-2">
-              <Server className="h-5 w-5 text-blue-600" />
-              <div>
-                <p className="text-sm font-medium">Total Equipment</p>
-                <p className="text-2xl font-bold">{equipment.length}</p>
+          <CardContent className="p-6">
+            <div className="flex items-center">
+              <Router className="h-8 w-8 text-blue-600" />
+              <div className="ml-4">
+                <p className="text-sm font-medium text-muted-foreground">Total Equipment</p>
+                <p className="text-2xl font-bold">{totalEquipment}</p>
               </div>
             </div>
           </CardContent>
         </Card>
+
         <Card>
-          <CardContent className="p-4">
-            <div className="flex items-center space-x-2">
-              <CheckCircle className="h-5 w-5 text-green-600" />
-              <div>
-                <p className="text-sm font-medium">Available</p>
-                <p className="text-2xl font-bold">
-                  {equipment.filter(e => e.status === 'available').length}
-                </p>
+          <CardContent className="p-6">
+            <div className="flex items-center">
+              <CheckCircle className="h-8 w-8 text-green-600" />
+              <div className="ml-4">
+                <p className="text-sm font-medium text-muted-foreground">Active</p>
+                <p className="text-2xl font-bold text-green-600">{activeEquipment}</p>
               </div>
             </div>
           </CardContent>
         </Card>
+
         <Card>
-          <CardContent className="p-4">
-            <div className="flex items-center space-x-2">
-              <Wifi className="h-5 w-5 text-blue-600" />
-              <div>
-                <p className="text-sm font-medium">Assigned</p>
-                <p className="text-2xl font-bold">
-                  {equipment.filter(e => e.status === 'assigned').length}
-                </p>
+          <CardContent className="p-6">
+            <div className="flex items-center">
+              <CheckCircle className="h-8 w-8 text-blue-600" />
+              <div className="ml-4">
+                <p className="text-sm font-medium text-muted-foreground">Available</p>
+                <p className="text-2xl font-bold text-blue-600">{availableEquipment}</p>
               </div>
             </div>
           </CardContent>
         </Card>
+
         <Card>
-          <CardContent className="p-4">
-            <div className="flex items-center space-x-2">
-              <AlertTriangle className="h-5 w-5 text-orange-600" />
-              <div>
-                <p className="text-sm font-medium">Needs Attention</p>
-                <p className="text-2xl font-bold">
-                  {equipment.filter(e => e.status === 'maintenance' || e.status === 'damaged').length}
-                </p>
+          <CardContent className="p-6">
+            <div className="flex items-center">
+              <Clock className="h-8 w-8 text-yellow-600" />
+              <div className="ml-4">
+                <p className="text-sm font-medium text-muted-foreground">Maintenance</p>
+                <p className="text-2xl font-bold text-yellow-600">{maintenanceEquipment}</p>
               </div>
             </div>
           </CardContent>
@@ -186,14 +205,17 @@ const Equipment = () => {
       {/* Filters */}
       <Card>
         <CardHeader>
-          <CardTitle>Equipment Filters</CardTitle>
+          <CardTitle className="flex items-center gap-2">
+            <Filter className="h-5 w-5" />
+            Filters & Search
+          </CardTitle>
         </CardHeader>
         <CardContent>
           <div className="flex flex-col md:flex-row gap-4">
             <div className="relative flex-1">
               <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
               <Input
-                placeholder="Search equipment by serial, type, brand, or model..."
+                placeholder="Search by serial number, brand, model, or client..."
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
                 className="pl-10"
@@ -202,32 +224,32 @@ const Equipment = () => {
             <div className="flex gap-4">
               <div className="flex items-center gap-2">
                 <label className="text-sm font-medium whitespace-nowrap">Status:</label>
-                <Select value={statusFilter} onValueChange={setStatusFilter}>
+                <Select value={filterStatus} onValueChange={setFilterStatus}>
                   <SelectTrigger className="w-32">
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="all">All</SelectItem>
+                    <SelectItem value="active">Active</SelectItem>
                     <SelectItem value="available">Available</SelectItem>
-                    <SelectItem value="assigned">Assigned</SelectItem>
                     <SelectItem value="maintenance">Maintenance</SelectItem>
-                    <SelectItem value="damaged">Damaged</SelectItem>
+                    <SelectItem value="faulty">Faulty</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
               <div className="flex items-center gap-2">
                 <label className="text-sm font-medium whitespace-nowrap">Type:</label>
-                <Select value={typeFilter} onValueChange={setTypeFilter}>
+                <Select value={filterType} onValueChange={setFilterType}>
                   <SelectTrigger className="w-32">
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="all">All</SelectItem>
-                    <SelectItem value="Router">Router</SelectItem>
-                    <SelectItem value="Switch">Switch</SelectItem>
-                    <SelectItem value="Access Point">Access Point</SelectItem>
-                    <SelectItem value="Modem">Modem</SelectItem>
-                    <SelectItem value="Antenna">Antenna</SelectItem>
+                    <SelectItem value="router">Router</SelectItem>
+                    <SelectItem value="modem">Modem</SelectItem>
+                    <SelectItem value="antenna">Antenna</SelectItem>
+                    <SelectItem value="cable">Cable</SelectItem>
+                    <SelectItem value="switch">Switch</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
@@ -236,78 +258,70 @@ const Equipment = () => {
         </CardContent>
       </Card>
 
-      {/* Equipment List */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {filteredEquipment.map((item) => (
-          <Card key={item.id} className="hover:shadow-lg transition-shadow">
-            <CardHeader>
-              <div className="flex items-center justify-between">
-                <CardTitle className="text-lg">{item.type}</CardTitle>
-                <Badge 
-                  className={`text-white ${getStatusColor(item.status)}`}
-                >
-                  <span className="flex items-center gap-1">
-                    {getStatusIcon(item.status)}
-                    {item.status}
-                  </span>
-                </Badge>
-              </div>
-              <p className="text-sm text-muted-foreground">
-                S/N: {item.serial_number}
-                {item.brand && item.model && ` • ${item.brand} ${item.model}`}
-              </p>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="grid grid-cols-2 gap-4 text-sm">
-                <div>
-                  <p className="font-medium">Assigned to</p>
-                  <p className="text-muted-foreground">{getClientName(item.client_id)}</p>
-                </div>
-                <div>
-                  <p className="font-medium">MAC Address</p>
-                  <p className="text-muted-foreground">{item.mac_address || 'N/A'}</p>
-                </div>
-                <div>
-                  <p className="font-medium">Purchase Date</p>
-                  <p className="text-muted-foreground">{formatDate(item.purchase_date)}</p>
-                </div>
-                <div>
-                  <p className="font-medium">Warranty End</p>
-                  <p className="text-muted-foreground">{formatDate(item.warranty_end_date)}</p>
-                </div>
-              </div>
-              
-              {item.notes && (
-                <div className="pt-2 border-t">
-                  <p className="text-sm font-medium">Notes:</p>
-                  <p className="text-sm text-muted-foreground">{item.notes}</p>
-                </div>
-              )}
-              
-              <div className="flex gap-2 pt-2">
-                <Button variant="outline" size="sm" className="flex-1">
-                  Edit
-                </Button>
-                <Button variant="outline" size="sm" className="flex-1">
-                  Assign
-                </Button>
-              </div>
-            </CardContent>
-          </Card>
-        ))}
-      </div>
+      {/* Equipment Table */}
+      <Card>
+        <CardHeader>
+          <CardTitle>
+            Equipment ({filteredEquipment.length} of {equipment.length})
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="rounded-md border">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Type & Model</TableHead>
+                  <TableHead>Serial Number</TableHead>
+                  <TableHead>Status</TableHead>
+                  <TableHead>Client</TableHead>
+                  <TableHead>Location</TableHead>
+                  <TableHead>Install Date</TableHead>
+                  <TableHead>Warranty</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {filteredEquipment.map((item) => (
+                  <TableRow key={item.id}>
+                    <TableCell>
+                      <div>
+                        <div className="font-medium">{item.brand} {item.model}</div>
+                        <div className="text-sm text-gray-500">{item.type}</div>
+                      </div>
+                    </TableCell>
+                    <TableCell className="font-mono text-sm">{item.serialNumber}</TableCell>
+                    <TableCell>
+                      <Badge className={getStatusColor(item.status)}>
+                        {getStatusIcon(item.status)}
+                        {item.status.charAt(0).toUpperCase() + item.status.slice(1)}
+                      </Badge>
+                    </TableCell>
+                    <TableCell>{item.clientName || '-'}</TableCell>
+                    <TableCell>{item.location}</TableCell>
+                    <TableCell>{formatDate(item.installDate)}</TableCell>
+                    <TableCell>
+                      <span className={new Date(item.warrantyEnd) < new Date() ? 'text-red-600' : 'text-green-600'}>
+                        {formatDate(item.warrantyEnd)}
+                      </span>
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
 
-      {filteredEquipment.length === 0 && (
-        <Card>
-          <CardContent className="p-8 text-center">
-            <Server className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
-            <h3 className="text-lg font-medium mb-2">No Equipment Found</h3>
-            <p className="text-muted-foreground">
-              Try adjusting your search criteria or add new equipment to get started.
-            </p>
-          </CardContent>
-        </Card>
-      )}
+            {filteredEquipment.length === 0 && (
+              <div className="text-center py-12">
+                <div className="text-gray-400 mb-4">
+                  <Router className="h-12 w-12 mx-auto" />
+                </div>
+                <h3 className="text-lg font-medium text-gray-900 mb-2">No equipment found</h3>
+                <p className="text-gray-600">
+                  Try adjusting your search or filter criteria.
+                </p>
+              </div>
+            )}
+          </div>
+        </CardContent>
+      </Card>
     </div>
   );
 };

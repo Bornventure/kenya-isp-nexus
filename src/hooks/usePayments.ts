@@ -3,6 +3,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/hooks/use-toast';
+import { parseAmount } from '@/utils/currencyFormat';
 
 export interface Payment {
   id: string;
@@ -49,7 +50,11 @@ export const usePayments = () => {
         throw error;
       }
 
-      return data as Payment[];
+      // Fix amount parsing issues
+      return (data as Payment[]).map(payment => ({
+        ...payment,
+        amount: parseAmount(payment.amount)
+      }));
     },
     enabled: !!profile?.isp_company_id,
   });
@@ -67,7 +72,7 @@ export const usePayments = () => {
         body: {
           checkoutRequestId: paymentData.reference_number || `MANUAL-${Date.now()}`,
           clientId: paymentData.client_id,
-          amount: paymentData.amount,
+          amount: parseAmount(paymentData.amount),
           paymentMethod: paymentData.payment_method,
           mpesaReceiptNumber: paymentData.mpesa_receipt_number
         }
@@ -82,10 +87,13 @@ export const usePayments = () => {
       return processResult;
     },
     onSuccess: () => {
+      // Invalidate all related queries
       queryClient.invalidateQueries({ queryKey: ['payments'] });
       queryClient.invalidateQueries({ queryKey: ['clients'] });
       queryClient.invalidateQueries({ queryKey: ['invoices'] });
       queryClient.invalidateQueries({ queryKey: ['wallet-transactions'] });
+      queryClient.invalidateQueries({ queryKey: ['dashboard'] });
+      
       toast({
         title: "Payment Processed",
         description: "Payment has been processed successfully with automatic subscription renewal and notifications sent.",

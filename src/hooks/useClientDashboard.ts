@@ -2,6 +2,8 @@
 import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
+import { useRealtimeUpdates } from '@/hooks/useRealtimeUpdates';
+import { parseAmount } from '@/utils/currencyFormat';
 
 interface ClientDashboardData {
   client: any;
@@ -47,8 +49,39 @@ export const useClientDashboard = (clientEmail: string) => {
         throw new Error(result.error || 'Failed to fetch dashboard data');
       }
 
-      console.log('Dashboard data loaded:', result.data);
-      setData(result.data);
+      // Parse and fix amount formatting issues
+      const dashboardData = result.data;
+      if (dashboardData.payments) {
+        dashboardData.payments = dashboardData.payments.map((payment: any) => ({
+          ...payment,
+          amount: parseAmount(payment.amount)
+        }));
+      }
+
+      if (dashboardData.wallet_transactions) {
+        dashboardData.wallet_transactions = dashboardData.wallet_transactions.map((transaction: any) => ({
+          ...transaction,
+          amount: parseAmount(transaction.amount)
+        }));
+      }
+
+      if (dashboardData.recent_invoices) {
+        dashboardData.recent_invoices = dashboardData.recent_invoices.map((invoice: any) => ({
+          ...invoice,
+          amount: parseAmount(invoice.amount),
+          total_amount: parseAmount(invoice.total_amount),
+          vat_amount: parseAmount(invoice.vat_amount)
+        }));
+      }
+
+      if (dashboardData.summary) {
+        dashboardData.summary.total_payments = parseAmount(dashboardData.summary.total_payments);
+        dashboardData.summary.current_balance = parseAmount(dashboardData.summary.current_balance);
+        dashboardData.summary.monthly_rate = parseAmount(dashboardData.summary.monthly_rate);
+      }
+
+      console.log('Dashboard data loaded:', dashboardData);
+      setData(dashboardData);
       
     } catch (err: any) {
       console.error('Error fetching dashboard data:', err);
@@ -63,6 +96,9 @@ export const useClientDashboard = (clientEmail: string) => {
     }
   }, [toast]);
 
+  // Set up real-time updates
+  const { invalidateQueries } = useRealtimeUpdates(data?.client?.id);
+
   // Initial fetch
   useEffect(() => {
     if (clientEmail) {
@@ -70,11 +106,11 @@ export const useClientDashboard = (clientEmail: string) => {
     }
   }, [clientEmail, fetchDashboardData]);
 
-  // Set up real-time subscription for payment updates
+  // Real-time subscription effect
   useEffect(() => {
     if (!data?.client?.id) return;
 
-    console.log('Setting up realtime subscription for payment updates');
+    console.log('Setting up realtime subscription for dashboard updates');
     
     const channel = supabase
       .channel('dashboard-updates')
