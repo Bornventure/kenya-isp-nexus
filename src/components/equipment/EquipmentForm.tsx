@@ -38,7 +38,6 @@ const EquipmentForm: React.FC = () => {
       return;
     }
 
-    // Only pass the fields that are being set, let the mutation handle defaults
     const equipmentData = {
       type: formData.type,
       brand: formData.brand || null,
@@ -161,7 +160,7 @@ const EquipmentForm: React.FC = () => {
               <SelectValue placeholder="Select client (optional)" />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="">Unassigned</SelectItem>
+              <SelectItem value="unassigned">Unassigned</SelectItem>
               {clients.map((client) => (
                 <SelectItem key={client.id} value={client.id}>
                   {client.name}

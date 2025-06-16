@@ -50,7 +50,6 @@ const AddEquipmentDialog: React.FC<AddEquipmentDialogProps> = ({ open, onOpenCha
     }
 
     try {
-      // Only pass the fields that are being set, let the mutation handle defaults
       await createEquipment({
         equipment_type_id: selectedType.id,
         type: selectedType.device_type,
@@ -102,7 +101,6 @@ const AddEquipmentDialog: React.FC<AddEquipmentDialogProps> = ({ open, onOpenCha
 
   const handleTypeSelect = (type: EquipmentType) => {
     setSelectedType(type);
-    // Apply default configuration
     if (type.default_config) {
       setFormData(prev => ({
         ...prev,
@@ -248,7 +246,7 @@ const AddEquipmentDialog: React.FC<AddEquipmentDialogProps> = ({ open, onOpenCha
                   <SelectValue placeholder="Select a client" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="">No client</SelectItem>
+                  <SelectItem value="no-client">No client</SelectItem>
                   {clients.map((client) => (
                     <SelectItem key={client.id} value={client.id}>
                       {client.name} - {client.phone}
