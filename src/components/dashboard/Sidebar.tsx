@@ -16,6 +16,7 @@ import {
   Settings,
   LogOut,
   Building2,
+  Package,
 } from 'lucide-react';
 
 const navigation = [
@@ -24,6 +25,7 @@ const navigation = [
   { name: 'Billing', href: '/billing', icon: CreditCard },
   { name: 'Network Map', href: '/network-map', icon: Network },
   { name: 'Equipment', href: '/equipment', icon: Laptop },
+  { name: 'Inventory', href: '/inventory', icon: Package },
   { name: 'Invoices', href: '/invoices', icon: FileText },
   { name: 'Analytics', href: '/analytics', icon: BarChart3 },
   { name: 'Network Status', href: '/network', icon: Wifi },

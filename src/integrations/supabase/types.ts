@@ -378,6 +378,190 @@ export type Database = {
         }
         Relationships: []
       }
+      inventory_history: {
+        Row: {
+          action: string
+          created_at: string
+          details: string | null
+          id: string
+          inventory_item_id: string
+          isp_company_id: string | null
+          performed_by: string | null
+        }
+        Insert: {
+          action: string
+          created_at?: string
+          details?: string | null
+          id?: string
+          inventory_item_id: string
+          isp_company_id?: string | null
+          performed_by?: string | null
+        }
+        Update: {
+          action?: string
+          created_at?: string
+          details?: string | null
+          id?: string
+          inventory_item_id?: string
+          isp_company_id?: string | null
+          performed_by?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "inventory_history_inventory_item_id_fkey"
+            columns: ["inventory_item_id"]
+            isOneToOne: false
+            referencedRelation: "inventory_items"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "inventory_history_isp_company_id_fkey"
+            columns: ["isp_company_id"]
+            isOneToOne: false
+            referencedRelation: "isp_companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "inventory_history_performed_by_fkey"
+            columns: ["performed_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      inventory_items: {
+        Row: {
+          assigned_customer_id: string | null
+          assigned_device_id: string | null
+          assignment_date: string | null
+          capacity: string | null
+          category: string
+          cost: number | null
+          created_at: string
+          id: string
+          installation_date: string | null
+          ip_address: unknown | null
+          isp_company_id: string | null
+          item_id: string
+          item_sku: string | null
+          last_maintenance_date: string | null
+          length_meters: number | null
+          location: string | null
+          location_end_lat: number | null
+          location_end_lng: number | null
+          location_start_lat: number | null
+          location_start_lng: number | null
+          mac_address: string | null
+          manufacturer: string | null
+          model: string | null
+          name: string | null
+          notes: string | null
+          purchase_date: string | null
+          quantity_in_stock: number | null
+          reorder_level: number | null
+          serial_number: string | null
+          status: string
+          subnet_mask: string | null
+          supplier: string | null
+          type: string
+          unit_cost: number | null
+          updated_at: string
+          warranty_expiry_date: string | null
+        }
+        Insert: {
+          assigned_customer_id?: string | null
+          assigned_device_id?: string | null
+          assignment_date?: string | null
+          capacity?: string | null
+          category: string
+          cost?: number | null
+          created_at?: string
+          id?: string
+          installation_date?: string | null
+          ip_address?: unknown | null
+          isp_company_id?: string | null
+          item_id: string
+          item_sku?: string | null
+          last_maintenance_date?: string | null
+          length_meters?: number | null
+          location?: string | null
+          location_end_lat?: number | null
+          location_end_lng?: number | null
+          location_start_lat?: number | null
+          location_start_lng?: number | null
+          mac_address?: string | null
+          manufacturer?: string | null
+          model?: string | null
+          name?: string | null
+          notes?: string | null
+          purchase_date?: string | null
+          quantity_in_stock?: number | null
+          reorder_level?: number | null
+          serial_number?: string | null
+          status?: string
+          subnet_mask?: string | null
+          supplier?: string | null
+          type: string
+          unit_cost?: number | null
+          updated_at?: string
+          warranty_expiry_date?: string | null
+        }
+        Update: {
+          assigned_customer_id?: string | null
+          assigned_device_id?: string | null
+          assignment_date?: string | null
+          capacity?: string | null
+          category?: string
+          cost?: number | null
+          created_at?: string
+          id?: string
+          installation_date?: string | null
+          ip_address?: unknown | null
+          isp_company_id?: string | null
+          item_id?: string
+          item_sku?: string | null
+          last_maintenance_date?: string | null
+          length_meters?: number | null
+          location?: string | null
+          location_end_lat?: number | null
+          location_end_lng?: number | null
+          location_start_lat?: number | null
+          location_start_lng?: number | null
+          mac_address?: string | null
+          manufacturer?: string | null
+          model?: string | null
+          name?: string | null
+          notes?: string | null
+          purchase_date?: string | null
+          quantity_in_stock?: number | null
+          reorder_level?: number | null
+          serial_number?: string | null
+          status?: string
+          subnet_mask?: string | null
+          supplier?: string | null
+          type?: string
+          unit_cost?: number | null
+          updated_at?: string
+          warranty_expiry_date?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "inventory_items_assigned_customer_id_fkey"
+            columns: ["assigned_customer_id"]
+            isOneToOne: false
+            referencedRelation: "clients"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "inventory_items_isp_company_id_fkey"
+            columns: ["isp_company_id"]
+            isOneToOne: false
+            referencedRelation: "isp_companies"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       invoices: {
         Row: {
           amount: number

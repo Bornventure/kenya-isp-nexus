@@ -10,6 +10,7 @@ import Clients from "@/pages/Clients";
 import Billing from "@/pages/Billing";
 import NetworkMap from "@/pages/NetworkMap";
 import Equipment from "@/pages/Equipment";
+import Inventory from "@/pages/Inventory";
 import Invoices from "@/pages/Invoices";
 import Analytics from "@/pages/Analytics";
 import NetworkStatus from "@/pages/NetworkStatus";
@@ -56,6 +57,7 @@ const AppContent: React.FC = () => {
             <Route path="billing" element={<Billing />} />
             <Route path="network-map" element={<NetworkMap />} />
             <Route path="equipment" element={<Equipment />} />
+            <Route path="inventory" element={<Inventory />} />
             <Route path="invoices" element={<Invoices />} />
             <Route path="analytics" element={<Analytics />} />
             <Route path="network" element={<NetworkStatus />} />

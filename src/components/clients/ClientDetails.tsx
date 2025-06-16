@@ -1,93 +1,107 @@
 
-import React from 'react';
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
-import { Card, CardContent } from '@/components/ui/card';
-import { Client } from '@/types/client';
+import React, { useState } from 'react';
+import { useParams } from 'react-router-dom';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Button } from '@/components/ui/button';
+import { ArrowLeft } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
+import { useClients } from '@/hooks/useClients';
 import PersonalInfoSection from './details/PersonalInfoSection';
-import LocationInfoSection from './details/LocationInfoSection';
 import ServiceInfoSection from './details/ServiceInfoSection';
-import EquipmentInfoSection from './details/EquipmentInfoSection';
 import PaymentInfoSection from './details/PaymentInfoSection';
+import LocationInfoSection from './details/LocationInfoSection';
+import EquipmentInfoSection from './details/EquipmentInfoSection';
 import ClientActionButtons from './details/ClientActionButtons';
+import AssignedEquipmentSection from './details/AssignedEquipmentSection';
 
-interface ClientDetailsProps {
-  client: Client;
-  onClose: () => void;
-  onEdit: () => void;
-  onStatusChange: (status: Client['status']) => void;
-  onDelete?: (clientId: string) => void;
-  isUpdating?: boolean;
-  isDeleting?: boolean;
-}
+const ClientDetails = () => {
+  const { id } = useParams();
+  const navigate = useNavigate();
+  const { clients, isLoading } = useClients();
+  const [activeTab, setActiveTab] = useState('overview');
 
-const ClientDetails: React.FC<ClientDetailsProps> = ({ 
-  client, 
-  onClose, 
-  onEdit, 
-  onStatusChange,
-  onDelete,
-  isUpdating = false,
-  isDeleting = false
-}) => {
+  const client = clients.find(c => c.id === id);
+
+  if (isLoading) {
+    return (
+      <div className="p-6">
+        <div className="animate-pulse space-y-4">
+          <div className="h-8 bg-gray-200 rounded"></div>
+          <div className="h-64 bg-gray-200 rounded"></div>
+        </div>
+      </div>
+    );
+  }
+
+  if (!client) {
+    return (
+      <div className="p-6">
+        <div className="text-center">
+          <p className="text-muted-foreground">Client not found</p>
+          <Button onClick={() => navigate('/clients')} className="mt-4">
+            <ArrowLeft className="h-4 w-4 mr-2" />
+            Back to Clients
+          </Button>
+        </div>
+      </div>
+    );
+  }
+
+  const handleViewEquipment = (itemId: string) => {
+    // Navigate to inventory with the specific item
+    navigate(`/inventory?item=${itemId}`);
+  };
+
   return (
-    <Dialog open={true} onOpenChange={onClose}>
-      <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
-        <DialogHeader>
-          <DialogTitle>Client Details - {client.name}</DialogTitle>
-        </DialogHeader>
-        
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          {/* Left Column */}
-          <div className="space-y-6">
-            <Card>
-              <CardContent className="p-6">
-                <PersonalInfoSection client={client} />
-              </CardContent>
-            </Card>
-
-            <Card>
-              <CardContent className="p-6">
-                <LocationInfoSection client={client} />
-              </CardContent>
-            </Card>
-
-            <Card>
-              <CardContent className="p-6">
-                <ServiceInfoSection client={client} />
-              </CardContent>
-            </Card>
-          </div>
-
-          {/* Right Column */}
-          <div className="space-y-6">
-            <Card>
-              <CardContent className="p-6">
-                <ClientActionButtons 
-                  client={client} 
-                  onEdit={onEdit} 
-                  onStatusChange={onStatusChange}
-                  onDelete={onDelete}
-                  isUpdating={isUpdating}
-                  isDeleting={isDeleting}
-                />
-              </CardContent>
-            </Card>
-
-            <Card>
-              <CardContent className="p-6">
-                <EquipmentInfoSection client={client} />
-              </CardContent>
-            </Card>
-
-            <Card>
-              <CardContent className="p-6">
-                <PaymentInfoSection client={client} />
-              </CardContent>
-            </Card>
+    <div className="p-6 space-y-6">
+      {/* Header */}
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-4">
+          <Button
+            variant="outline"
+            onClick={() => navigate('/clients')}
+          >
+            <ArrowLeft className="h-4 w-4 mr-2" />
+            Back
+          </Button>
+          <div>
+            <h1 className="text-2xl font-bold">{client.name}</h1>
+            <p className="text-muted-foreground">{client.email}</p>
           </div>
         </div>
-      </DialogContent>
-    </Dialog>
+        <ClientActionButtons client={client} />
+      </div>
+
+      {/* Content Tabs */}
+      <Tabs value={activeTab} onValueChange={setActiveTab}>
+        <TabsList className="grid w-full grid-cols-3">
+          <TabsTrigger value="overview">Overview</TabsTrigger>
+          <TabsTrigger value="equipment">Equipment</TabsTrigger>
+          <TabsTrigger value="billing">Billing</TabsTrigger>
+        </TabsList>
+
+        <TabsContent value="overview" className="space-y-6">
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            <PersonalInfoSection client={client} />
+            <ServiceInfoSection client={client} />
+            <LocationInfoSection client={client} />
+            <EquipmentInfoSection client={client} />
+          </div>
+        </TabsContent>
+
+        <TabsContent value="equipment" className="space-y-6">
+          <AssignedEquipmentSection
+            clientId={client.id}
+            clientName={client.name}
+            onViewEquipment={handleViewEquipment}
+          />
+        </TabsContent>
+
+        <TabsContent value="billing" className="space-y-6">
+          <PaymentInfoSection client={client} />
+        </TabsContent>
+      </Tabs>
+    </div>
   );
 };
 
