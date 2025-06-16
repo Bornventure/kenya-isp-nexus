@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { MapContainer, TileLayer, Marker, Popup, Circle, useMap } from 'react-leaflet';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -12,20 +13,20 @@ import { useAuth } from '@/contexts/AuthContext';
 import { MapPin, Router, Server, Wifi, Cable } from 'lucide-react';
 import 'leaflet/dist/leaflet.css';
 
-// Custom icons for different equipment types
+// Custom icons for different equipment types (reduced size)
 const createCustomIcon = (color: string, type: string) => {
   return new Icon({
     iconUrl: `data:image/svg+xml;base64,${btoa(`
-      <svg width="32" height="32" viewBox="0 0 32 32" xmlns="http://www.w3.org/2000/svg">
-        <circle cx="16" cy="16" r="12" fill="${color}" stroke="white" stroke-width="2"/>
-        <text x="16" y="20" text-anchor="middle" fill="white" font-size="12" font-family="Arial">
+      <svg width="24" height="24" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+        <circle cx="12" cy="12" r="10" fill="${color}" stroke="white" stroke-width="2"/>
+        <text x="12" y="16" text-anchor="middle" fill="white" font-size="10" font-family="Arial">
           ${type === 'router' ? 'R' : type === 'switch' ? 'S' : type === 'access_point' ? 'AP' : 'E'}
         </text>
       </svg>
     `)}`,
-    iconSize: [32, 32],
-    iconAnchor: [16, 32],
-    popupAnchor: [0, -32],
+    iconSize: [24, 24], // Reduced from [32, 32]
+    iconAnchor: [12, 24], // Reduced from [16, 32]
+    popupAnchor: [0, -24], // Reduced from [0, -32]
   });
 };
 
@@ -64,7 +65,8 @@ const MapBoundsUpdater: React.FC<{ markers: Array<{lat: number, lng: number}> }>
   useEffect(() => {
     if (markers.length > 0) {
       const bounds = new LatLngBounds(markers.map(m => [m.lat, m.lng]));
-      map.fitBounds(bounds, { padding: [20, 20] });
+      // Add more padding for better visibility and zoom out more
+      map.fitBounds(bounds, { padding: [50, 50], maxZoom: 13 });
     }
   }, [map, markers]);
 
@@ -96,10 +98,13 @@ const EnhancedNetworkMap: React.FC = () => {
     fetchBaseStations();
   }, [profile?.isp_company_id]);
 
-  // Filter clients based on status
+  // Filter clients based on status and ensure they have coordinates
   const filteredClients = clients.filter(client => {
-    if (filter === 'all') return client.latitude && client.longitude;
-    return client.status === filter && client.latitude && client.longitude;
+    const hasCoordinates = client.latitude && client.longitude;
+    if (!hasCoordinates) return false;
+    
+    if (filter === 'all') return true;
+    return client.status === filter;
   });
 
   // Filter equipment with coordinates
@@ -117,9 +122,10 @@ const EnhancedNetworkMap: React.FC = () => {
     ...baseStations.map(bs => ({ lat: bs.latitude, lng: bs.longitude }))
   ];
 
-  // Default center (Nairobi, Kenya)
-  const defaultCenter = { lat: -1.286389, lng: 36.817223 };
-  const mapCenter = allMarkers.length > 0 ? allMarkers[0] : defaultCenter;
+  // Default center (Kisumu, Kenya)
+  const defaultCenter = { lat: -0.0917, lng: 34.7680 };
+  const mapCenter = allMarkers.length > 0 ? 
+    { lat: allMarkers[0].lat, lng: allMarkers[0].lng } : defaultCenter;
 
   return (
     <div className="space-y-4">
@@ -166,7 +172,7 @@ const EnhancedNetworkMap: React.FC = () => {
           <div className="h-[600px] w-full">
             <MapContainer
               center={[mapCenter.lat, mapCenter.lng]}
-              zoom={10}
+              zoom={12}
               style={{ height: '100%', width: '100%' }}
             >
               <TileLayer

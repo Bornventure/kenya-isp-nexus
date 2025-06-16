@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -16,6 +15,7 @@ import ClientDetails from '@/components/clients/ClientDetails';
 import ClientViewSwitcher, { ViewMode } from '@/components/clients/ClientViewSwitcher';
 import ClientListView from '@/components/clients/ClientListView';
 import ClientGridView from '@/components/clients/ClientGridView';
+import ClientEditForm from '@/components/clients/ClientEditForm';
 import InteractiveMap from '@/components/network/InteractiveMap';
 import {
   Search,
@@ -35,7 +35,8 @@ const Clients = () => {
   const [showRegistrationForm, setShowRegistrationForm] = useState(false);
   const [selectedClient, setSelectedClient] = useState<DatabaseClient | null>(null);
   const [showClientDetails, setShowClientDetails] = useState(false);
-  const [currentView, setCurrentView] = useState<ViewMode>('list');
+  const [showClientEdit, setShowClientEdit] = useState(false);
+  const [currentView, setCurrentView] = useState<ViewMode>('grid');
 
   const { clients, isLoading, updateClient, deleteClient, isUpdating, isDeleting } = useClients();
   const queryClient = useQueryClient();
@@ -98,8 +99,27 @@ const Clients = () => {
     }
   };
 
-  const handleEditClient = () => {
+  const handleEditClient = (client?: any) => {
+    if (client) {
+      // Find the original database client
+      const dbClient = clients.find(c => c.id === client.id);
+      if (dbClient) {
+        setSelectedClient(dbClient);
+      }
+    }
     setShowClientDetails(false);
+    setShowClientEdit(true);
+  };
+
+  const handleSaveClientEdit = (clientData: Partial<DatabaseClient>) => {
+    if (selectedClient) {
+      updateClient({
+        id: selectedClient.id,
+        updates: clientData
+      });
+    }
+    setShowClientEdit(false);
+    setSelectedClient(null);
   };
 
   const handleStatusChange = (newStatus: DatabaseClient['status']) => {
@@ -305,6 +325,18 @@ const Clients = () => {
         />
       )}
 
+      {/* Client Edit Modal */}
+      {showClientEdit && selectedClient && (
+        <ClientEditForm
+          client={selectedClient}
+          onClose={() => {
+            setShowClientEdit(false);
+            setSelectedClient(null);
+          }}
+          onSave={handleSaveClientEdit}
+        />
+      )}
+
       {/* Client Details Modal */}
       {showClientDetails && selectedClient && (
         <ClientDetails
@@ -334,7 +366,7 @@ const Clients = () => {
             balance: selectedClient.balance,
           }}
           onClose={() => setShowClientDetails(false)}
-          onEdit={handleEditClient}
+          onEdit={() => handleEditClient(selectedClient)}
           onStatusChange={handleStatusChange}
           onDelete={handleDeleteClient}
           isUpdating={isUpdating}

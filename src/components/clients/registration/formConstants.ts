@@ -23,3 +23,6 @@ export const connectionTypes = [
   { value: 'satellite', label: 'Satellite' },
   { value: 'dsl', label: 'DSL' }
 ];
+
+// Re-export from kisumuLocations for consistency
+export { kisumuLocations, type LocationData } from './kisumuLocations';
