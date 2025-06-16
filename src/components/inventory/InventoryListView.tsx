@@ -146,7 +146,7 @@ const InventoryListView: React.FC<InventoryListViewProps> = ({
                 <SelectValue placeholder="Filter by category" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="">All Categories</SelectItem>
+                <SelectItem value="all">All Categories</SelectItem>
                 {categories.map((category) => (
                   <SelectItem key={category} value={category}>
                     {category}
@@ -159,7 +159,7 @@ const InventoryListView: React.FC<InventoryListViewProps> = ({
                 <SelectValue placeholder="Filter by status" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="">All Statuses</SelectItem>
+                <SelectItem value="all">All Statuses</SelectItem>
                 {statuses.map((status) => (
                   <SelectItem key={status} value={status}>
                     {status}
