@@ -2,12 +2,11 @@
 import React, { useState } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
-import { Card, CardContent } from '@/components/ui/card';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
+import { Badge } from '@/components/ui/badge';
 import { CheckCircle, XCircle, Clock } from 'lucide-react';
-import { useToast } from '@/hooks/use-toast';
 import { Equipment } from '@/hooks/useEquipment';
 
 interface EquipmentApprovalDialogProps {
@@ -15,7 +14,7 @@ interface EquipmentApprovalDialogProps {
   onOpenChange: (open: boolean) => void;
   equipment: Equipment | null;
   onApprove: (id: string, notes?: string) => void;
-  onReject: (id: string, notes?: string) => void;
+  onReject: (id: string, notes: string) => void;
 }
 
 const EquipmentApprovalDialog: React.FC<EquipmentApprovalDialogProps> = ({
@@ -26,36 +25,26 @@ const EquipmentApprovalDialog: React.FC<EquipmentApprovalDialogProps> = ({
   onReject,
 }) => {
   const [notes, setNotes] = useState('');
-  const { toast } = useToast();
+  const [action, setAction] = useState<'approve' | 'reject' | null>(null);
 
   if (!equipment) return null;
 
   const handleApprove = () => {
-    onApprove(equipment.id, notes);
-    toast({
-      title: "Equipment Approved",
-      description: "Equipment has been approved and is now active.",
-    });
-    onOpenChange(false);
+    onApprove(equipment.id, notes || undefined);
     setNotes('');
+    setAction(null);
+    onOpenChange(false);
   };
 
   const handleReject = () => {
     if (!notes.trim()) {
-      toast({
-        title: "Rejection Reason Required",
-        description: "Please provide a reason for rejecting this equipment.",
-        variant: "destructive",
-      });
+      alert('Please provide a reason for rejection');
       return;
     }
     onReject(equipment.id, notes);
-    toast({
-      title: "Equipment Rejected",
-      description: "Equipment has been rejected.",
-    });
-    onOpenChange(false);
     setNotes('');
+    setAction(null);
+    onOpenChange(false);
   };
 
   const getStatusIcon = (status: string) => {
@@ -69,6 +58,17 @@ const EquipmentApprovalDialog: React.FC<EquipmentApprovalDialogProps> = ({
     }
   };
 
+  const getStatusColor = (status: string) => {
+    switch (status) {
+      case 'approved':
+        return 'default';
+      case 'rejected':
+        return 'destructive';
+      default:
+        return 'secondary';
+    }
+  };
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-2xl">
@@ -79,86 +79,90 @@ const EquipmentApprovalDialog: React.FC<EquipmentApprovalDialogProps> = ({
         <div className="space-y-6">
           {/* Equipment Details */}
           <Card>
-            <CardContent className="p-4">
-              <div className="space-y-3">
-                <div className="flex items-center justify-between">
-                  <h3 className="font-medium">{equipment.brand} {equipment.model}</h3>
-                  <div className="flex items-center gap-2">
-                    {getStatusIcon(equipment.approval_status || 'pending')}
-                    <Badge variant="outline">
-                      {equipment.approval_status || 'pending'}
-                    </Badge>
-                  </div>
+            <CardHeader>
+              <CardTitle className="text-lg flex items-center gap-2">
+                {getStatusIcon(equipment.approval_status || 'pending')}
+                {equipment.brand} {equipment.model}
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-3">
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <p className="text-sm font-medium">Type</p>
+                  <p className="text-sm text-muted-foreground">{equipment.type}</p>
                 </div>
-                
-                <div className="grid grid-cols-2 gap-4 text-sm">
-                  <div>
-                    <span className="font-medium">Type:</span> {equipment.type}
-                  </div>
-                  <div>
-                    <span className="font-medium">Serial:</span> {equipment.serial_number}
-                  </div>
-                  {equipment.mac_address && (
-                    <div>
-                      <span className="font-medium">MAC:</span> {equipment.mac_address}
-                    </div>
-                  )}
-                  {equipment.ip_address && (
-                    <div>
-                      <span className="font-medium">IP:</span> {equipment.ip_address}
-                    </div>
-                  )}
+                <div>
+                  <p className="text-sm font-medium">Serial Number</p>
+                  <p className="text-sm text-muted-foreground">{equipment.serial_number}</p>
                 </div>
-
-                {equipment.clients && (
-                  <div className="text-sm">
-                    <span className="font-medium">Assigned to:</span> {equipment.clients.name}
+                {equipment.ip_address && (
+                  <div>
+                    <p className="text-sm font-medium">IP Address</p>
+                    <p className="text-sm text-muted-foreground">{equipment.ip_address}</p>
                   </div>
                 )}
-
-                {equipment.notes && (
-                  <div className="text-sm">
-                    <span className="font-medium">Notes:</span>
-                    <p className="mt-1 text-muted-foreground">{equipment.notes}</p>
+                {equipment.mac_address && (
+                  <div>
+                    <p className="text-sm font-medium">MAC Address</p>
+                    <p className="text-sm text-muted-foreground">{equipment.mac_address}</p>
                   </div>
                 )}
               </div>
+              
+              <div className="pt-2">
+                <p className="text-sm font-medium">Current Status</p>
+                <Badge variant={getStatusColor(equipment.approval_status || 'pending')}>
+                  {equipment.approval_status || 'pending'}
+                </Badge>
+              </div>
+
+              {equipment.notes && (
+                <div>
+                  <p className="text-sm font-medium">Notes</p>
+                  <p className="text-sm text-muted-foreground">{equipment.notes}</p>
+                </div>
+              )}
             </CardContent>
           </Card>
 
-          {/* Approval Notes */}
-          <div className="space-y-2">
-            <Label htmlFor="approval-notes">
-              {equipment.approval_status === 'pending' ? 'Approval/Rejection Notes' : 'Additional Notes'}
-            </Label>
-            <Textarea
-              id="approval-notes"
-              value={notes}
-              onChange={(e) => setNotes(e.target.value)}
-              placeholder={
-                equipment.approval_status === 'pending'
-                  ? "Add notes about the approval decision..."
-                  : "Add additional notes..."
-              }
-              rows={3}
-            />
-          </div>
+          {/* Approval Actions */}
+          {(equipment.approval_status === 'pending' || !equipment.approval_status) && (
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-lg">Review Decision</CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div>
+                  <Label htmlFor="approval-notes">Notes (optional for approval, required for rejection)</Label>
+                  <Textarea
+                    id="approval-notes"
+                    value={notes}
+                    onChange={(e) => setNotes(e.target.value)}
+                    placeholder="Add any notes about this equipment..."
+                    rows={3}
+                  />
+                </div>
 
-          {/* Action Buttons */}
-          {equipment.approval_status === 'pending' && (
-            <div className="flex justify-end gap-2">
-              <Button variant="outline" onClick={() => onOpenChange(false)}>
-                Cancel
-              </Button>
-              <Button variant="destructive" onClick={handleReject}>
-                <XCircle className="h-4 w-4 mr-2" />
-                Reject
-              </Button>
-              <Button onClick={handleApprove}>
-                <CheckCircle className="h-4 w-4 mr-2" />
-                Approve
-              </Button>
-            </div>
+                <div className="flex gap-2">
+                  <Button
+                    onClick={handleApprove}
+                    className="flex-1"
+                    variant="default"
+                  >
+                    <CheckCircle className="h-4 w-4 mr-2" />
+                    Approve
+                  </Button>
+                  <Button
+                    onClick={handleReject}
+                    className="flex-1"
+                    variant="destructive"
+                  >
+                    <XCircle className="h-4 w-4 mr-2" />
+                    Reject
+                  </Button>
+                </div>
+              </CardContent>
+            </Card>
           )}
         </div>
       </DialogContent>
