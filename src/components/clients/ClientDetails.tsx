@@ -46,7 +46,7 @@ const transformDatabaseClientToClient = (dbClient: DatabaseClient): Client => ({
 const ClientDetails = () => {
   const { id } = useParams();
   const navigate = useNavigate();
-  const { clients, isLoading } = useClients();
+  const { clients, isLoading, updateClient, deleteClient, isUpdating, isDeleting } = useClients();
   const [activeTab, setActiveTab] = useState('overview');
 
   const dbClient = clients.find(c => c.id === id);
@@ -82,6 +82,25 @@ const ClientDetails = () => {
     navigate(`/inventory?item=${itemId}`);
   };
 
+  const handleEditClient = () => {
+    // Navigate back to clients page to edit
+    navigate('/clients');
+  };
+
+  const handleStatusChange = (newStatus: Client['status']) => {
+    if (dbClient) {
+      updateClient({
+        id: dbClient.id,
+        updates: { status: newStatus }
+      });
+    }
+  };
+
+  const handleDeleteClient = (clientId: string) => {
+    deleteClient(clientId);
+    navigate('/clients');
+  };
+
   return (
     <div className="p-6 space-y-6">
       {/* Header */}
@@ -99,7 +118,14 @@ const ClientDetails = () => {
             <p className="text-muted-foreground">{client.email}</p>
           </div>
         </div>
-        <ClientActionButtons client={client} />
+        <ClientActionButtons 
+          client={client} 
+          onEdit={handleEditClient}
+          onStatusChange={handleStatusChange}
+          onDelete={handleDeleteClient}
+          isUpdating={isUpdating}
+          isDeleting={isDeleting}
+        />
       </div>
 
       {/* Content Tabs */}
