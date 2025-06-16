@@ -1,10 +1,9 @@
 
 import React, { useState } from 'react';
-import { useParams } from 'react-router-dom';
+import { useParams, useNavigate } from 'react-router-dom';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Button } from '@/components/ui/button';
 import { ArrowLeft } from 'lucide-react';
-import { useNavigate } from 'react-router-dom';
 import { useClients, DatabaseClient } from '@/hooks/useClients';
 import { Client } from '@/types/client';
 import PersonalInfoSection from './details/PersonalInfoSection';
@@ -43,13 +42,21 @@ const transformDatabaseClientToClient = (dbClient: DatabaseClient): Client => ({
   lastPayment: undefined, // TODO: Fetch from payments table
 });
 
-const ClientDetails = () => {
-  const { id } = useParams();
+interface ClientDetailsProps {
+  clientId?: string;
+  onClose?: () => void;
+}
+
+const ClientDetails: React.FC<ClientDetailsProps> = ({ clientId: propClientId, onClose }) => {
+  const { id: urlClientId } = useParams();
   const navigate = useNavigate();
   const { clients, isLoading, updateClient, deleteClient, isUpdating, isDeleting } = useClients();
   const [activeTab, setActiveTab] = useState('overview');
 
-  const dbClient = clients.find(c => c.id === id);
+  // Use either the prop clientId or URL parameter
+  const clientId = propClientId || urlClientId;
+
+  const dbClient = clients.find(c => c.id === clientId);
   const client = dbClient ? transformDatabaseClientToClient(dbClient) : null;
 
   if (isLoading) {
@@ -68,7 +75,7 @@ const ClientDetails = () => {
       <div className="p-6">
         <div className="text-center">
           <p className="text-muted-foreground">Client not found</p>
-          <Button onClick={() => navigate('/clients')} className="mt-4">
+          <Button onClick={onClose || (() => navigate('/clients'))} className="mt-4">
             <ArrowLeft className="h-4 w-4 mr-2" />
             Back to Clients
           </Button>
@@ -98,7 +105,19 @@ const ClientDetails = () => {
 
   const handleDeleteClient = (clientId: string) => {
     deleteClient(clientId);
-    navigate('/clients');
+    if (onClose) {
+      onClose();
+    } else {
+      navigate('/clients');
+    }
+  };
+
+  const handleBack = () => {
+    if (onClose) {
+      onClose();
+    } else {
+      navigate('/clients');
+    }
   };
 
   return (
@@ -108,7 +127,7 @@ const ClientDetails = () => {
         <div className="flex items-center gap-4">
           <Button
             variant="outline"
-            onClick={() => navigate('/clients')}
+            onClick={handleBack}
           >
             <ArrowLeft className="h-4 w-4 mr-2" />
             Back

@@ -33,7 +33,7 @@ const Clients = () => {
   const [typeFilter, setTypeFilter] = useState<string>('all');
   const [connectionFilter, setConnectionFilter] = useState<string>('all');
   const [showRegistrationForm, setShowRegistrationForm] = useState(false);
-  const [selectedClient, setSelectedClient] = useState<DatabaseClient | null>(null);
+  const [selectedClientId, setSelectedClientId] = useState<string | null>(null);
   const [showClientDetails, setShowClientDetails] = useState(false);
   const [showClientEdit, setShowClientEdit] = useState(false);
   const [currentView, setCurrentView] = useState<ViewMode>('grid');
@@ -91,12 +91,8 @@ const Clients = () => {
   };
 
   const handleViewClient = (client: any) => {
-    // Find the original database client
-    const dbClient = clients.find(c => c.id === client.id);
-    if (dbClient) {
-      setSelectedClient(dbClient);
-      setShowClientDetails(true);
-    }
+    setSelectedClientId(client.id);
+    setShowClientDetails(true);
   };
 
   const handleEditClient = (client?: any) => {
@@ -104,7 +100,7 @@ const Clients = () => {
       // Find the original database client
       const dbClient = clients.find(c => c.id === client.id);
       if (dbClient) {
-        setSelectedClient(dbClient);
+        setSelectedClientId(dbClient.id);
       }
     }
     setShowClientDetails(false);
@@ -112,30 +108,14 @@ const Clients = () => {
   };
 
   const handleSaveClientEdit = (clientData: Partial<DatabaseClient>) => {
-    if (selectedClient) {
+    if (selectedClientId) {
       updateClient({
-        id: selectedClient.id,
+        id: selectedClientId,
         updates: clientData
       });
     }
     setShowClientEdit(false);
-    setSelectedClient(null);
-  };
-
-  const handleStatusChange = (newStatus: DatabaseClient['status']) => {
-    if (selectedClient) {
-      updateClient({
-        id: selectedClient.id,
-        updates: { status: newStatus }
-      });
-      setSelectedClient({ ...selectedClient, status: newStatus });
-    }
-  };
-
-  const handleDeleteClient = (clientId: string) => {
-    deleteClient(clientId);
-    setShowClientDetails(false);
-    setSelectedClient(null);
+    setSelectedClientId(null);
   };
 
   const handleRefreshData = () => {
@@ -164,7 +144,6 @@ const Clients = () => {
 
   return (
     <div className="p-6">
-      {/* ... keep existing code (header, search filters, statistics cards) */}
       <div className="mb-8">
         <div className="flex justify-between items-center mb-4">
           <div>
@@ -327,30 +306,39 @@ const Clients = () => {
       )}
 
       {/* Client Edit Modal */}
-      {showClientEdit && selectedClient && (
+      {showClientEdit && selectedClientId && (
         <ClientEditForm
-          client={selectedClient}
+          client={clients.find(c => c.id === selectedClientId)!}
           onClose={() => {
             setShowClientEdit(false);
-            setSelectedClient(null);
+            setSelectedClientId(null);
           }}
           onSave={handleSaveClientEdit}
         />
       )}
 
-      {/* Client Details - Now uses URL routing */}
-      {showClientDetails && selectedClient && (
+      {/* Client Details Modal */}
+      {showClientDetails && selectedClientId && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-lg max-w-6xl max-h-[90vh] overflow-y-auto p-1">
+          <div className="bg-white rounded-lg max-w-6xl max-h-[90vh] overflow-y-auto p-1 w-full mx-4">
             <div className="flex justify-end p-4">
               <Button
                 variant="ghost"
-                onClick={() => setShowClientDetails(false)}
+                onClick={() => {
+                  setShowClientDetails(false);
+                  setSelectedClientId(null);
+                }}
               >
                 ×
               </Button>
             </div>
-            <ClientDetails />
+            <ClientDetails 
+              clientId={selectedClientId}
+              onClose={() => {
+                setShowClientDetails(false);
+                setSelectedClientId(null);
+              }}
+            />
           </div>
         </div>
       )}
