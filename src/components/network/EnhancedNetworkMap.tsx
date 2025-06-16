@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { MapContainer, TileLayer, Marker, Popup, Circle, useMap } from 'react-leaflet';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -229,11 +228,9 @@ const EnhancedNetworkMap: React.FC = () => {
                           }>
                             {client.status}
                           </Badge>
-                          {client.wallet_balance !== undefined && (
-                            <span className="text-xs bg-gray-100 px-2 py-1 rounded">
-                              Wallet: KES {client.wallet_balance}
-                            </span>
-                          )}
+                          <span className="text-xs bg-gray-100 px-2 py-1 rounded">
+                            Wallet: KES {client.wallet_balance || 0}
+                          </span>
                         </div>
                       </div>
                     </div>

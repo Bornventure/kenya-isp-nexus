@@ -113,7 +113,7 @@ const WalletCreditForm: React.FC = () => {
                 <SelectContent>
                   {clients.map((client) => (
                     <SelectItem key={client.id} value={client.id}>
-                      {client.name} - Wallet: {formatKenyanCurrency(client.balance || 0)}
+                      {client.name} - Wallet: {formatKenyanCurrency(client.wallet_balance || 0)}
                     </SelectItem>
                   ))}
                 </SelectContent>
