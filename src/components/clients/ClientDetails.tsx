@@ -5,7 +5,8 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Button } from '@/components/ui/button';
 import { ArrowLeft } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
-import { useClients } from '@/hooks/useClients';
+import { useClients, DatabaseClient } from '@/hooks/useClients';
+import { Client } from '@/types/client';
 import PersonalInfoSection from './details/PersonalInfoSection';
 import ServiceInfoSection from './details/ServiceInfoSection';
 import PaymentInfoSection from './details/PaymentInfoSection';
@@ -14,13 +15,42 @@ import EquipmentInfoSection from './details/EquipmentInfoSection';
 import ClientActionButtons from './details/ClientActionButtons';
 import AssignedEquipmentSection from './details/AssignedEquipmentSection';
 
+// Helper function to transform DatabaseClient to Client
+const transformDatabaseClientToClient = (dbClient: DatabaseClient): Client => ({
+  id: dbClient.id,
+  name: dbClient.name,
+  email: dbClient.email || '',
+  phone: dbClient.phone,
+  mpesaNumber: dbClient.mpesa_number || '',
+  idNumber: dbClient.id_number,
+  kraPinNumber: dbClient.kra_pin_number || '',
+  clientType: dbClient.client_type as 'individual' | 'business' | 'corporate' | 'government',
+  status: dbClient.status as 'active' | 'suspended' | 'disconnected' | 'pending',
+  connectionType: dbClient.connection_type as 'fiber' | 'wireless' | 'satellite' | 'dsl',
+  servicePackage: dbClient.service_packages?.name || `${dbClient.monthly_rate} KES/month`,
+  monthlyRate: dbClient.monthly_rate,
+  installationDate: dbClient.installation_date || '',
+  location: {
+    address: dbClient.address,
+    county: dbClient.county,
+    subCounty: dbClient.sub_county,
+    coordinates: dbClient.latitude && dbClient.longitude ? {
+      lat: dbClient.latitude,
+      lng: dbClient.longitude,
+    } : undefined,
+  },
+  balance: dbClient.balance,
+  lastPayment: undefined, // TODO: Fetch from payments table
+});
+
 const ClientDetails = () => {
   const { id } = useParams();
   const navigate = useNavigate();
   const { clients, isLoading } = useClients();
   const [activeTab, setActiveTab] = useState('overview');
 
-  const client = clients.find(c => c.id === id);
+  const dbClient = clients.find(c => c.id === id);
+  const client = dbClient ? transformDatabaseClientToClient(dbClient) : null;
 
   if (isLoading) {
     return (

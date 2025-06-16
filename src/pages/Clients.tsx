@@ -164,6 +164,7 @@ const Clients = () => {
 
   return (
     <div className="p-6">
+      {/* ... keep existing code (header, search filters, statistics cards) */}
       <div className="mb-8">
         <div className="flex justify-between items-center mb-4">
           <div>
@@ -337,41 +338,21 @@ const Clients = () => {
         />
       )}
 
-      {/* Client Details Modal */}
+      {/* Client Details - Now uses URL routing */}
       {showClientDetails && selectedClient && (
-        <ClientDetails
-          client={{
-            id: selectedClient.id,
-            name: selectedClient.name,
-            email: selectedClient.email || '',
-            phone: selectedClient.phone,
-            mpesaNumber: selectedClient.mpesa_number || '',
-            idNumber: selectedClient.id_number,
-            kraPinNumber: selectedClient.kra_pin_number || '',
-            clientType: selectedClient.client_type as 'individual' | 'business' | 'corporate' | 'government',
-            status: selectedClient.status as 'active' | 'suspended' | 'disconnected' | 'pending',
-            connectionType: selectedClient.connection_type as 'fiber' | 'wireless' | 'satellite' | 'dsl',
-            servicePackage: selectedClient.service_packages?.name || `${selectedClient.monthly_rate} KES/month`,
-            monthlyRate: selectedClient.monthly_rate,
-            installationDate: selectedClient.installation_date || '',
-            location: {
-              address: selectedClient.address,
-              county: selectedClient.county,
-              subCounty: selectedClient.sub_county,
-              coordinates: selectedClient.latitude && selectedClient.longitude ? {
-                lat: selectedClient.latitude,
-                lng: selectedClient.longitude,
-              } : undefined,
-            },
-            balance: selectedClient.balance,
-          }}
-          onClose={() => setShowClientDetails(false)}
-          onEdit={() => handleEditClient(selectedClient)}
-          onStatusChange={handleStatusChange}
-          onDelete={handleDeleteClient}
-          isUpdating={isUpdating}
-          isDeleting={isDeleting}
-        />
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg max-w-6xl max-h-[90vh] overflow-y-auto p-1">
+            <div className="flex justify-end p-4">
+              <Button
+                variant="ghost"
+                onClick={() => setShowClientDetails(false)}
+              >
+                ×
+              </Button>
+            </div>
+            <ClientDetails />
+          </div>
+        </div>
       )}
     </div>
   );

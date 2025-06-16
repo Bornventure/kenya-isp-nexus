@@ -205,13 +205,40 @@ export const useCreateInventoryItem = () => {
   const { profile } = useAuth();
 
   return useMutation({
-    mutationFn: async (itemData: Partial<InventoryItem>) => {
+    mutationFn: async (itemData: Omit<InventoryItem, 'id' | 'item_id' | 'created_at' | 'updated_at' | 'isp_company_id' | 'clients'>) => {
       if (!profile?.isp_company_id) throw new Error('No company ID');
 
       const { data, error } = await supabase
         .from('inventory_items')
         .insert({
-          ...itemData,
+          category: itemData.category,
+          type: itemData.type,
+          name: itemData.name,
+          manufacturer: itemData.manufacturer,
+          model: itemData.model,
+          serial_number: itemData.serial_number,
+          mac_address: itemData.mac_address,
+          purchase_date: itemData.purchase_date,
+          warranty_expiry_date: itemData.warranty_expiry_date,
+          supplier: itemData.supplier,
+          cost: itemData.cost,
+          location: itemData.location,
+          status: itemData.status,
+          notes: itemData.notes,
+          location_start_lat: itemData.location_start_lat,
+          location_start_lng: itemData.location_start_lng,
+          location_end_lat: itemData.location_end_lat,
+          location_end_lng: itemData.location_end_lng,
+          length_meters: itemData.length_meters,
+          capacity: itemData.capacity,
+          installation_date: itemData.installation_date,
+          last_maintenance_date: itemData.last_maintenance_date,
+          ip_address: itemData.ip_address,
+          subnet_mask: itemData.subnet_mask,
+          item_sku: itemData.item_sku,
+          quantity_in_stock: itemData.quantity_in_stock,
+          reorder_level: itemData.reorder_level,
+          unit_cost: itemData.unit_cost,
           isp_company_id: profile.isp_company_id,
         })
         .select()
