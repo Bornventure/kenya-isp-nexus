@@ -19,6 +19,18 @@ export interface Equipment {
   isp_company_id: string;
   created_at: string;
   updated_at: string;
+  equipment_type_id: string | null;
+  ip_address: string | null;
+  snmp_community: string | null;
+  snmp_version: number | null;
+  port_number: number | null;
+  vlan_id: number | null;
+  location_coordinates: any | null;
+  auto_discovered: boolean | null;
+  approved_by: string | null;
+  approved_at: string | null;
+  approval_status: string | null;
+  base_station_id: string | null;
   clients?: {
     name: string;
   };

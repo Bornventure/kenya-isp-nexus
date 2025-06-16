@@ -1,4 +1,4 @@
-import snmp from 'net-snmp';
+
 import { supabase } from '@/integrations/supabase/client';
 
 interface SNMPDevice {
@@ -32,7 +32,7 @@ export class SNMPService {
           id: device.id,
           name: `${device.brand} ${device.model}`,
           type: device.type as any,
-          ip: device.ip_address,
+          ip: device.ip_address as string,
           community: device.snmp_community || 'public',
           version: device.snmp_version || 2,
           status: device.status === 'active' ? 'online' : 'offline',
@@ -240,7 +240,7 @@ export class SNMPService {
         case 'switch':
           return await this.disableSwitchPort(device, clientId);
         case 'access_point':
-          return await this.addMACFilter(device, client.mpesa_number); // Using phone as MAC placeholder
+          return await this.addMACFilter(device, client.mpesa_number || client.phone); // Using phone as MAC placeholder
         default:
           console.warn(`Unsupported device type: ${device.type}`);
           return false;
@@ -269,7 +269,7 @@ export class SNMPService {
         case 'switch':
           return await this.enableSwitchPort(device, clientId);
         case 'access_point':
-          return await this.removeMACFilter(device, client.mpesa_number);
+          return await this.removeMACFilter(device, client.mpesa_number || client.phone);
         default:
           console.warn(`Unsupported device type: ${device.type}`);
           return false;
