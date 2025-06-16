@@ -40,6 +40,12 @@ export const useEquipment = () => {
           *,
           clients (
             name
+          ),
+          equipment_types (
+            name,
+            brand,
+            model,
+            device_type
           )
         `)
         .eq('isp_company_id', profile.isp_company_id)
@@ -77,7 +83,7 @@ export const useEquipment = () => {
       queryClient.invalidateQueries({ queryKey: ['equipment'] });
       toast({
         title: "Equipment Added",
-        description: "New equipment has been successfully added.",
+        description: "New equipment has been successfully added and is pending approval.",
       });
     },
     onError: (error) => {
@@ -119,13 +125,63 @@ export const useEquipment = () => {
     },
   });
 
+  const approveEquipmentMutation = useMutation({
+    mutationFn: async ({ id, notes }: { id: string; notes?: string }) => {
+      const { data, error } = await supabase
+        .from('equipment')
+        .update({
+          approval_status: 'approved',
+          approved_by: profile?.id,
+          approved_at: new Date().toISOString(),
+          status: 'active',
+          notes: notes || null
+        })
+        .eq('id', id)
+        .select()
+        .single();
+
+      if (error) throw error;
+      return data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['equipment'] });
+    },
+  });
+
+  const rejectEquipmentMutation = useMutation({
+    mutationFn: async ({ id, notes }: { id: string; notes: string }) => {
+      const { data, error } = await supabase
+        .from('equipment')
+        .update({
+          approval_status: 'rejected',
+          approved_by: profile?.id,
+          approved_at: new Date().toISOString(),
+          status: 'inactive',
+          notes
+        })
+        .eq('id', id)
+        .select()
+        .single();
+
+      if (error) throw error;
+      return data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['equipment'] });
+    },
+  });
+
   return {
     equipment,
     isLoading,
     error,
     createEquipment: createEquipmentMutation.mutate,
     updateEquipment: updateEquipmentMutation.mutate,
+    approveEquipment: approveEquipmentMutation.mutate,
+    rejectEquipment: rejectEquipmentMutation.mutate,
     isCreating: createEquipmentMutation.isPending,
     isUpdating: updateEquipmentMutation.isPending,
+    isApproving: approveEquipmentMutation.isPending,
+    isRejecting: rejectEquipmentMutation.isPending,
   };
 };

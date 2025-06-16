@@ -59,6 +59,61 @@ export type Database = {
           },
         ]
       }
+      client_equipment: {
+        Row: {
+          assigned_at: string | null
+          assigned_by: string | null
+          client_id: string
+          created_at: string | null
+          equipment_id: string
+          id: string
+          is_primary: boolean | null
+          network_config: Json | null
+        }
+        Insert: {
+          assigned_at?: string | null
+          assigned_by?: string | null
+          client_id: string
+          created_at?: string | null
+          equipment_id: string
+          id?: string
+          is_primary?: boolean | null
+          network_config?: Json | null
+        }
+        Update: {
+          assigned_at?: string | null
+          assigned_by?: string | null
+          client_id?: string
+          created_at?: string | null
+          equipment_id?: string
+          id?: string
+          is_primary?: boolean | null
+          network_config?: Json | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "client_equipment_assigned_by_fkey"
+            columns: ["assigned_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "client_equipment_client_id_fkey"
+            columns: ["client_id"]
+            isOneToOne: false
+            referencedRelation: "clients"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "client_equipment_equipment_id_fkey"
+            columns: ["equipment_id"]
+            isOneToOne: false
+            referencedRelation: "equipment"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       clients: {
         Row: {
           address: string
@@ -166,59 +221,116 @@ export type Database = {
       }
       equipment: {
         Row: {
+          approval_status: string | null
+          approved_at: string | null
+          approved_by: string | null
+          auto_discovered: boolean | null
+          base_station_id: string | null
           brand: string | null
           client_id: string | null
           created_at: string | null
+          equipment_type_id: string | null
           id: string
+          ip_address: unknown | null
           isp_company_id: string | null
+          location_coordinates: unknown | null
           mac_address: string | null
           model: string | null
           notes: string | null
+          port_number: number | null
           purchase_date: string | null
           serial_number: string
+          snmp_community: string | null
+          snmp_version: number | null
           status: string | null
           type: string
           updated_at: string | null
+          vlan_id: number | null
           warranty_end_date: string | null
         }
         Insert: {
+          approval_status?: string | null
+          approved_at?: string | null
+          approved_by?: string | null
+          auto_discovered?: boolean | null
+          base_station_id?: string | null
           brand?: string | null
           client_id?: string | null
           created_at?: string | null
+          equipment_type_id?: string | null
           id?: string
+          ip_address?: unknown | null
           isp_company_id?: string | null
+          location_coordinates?: unknown | null
           mac_address?: string | null
           model?: string | null
           notes?: string | null
+          port_number?: number | null
           purchase_date?: string | null
           serial_number: string
+          snmp_community?: string | null
+          snmp_version?: number | null
           status?: string | null
           type: string
           updated_at?: string | null
+          vlan_id?: number | null
           warranty_end_date?: string | null
         }
         Update: {
+          approval_status?: string | null
+          approved_at?: string | null
+          approved_by?: string | null
+          auto_discovered?: boolean | null
+          base_station_id?: string | null
           brand?: string | null
           client_id?: string | null
           created_at?: string | null
+          equipment_type_id?: string | null
           id?: string
+          ip_address?: unknown | null
           isp_company_id?: string | null
+          location_coordinates?: unknown | null
           mac_address?: string | null
           model?: string | null
           notes?: string | null
+          port_number?: number | null
           purchase_date?: string | null
           serial_number?: string
+          snmp_community?: string | null
+          snmp_version?: number | null
           status?: string | null
           type?: string
           updated_at?: string | null
+          vlan_id?: number | null
           warranty_end_date?: string | null
         }
         Relationships: [
+          {
+            foreignKeyName: "equipment_approved_by_fkey"
+            columns: ["approved_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "equipment_base_station_id_fkey"
+            columns: ["base_station_id"]
+            isOneToOne: false
+            referencedRelation: "base_stations"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "equipment_client_id_fkey"
             columns: ["client_id"]
             isOneToOne: false
             referencedRelation: "clients"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "equipment_equipment_type_id_fkey"
+            columns: ["equipment_type_id"]
+            isOneToOne: false
+            referencedRelation: "equipment_types"
             referencedColumns: ["id"]
           },
           {
@@ -229,6 +341,42 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      equipment_types: {
+        Row: {
+          brand: string
+          created_at: string | null
+          default_config: Json | null
+          device_type: string
+          id: string
+          model: string
+          name: string
+          snmp_settings: Json | null
+          updated_at: string | null
+        }
+        Insert: {
+          brand: string
+          created_at?: string | null
+          default_config?: Json | null
+          device_type: string
+          id?: string
+          model: string
+          name: string
+          snmp_settings?: Json | null
+          updated_at?: string | null
+        }
+        Update: {
+          brand?: string
+          created_at?: string | null
+          default_config?: Json | null
+          device_type?: string
+          id?: string
+          model?: string
+          name?: string
+          snmp_settings?: Json | null
+          updated_at?: string | null
+        }
+        Relationships: []
       }
       invoices: {
         Row: {
@@ -391,6 +539,67 @@ export type Database = {
           updated_at?: string | null
         }
         Relationships: []
+      }
+      network_events: {
+        Row: {
+          client_id: string | null
+          created_at: string | null
+          equipment_id: string | null
+          error_message: string | null
+          event_data: Json | null
+          event_type: string
+          id: string
+          isp_company_id: string | null
+          success: boolean | null
+          triggered_by: string | null
+        }
+        Insert: {
+          client_id?: string | null
+          created_at?: string | null
+          equipment_id?: string | null
+          error_message?: string | null
+          event_data?: Json | null
+          event_type: string
+          id?: string
+          isp_company_id?: string | null
+          success?: boolean | null
+          triggered_by?: string | null
+        }
+        Update: {
+          client_id?: string | null
+          created_at?: string | null
+          equipment_id?: string | null
+          error_message?: string | null
+          event_data?: Json | null
+          event_type?: string
+          id?: string
+          isp_company_id?: string | null
+          success?: boolean | null
+          triggered_by?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "network_events_client_id_fkey"
+            columns: ["client_id"]
+            isOneToOne: false
+            referencedRelation: "clients"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "network_events_equipment_id_fkey"
+            columns: ["equipment_id"]
+            isOneToOne: false
+            referencedRelation: "equipment"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "network_events_isp_company_id_fkey"
+            columns: ["isp_company_id"]
+            isOneToOne: false
+            referencedRelation: "isp_companies"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       payments: {
         Row: {

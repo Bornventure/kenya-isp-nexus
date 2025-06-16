@@ -1,296 +1,214 @@
 
 import React, { useState } from 'react';
 import { Button } from '@/components/ui/button';
-import { Plus, Wrench } from 'lucide-react';
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger,
-} from '@/components/ui/dialog';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import { Textarea } from '@/components/ui/textarea';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select';
-import { useToast } from '@/hooks/use-toast';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Badge } from '@/components/ui/badge';
+import { Plus, Settings, CheckCircle, XCircle, Clock, Eye } from 'lucide-react';
+import { useEquipment } from '@/hooks/useEquipment';
+import { useAuth } from '@/contexts/AuthContext';
+import AddEquipmentDialog from './AddEquipmentDialog';
+import EquipmentApprovalDialog from './EquipmentApprovalDialog';
 
-interface EquipmentActionsProps {
-  clientId?: string;
-  onEquipmentAdded?: () => void;
-  onMaintenanceScheduled?: () => void;
-}
+const EquipmentActions: React.FC = () => {
+  const [showAddDialog, setShowAddDialog] = useState(false);
+  const [showApprovalDialog, setShowApprovalDialog] = useState(false);
+  const [selectedEquipment, setSelectedEquipment] = useState(null);
+  
+  const { equipment, approveEquipment, rejectEquipment, isApproving, isRejecting } = useEquipment();
+  const { profile } = useAuth();
 
-const EquipmentActions: React.FC<EquipmentActionsProps> = ({
-  clientId,
-  onEquipmentAdded,
-  onMaintenanceScheduled
-}) => {
-  const [addDialogOpen, setAddDialogOpen] = useState(false);
-  const [maintenanceDialogOpen, setMaintenanceDialogOpen] = useState(false);
-  const [isLoading, setIsLoading] = useState(false);
-  const { toast } = useToast();
+  // Filter equipment by approval status
+  const pendingEquipment = equipment.filter(eq => eq.approval_status === 'pending');
+  const approvedEquipment = equipment.filter(eq => eq.approval_status === 'approved');
+  const rejectedEquipment = equipment.filter(eq => eq.approval_status === 'rejected');
 
-  const [equipmentForm, setEquipmentForm] = useState({
-    type: '',
-    brand: '',
-    model: '',
-    serial_number: '',
-    mac_address: '',
-    notes: ''
-  });
+  const canApprove = profile?.role === 'super_admin' || profile?.role === 'isp_admin';
 
-  const [maintenanceForm, setMaintenanceForm] = useState({
-    equipment_id: '',
-    scheduled_date: '',
-    maintenance_type: '',
-    notes: ''
-  });
+  const handleApprove = (id: string, notes?: string) => {
+    approveEquipment({ id, notes });
+  };
 
-  const handleAddEquipment = async () => {
-    if (!equipmentForm.type || !equipmentForm.serial_number) {
-      toast({
-        title: "Validation Error",
-        description: "Equipment type and serial number are required.",
-        variant: "destructive",
-      });
-      return;
-    }
+  const handleReject = (id: string, notes: string) => {
+    rejectEquipment({ id, notes });
+  };
 
-    setIsLoading(true);
-    try {
-      // Simulate equipment addition
-      await new Promise(resolve => setTimeout(resolve, 1000));
-      
-      toast({
-        title: "Equipment Added",
-        description: "Equipment has been successfully added to the system.",
-      });
-      
-      setEquipmentForm({
-        type: '',
-        brand: '',
-        model: '',
-        serial_number: '',
-        mac_address: '',
-        notes: ''
-      });
-      
-      setAddDialogOpen(false);
-      if (onEquipmentAdded) onEquipmentAdded();
-    } catch (error) {
-      toast({
-        title: "Error",
-        description: "Failed to add equipment. Please try again.",
-        variant: "destructive",
-      });
-    } finally {
-      setIsLoading(false);
+  const openApprovalDialog = (equipment: any) => {
+    setSelectedEquipment(equipment);
+    setShowApprovalDialog(true);
+  };
+
+  const getStatusIcon = (status: string) => {
+    switch (status) {
+      case 'approved':
+        return <CheckCircle className="h-4 w-4 text-green-500" />;
+      case 'rejected':
+        return <XCircle className="h-4 w-4 text-red-500" />;
+      default:
+        return <Clock className="h-4 w-4 text-yellow-500" />;
     }
   };
 
-  const handleScheduleMaintenance = async () => {
-    if (!maintenanceForm.scheduled_date || !maintenanceForm.maintenance_type) {
-      toast({
-        title: "Validation Error",
-        description: "Scheduled date and maintenance type are required.",
-        variant: "destructive",
-      });
-      return;
-    }
-
-    setIsLoading(true);
-    try {
-      // Simulate maintenance scheduling
-      await new Promise(resolve => setTimeout(resolve, 1000));
-      
-      toast({
-        title: "Maintenance Scheduled",
-        description: "Maintenance has been successfully scheduled.",
-      });
-      
-      setMaintenanceForm({
-        equipment_id: '',
-        scheduled_date: '',
-        maintenance_type: '',
-        notes: ''
-      });
-      
-      setMaintenanceDialogOpen(false);
-      if (onMaintenanceScheduled) onMaintenanceScheduled();
-    } catch (error) {
-      toast({
-        title: "Error",
-        description: "Failed to schedule maintenance. Please try again.",
-        variant: "destructive",
-      });
-    } finally {
-      setIsLoading(false);
+  const getStatusColor = (status: string) => {
+    switch (status) {
+      case 'approved':
+        return 'default';
+      case 'rejected':
+        return 'destructive';
+      default:
+        return 'secondary';
     }
   };
 
   return (
-    <div className="flex gap-2">
-      <Dialog open={addDialogOpen} onOpenChange={setAddDialogOpen}>
-        <DialogTrigger asChild>
-          <Button size="sm">
-            <Plus className="h-4 w-4 mr-2" />
-            Add Equipment
-          </Button>
-        </DialogTrigger>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Add New Equipment</DialogTitle>
-          </DialogHeader>
-          <div className="space-y-4">
-            <div>
-              <Label htmlFor="type">Equipment Type *</Label>
-              <Select value={equipmentForm.type} onValueChange={(value) => 
-                setEquipmentForm(prev => ({ ...prev, type: value }))
-              }>
-                <SelectTrigger>
-                  <SelectValue placeholder="Select equipment type" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="router">Router</SelectItem>
-                  <SelectItem value="modem">Modem</SelectItem>
-                  <SelectItem value="antenna">Antenna</SelectItem>
-                  <SelectItem value="cable">Cable</SelectItem>
-                  <SelectItem value="switch">Switch</SelectItem>
-                  <SelectItem value="access_point">Access Point</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-            
-            <div>
-              <Label htmlFor="brand">Brand</Label>
-              <Input
-                id="brand"
-                value={equipmentForm.brand}
-                onChange={(e) => setEquipmentForm(prev => ({ ...prev, brand: e.target.value }))}
-                placeholder="Equipment brand"
-              />
-            </div>
-            
-            <div>
-              <Label htmlFor="model">Model</Label>
-              <Input
-                id="model"
-                value={equipmentForm.model}
-                onChange={(e) => setEquipmentForm(prev => ({ ...prev, model: e.target.value }))}
-                placeholder="Equipment model"
-              />
-            </div>
-            
-            <div>
-              <Label htmlFor="serial_number">Serial Number *</Label>
-              <Input
-                id="serial_number"
-                value={equipmentForm.serial_number}
-                onChange={(e) => setEquipmentForm(prev => ({ ...prev, serial_number: e.target.value }))}
-                placeholder="Serial number"
-              />
-            </div>
-            
-            <div>
-              <Label htmlFor="mac_address">MAC Address</Label>
-              <Input
-                id="mac_address"
-                value={equipmentForm.mac_address}
-                onChange={(e) => setEquipmentForm(prev => ({ ...prev, mac_address: e.target.value }))}
-                placeholder="XX:XX:XX:XX:XX:XX"
-              />
-            </div>
-            
-            <div>
-              <Label htmlFor="notes">Notes</Label>
-              <Textarea
-                id="notes"
-                value={equipmentForm.notes}
-                onChange={(e) => setEquipmentForm(prev => ({ ...prev, notes: e.target.value }))}
-                placeholder="Additional notes"
-              />
-            </div>
-            
-            <div className="flex justify-end gap-2">
-              <Button variant="outline" onClick={() => setAddDialogOpen(false)}>
-                Cancel
-              </Button>
-              <Button onClick={handleAddEquipment} disabled={isLoading}>
-                {isLoading ? 'Adding...' : 'Add Equipment'}
-              </Button>
-            </div>
-          </div>
-        </DialogContent>
-      </Dialog>
+    <div className="space-y-6">
+      {/* Action Buttons */}
+      <div className="flex gap-4">
+        <Button onClick={() => setShowAddDialog(true)}>
+          <Plus className="h-4 w-4 mr-2" />
+          Add Equipment
+        </Button>
+        
+        <Button variant="outline">
+          <Settings className="h-4 w-4 mr-2" />
+          Schedule Maintenance
+        </Button>
+      </div>
 
-      <Dialog open={maintenanceDialogOpen} onOpenChange={setMaintenanceDialogOpen}>
-        <DialogTrigger asChild>
-          <Button variant="outline" size="sm">
-            <Wrench className="h-4 w-4 mr-2" />
-            Schedule Maintenance
-          </Button>
-        </DialogTrigger>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Schedule Maintenance</DialogTitle>
-          </DialogHeader>
-          <div className="space-y-4">
-            <div>
-              <Label htmlFor="scheduled_date">Scheduled Date *</Label>
-              <Input
-                id="scheduled_date"
-                type="datetime-local"
-                value={maintenanceForm.scheduled_date}
-                onChange={(e) => setMaintenanceForm(prev => ({ ...prev, scheduled_date: e.target.value }))}
-              />
+      {/* Equipment Lists */}
+      <div className="grid gap-6">
+        {/* Pending Approval */}
+        {canApprove && pendingEquipment.length > 0 && (
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Clock className="h-5 w-5 text-yellow-500" />
+                Pending Approval ({pendingEquipment.length})
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="grid gap-4">
+                {pendingEquipment.map((eq) => (
+                  <div key={eq.id} className="flex items-center justify-between p-4 border rounded-lg">
+                    <div className="flex-1">
+                      <div className="flex items-center gap-3">
+                        <div>
+                          <h3 className="font-medium">{eq.brand} {eq.model}</h3>
+                          <p className="text-sm text-muted-foreground">
+                            {eq.type} • {eq.serial_number}
+                          </p>
+                          {eq.ip_address && (
+                            <p className="text-xs text-muted-foreground">IP: {eq.ip_address}</p>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <Badge variant="secondary">
+                        <Clock className="h-3 w-3 mr-1" />
+                        Pending
+                      </Badge>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => openApprovalDialog(eq)}
+                      >
+                        <Eye className="h-4 w-4 mr-1" />
+                        Review
+                      </Button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </CardContent>
+          </Card>
+        )}
+
+        {/* Equipment Overview */}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <Card>
+            <CardContent className="p-4 text-center">
+              <div className="text-2xl font-bold text-green-600">{approvedEquipment.length}</div>
+              <div className="text-sm text-muted-foreground">Approved Equipment</div>
+            </CardContent>
+          </Card>
+          
+          <Card>
+            <CardContent className="p-4 text-center">
+              <div className="text-2xl font-bold text-yellow-600">{pendingEquipment.length}</div>
+              <div className="text-sm text-muted-foreground">Pending Approval</div>
+            </CardContent>
+          </Card>
+          
+          <Card>
+            <CardContent className="p-4 text-center">
+              <div className="text-2xl font-bold text-red-600">{rejectedEquipment.length}</div>
+              <div className="text-sm text-muted-foreground">Rejected</div>
+            </CardContent>
+          </Card>
+        </div>
+
+        {/* All Equipment */}
+        <Card>
+          <CardHeader>
+            <CardTitle>All Equipment</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-4">
+              {equipment.length === 0 ? (
+                <div className="text-center py-8 text-muted-foreground">
+                  No equipment found. Click "Add Equipment" to get started.
+                </div>
+              ) : (
+                equipment.map((eq) => (
+                  <div key={eq.id} className="flex items-center justify-between p-4 border rounded-lg">
+                    <div className="flex-1">
+                      <div className="flex items-center gap-3">
+                        {getStatusIcon(eq.approval_status || 'pending')}
+                        <div>
+                          <h3 className="font-medium">{eq.brand} {eq.model}</h3>
+                          <p className="text-sm text-muted-foreground">
+                            {eq.type} • {eq.serial_number}
+                          </p>
+                          {eq.ip_address && (
+                            <p className="text-xs text-muted-foreground">IP: {eq.ip_address}</p>
+                          )}
+                          {eq.clients && (
+                            <p className="text-xs text-blue-600">Assigned to: {eq.clients.name}</p>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <Badge variant={getStatusColor(eq.approval_status || 'pending')}>
+                        {eq.approval_status || 'pending'}
+                      </Badge>
+                      {eq.auto_discovered && (
+                        <Badge variant="outline" className="text-xs">
+                          Auto-discovered
+                        </Badge>
+                      )}
+                    </div>
+                  </div>
+                ))
+              )}
             </div>
-            
-            <div>
-              <Label htmlFor="maintenance_type">Maintenance Type *</Label>
-              <Select value={maintenanceForm.maintenance_type} onValueChange={(value) => 
-                setMaintenanceForm(prev => ({ ...prev, maintenance_type: value }))
-              }>
-                <SelectTrigger>
-                  <SelectValue placeholder="Select maintenance type" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="routine">Routine Maintenance</SelectItem>
-                  <SelectItem value="repair">Repair</SelectItem>
-                  <SelectItem value="upgrade">Upgrade</SelectItem>
-                  <SelectItem value="inspection">Inspection</SelectItem>
-                  <SelectItem value="cleaning">Cleaning</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-            
-            <div>
-              <Label htmlFor="maintenance_notes">Notes</Label>
-              <Textarea
-                id="maintenance_notes"
-                value={maintenanceForm.notes}
-                onChange={(e) => setMaintenanceForm(prev => ({ ...prev, notes: e.target.value }))}
-                placeholder="Maintenance details and notes"
-              />
-            </div>
-            
-            <div className="flex justify-end gap-2">
-              <Button variant="outline" onClick={() => setMaintenanceDialogOpen(false)}>
-                Cancel
-              </Button>
-              <Button onClick={handleScheduleMaintenance} disabled={isLoading}>
-                {isLoading ? 'Scheduling...' : 'Schedule Maintenance'}
-              </Button>
-            </div>
-          </div>
-        </DialogContent>
-      </Dialog>
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* Dialogs */}
+      <AddEquipmentDialog
+        open={showAddDialog}
+        onOpenChange={setShowAddDialog}
+      />
+
+      <EquipmentApprovalDialog
+        open={showApprovalDialog}
+        onOpenChange={setShowApprovalDialog}
+        equipment={selectedEquipment}
+        onApprove={handleApprove}
+        onReject={handleReject}
+      />
     </div>
   );
 };
