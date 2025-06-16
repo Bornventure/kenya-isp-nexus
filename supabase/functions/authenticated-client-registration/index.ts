@@ -1,4 +1,3 @@
-
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 import { Resend } from 'npm:resend@2.0.0'
@@ -292,12 +291,12 @@ async function sendWelcomeEmail(clientData: any, password: string) {
           <div style="background-color: #f3f4f6; padding: 20px; border-radius: 8px; margin: 20px 0;">
             <h3 style="margin-top: 0;">Your Login Details:</h3>
             <p><strong>Email:</strong> ${clientData.email}</p>
-            <p><strong>Password:</strong> ${password}</p>
-            <p><strong>Portal URL:</strong> https://main.qorioninnovations.com/customer-portal</p>
+            <p><strong>ID Number:</strong> ${clientData.id_number}</p>
+            <p><strong>Portal URL:</strong> https://client.qorioninnovations.com/login</p>
           </div>
           
           <div style="background-color: #fef3c7; padding: 15px; border-radius: 8px; margin: 20px 0;">
-            <p style="margin: 0;"><strong>Important:</strong> Please change your password after your first login for security purposes.</p>
+            <p style="margin: 0;"><strong>Important:</strong> Use your email and ID number to access the customer portal. You can reset your password if needed.</p>
           </div>
           
           <h3>Service Details:</h3>
