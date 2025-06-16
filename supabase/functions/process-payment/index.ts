@@ -98,16 +98,56 @@ serve(async (req) => {
     
     if (!client && phoneNumber) {
       console.log('Searching by phone number:', phoneNumber)
-      // Clean phone number for comparison
-      const cleanPhone = phoneNumber.replace(/[^0-9]/g, '')
-      const { data: phoneClients } = await supabase
-        .from('clients')
-        .select('*')
-        .or(`phone.like.*${cleanPhone.slice(-9)},mpesa_number.like.*${cleanPhone.slice(-9)}`)
+      // Clean phone number for comparison - remove country code variations
+      let cleanPhone = phoneNumber.replace(/[^0-9]/g, '')
       
-      if (phoneClients && phoneClients.length > 0) {
-        client = phoneClients[0]
-        console.log('Client found by phone:', client?.name)
+      // Try different phone number formats
+      const phoneVariations = []
+      
+      if (cleanPhone.startsWith('254')) {
+        phoneVariations.push(cleanPhone) // 254700431426
+        phoneVariations.push(cleanPhone.substring(3)) // 700431426
+        phoneVariations.push('+' + cleanPhone) // +254700431426
+        phoneVariations.push('0' + cleanPhone.substring(3)) // 0700431426
+      } else if (cleanPhone.startsWith('0')) {
+        phoneVariations.push(cleanPhone) // 0700431426
+        phoneVariations.push(cleanPhone.substring(1)) // 700431426
+        phoneVariations.push('254' + cleanPhone.substring(1)) // 254700431426
+        phoneVariations.push('+254' + cleanPhone.substring(1)) // +254700431426
+      } else if (cleanPhone.length === 9) {
+        phoneVariations.push(cleanPhone) // 700431426
+        phoneVariations.push('0' + cleanPhone) // 0700431426
+        phoneVariations.push('254' + cleanPhone) // 254700431426
+        phoneVariations.push('+254' + cleanPhone) // +254700431426
+      }
+      
+      console.log('Trying phone variations:', phoneVariations)
+      
+      for (const phoneVar of phoneVariations) {
+        const { data: phoneClients } = await supabase
+          .from('clients')
+          .select('*')
+          .or(`phone.eq.${phoneVar},mpesa_number.eq.${phoneVar}`)
+        
+        if (phoneClients && phoneClients.length > 0) {
+          client = phoneClients[0]
+          console.log('Client found by phone variation:', phoneVar, 'Client:', client?.name)
+          break
+        }
+      }
+      
+      // If still not found, try partial matching on the last 9 digits
+      if (!client && cleanPhone.length >= 9) {
+        const lastNineDigits = cleanPhone.slice(-9)
+        const { data: phoneClients } = await supabase
+          .from('clients')
+          .select('*')
+          .or(`phone.like.%${lastNineDigits},mpesa_number.like.%${lastNineDigits}`)
+        
+        if (phoneClients && phoneClients.length > 0) {
+          client = phoneClients[0]
+          console.log('Client found by partial phone match:', client?.name)
+        }
       }
     }
 
