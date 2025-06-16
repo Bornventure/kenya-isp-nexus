@@ -16,6 +16,7 @@ interface PaymentProcessRequest {
   paymentMethod: 'mpesa' | 'card' | 'bank';
   mpesaReceiptNumber?: string;
   phoneNumber?: string;
+  ispCompanyId?: string;
 }
 
 serve(async (req) => {
@@ -41,7 +42,8 @@ serve(async (req) => {
       amount, 
       paymentMethod, 
       mpesaReceiptNumber, 
-      phoneNumber 
+      phoneNumber,
+      ispCompanyId
     } = requestBody
 
     if (!amount || amount <= 0) {
@@ -61,92 +63,80 @@ serve(async (req) => {
 
     // Step 1: Find the client using multiple strategies
     let client = null
-    console.log('Searching for client with:', { clientId, clientEmail, clientIdNumber, phoneNumber })
+    console.log('Searching for client with:', { clientId, clientEmail, clientIdNumber, phoneNumber, ispCompanyId })
+    
+    // Build client search query with ISP company filter if provided
+    let clientQuery = supabase.from('clients').select('*')
+    
+    if (ispCompanyId) {
+      clientQuery = clientQuery.eq('isp_company_id', ispCompanyId)
+      console.log('Filtering by ISP company:', ispCompanyId)
+    }
     
     if (clientId) {
       console.log('Searching by client ID:', clientId)
-      const { data } = await supabase
-        .from('clients')
-        .select('*')
-        .eq('id', clientId)
-        .single()
+      const { data } = await clientQuery.eq('id', clientId).single()
       client = data
       console.log('Client found by ID:', client?.name)
     } 
     
     if (!client && clientEmail) {
       console.log('Searching by email:', clientEmail)
-      const { data } = await supabase
-        .from('clients')
-        .select('*')
-        .eq('email', clientEmail)
-        .single()
+      const { data } = await clientQuery.eq('email', clientEmail).single()
       client = data
       console.log('Client found by email:', client?.name)
     }
     
     if (!client && clientIdNumber) {
       console.log('Searching by ID number:', clientIdNumber)
-      const { data } = await supabase
-        .from('clients')
-        .select('*')
-        .eq('id_number', clientIdNumber)
-        .single()
+      const { data } = await clientQuery.eq('id_number', clientIdNumber).single()
       client = data
       console.log('Client found by ID number:', client?.name)
     }
     
     if (!client && phoneNumber) {
       console.log('Searching by phone number:', phoneNumber)
-      // Clean phone number for comparison - remove country code variations
+      // Clean phone number for comparison
       let cleanPhone = phoneNumber.replace(/[^0-9]/g, '')
       
       // Try different phone number formats
       const phoneVariations = []
       
       if (cleanPhone.startsWith('254')) {
-        phoneVariations.push(cleanPhone) // 254700431426
-        phoneVariations.push(cleanPhone.substring(3)) // 700431426
-        phoneVariations.push('+' + cleanPhone) // +254700431426
-        phoneVariations.push('0' + cleanPhone.substring(3)) // 0700431426
+        phoneVariations.push(cleanPhone)
+        phoneVariations.push(cleanPhone.substring(3))
+        phoneVariations.push('+' + cleanPhone)
+        phoneVariations.push('0' + cleanPhone.substring(3))
       } else if (cleanPhone.startsWith('0')) {
-        phoneVariations.push(cleanPhone) // 0700431426
-        phoneVariations.push(cleanPhone.substring(1)) // 700431426
-        phoneVariations.push('254' + cleanPhone.substring(1)) // 254700431426
-        phoneVariations.push('+254' + cleanPhone.substring(1)) // +254700431426
+        phoneVariations.push(cleanPhone)
+        phoneVariations.push(cleanPhone.substring(1))
+        phoneVariations.push('254' + cleanPhone.substring(1))
+        phoneVariations.push('+254' + cleanPhone.substring(1))
       } else if (cleanPhone.length === 9) {
-        phoneVariations.push(cleanPhone) // 700431426
-        phoneVariations.push('0' + cleanPhone) // 0700431426
-        phoneVariations.push('254' + cleanPhone) // 254700431426
-        phoneVariations.push('+254' + cleanPhone) // +254700431426
+        phoneVariations.push(cleanPhone)
+        phoneVariations.push('0' + cleanPhone)
+        phoneVariations.push('254' + cleanPhone)
+        phoneVariations.push('+254' + cleanPhone)
       }
       
       console.log('Trying phone variations:', phoneVariations)
       
       for (const phoneVar of phoneVariations) {
-        const { data: phoneClients } = await supabase
+        let phoneClientQuery = supabase
           .from('clients')
           .select('*')
           .or(`phone.eq.${phoneVar},mpesa_number.eq.${phoneVar}`)
+        
+        if (ispCompanyId) {
+          phoneClientQuery = phoneClientQuery.eq('isp_company_id', ispCompanyId)
+        }
+        
+        const { data: phoneClients } = await phoneClientQuery
         
         if (phoneClients && phoneClients.length > 0) {
           client = phoneClients[0]
           console.log('Client found by phone variation:', phoneVar, 'Client:', client?.name)
           break
-        }
-      }
-      
-      // If still not found, try partial matching on the last 9 digits
-      if (!client && cleanPhone.length >= 9) {
-        const lastNineDigits = cleanPhone.slice(-9)
-        const { data: phoneClients } = await supabase
-          .from('clients')
-          .select('*')
-          .or(`phone.like.%${lastNineDigits},mpesa_number.like.%${lastNineDigits}`)
-        
-        if (phoneClients && phoneClients.length > 0) {
-          client = phoneClients[0]
-          console.log('Client found by partial phone match:', client?.name)
         }
       }
     }
@@ -158,7 +148,7 @@ serve(async (req) => {
           success: false,
           error: 'Client not found',
           code: 'CLIENT_NOT_FOUND',
-          details: { clientId, clientEmail, clientIdNumber, phoneNumber }
+          details: { clientId, clientEmail, clientIdNumber, phoneNumber, ispCompanyId }
         }),
         { 
           status: 404, 
@@ -167,7 +157,7 @@ serve(async (req) => {
       )
     }
 
-    console.log('Found client:', client.name, 'ID:', client.id)
+    console.log('Found client:', client.name, 'ID:', client.id, 'ISP Company:', client.isp_company_id)
 
     // Step 2: Update client's wallet balance
     const currentBalance = client.wallet_balance || 0
@@ -384,7 +374,8 @@ serve(async (req) => {
           subscription_renewed: renewalPerformed,
           invoice_generated: !!invoiceGenerated,
           invoice: invoiceGenerated,
-          client_status: renewalPerformed ? 'active' : client.status
+          client_status: renewalPerformed ? 'active' : client.status,
+          isp_company_id: client.isp_company_id
         }
       }),
       { 
