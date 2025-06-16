@@ -74,17 +74,41 @@ export const useEquipment = () => {
   });
 
   const createEquipmentMutation = useMutation({
-    mutationFn: async (equipmentData: Omit<Equipment, 'id' | 'created_at' | 'updated_at' | 'isp_company_id' | 'clients'>) => {
+    mutationFn: async (equipmentData: Partial<Equipment>) => {
       if (!profile?.isp_company_id) {
         throw new Error('No ISP company associated with user');
       }
 
+      // Prepare the data with all required fields and defaults
+      const completeEquipmentData = {
+        type: equipmentData.type || '',
+        brand: equipmentData.brand || null,
+        model: equipmentData.model || null,
+        serial_number: equipmentData.serial_number || '',
+        mac_address: equipmentData.mac_address || null,
+        status: equipmentData.status || 'available',
+        client_id: equipmentData.client_id || null,
+        purchase_date: equipmentData.purchase_date || null,
+        warranty_end_date: equipmentData.warranty_end_date || null,
+        notes: equipmentData.notes || null,
+        equipment_type_id: equipmentData.equipment_type_id || null,
+        ip_address: equipmentData.ip_address || null,
+        snmp_community: equipmentData.snmp_community || 'public',
+        snmp_version: equipmentData.snmp_version || 2,
+        port_number: equipmentData.port_number || null,
+        vlan_id: equipmentData.vlan_id || null,
+        location_coordinates: equipmentData.location_coordinates || null,
+        auto_discovered: equipmentData.auto_discovered || false,
+        approved_by: equipmentData.approved_by || null,
+        approved_at: equipmentData.approved_at || null,
+        approval_status: equipmentData.approval_status || 'pending',
+        base_station_id: equipmentData.base_station_id || null,
+        isp_company_id: profile.isp_company_id,
+      };
+
       const { data, error } = await supabase
         .from('equipment')
-        .insert({
-          ...equipmentData,
-          isp_company_id: profile.isp_company_id,
-        })
+        .insert(completeEquipmentData)
         .select()
         .single();
 

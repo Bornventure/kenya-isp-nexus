@@ -50,6 +50,7 @@ const AddEquipmentDialog: React.FC<AddEquipmentDialogProps> = ({ open, onOpenCha
     }
 
     try {
+      // Only pass the fields that are being set, let the mutation handle defaults
       await createEquipment({
         equipment_type_id: selectedType.id,
         type: selectedType.device_type,

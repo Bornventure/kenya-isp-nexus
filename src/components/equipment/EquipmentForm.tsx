@@ -38,6 +38,7 @@ const EquipmentForm: React.FC = () => {
       return;
     }
 
+    // Only pass the fields that are being set, let the mutation handle defaults
     const equipmentData = {
       type: formData.type,
       brand: formData.brand || null,
