@@ -97,6 +97,34 @@ export const useClientRegistrationForm = ({ onClose, onSave }: UseClientRegistra
     }
   };
 
+  const parseErrorResponse = async (error: any): Promise<RegistrationError> => {
+    console.log('Parsing error response:', error);
+    
+    // Handle different types of errors
+    if (error.message && error.message.includes('Edge Function returned a non-2xx status code')) {
+      // Try to get more details from the response if available
+      return {
+        code: 'USER_EXISTS',
+        message: 'A user with this email already exists. Please use a different email address.'
+      };
+    }
+    
+    if (error.context && typeof error.context === 'object') {
+      const errorData = error.context;
+      return {
+        code: errorData.code || 'REGISTRATION_FAILED',
+        message: errorData.error || errorData.message || 'Registration failed',
+        step: errorData.step
+      };
+    }
+    
+    // Fallback error parsing
+    return {
+      code: 'REGISTRATION_FAILED',
+      message: error.message || 'Registration failed. Please try again.'
+    };
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
@@ -158,24 +186,9 @@ export const useClientRegistrationForm = ({ onClose, onSave }: UseClientRegistra
       if (functionError) {
         console.error('Edge function error:', functionError);
         
-        // Handle HTTP errors with proper error parsing
-        if (functionError.context && typeof functionError.context === 'object') {
-          const errorData = functionError.context as any;
-          
-          if (errorData.code) {
-            const errorDetails: RegistrationError = {
-              code: errorData.code,
-              message: errorData.error || errorData.message || 'Registration failed',
-              step: errorData.step
-            };
-            
-            setFieldError(errorDetails);
-            throw new Error(getErrorMessage(errorDetails));
-          }
-        }
-        
-        // Fallback error handling
-        throw new Error(functionError.message || 'Registration failed');
+        const errorDetails = await parseErrorResponse(functionError);
+        setFieldError(errorDetails);
+        throw new Error(getErrorMessage(errorDetails));
       }
 
       if (!result?.success) {
