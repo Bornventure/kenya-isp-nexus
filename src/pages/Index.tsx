@@ -45,7 +45,7 @@ const Index = () => {
         <div className="space-y-4">
           <p className="text-gray-600">Please log in to access the system</p>
           <div className="text-sm text-gray-500">
-            <p>© 2024 DataDefender. All rights reserved.</p>
+            <p>© 2025 DataDefender. All rights reserved.</p>
             <p>Professional ISP Management Solutions</p>
           </div>
         </div>
