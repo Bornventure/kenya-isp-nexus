@@ -90,7 +90,7 @@ const Login = () => {
               <p>• Use this to register new internet customers</p>
               <p>• Manage existing client accounts and billing</p>
               <p className="mt-3 text-blue-700 font-medium">
-                Are you a customer? <a href="/customer-portal" className="underline">Visit Customer Portal</a>
+                Are you a customer? <a href="https://client.qorioninnovations.com/login" className="underline">Visit Customer Portal</a>
               </p>
             </div>
           </div>
