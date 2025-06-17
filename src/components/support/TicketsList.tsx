@@ -1,5 +1,5 @@
 
-import React from 'react';
+import React, { useState } from 'react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -9,8 +9,12 @@ import {
   CheckCircle,
   Clock,
   User,
-  Loader2
+  Loader2,
+  Eye,
+  UserPlus
 } from 'lucide-react';
+import TicketDetailDialog from './TicketDetailDialog';
+import TicketAssignmentDialog from './TicketAssignmentDialog';
 
 interface Ticket {
   id: string;
@@ -18,8 +22,14 @@ interface Ticket {
   description: string;
   status: 'open' | 'in_progress' | 'resolved';
   priority: 'low' | 'medium' | 'high';
+  ticket_type?: string;
   created_at: string;
+  assigned_to?: string;
+  department_id?: string;
   clients?: {
+    name: string;
+  };
+  departments?: {
     name: string;
   };
 }
@@ -41,6 +51,11 @@ const TicketsList: React.FC<TicketsListProps> = ({
   onStatusChange,
   isUpdating
 }) => {
+  const [selectedTicket, setSelectedTicket] = useState<Ticket | null>(null);
+  const [showDetailDialog, setShowDetailDialog] = useState(false);
+  const [showAssignDialog, setShowAssignDialog] = useState(false);
+  const [ticketToAssign, setTicketToAssign] = useState<string>('');
+
   const getStatusIcon = (status: string) => {
     switch (status) {
       case 'open': return <AlertCircle className="h-4 w-4 text-red-500" />;
@@ -66,6 +81,16 @@ const TicketsList: React.FC<TicketsListProps> = ({
       case 'low': return 'bg-green-500';
       default: return 'bg-gray-500';
     }
+  };
+
+  const handleViewTicket = (ticket: Ticket) => {
+    setSelectedTicket(ticket);
+    setShowDetailDialog(true);
+  };
+
+  const handleAssignTicket = (ticketId: string) => {
+    setTicketToAssign(ticketId);
+    setShowAssignDialog(true);
   };
 
   if (isLoading) {
@@ -96,82 +121,121 @@ const TicketsList: React.FC<TicketsListProps> = ({
   }
 
   return (
-    <Card>
-      <CardContent className="p-0">
-        <div className="space-y-0">
-          {tickets.map((ticket) => (
-            <div key={ticket.id} className="border-b last:border-b-0 p-4 hover:bg-muted/50">
-              <div className="flex items-start justify-between">
-                <div className="flex items-start gap-3 flex-1">
-                  {getStatusIcon(ticket.status)}
-                  <div className="flex-1">
-                    <div className="flex items-center gap-2 mb-1">
-                      <h4 className="font-medium">{ticket.title}</h4>
-                      <Badge variant="outline" className="text-xs">
-                        {ticket.id.slice(0, 8)}
-                      </Badge>
-                    </div>
-                    <p className="text-sm text-muted-foreground mb-2">
-                      {ticket.description}
-                    </p>
-                    <div className="flex items-center gap-4 text-xs text-muted-foreground">
-                      <div className="flex items-center gap-1">
-                        <User className="h-3 w-3" />
-                        {ticket.clients?.name || 'No client assigned'}
+    <>
+      <Card>
+        <CardContent className="p-0">
+          <div className="space-y-0">
+            {tickets.map((ticket) => (
+              <div key={ticket.id} className="border-b last:border-b-0 p-4 hover:bg-muted/50">
+                <div className="flex items-start justify-between">
+                  <div className="flex items-start gap-3 flex-1">
+                    {getStatusIcon(ticket.status)}
+                    <div className="flex-1">
+                      <div className="flex items-center gap-2 mb-1">
+                        <h4 className="font-medium">{ticket.title}</h4>
+                        <Badge variant="outline" className="text-xs">
+                          #{ticket.id.slice(0, 8)}
+                        </Badge>
+                        {ticket.ticket_type && (
+                          <Badge variant="secondary" className="text-xs">
+                            {ticket.ticket_type}
+                          </Badge>
+                        )}
                       </div>
-                      <div className="flex items-center gap-1">
-                        <Clock className="h-3 w-3" />
-                        {new Date(ticket.created_at).toLocaleDateString()}
+                      <p className="text-sm text-muted-foreground mb-2 line-clamp-2">
+                        {ticket.description}
+                      </p>
+                      <div className="flex items-center gap-4 text-xs text-muted-foreground">
+                        <div className="flex items-center gap-1">
+                          <User className="h-3 w-3" />
+                          {ticket.clients?.name || 'No client assigned'}
+                        </div>
+                        <div className="flex items-center gap-1">
+                          <Clock className="h-3 w-3" />
+                          {new Date(ticket.created_at).toLocaleDateString()}
+                        </div>
+                        {ticket.departments?.name && (
+                          <div className="flex items-center gap-1">
+                            <MessageSquare className="h-3 w-3" />
+                            {ticket.departments.name}
+                          </div>
+                        )}
                       </div>
                     </div>
                   </div>
-                </div>
-                <div className="flex items-center gap-2">
-                  <Badge className={`text-white ${getPriorityColor(ticket.priority)}`}>
-                    {ticket.priority}
-                  </Badge>
-                  <Badge className={`text-white ${getStatusColor(ticket.status)}`}>
-                    {ticket.status.replace('_', ' ')}
-                  </Badge>
-                  <div className="flex gap-1 ml-2">
-                    {ticket.status === 'open' && (
+                  <div className="flex items-center gap-2">
+                    <Badge className={`text-white ${getPriorityColor(ticket.priority)}`}>
+                      {ticket.priority}
+                    </Badge>
+                    <Badge className={`text-white ${getStatusColor(ticket.status)}`}>
+                      {ticket.status.replace('_', ' ')}
+                    </Badge>
+                    <div className="flex gap-1 ml-2">
                       <Button
                         size="sm"
                         variant="outline"
-                        onClick={() => onStatusChange(ticket.id, 'in_progress')}
-                        disabled={isUpdating}
+                        onClick={() => handleViewTicket(ticket)}
                       >
-                        Start
+                        <Eye className="h-4 w-4" />
                       </Button>
-                    )}
-                    {ticket.status === 'in_progress' && (
                       <Button
                         size="sm"
                         variant="outline"
-                        onClick={() => onStatusChange(ticket.id, 'resolved')}
-                        disabled={isUpdating}
+                        onClick={() => handleAssignTicket(ticket.id)}
                       >
-                        Resolve
+                        <UserPlus className="h-4 w-4" />
                       </Button>
-                    )}
-                    {ticket.status === 'resolved' && (
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        onClick={() => onStatusChange(ticket.id, 'open')}
-                        disabled={isUpdating}
-                      >
-                        Reopen
-                      </Button>
-                    )}
+                      {ticket.status === 'open' && (
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() => onStatusChange(ticket.id, 'in_progress')}
+                          disabled={isUpdating}
+                        >
+                          Start
+                        </Button>
+                      )}
+                      {ticket.status === 'in_progress' && (
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() => onStatusChange(ticket.id, 'resolved')}
+                          disabled={isUpdating}
+                        >
+                          Resolve
+                        </Button>
+                      )}
+                      {ticket.status === 'resolved' && (
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() => onStatusChange(ticket.id, 'open')}
+                          disabled={isUpdating}
+                        >
+                          Reopen
+                        </Button>
+                      )}
+                    </div>
                   </div>
                 </div>
               </div>
-            </div>
-          ))}
-        </div>
-      </CardContent>
-    </Card>
+            ))}
+          </div>
+        </CardContent>
+      </Card>
+
+      <TicketDetailDialog
+        open={showDetailDialog}
+        onOpenChange={setShowDetailDialog}
+        ticket={selectedTicket}
+      />
+
+      <TicketAssignmentDialog
+        open={showAssignDialog}
+        onOpenChange={setShowAssignDialog}
+        ticketId={ticketToAssign}
+      />
+    </>
   );
 };
 

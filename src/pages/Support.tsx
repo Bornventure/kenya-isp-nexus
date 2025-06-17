@@ -22,6 +22,7 @@ const Support = () => {
   const [newTicketTitle, setNewTicketTitle] = useState('');
   const [newTicketDescription, setNewTicketDescription] = useState('');
   const [newTicketPriority, setNewTicketPriority] = useState('medium');
+  const [newTicketType, setNewTicketType] = useState('general');
   const [searchTerm, setSearchTerm] = useState('');
   const [filterStatus, setFilterStatus] = useState('all');
 
@@ -50,7 +51,10 @@ const Support = () => {
         title: newTicketTitle,
         description: newTicketDescription,
         priority: newTicketPriority as 'low' | 'medium' | 'high',
+        ticket_type: newTicketType as 'technical' | 'billing' | 'general' | 'installation' | 'maintenance' | 'complaint',
         status: 'open',
+        escalation_level: 1,
+        ticket_source: 'internal',
         isp_company_id: profile?.isp_company_id,
         created_by: profile?.id,
       });
@@ -59,6 +63,7 @@ const Support = () => {
       setNewTicketTitle('');
       setNewTicketDescription('');
       setNewTicketPriority('medium');
+      setNewTicketType('general');
     } catch (error) {
       console.error('Error creating ticket:', error);
     }
@@ -132,9 +137,11 @@ const Support = () => {
             title={newTicketTitle}
             description={newTicketDescription}
             priority={newTicketPriority}
+            ticketType={newTicketType}
             onTitleChange={setNewTicketTitle}
             onDescriptionChange={setNewTicketDescription}
             onPriorityChange={setNewTicketPriority}
+            onTicketTypeChange={setNewTicketType}
             onSubmit={handleCreateTicket}
             isSubmitting={createTicket.isPending}
           />

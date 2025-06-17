@@ -4,16 +4,25 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Plus, Loader2 } from 'lucide-react';
+import { Label } from '@/components/ui/label';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
+import { Plus } from 'lucide-react';
 
 interface CreateTicketFormProps {
   title: string;
   description: string;
   priority: string;
+  ticketType: string;
   onTitleChange: (value: string) => void;
   onDescriptionChange: (value: string) => void;
   onPriorityChange: (value: string) => void;
+  onTicketTypeChange: (value: string) => void;
   onSubmit: () => void;
   isSubmitting: boolean;
 }
@@ -22,67 +31,81 @@ const CreateTicketForm: React.FC<CreateTicketFormProps> = ({
   title,
   description,
   priority,
+  ticketType,
   onTitleChange,
   onDescriptionChange,
   onPriorityChange,
+  onTicketTypeChange,
   onSubmit,
   isSubmitting
 }) => {
   return (
     <Card>
       <CardHeader>
-        <CardTitle className="flex items-center gap-2">
-          <Plus className="h-5 w-5" />
-          Create New Support Ticket
-        </CardTitle>
+        <CardTitle>Create New Support Ticket</CardTitle>
       </CardHeader>
       <CardContent className="space-y-4">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div>
+            <Label htmlFor="ticket-type">Ticket Type</Label>
+            <Select value={ticketType} onValueChange={onTicketTypeChange}>
+              <SelectTrigger>
+                <SelectValue placeholder="Select ticket type" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="general">General Inquiry</SelectItem>
+                <SelectItem value="technical">Technical Issue</SelectItem>
+                <SelectItem value="billing">Billing Question</SelectItem>
+                <SelectItem value="installation">Installation Request</SelectItem>
+                <SelectItem value="maintenance">Maintenance</SelectItem>
+                <SelectItem value="complaint">Complaint</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+          
+          <div>
+            <Label htmlFor="priority">Priority</Label>
+            <Select value={priority} onValueChange={onPriorityChange}>
+              <SelectTrigger>
+                <SelectValue placeholder="Select priority" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="low">Low</SelectItem>
+                <SelectItem value="medium">Medium</SelectItem>
+                <SelectItem value="high">High</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+        </div>
+
         <div>
-          <label className="text-sm font-medium mb-1 block">Title</label>
+          <Label htmlFor="title">Title</Label>
           <Input
-            placeholder="Brief description of the issue"
+            id="title"
             value={title}
             onChange={(e) => onTitleChange(e.target.value)}
+            placeholder="Brief description of the issue"
           />
         </div>
-        
+
         <div>
-          <label className="text-sm font-medium mb-1 block">Priority</label>
-          <Select value={priority} onValueChange={onPriorityChange}>
-            <SelectTrigger>
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="low">Low</SelectItem>
-              <SelectItem value="medium">Medium</SelectItem>
-              <SelectItem value="high">High</SelectItem>
-            </SelectContent>
-          </Select>
-        </div>
-        
-        <div>
-          <label className="text-sm font-medium mb-1 block">Description</label>
+          <Label htmlFor="description">Description</Label>
           <Textarea
-            placeholder="Detailed description of the issue or request"
+            id="description"
             value={description}
             onChange={(e) => onDescriptionChange(e.target.value)}
-            rows={4}
+            placeholder="Detailed description of the issue or request"
+            rows={5}
           />
         </div>
-        
+
         <Button 
           onClick={onSubmit} 
+          disabled={isSubmitting || !title.trim() || !description.trim()}
           className="w-full"
-          disabled={isSubmitting}
         >
-          {isSubmitting ? (
-            <>
-              <Loader2 className="h-4 w-4 animate-spin mr-2" />
-              Creating...
-            </>
-          ) : (
-            'Create Ticket'
-          )}
+          <Plus className="h-4 w-4 mr-2" />
+          {isSubmitting ? 'Creating Ticket...' : 'Create Ticket'}
         </Button>
       </CardContent>
     </Card>

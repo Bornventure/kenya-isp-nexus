@@ -229,6 +229,44 @@ export type Database = {
           },
         ]
       }
+      departments: {
+        Row: {
+          created_at: string
+          description: string | null
+          id: string
+          is_active: boolean
+          isp_company_id: string | null
+          name: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          description?: string | null
+          id?: string
+          is_active?: boolean
+          isp_company_id?: string | null
+          name: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          description?: string | null
+          id?: string
+          is_active?: boolean
+          isp_company_id?: string | null
+          name?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "departments_isp_company_id_fkey"
+            columns: ["isp_company_id"]
+            isOneToOne: false
+            referencedRelation: "isp_companies"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       equipment: {
         Row: {
           approval_status: string | null
@@ -808,6 +846,47 @@ export type Database = {
           },
         ]
       }
+      notification_preferences: {
+        Row: {
+          created_at: string
+          email_notifications: boolean
+          id: string
+          notification_types: Json
+          sms_notifications: boolean
+          updated_at: string
+          user_id: string
+          whatsapp_notifications: boolean
+        }
+        Insert: {
+          created_at?: string
+          email_notifications?: boolean
+          id?: string
+          notification_types?: Json
+          sms_notifications?: boolean
+          updated_at?: string
+          user_id: string
+          whatsapp_notifications?: boolean
+        }
+        Update: {
+          created_at?: string
+          email_notifications?: boolean
+          id?: string
+          notification_types?: Json
+          sms_notifications?: boolean
+          updated_at?: string
+          user_id?: string
+          whatsapp_notifications?: boolean
+        }
+        Relationships: [
+          {
+            foreignKeyName: "notification_preferences_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       payments: {
         Row: {
           amount: number
@@ -972,13 +1051,21 @@ export type Database = {
           client_id: string | null
           created_at: string | null
           created_by: string | null
+          department_id: string | null
           description: string
+          escalation_level: number | null
+          external_reference: string | null
           id: string
           isp_company_id: string | null
+          location_info: Json | null
           priority: Database["public"]["Enums"]["ticket_priority"] | null
+          requires_field_visit: boolean | null
           resolution: string | null
           resolved_at: string | null
+          sla_due_date: string | null
           status: Database["public"]["Enums"]["ticket_status"] | null
+          ticket_source: string | null
+          ticket_type: Database["public"]["Enums"]["ticket_type"] | null
           title: string
           updated_at: string | null
         }
@@ -987,13 +1074,21 @@ export type Database = {
           client_id?: string | null
           created_at?: string | null
           created_by?: string | null
+          department_id?: string | null
           description: string
+          escalation_level?: number | null
+          external_reference?: string | null
           id?: string
           isp_company_id?: string | null
+          location_info?: Json | null
           priority?: Database["public"]["Enums"]["ticket_priority"] | null
+          requires_field_visit?: boolean | null
           resolution?: string | null
           resolved_at?: string | null
+          sla_due_date?: string | null
           status?: Database["public"]["Enums"]["ticket_status"] | null
+          ticket_source?: string | null
+          ticket_type?: Database["public"]["Enums"]["ticket_type"] | null
           title: string
           updated_at?: string | null
         }
@@ -1002,13 +1097,21 @@ export type Database = {
           client_id?: string | null
           created_at?: string | null
           created_by?: string | null
+          department_id?: string | null
           description?: string
+          escalation_level?: number | null
+          external_reference?: string | null
           id?: string
           isp_company_id?: string | null
+          location_info?: Json | null
           priority?: Database["public"]["Enums"]["ticket_priority"] | null
+          requires_field_visit?: boolean | null
           resolution?: string | null
           resolved_at?: string | null
+          sla_due_date?: string | null
           status?: Database["public"]["Enums"]["ticket_status"] | null
+          ticket_source?: string | null
+          ticket_type?: Database["public"]["Enums"]["ticket_type"] | null
           title?: string
           updated_at?: string | null
         }
@@ -1035,10 +1138,153 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "support_tickets_department_id_fkey"
+            columns: ["department_id"]
+            isOneToOne: false
+            referencedRelation: "departments"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "support_tickets_isp_company_id_fkey"
             columns: ["isp_company_id"]
             isOneToOne: false
             referencedRelation: "isp_companies"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      ticket_assignments: {
+        Row: {
+          assigned_at: string
+          assigned_from: string | null
+          assigned_to: string | null
+          assignment_reason: string | null
+          completed_at: string | null
+          department_id: string | null
+          id: string
+          isp_company_id: string | null
+          notes: string | null
+          status: string
+          ticket_id: string
+        }
+        Insert: {
+          assigned_at?: string
+          assigned_from?: string | null
+          assigned_to?: string | null
+          assignment_reason?: string | null
+          completed_at?: string | null
+          department_id?: string | null
+          id?: string
+          isp_company_id?: string | null
+          notes?: string | null
+          status?: string
+          ticket_id: string
+        }
+        Update: {
+          assigned_at?: string
+          assigned_from?: string | null
+          assigned_to?: string | null
+          assignment_reason?: string | null
+          completed_at?: string | null
+          department_id?: string | null
+          id?: string
+          isp_company_id?: string | null
+          notes?: string | null
+          status?: string
+          ticket_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ticket_assignments_assigned_from_fkey"
+            columns: ["assigned_from"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ticket_assignments_assigned_to_fkey"
+            columns: ["assigned_to"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ticket_assignments_department_id_fkey"
+            columns: ["department_id"]
+            isOneToOne: false
+            referencedRelation: "departments"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ticket_assignments_isp_company_id_fkey"
+            columns: ["isp_company_id"]
+            isOneToOne: false
+            referencedRelation: "isp_companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ticket_assignments_ticket_id_fkey"
+            columns: ["ticket_id"]
+            isOneToOne: false
+            referencedRelation: "support_tickets"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      ticket_comments: {
+        Row: {
+          author_id: string
+          content: string
+          created_at: string
+          id: string
+          is_internal: boolean
+          is_resolution: boolean
+          isp_company_id: string | null
+          ticket_id: string
+          updated_at: string
+        }
+        Insert: {
+          author_id: string
+          content: string
+          created_at?: string
+          id?: string
+          is_internal?: boolean
+          is_resolution?: boolean
+          isp_company_id?: string | null
+          ticket_id: string
+          updated_at?: string
+        }
+        Update: {
+          author_id?: string
+          content?: string
+          created_at?: string
+          id?: string
+          is_internal?: boolean
+          is_resolution?: boolean
+          isp_company_id?: string | null
+          ticket_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ticket_comments_author_id_fkey"
+            columns: ["author_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ticket_comments_isp_company_id_fkey"
+            columns: ["isp_company_id"]
+            isOneToOne: false
+            referencedRelation: "isp_companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ticket_comments_ticket_id_fkey"
+            columns: ["ticket_id"]
+            isOneToOne: false
+            referencedRelation: "support_tickets"
             referencedColumns: ["id"]
           },
         ]
@@ -1137,6 +1383,13 @@ export type Database = {
       payment_method: "mpesa" | "bank" | "cash"
       ticket_priority: "low" | "medium" | "high" | "urgent"
       ticket_status: "open" | "in_progress" | "resolved" | "closed"
+      ticket_type:
+        | "technical"
+        | "billing"
+        | "general"
+        | "installation"
+        | "maintenance"
+        | "complaint"
       user_role:
         | "super_admin"
         | "isp_admin"
@@ -1267,6 +1520,14 @@ export const Constants = {
       payment_method: ["mpesa", "bank", "cash"],
       ticket_priority: ["low", "medium", "high", "urgent"],
       ticket_status: ["open", "in_progress", "resolved", "closed"],
+      ticket_type: [
+        "technical",
+        "billing",
+        "general",
+        "installation",
+        "maintenance",
+        "complaint",
+      ],
       user_role: [
         "super_admin",
         "isp_admin",
