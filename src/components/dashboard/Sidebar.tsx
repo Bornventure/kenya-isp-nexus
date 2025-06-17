@@ -54,11 +54,7 @@ const Sidebar = () => {
           />
           <div className="flex flex-col">
             <span className="text-lg font-semibold text-gray-900">DataDefender</span>
-            {profile?.isp_companies?.name && (
-              <span className="text-xs text-gray-500 truncate max-w-[150px]">
-                {profile.isp_companies.name}
-              </span>
-            )}
+            <span className="text-xs text-gray-500">Kenya Internet Services</span>
           </div>
         </div>
       </div>
