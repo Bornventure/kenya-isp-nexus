@@ -426,6 +426,62 @@ export type Database = {
         }
         Relationships: []
       }
+      external_users: {
+        Row: {
+          company_name: string | null
+          created_at: string
+          email: string
+          first_name: string
+          hourly_rate: number | null
+          id: string
+          is_active: boolean
+          isp_company_id: string | null
+          last_name: string
+          phone: string | null
+          role: string
+          specializations: string[] | null
+          updated_at: string
+        }
+        Insert: {
+          company_name?: string | null
+          created_at?: string
+          email: string
+          first_name: string
+          hourly_rate?: number | null
+          id?: string
+          is_active?: boolean
+          isp_company_id?: string | null
+          last_name: string
+          phone?: string | null
+          role: string
+          specializations?: string[] | null
+          updated_at?: string
+        }
+        Update: {
+          company_name?: string | null
+          created_at?: string
+          email?: string
+          first_name?: string
+          hourly_rate?: number | null
+          id?: string
+          is_active?: boolean
+          isp_company_id?: string | null
+          last_name?: string
+          phone?: string | null
+          role?: string
+          specializations?: string[] | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "external_users_isp_company_id_fkey"
+            columns: ["isp_company_id"]
+            isOneToOne: false
+            referencedRelation: "isp_companies"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       inventory_history: {
         Row: {
           action: string
@@ -842,6 +898,57 @@ export type Database = {
             columns: ["isp_company_id"]
             isOneToOne: false
             referencedRelation: "isp_companies"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      notification_logs: {
+        Row: {
+          channels: string[]
+          created_at: string
+          id: string
+          isp_company_id: string | null
+          metadata: Json | null
+          recipients: string[]
+          status: string
+          ticket_id: string | null
+          type: string
+        }
+        Insert: {
+          channels: string[]
+          created_at?: string
+          id?: string
+          isp_company_id?: string | null
+          metadata?: Json | null
+          recipients: string[]
+          status?: string
+          ticket_id?: string | null
+          type: string
+        }
+        Update: {
+          channels?: string[]
+          created_at?: string
+          id?: string
+          isp_company_id?: string | null
+          metadata?: Json | null
+          recipients?: string[]
+          status?: string
+          ticket_id?: string | null
+          type?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "notification_logs_isp_company_id_fkey"
+            columns: ["isp_company_id"]
+            isOneToOne: false
+            referencedRelation: "isp_companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "notification_logs_ticket_id_fkey"
+            columns: ["ticket_id"]
+            isOneToOne: false
+            referencedRelation: "support_tickets"
             referencedColumns: ["id"]
           },
         ]

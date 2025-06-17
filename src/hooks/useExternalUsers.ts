@@ -23,7 +23,7 @@ export const useExternalUsers = () => {
     queryKey: ['external-users'],
     queryFn: async () => {
       const { data, error } = await supabase
-        .from('external_users')
+        .from('external_users' as any)
         .select('*')
         .eq('is_active', true)
         .order('created_at', { ascending: false });
@@ -41,7 +41,7 @@ export const useExternalUserMutations = () => {
   const createExternalUser = useMutation({
     mutationFn: async (userData: Omit<ExternalUser, 'id' | 'created_at' | 'updated_at'>) => {
       const { data, error } = await supabase
-        .from('external_users')
+        .from('external_users' as any)
         .insert(userData)
         .select()
         .single();
@@ -69,7 +69,7 @@ export const useExternalUserMutations = () => {
   const updateExternalUser = useMutation({
     mutationFn: async ({ id, updates }: { id: string; updates: Partial<ExternalUser> }) => {
       const { data, error } = await supabase
-        .from('external_users')
+        .from('external_users' as any)
         .update(updates)
         .eq('id', id)
         .select()

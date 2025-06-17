@@ -57,6 +57,7 @@ const TicketDetailDialog: React.FC<TicketDetailDialogProps> = ({
       author_id: profile?.id || '',
       content: newComment,
       is_internal: true,
+      is_resolution: false,
       isp_company_id: profile?.isp_company_id,
     });
 
