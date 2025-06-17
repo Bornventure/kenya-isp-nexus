@@ -1,16 +1,9 @@
 
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select';
 import {
   Table,
   TableBody,
@@ -19,10 +12,17 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table';
-import { Search, Filter, Eye, Edit, Plus } from 'lucide-react';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
+import { Search, Eye, ArrowUp, Plus } from 'lucide-react';
 import { useInventoryItems } from '@/hooks/useInventory';
 import AddInventoryItemDialog from './AddInventoryItemDialog';
-import EditInventoryItemDialog from './EditInventoryItemDialog';
+import PromoteToEquipmentDialog from './PromoteToEquipmentDialog';
 
 interface InventoryListViewProps {
   onViewItem: (itemId: string) => void;
@@ -34,207 +34,161 @@ const InventoryListView: React.FC<InventoryListViewProps> = ({
   initialFilter = '',
 }) => {
   const [search, setSearch] = useState('');
-  const [categoryFilter, setCategoryFilter] = useState('');
-  const [statusFilter, setStatusFilter] = useState(initialFilter);
+  const [categoryFilter, setCategoryFilter] = useState(initialFilter);
+  const [statusFilter, setStatusFilter] = useState('');
   const [showAddDialog, setShowAddDialog] = useState(false);
-  const [editingItem, setEditingItem] = useState<string | null>(null);
+  const [showPromoteDialog, setShowPromoteDialog] = useState(false);
+  const [selectedItem, setSelectedItem] = useState(null);
 
-  const filters = {
-    search: search || undefined,
+  const { data: items = [], isLoading } = useInventoryItems({
     category: categoryFilter || undefined,
     status: statusFilter || undefined,
+    search: search || undefined,
+  });
+
+  const handlePromoteToEquipment = (item: any) => {
+    setSelectedItem(item);
+    setShowPromoteDialog(true);
   };
 
-  const { data: items, isLoading } = useInventoryItems(filters);
-
-  useEffect(() => {
-    if (initialFilter) {
-      setStatusFilter(initialFilter);
-    }
-  }, [initialFilter]);
-
-  const categories = [
-    'Network Hardware',
-    'CPE',
-    'Infrastructure',
-    'Logical Resource',
-    'Consumable',
-  ];
-
-  const statuses = [
-    'In Stock',
-    'Deployed',
-    'Live/Deployed',
-    'Provisioning',
-    'Maintenance',
-    'Faulty',
-    'In Repair',
-    'Returned',
-    'Retired',
-    'Available',
-    'Reserved',
-    'Assigned',
-    'Active',
-    'Under Construction',
-    'Decommissioned',
-  ];
-
-  const getStatusColor = (status: string) => {
+  const getStatusBadgeColor = (status: string) => {
     switch (status) {
       case 'In Stock':
-      case 'Available':
         return 'default';
       case 'Deployed':
-      case 'Live/Deployed':
-      case 'Active':
-        return 'default';
+        return 'secondary';
+      case 'Returned':
+        return 'outline';
       case 'Maintenance':
-      case 'In Repair':
-      case 'Under Construction':
-        return 'secondary';
-      case 'Faulty':
-      case 'Retired':
-      case 'Decommissioned':
         return 'destructive';
-      case 'Provisioning':
-      case 'Reserved':
-        return 'secondary';
       default:
         return 'outline';
     }
   };
 
+  const canPromoteToEquipment = (item: any) => {
+    return (
+      (item.category === 'Network Hardware' || item.category === 'Infrastructure') &&
+      !item.is_network_equipment &&
+      item.status === 'In Stock'
+    );
+  };
+
   if (isLoading) {
     return (
-      <Card>
-        <CardContent className="p-6">
-          <div className="animate-pulse space-y-4">
-            <div className="h-10 bg-gray-200 rounded"></div>
-            <div className="h-64 bg-gray-200 rounded"></div>
-          </div>
-        </CardContent>
-      </Card>
+      <div className="space-y-4">
+        <div className="animate-pulse">
+          <div className="h-64 bg-gray-200 rounded"></div>
+        </div>
+      </div>
     );
   }
 
   return (
     <div className="space-y-6">
+      {/* Controls */}
+      <div className="flex flex-col gap-4">
+        <div className="flex justify-between items-center">
+          <h2 className="text-xl font-semibold">Inventory Items</h2>
+          <Button onClick={() => setShowAddDialog(true)}>
+            <Plus className="h-4 w-4 mr-2" />
+            Add Item
+          </Button>
+        </div>
+
+        <div className="flex flex-col sm:flex-row gap-4">
+          <div className="relative flex-1">
+            <Search className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
+            <Input
+              placeholder="Search items..."
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              className="pl-10"
+            />
+          </div>
+          <Select value={categoryFilter} onValueChange={setCategoryFilter}>
+            <SelectTrigger className="w-48">
+              <SelectValue placeholder="All Categories" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="">All Categories</SelectItem>
+              <SelectItem value="Network Hardware">Network Hardware</SelectItem>
+              <SelectItem value="CPE">CPE</SelectItem>
+              <SelectItem value="Infrastructure">Infrastructure</SelectItem>
+              <SelectItem value="Logical Resource">Logical Resource</SelectItem>
+              <SelectItem value="Consumable">Consumable</SelectItem>
+            </SelectContent>
+          </Select>
+          <Select value={statusFilter} onValueChange={setStatusFilter}>
+            <SelectTrigger className="w-32">
+              <SelectValue placeholder="All Status" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="">All Status</SelectItem>
+              <SelectItem value="In Stock">In Stock</SelectItem>
+              <SelectItem value="Deployed">Deployed</SelectItem>
+              <SelectItem value="Returned">Returned</SelectItem>
+              <SelectItem value="Maintenance">Maintenance</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
+      </div>
+
+      {/* Items Table */}
       <Card>
         <CardHeader>
-          <div className="flex items-center justify-between">
-            <CardTitle>Inventory Items ({items?.length || 0})</CardTitle>
-            <Button onClick={() => setShowAddDialog(true)}>
-              <Plus className="h-4 w-4 mr-2" />
-              Add Item
-            </Button>
-          </div>
+          <CardTitle>Items ({items.length})</CardTitle>
         </CardHeader>
         <CardContent>
-          {/* Filters */}
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
-            <div className="relative">
-              <Search className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
-              <Input
-                placeholder="Search items..."
-                value={search}
-                onChange={(e) => setSearch(e.target.value)}
-                className="pl-10"
-              />
-            </div>
-            <Select value={categoryFilter} onValueChange={setCategoryFilter}>
-              <SelectTrigger>
-                <SelectValue placeholder="Filter by category" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">All Categories</SelectItem>
-                {categories.map((category) => (
-                  <SelectItem key={category} value={category}>
-                    {category}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-            <Select value={statusFilter} onValueChange={setStatusFilter}>
-              <SelectTrigger>
-                <SelectValue placeholder="Filter by status" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">All Statuses</SelectItem>
-                {statuses.map((status) => (
-                  <SelectItem key={status} value={status}>
-                    {status}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-            <Button
-              variant="outline"
-              onClick={() => {
-                setSearch('');
-                setCategoryFilter('');
-                setStatusFilter('');
-              }}
-            >
-              <Filter className="h-4 w-4 mr-2" />
-              Clear Filters
-            </Button>
-          </div>
-
-          {/* Items Table */}
-          <div className="border rounded-lg">
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Item ID</TableHead>
-                  <TableHead>Type</TableHead>
-                  <TableHead>Model</TableHead>
-                  <TableHead>Serial Number</TableHead>
-                  <TableHead>Status</TableHead>
-                  <TableHead>Location/Customer</TableHead>
-                  <TableHead>Actions</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {items?.length === 0 ? (
+          {items.length > 0 ? (
+            <div className="overflow-x-auto">
+              <Table>
+                <TableHeader>
                   <TableRow>
-                    <TableCell colSpan={7} className="text-center py-8 text-muted-foreground">
-                      No inventory items found. Add your first item to get started.
-                    </TableCell>
+                    <TableHead>Item ID</TableHead>
+                    <TableHead>Category</TableHead>
+                    <TableHead>Type</TableHead>
+                    <TableHead>Model</TableHead>
+                    <TableHead>Serial Number</TableHead>
+                    <TableHead>Status</TableHead>
+                    <TableHead>Network Equipment</TableHead>
+                    <TableHead>Actions</TableHead>
                   </TableRow>
-                ) : (
-                  items?.map((item) => (
+                </TableHeader>
+                <TableBody>
+                  {items.map((item) => (
                     <TableRow key={item.id}>
                       <TableCell className="font-mono text-sm">
                         {item.item_id}
                       </TableCell>
                       <TableCell>
-                        <div>
-                          <div className="font-medium">{item.type}</div>
-                          <div className="text-sm text-muted-foreground">
-                            {item.category}
-                          </div>
-                        </div>
+                        <Badge variant="outline">{item.category}</Badge>
                       </TableCell>
+                      <TableCell>{item.type}</TableCell>
                       <TableCell>
                         <div>
                           {item.manufacturer && (
-                            <div className="text-sm text-muted-foreground">
+                            <div className="text-xs text-muted-foreground">
                               {item.manufacturer}
                             </div>
                           )}
-                          <div className="font-medium">{item.model || item.name}</div>
+                          <div>{item.model || item.name || '-'}</div>
                         </div>
                       </TableCell>
                       <TableCell className="font-mono text-sm">
                         {item.serial_number || '-'}
                       </TableCell>
                       <TableCell>
-                        <Badge variant={getStatusColor(item.status)}>
+                        <Badge variant={getStatusBadgeColor(item.status)}>
                           {item.status}
                         </Badge>
                       </TableCell>
                       <TableCell>
-                        {item.clients?.name || item.location || '-'}
+                        {item.is_network_equipment ? (
+                          <Badge variant="secondary">Promoted</Badge>
+                        ) : (
+                          <span className="text-muted-foreground text-sm">-</span>
+                        )}
                       </TableCell>
                       <TableCell>
                         <div className="flex gap-2">
@@ -245,36 +199,43 @@ const InventoryListView: React.FC<InventoryListViewProps> = ({
                           >
                             <Eye className="h-4 w-4" />
                           </Button>
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            onClick={() => setEditingItem(item.id)}
-                          >
-                            <Edit className="h-4 w-4" />
-                          </Button>
+                          {canPromoteToEquipment(item) && (
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              onClick={() => handlePromoteToEquipment(item)}
+                            >
+                              <ArrowUp className="h-4 w-4 mr-1" />
+                              Promote
+                            </Button>
+                          )}
                         </div>
                       </TableCell>
                     </TableRow>
-                  ))
-                )}
-              </TableBody>
-            </Table>
-          </div>
+                  ))}
+                </TableBody>
+              </Table>
+            </div>
+          ) : (
+            <div className="text-center py-8 text-muted-foreground">
+              <p>No inventory items found</p>
+              <p className="text-sm">Add some items to get started</p>
+            </div>
+          )}
         </CardContent>
       </Card>
 
+      {/* Dialogs */}
       <AddInventoryItemDialog
         open={showAddDialog}
         onOpenChange={setShowAddDialog}
       />
 
-      {editingItem && (
-        <EditInventoryItemDialog
-          open={true}
-          onOpenChange={() => setEditingItem(null)}
-          itemId={editingItem}
-        />
-      )}
+      <PromoteToEquipmentDialog
+        open={showPromoteDialog}
+        onOpenChange={setShowPromoteDialog}
+        inventoryItem={selectedItem}
+      />
     </div>
   );
 };

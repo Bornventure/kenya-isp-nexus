@@ -1,4 +1,3 @@
-
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
@@ -38,6 +37,8 @@ export interface InventoryItem {
   quantity_in_stock?: number;
   reorder_level?: number;
   unit_cost?: number;
+  equipment_id?: string;
+  is_network_equipment?: boolean;
   isp_company_id: string;
   created_at: string;
   updated_at: string;
@@ -350,6 +351,105 @@ export const useUnassignEquipmentFromClient = () => {
     },
     onError: (error: any) => {
       toast.error('Failed to unassign equipment: ' + error.message);
+    },
+  });
+};
+
+export const usePromoteToNetworkEquipment = () => {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async ({ 
+      inventoryItemId, 
+      equipmentData 
+    }: { 
+      inventoryItemId: string; 
+      equipmentData: {
+        equipment_type_id?: string;
+        ip_address?: string;
+        snmp_community?: string;
+        snmp_version?: number;
+        notes?: string;
+      };
+    }) => {
+      const { data, error } = await supabase.rpc('promote_inventory_to_equipment', {
+        inventory_item_id: inventoryItemId,
+        equipment_data: equipmentData
+      });
+
+      if (error) throw error;
+      return data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['inventory-items'] });
+      queryClient.invalidateQueries({ queryKey: ['equipment'] });
+      toast.success('Item promoted to network equipment successfully');
+    },
+    onError: (error: any) => {
+      toast.error('Failed to promote item: ' + error.message);
+    },
+  });
+};
+
+export const useAssignInventoryToClient = () => {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async ({ itemId, clientId, equipmentType }: { 
+      itemId: string; 
+      clientId: string;
+      equipmentType: 'inventory' | 'equipment';
+    }) => {
+      if (equipmentType === 'inventory') {
+        // Direct inventory assignment for CPE
+        const { data, error } = await supabase
+          .from('inventory_items')
+          .update({
+            status: 'Deployed',
+            assigned_customer_id: clientId,
+            assignment_date: new Date().toISOString(),
+          })
+          .eq('id', itemId)
+          .select()
+          .single();
+
+        if (error) throw error;
+
+        // Create client equipment mapping
+        const { error: mappingError } = await supabase
+          .from('client_equipment')
+          .insert({
+            client_id: clientId,
+            inventory_item_id: itemId,
+            assigned_at: new Date().toISOString(),
+          });
+
+        if (mappingError) throw mappingError;
+        return data;
+      } else {
+        // Equipment assignment through existing system
+        const { data, error } = await supabase
+          .from('equipment')
+          .update({
+            status: 'deployed',
+            client_id: clientId,
+          })
+          .eq('id', itemId)
+          .select()
+          .single();
+
+        if (error) throw error;
+        return data;
+      }
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['inventory-items'] });
+      queryClient.invalidateQueries({ queryKey: ['equipment'] });
+      queryClient.invalidateQueries({ queryKey: ['clients'] });
+      toast.success('Equipment assigned to client successfully');
+    },
+    onError: (error: any) => {
+      toast.error('Failed to assign equipment: ' + error.message);
     },
   });
 };

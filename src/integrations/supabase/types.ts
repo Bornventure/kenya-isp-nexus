@@ -67,6 +67,7 @@ export type Database = {
           created_at: string | null
           equipment_id: string
           id: string
+          inventory_item_id: string | null
           is_primary: boolean | null
           network_config: Json | null
         }
@@ -77,6 +78,7 @@ export type Database = {
           created_at?: string | null
           equipment_id: string
           id?: string
+          inventory_item_id?: string | null
           is_primary?: boolean | null
           network_config?: Json | null
         }
@@ -87,6 +89,7 @@ export type Database = {
           created_at?: string | null
           equipment_id?: string
           id?: string
+          inventory_item_id?: string | null
           is_primary?: boolean | null
           network_config?: Json | null
         }
@@ -110,6 +113,13 @@ export type Database = {
             columns: ["equipment_id"]
             isOneToOne: false
             referencedRelation: "equipment"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "client_equipment_inventory_item_id_fkey"
+            columns: ["inventory_item_id"]
+            isOneToOne: false
+            referencedRelation: "inventory_items"
             referencedColumns: ["id"]
           },
         ]
@@ -439,9 +449,11 @@ export type Database = {
           category: string
           cost: number | null
           created_at: string
+          equipment_id: string | null
           id: string
           installation_date: string | null
           ip_address: unknown | null
+          is_network_equipment: boolean | null
           isp_company_id: string | null
           item_id: string
           item_sku: string | null
@@ -477,9 +489,11 @@ export type Database = {
           category: string
           cost?: number | null
           created_at?: string
+          equipment_id?: string | null
           id?: string
           installation_date?: string | null
           ip_address?: unknown | null
+          is_network_equipment?: boolean | null
           isp_company_id?: string | null
           item_id: string
           item_sku?: string | null
@@ -515,9 +529,11 @@ export type Database = {
           category?: string
           cost?: number | null
           created_at?: string
+          equipment_id?: string | null
           id?: string
           installation_date?: string | null
           ip_address?: unknown | null
+          is_network_equipment?: boolean | null
           isp_company_id?: string | null
           item_id?: string
           item_sku?: string | null
@@ -551,6 +567,13 @@ export type Database = {
             columns: ["assigned_customer_id"]
             isOneToOne: false
             referencedRelation: "clients"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "inventory_items_equipment_id_fkey"
+            columns: ["equipment_id"]
+            isOneToOne: false
+            referencedRelation: "equipment"
             referencedColumns: ["id"]
           },
           {
@@ -1100,6 +1123,10 @@ export type Database = {
       process_subscription_renewal: {
         Args: { p_client_id: string }
         Returns: Json
+      }
+      promote_inventory_to_equipment: {
+        Args: { inventory_item_id: string; equipment_data: Json }
+        Returns: string
       }
     }
     Enums: {

@@ -8,33 +8,26 @@ export interface EquipmentType {
   brand: string;
   model: string;
   device_type: string;
-  default_config: any;
-  snmp_settings: any;
+  default_config?: any;
+  snmp_settings?: {
+    community?: string;
+    version?: number;
+  };
   created_at: string;
   updated_at: string;
 }
 
 export const useEquipmentTypes = () => {
-  const { data: equipmentTypes = [], isLoading, error } = useQuery({
+  return useQuery({
     queryKey: ['equipment-types'],
     queryFn: async () => {
       const { data, error } = await supabase
         .from('equipment_types')
         .select('*')
-        .order('brand', { ascending: true });
+        .order('name');
 
-      if (error) {
-        console.error('Error fetching equipment types:', error);
-        throw error;
-      }
-
+      if (error) throw error;
       return data as EquipmentType[];
     },
   });
-
-  return {
-    equipmentTypes,
-    isLoading,
-    error,
-  };
 };
