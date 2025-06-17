@@ -13,6 +13,12 @@ import TicketsList from '@/components/support/TicketsList';
 import CreateTicketForm from '@/components/support/CreateTicketForm';
 import KnowledgeBase from '@/components/support/KnowledgeBase';
 import ExternalUserDialog from '@/components/support/ExternalUserDialog';
+import KanbanTicketBoard from '@/components/support/KanbanTicketBoard';
+import DepartmentManagement from '@/components/support/DepartmentManagement';
+import EscalationRulesConfig from '@/components/support/EscalationRulesConfig';
+import SLATracker from '@/components/support/SLATracker';
+import NotificationPreferences from '@/components/support/NotificationPreferences';
+import PerformanceAnalytics from '@/components/support/PerformanceAnalytics';
 
 interface AdvancedFilters {
   department?: string;
@@ -42,6 +48,7 @@ const Support = () => {
   const [filterStatus, setFilterStatus] = useState('all');
   const [advancedFilters, setAdvancedFilters] = useState<AdvancedFilters>({});
   const [showAdvancedFilters, setShowAdvancedFilters] = useState(false);
+  const [viewMode, setViewMode] = useState<'list' | 'kanban'>('list');
 
   const filteredTickets = tickets?.data?.filter(ticket => {
     const statusMatch = filterStatus === 'all' || ticket.status === filterStatus;
@@ -153,6 +160,8 @@ const Support = () => {
     );
   }
 
+  const isAdmin = profile?.role === 'super_admin' || profile?.role === 'isp_admin';
+
   return (
     <div className="p-6 space-y-6">
       <div className="flex items-center justify-between">
@@ -165,11 +174,16 @@ const Support = () => {
       <SupportStats stats={ticketStats} />
 
       <Tabs defaultValue="tickets" className="w-full">
-        <TabsList>
-          <TabsTrigger value="tickets">Support Tickets</TabsTrigger>
-          <TabsTrigger value="create">Create Ticket</TabsTrigger>
-          <TabsTrigger value="knowledge">Knowledge Base</TabsTrigger>
-          <TabsTrigger value="external">External Users</TabsTrigger>
+        <TabsList className="grid w-full grid-cols-9">
+          <TabsTrigger value="tickets">Tickets</TabsTrigger>
+          <TabsTrigger value="kanban">Kanban</TabsTrigger>
+          <TabsTrigger value="create">Create</TabsTrigger>
+          <TabsTrigger value="sla">SLA Tracking</TabsTrigger>
+          <TabsTrigger value="analytics">Analytics</TabsTrigger>
+          <TabsTrigger value="knowledge">Knowledge</TabsTrigger>
+          {isAdmin && <TabsTrigger value="departments">Departments</TabsTrigger>}
+          {isAdmin && <TabsTrigger value="escalation">Escalation</TabsTrigger>}
+          <TabsTrigger value="preferences">Preferences</TabsTrigger>
         </TabsList>
 
         <TabsContent value="tickets" className="space-y-4">
@@ -207,6 +221,14 @@ const Support = () => {
           />
         </TabsContent>
 
+        <TabsContent value="kanban" className="space-y-4">
+          <KanbanTicketBoard
+            tickets={filteredTickets}
+            onTicketClick={(ticket) => console.log('Open ticket detail:', ticket)}
+            onStatusChange={handleStatusChange}
+          />
+        </TabsContent>
+
         <TabsContent value="create" className="space-y-4">
           <CreateTicketForm
             title={newTicketTitle}
@@ -222,15 +244,32 @@ const Support = () => {
           />
         </TabsContent>
 
+        <TabsContent value="sla" className="space-y-4">
+          <SLATracker tickets={filteredTickets} />
+        </TabsContent>
+
+        <TabsContent value="analytics" className="space-y-4">
+          <PerformanceAnalytics />
+        </TabsContent>
+
         <TabsContent value="knowledge" className="space-y-4">
           <KnowledgeBase />
         </TabsContent>
 
-        <TabsContent value="external" className="space-y-4">
-          <div className="text-center py-8">
-            <p className="text-muted-foreground mb-4">Manage external technicians and contractors</p>
-            <ExternalUserDialog />
-          </div>
+        {isAdmin && (
+          <TabsContent value="departments" className="space-y-4">
+            <DepartmentManagement />
+          </TabsContent>
+        )}
+
+        {isAdmin && (
+          <TabsContent value="escalation" className="space-y-4">
+            <EscalationRulesConfig />
+          </TabsContent>
+        )}
+
+        <TabsContent value="preferences" className="space-y-4">
+          <NotificationPreferences />
         </TabsContent>
       </Tabs>
     </div>
