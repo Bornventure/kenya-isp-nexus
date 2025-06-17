@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -13,7 +12,8 @@ import {
   Signal,
   Edit,
   Trash2,
-  Search
+  Search,
+  Plus
 } from 'lucide-react';
 import { Hotspot, useHotspotMutations } from '@/hooks/useHotspots';
 import { useAuth } from '@/contexts/AuthContext';

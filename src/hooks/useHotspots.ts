@@ -44,7 +44,7 @@ export interface HotspotSession {
   user_agent?: string;
   payment_reference?: string;
   voucher_code?: string;
-  hotspots?: Hotspot;
+  hotspots?: { name: string; location: string };
   clients?: { name: string; phone: string };
 }
 
@@ -63,7 +63,7 @@ export interface HotspotAnalytics {
   guest_sessions: number;
   client_sessions: number;
   voucher_sessions: number;
-  hotspots?: Hotspot;
+  hotspots?: { name: string; location: string };
 }
 
 export const useHotspots = () => {
@@ -95,7 +95,7 @@ export const useHotspotSessions = (hotspotId?: string, limit: number = 50) => {
         .from('hotspot_sessions')
         .select(`
           *,
-          hotspots(name, location),
+          hotspots!inner(name, location),
           clients(name, phone)
         `)
         .eq('isp_company_id', profile?.isp_company_id)
@@ -103,7 +103,7 @@ export const useHotspotSessions = (hotspotId?: string, limit: number = 50) => {
         .limit(limit);
 
       if (hotspotId) {
-        query = query.eq('hotspot_id', hotspotId);
+        query = query.eq('hotspot_id', hot spotId);
       }
 
       const { data, error } = await query;
@@ -127,7 +127,7 @@ export const useHotspotAnalytics = (hotspotId?: string, days: number = 30) => {
         .from('hotspot_analytics')
         .select(`
           *,
-          hotspots(name, location)
+          hotspots!inner(name, location)
         `)
         .eq('isp_company_id', profile?.isp_company_id)
         .gte('date', startDate.toISOString().split('T')[0])
@@ -154,10 +154,10 @@ export const useHotspotMutations = () => {
     mutationFn: async (hotspotData: Partial<Hotspot>) => {
       const { data, error } = await supabase
         .from('hotspots')
-        .insert([{
+        .insert({
           ...hotspotData,
           isp_company_id: profile?.isp_company_id,
-        }])
+        })
         .select()
         .single();
 
