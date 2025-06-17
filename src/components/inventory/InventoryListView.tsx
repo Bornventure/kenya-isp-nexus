@@ -34,15 +34,15 @@ const InventoryListView: React.FC<InventoryListViewProps> = ({
   initialFilter = '',
 }) => {
   const [search, setSearch] = useState('');
-  const [categoryFilter, setCategoryFilter] = useState(initialFilter);
-  const [statusFilter, setStatusFilter] = useState('');
+  const [categoryFilter, setCategoryFilter] = useState(initialFilter || 'all');
+  const [statusFilter, setStatusFilter] = useState('all');
   const [showAddDialog, setShowAddDialog] = useState(false);
   const [showPromoteDialog, setShowPromoteDialog] = useState(false);
   const [selectedItem, setSelectedItem] = useState(null);
 
   const { data: items = [], isLoading } = useInventoryItems({
-    category: categoryFilter || undefined,
-    status: statusFilter || undefined,
+    category: categoryFilter === 'all' ? undefined : categoryFilter,
+    status: statusFilter === 'all' ? undefined : statusFilter,
     search: search || undefined,
   });
 
@@ -111,7 +111,7 @@ const InventoryListView: React.FC<InventoryListViewProps> = ({
               <SelectValue placeholder="All Categories" />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="">All Categories</SelectItem>
+              <SelectItem value="all">All Categories</SelectItem>
               <SelectItem value="Network Hardware">Network Hardware</SelectItem>
               <SelectItem value="CPE">CPE</SelectItem>
               <SelectItem value="Infrastructure">Infrastructure</SelectItem>
@@ -124,7 +124,7 @@ const InventoryListView: React.FC<InventoryListViewProps> = ({
               <SelectValue placeholder="All Status" />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="">All Status</SelectItem>
+              <SelectItem value="all">All Status</SelectItem>
               <SelectItem value="In Stock">In Stock</SelectItem>
               <SelectItem value="Deployed">Deployed</SelectItem>
               <SelectItem value="Returned">Returned</SelectItem>
