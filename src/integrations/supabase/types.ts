@@ -124,6 +124,84 @@ export type Database = {
           },
         ]
       }
+      client_hotspot_access: {
+        Row: {
+          access_level: string
+          auto_connect: boolean
+          bandwidth_allocation: number | null
+          blocked_reason: string | null
+          client_id: string
+          created_at: string
+          device_name: string | null
+          device_type: string | null
+          first_connected_at: string
+          hotspot_id: string
+          id: string
+          is_blocked: boolean
+          isp_company_id: string | null
+          last_connected_at: string | null
+          mac_address: string
+          total_data_used_mb: number | null
+          total_sessions: number | null
+          updated_at: string
+        }
+        Insert: {
+          access_level?: string
+          auto_connect?: boolean
+          bandwidth_allocation?: number | null
+          blocked_reason?: string | null
+          client_id: string
+          created_at?: string
+          device_name?: string | null
+          device_type?: string | null
+          first_connected_at?: string
+          hotspot_id: string
+          id?: string
+          is_blocked?: boolean
+          isp_company_id?: string | null
+          last_connected_at?: string | null
+          mac_address: string
+          total_data_used_mb?: number | null
+          total_sessions?: number | null
+          updated_at?: string
+        }
+        Update: {
+          access_level?: string
+          auto_connect?: boolean
+          bandwidth_allocation?: number | null
+          blocked_reason?: string | null
+          client_id?: string
+          created_at?: string
+          device_name?: string | null
+          device_type?: string | null
+          first_connected_at?: string
+          hotspot_id?: string
+          id?: string
+          is_blocked?: boolean
+          isp_company_id?: string | null
+          last_connected_at?: string | null
+          mac_address?: string
+          total_data_used_mb?: number | null
+          total_sessions?: number | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "fk_client_hotspot_access_client"
+            columns: ["client_id"]
+            isOneToOne: false
+            referencedRelation: "clients"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "fk_client_hotspot_access_hotspot"
+            columns: ["hotspot_id"]
+            isOneToOne: false
+            referencedRelation: "hotspots"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       clients: {
         Row: {
           address: string
@@ -481,6 +559,282 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      hotspot_analytics: {
+        Row: {
+          avg_session_duration_minutes: number | null
+          bandwidth_utilization_percentage: number | null
+          client_sessions: number | null
+          created_at: string
+          date: string
+          guest_sessions: number | null
+          hotspot_id: string
+          id: string
+          isp_company_id: string | null
+          peak_concurrent_users: number | null
+          revenue_generated: number | null
+          total_data_used_gb: number | null
+          total_sessions: number | null
+          unique_users: number | null
+          uptime_percentage: number | null
+          voucher_sessions: number | null
+        }
+        Insert: {
+          avg_session_duration_minutes?: number | null
+          bandwidth_utilization_percentage?: number | null
+          client_sessions?: number | null
+          created_at?: string
+          date: string
+          guest_sessions?: number | null
+          hotspot_id: string
+          id?: string
+          isp_company_id?: string | null
+          peak_concurrent_users?: number | null
+          revenue_generated?: number | null
+          total_data_used_gb?: number | null
+          total_sessions?: number | null
+          unique_users?: number | null
+          uptime_percentage?: number | null
+          voucher_sessions?: number | null
+        }
+        Update: {
+          avg_session_duration_minutes?: number | null
+          bandwidth_utilization_percentage?: number | null
+          client_sessions?: number | null
+          created_at?: string
+          date?: string
+          guest_sessions?: number | null
+          hotspot_id?: string
+          id?: string
+          isp_company_id?: string | null
+          peak_concurrent_users?: number | null
+          revenue_generated?: number | null
+          total_data_used_gb?: number | null
+          total_sessions?: number | null
+          unique_users?: number | null
+          uptime_percentage?: number | null
+          voucher_sessions?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "fk_hotspot_analytics_hotspot"
+            columns: ["hotspot_id"]
+            isOneToOne: false
+            referencedRelation: "hotspots"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      hotspot_sessions: {
+        Row: {
+          bandwidth_used_mbps: number | null
+          client_id: string | null
+          created_at: string
+          data_used_mb: number | null
+          device_fingerprint: string | null
+          duration_minutes: number | null
+          end_time: string | null
+          hotspot_id: string
+          id: string
+          ip_address: unknown | null
+          isp_company_id: string | null
+          mac_address: string
+          payment_reference: string | null
+          session_status: string
+          session_type: string
+          start_time: string
+          user_agent: string | null
+          voucher_code: string | null
+        }
+        Insert: {
+          bandwidth_used_mbps?: number | null
+          client_id?: string | null
+          created_at?: string
+          data_used_mb?: number | null
+          device_fingerprint?: string | null
+          duration_minutes?: number | null
+          end_time?: string | null
+          hotspot_id: string
+          id?: string
+          ip_address?: unknown | null
+          isp_company_id?: string | null
+          mac_address: string
+          payment_reference?: string | null
+          session_status?: string
+          session_type?: string
+          start_time?: string
+          user_agent?: string | null
+          voucher_code?: string | null
+        }
+        Update: {
+          bandwidth_used_mbps?: number | null
+          client_id?: string | null
+          created_at?: string
+          data_used_mb?: number | null
+          device_fingerprint?: string | null
+          duration_minutes?: number | null
+          end_time?: string | null
+          hotspot_id?: string
+          id?: string
+          ip_address?: unknown | null
+          isp_company_id?: string | null
+          mac_address?: string
+          payment_reference?: string | null
+          session_status?: string
+          session_type?: string
+          start_time?: string
+          user_agent?: string | null
+          voucher_code?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "fk_hotspot_sessions_hotspot"
+            columns: ["hotspot_id"]
+            isOneToOne: false
+            referencedRelation: "hotspots"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      hotspot_vouchers: {
+        Row: {
+          created_at: string
+          currency: string
+          data_limit_mb: number | null
+          duration_minutes: number | null
+          expiry_date: string | null
+          generated_by: string | null
+          hotspot_id: string
+          id: string
+          is_used: boolean
+          isp_company_id: string | null
+          max_devices: number | null
+          mpesa_receipt_number: string | null
+          payment_reference: string | null
+          price: number
+          used_at: string | null
+          used_by_mac: string | null
+          voucher_code: string
+          voucher_type: string
+        }
+        Insert: {
+          created_at?: string
+          currency?: string
+          data_limit_mb?: number | null
+          duration_minutes?: number | null
+          expiry_date?: string | null
+          generated_by?: string | null
+          hotspot_id: string
+          id?: string
+          is_used?: boolean
+          isp_company_id?: string | null
+          max_devices?: number | null
+          mpesa_receipt_number?: string | null
+          payment_reference?: string | null
+          price?: number
+          used_at?: string | null
+          used_by_mac?: string | null
+          voucher_code: string
+          voucher_type?: string
+        }
+        Update: {
+          created_at?: string
+          currency?: string
+          data_limit_mb?: number | null
+          duration_minutes?: number | null
+          expiry_date?: string | null
+          generated_by?: string | null
+          hotspot_id?: string
+          id?: string
+          is_used?: boolean
+          isp_company_id?: string | null
+          max_devices?: number | null
+          mpesa_receipt_number?: string | null
+          payment_reference?: string | null
+          price?: number
+          used_at?: string | null
+          used_by_mac?: string | null
+          voucher_code?: string
+          voucher_type?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "fk_hotspot_vouchers_hotspot"
+            columns: ["hotspot_id"]
+            isOneToOne: false
+            referencedRelation: "hotspots"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      hotspots: {
+        Row: {
+          bandwidth_limit: number | null
+          coverage_radius: number | null
+          created_at: string
+          hardware_details: Json | null
+          id: string
+          installation_date: string | null
+          ip_address: unknown | null
+          is_active: boolean
+          isp_company_id: string | null
+          last_maintenance_date: string | null
+          latitude: number | null
+          location: string
+          longitude: number | null
+          mac_address: string | null
+          max_concurrent_users: number | null
+          name: string
+          password: string | null
+          ssid: string
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          bandwidth_limit?: number | null
+          coverage_radius?: number | null
+          created_at?: string
+          hardware_details?: Json | null
+          id?: string
+          installation_date?: string | null
+          ip_address?: unknown | null
+          is_active?: boolean
+          isp_company_id?: string | null
+          last_maintenance_date?: string | null
+          latitude?: number | null
+          location: string
+          longitude?: number | null
+          mac_address?: string | null
+          max_concurrent_users?: number | null
+          name: string
+          password?: string | null
+          ssid: string
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          bandwidth_limit?: number | null
+          coverage_radius?: number | null
+          created_at?: string
+          hardware_details?: Json | null
+          id?: string
+          installation_date?: string | null
+          ip_address?: unknown | null
+          is_active?: boolean
+          isp_company_id?: string | null
+          last_maintenance_date?: string | null
+          latitude?: number | null
+          location?: string
+          longitude?: number | null
+          mac_address?: string | null
+          max_concurrent_users?: number | null
+          name?: string
+          password?: string | null
+          ssid?: string
+          status?: string
+          updated_at?: string
+        }
+        Relationships: []
       }
       inventory_history: {
         Row: {
@@ -1452,6 +1806,14 @@ export type Database = {
       check_wallet_based_renewals: {
         Args: Record<PropertyKey, never>
         Returns: undefined
+      }
+      end_expired_sessions: {
+        Args: Record<PropertyKey, never>
+        Returns: undefined
+      }
+      generate_voucher_code: {
+        Args: Record<PropertyKey, never>
+        Returns: string
       }
       get_current_user_company_id: {
         Args: Record<PropertyKey, never>
