@@ -2,7 +2,7 @@
 import React, { useState } from 'react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Button } from '@/components/ui/button';
-import { Plus, Wifi, Activity, BarChart3, Users } from 'lucide-react';
+import { Plus, Wifi, Activity, BarChart3, Users, Shield } from 'lucide-react';
 import { useHotspots, useHotspotSessions, useHotspotAnalytics } from '@/hooks/useHotspots';
 import { useAuth } from '@/contexts/AuthContext';
 
@@ -11,6 +11,7 @@ import HotspotForm from './HotspotForm';
 import HotspotDashboard from './HotspotDashboard';
 import ActiveSessions from './ActiveSessions';
 import HotspotAnalytics from './HotspotAnalytics';
+import ClientAuthSystem from './ClientAuthSystem';
 
 const HotspotManagement = () => {
   const { profile } = useAuth();
@@ -91,11 +92,12 @@ const HotspotManagement = () => {
       </div>
 
       <Tabs defaultValue="dashboard" className="w-full">
-        <TabsList className="grid w-full grid-cols-5">
+        <TabsList className="grid w-full grid-cols-6">
           <TabsTrigger value="dashboard">Dashboard</TabsTrigger>
           <TabsTrigger value="hotspots">Hotspots</TabsTrigger>
           <TabsTrigger value="sessions">Active Sessions</TabsTrigger>
           <TabsTrigger value="analytics">Analytics</TabsTrigger>
+          <TabsTrigger value="client-auth">Client Auth</TabsTrigger>
           <TabsTrigger value="settings">Settings</TabsTrigger>
         </TabsList>
 
@@ -132,6 +134,10 @@ const HotspotManagement = () => {
             isLoading={analyticsLoading}
             selectedHotspot={selectedHotspot}
           />
+        </TabsContent>
+
+        <TabsContent value="client-auth" className="space-y-4">
+          <ClientAuthSystem selectedHotspot={selectedHotspot} />
         </TabsContent>
 
         <TabsContent value="settings" className="space-y-4">

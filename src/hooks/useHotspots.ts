@@ -103,7 +103,7 @@ export const useHotspotSessions = (hotspotId?: string, limit: number = 50) => {
         .limit(limit);
 
       if (hotspotId) {
-        query = query.eq('hotspot_id', hot spotId);
+        query = query.eq('hotspot_id', hotspotId);
       }
 
       const { data, error } = await query;
