@@ -34,7 +34,7 @@ const TicketAssignmentDialog: React.FC<TicketAssignmentDialogProps> = ({
 }) => {
   const { profile } = useAuth();
   const { data: departments = [] } = useDepartments();
-  const { data: users = [] } = useUsers();
+  const { users = [] } = useUsers();
   const { assignTicket } = useTicketAssignmentMutations();
 
   const [selectedDepartment, setSelectedDepartment] = useState('');
