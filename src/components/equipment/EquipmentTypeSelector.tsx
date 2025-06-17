@@ -16,7 +16,7 @@ const EquipmentTypeSelector: React.FC<EquipmentTypeSelectorProps> = ({
   onOpenChange,
   onSelect,
 }) => {
-  const { equipmentTypes, isLoading } = useEquipmentTypes();
+  const { data: equipmentTypes = [], isLoading } = useEquipmentTypes();
 
   const handleSelect = (type: EquipmentType) => {
     onSelect(type);

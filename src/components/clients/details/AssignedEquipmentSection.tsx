@@ -213,7 +213,7 @@ const AssignedEquipmentSection: React.FC<AssignedEquipmentSectionProps> = ({
                       <div className="font-medium">{item.type}</div>
                       {item.ip_address && (
                         <div className="text-sm text-muted-foreground font-mono">
-                          {item.ip_address}
+                          {String(item.ip_address)}
                         </div>
                       )}
                     </div>

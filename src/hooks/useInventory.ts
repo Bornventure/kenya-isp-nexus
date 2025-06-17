@@ -415,11 +415,12 @@ export const useAssignInventoryToClient = () => {
 
         if (error) throw error;
 
-        // Create client equipment mapping
+        // Create client equipment mapping with a placeholder equipment_id
         const { error: mappingError } = await supabase
           .from('client_equipment')
           .insert({
             client_id: clientId,
+            equipment_id: '00000000-0000-0000-0000-000000000000', // Placeholder UUID for inventory items
             inventory_item_id: itemId,
             assigned_at: new Date().toISOString(),
           });
