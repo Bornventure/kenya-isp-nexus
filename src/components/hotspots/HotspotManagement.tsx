@@ -2,7 +2,7 @@
 import React, { useState } from 'react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Button } from '@/components/ui/button';
-import { Plus, Wifi, Activity, BarChart3, Users, Shield, Ticket, Settings } from 'lucide-react';
+import { Plus, Wifi, Activity, BarChart3, Users, Shield, Ticket, Settings, Monitor, TrendingUp } from 'lucide-react';
 import { useHotspots, useHotspotSessions, useHotspotAnalytics } from '@/hooks/useHotspots';
 import { useAuth } from '@/contexts/AuthContext';
 
@@ -14,6 +14,8 @@ import HotspotAnalytics from './HotspotAnalytics';
 import ClientAuthSystem from './ClientAuthSystem';
 import VoucherManagement from './VoucherManagement';
 import HotspotSettings from './HotspotSettings';
+import HotspotNetworkMonitor from './HotspotNetworkMonitor';
+import HotspotRealTimeStats from './HotspotRealTimeStats';
 
 const HotspotManagement = () => {
   const { profile } = useAuth();
@@ -94,13 +96,15 @@ const HotspotManagement = () => {
       </div>
 
       <Tabs defaultValue="dashboard" className="w-full">
-        <TabsList className="grid w-full grid-cols-7">
+        <TabsList className="grid w-full grid-cols-9">
           <TabsTrigger value="dashboard">Dashboard</TabsTrigger>
           <TabsTrigger value="hotspots">Hotspots</TabsTrigger>
           <TabsTrigger value="sessions">Sessions</TabsTrigger>
           <TabsTrigger value="analytics">Analytics</TabsTrigger>
           <TabsTrigger value="client-auth">Client Auth</TabsTrigger>
           <TabsTrigger value="vouchers">Vouchers</TabsTrigger>
+          <TabsTrigger value="monitoring">Monitoring</TabsTrigger>
+          <TabsTrigger value="realtime">Real-time</TabsTrigger>
           <TabsTrigger value="settings">Settings</TabsTrigger>
         </TabsList>
 
@@ -145,6 +149,14 @@ const HotspotManagement = () => {
 
         <TabsContent value="vouchers" className="space-y-4">
           <VoucherManagement selectedHotspot={selectedHotspot} />
+        </TabsContent>
+
+        <TabsContent value="monitoring" className="space-y-4">
+          <HotspotNetworkMonitor selectedHotspot={selectedHotspot} />
+        </TabsContent>
+
+        <TabsContent value="realtime" className="space-y-4">
+          <HotspotRealTimeStats selectedHotspot={selectedHotspot} />
         </TabsContent>
 
         <TabsContent value="settings" className="space-y-4">

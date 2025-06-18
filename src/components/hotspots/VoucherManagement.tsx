@@ -139,7 +139,7 @@ const VoucherManagement: React.FC<VoucherManagementProps> = ({ selectedHotspot }
     return matchesSearch && matchesStatus;
   }) || [];
 
-  const getVoucherStatus = (voucher: Hotspot Voucher) => {
+  const getVoucherStatus = (voucher: HotspotVoucher) => {
     if (voucher.is_used) return { status: 'used', color: 'bg-gray-100 text-gray-800' };
     if (voucher.expiry_date && new Date(voucher.expiry_date) <= new Date()) {
       return { status: 'expired', color: 'bg-red-100 text-red-800' };
