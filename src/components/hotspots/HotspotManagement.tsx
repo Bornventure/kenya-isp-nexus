@@ -2,7 +2,7 @@
 import React, { useState } from 'react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Button } from '@/components/ui/button';
-import { Plus, Wifi, Activity, BarChart3, Users, Shield, Ticket, Settings, Monitor, TrendingUp } from 'lucide-react';
+import { Plus, Wifi, Activity, BarChart3, Users, Shield, Ticket, Settings, Monitor, TrendingUp, Network, ArrowRightLeft, Megaphone, MapPin, Share2 } from 'lucide-react';
 import { useHotspots, useHotspotSessions, useHotspotAnalytics } from '@/hooks/useHotspots';
 import { useAuth } from '@/contexts/AuthContext';
 
@@ -16,6 +16,11 @@ import VoucherManagement from './VoucherManagement';
 import HotspotSettings from './HotspotSettings';
 import HotspotNetworkMonitor from './HotspotNetworkMonitor';
 import HotspotRealTimeStats from './HotspotRealTimeStats';
+import LoadBalancer from './LoadBalancer';
+import RoamingManager from './RoamingManager';
+import SocialAuth from './SocialAuth';
+import MarketingCampaigns from './MarketingCampaigns';
+import LocationServices from './LocationServices';
 
 const HotspotManagement = () => {
   const { profile } = useAuth();
@@ -96,7 +101,7 @@ const HotspotManagement = () => {
       </div>
 
       <Tabs defaultValue="dashboard" className="w-full">
-        <TabsList className="grid w-full grid-cols-9">
+        <TabsList className="grid w-full grid-cols-6 lg:grid-cols-12 xl:grid-cols-14">
           <TabsTrigger value="dashboard">Dashboard</TabsTrigger>
           <TabsTrigger value="hotspots">Hotspots</TabsTrigger>
           <TabsTrigger value="sessions">Sessions</TabsTrigger>
@@ -105,6 +110,11 @@ const HotspotManagement = () => {
           <TabsTrigger value="vouchers">Vouchers</TabsTrigger>
           <TabsTrigger value="monitoring">Monitoring</TabsTrigger>
           <TabsTrigger value="realtime">Real-time</TabsTrigger>
+          <TabsTrigger value="load-balancer">Load Balancer</TabsTrigger>
+          <TabsTrigger value="roaming">Roaming</TabsTrigger>
+          <TabsTrigger value="social-auth">Social Auth</TabsTrigger>
+          <TabsTrigger value="campaigns">Campaigns</TabsTrigger>
+          <TabsTrigger value="location">Location</TabsTrigger>
           <TabsTrigger value="settings">Settings</TabsTrigger>
         </TabsList>
 
@@ -157,6 +167,26 @@ const HotspotManagement = () => {
 
         <TabsContent value="realtime" className="space-y-4">
           <HotspotRealTimeStats selectedHotspot={selectedHotspot} />
+        </TabsContent>
+
+        <TabsContent value="load-balancer" className="space-y-4">
+          <LoadBalancer selectedHotspot={selectedHotspot} />
+        </TabsContent>
+
+        <TabsContent value="roaming" className="space-y-4">
+          <RoamingManager selectedHotspot={selectedHotspot} />
+        </TabsContent>
+
+        <TabsContent value="social-auth" className="space-y-4">
+          <SocialAuth selectedHotspot={selectedHotspot} />
+        </TabsContent>
+
+        <TabsContent value="campaigns" className="space-y-4">
+          <MarketingCampaigns selectedHotspot={selectedHotspot} />
+        </TabsContent>
+
+        <TabsContent value="location" className="space-y-4">
+          <LocationServices selectedHotspot={selectedHotspot} />
         </TabsContent>
 
         <TabsContent value="settings" className="space-y-4">

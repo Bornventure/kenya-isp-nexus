@@ -16,6 +16,7 @@ import Analytics from "@/pages/Analytics";
 import NetworkStatus from "@/pages/NetworkStatus";
 import Support from "@/pages/Support";
 import Settings from "@/pages/Settings";
+import HotspotManagement from "@/pages/HotspotManagement";
 import AccessDenied from "@/components/AccessDenied";
 
 const AppContent: React.FC = () => {
@@ -62,6 +63,7 @@ const AppContent: React.FC = () => {
             <Route path="analytics" element={<Analytics />} />
             <Route path="network" element={<NetworkStatus />} />
             <Route path="support" element={<Support />} />
+            <Route path="hotspots" element={<HotspotManagement />} />
             <Route path="settings" element={<Settings />} />
           </Route>
           <Route path="*" element={<Navigate to="/" replace />} />
