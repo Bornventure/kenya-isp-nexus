@@ -2,7 +2,7 @@
 import React, { useState } from 'react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Button } from '@/components/ui/button';
-import { Plus, Wifi, Activity, BarChart3, Users, Shield } from 'lucide-react';
+import { Plus, Wifi, Activity, BarChart3, Users, Shield, Ticket, Settings } from 'lucide-react';
 import { useHotspots, useHotspotSessions, useHotspotAnalytics } from '@/hooks/useHotspots';
 import { useAuth } from '@/contexts/AuthContext';
 
@@ -12,6 +12,8 @@ import HotspotDashboard from './HotspotDashboard';
 import ActiveSessions from './ActiveSessions';
 import HotspotAnalytics from './HotspotAnalytics';
 import ClientAuthSystem from './ClientAuthSystem';
+import VoucherManagement from './VoucherManagement';
+import HotspotSettings from './HotspotSettings';
 
 const HotspotManagement = () => {
   const { profile } = useAuth();
@@ -92,12 +94,13 @@ const HotspotManagement = () => {
       </div>
 
       <Tabs defaultValue="dashboard" className="w-full">
-        <TabsList className="grid w-full grid-cols-6">
+        <TabsList className="grid w-full grid-cols-7">
           <TabsTrigger value="dashboard">Dashboard</TabsTrigger>
           <TabsTrigger value="hotspots">Hotspots</TabsTrigger>
-          <TabsTrigger value="sessions">Active Sessions</TabsTrigger>
+          <TabsTrigger value="sessions">Sessions</TabsTrigger>
           <TabsTrigger value="analytics">Analytics</TabsTrigger>
           <TabsTrigger value="client-auth">Client Auth</TabsTrigger>
+          <TabsTrigger value="vouchers">Vouchers</TabsTrigger>
           <TabsTrigger value="settings">Settings</TabsTrigger>
         </TabsList>
 
@@ -140,12 +143,12 @@ const HotspotManagement = () => {
           <ClientAuthSystem selectedHotspot={selectedHotspot} />
         </TabsContent>
 
+        <TabsContent value="vouchers" className="space-y-4">
+          <VoucherManagement selectedHotspot={selectedHotspot} />
+        </TabsContent>
+
         <TabsContent value="settings" className="space-y-4">
-          <div className="bg-white p-6 rounded-lg border">
-            <h3 className="text-lg font-medium mb-4">Hotspot Settings</h3>
-            <p className="text-muted-foreground">Global hotspot configuration and preferences.</p>
-            {/* Settings will be implemented in later phases */}
-          </div>
+          <HotspotSettings selectedHotspot={selectedHotspot} />
         </TabsContent>
       </Tabs>
 

@@ -1,4 +1,3 @@
-
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
@@ -45,7 +44,7 @@ export interface HotspotSession {
   payment_reference?: string;
   voucher_code?: string;
   hotspots?: { name: string; location: string };
-  clients?: { name: string; phone: string };
+  clients?: { name: string; phone: string } | null;
 }
 
 export interface HotspotAnalytics {
@@ -108,7 +107,10 @@ export const useHotspotSessions = (hotspotId?: string, limit: number = 50) => {
 
       const { data, error } = await query;
       if (error) throw error;
-      return data as HotspotSession[];
+      return (data || []).map(session => ({
+        ...session,
+        clients: session.clients || null
+      })) as HotspotSession[];
     },
     enabled: !!profile?.isp_company_id,
   });
@@ -155,8 +157,23 @@ export const useHotspotMutations = () => {
       const { data, error } = await supabase
         .from('hotspots')
         .insert({
-          ...hotspotData,
+          name: hotspotData.name || '',
+          location: hotspotData.location || '',
+          ssid: hotspotData.ssid || '',
+          bandwidth_limit: hotspotData.bandwidth_limit || 10,
+          max_concurrent_users: hotspotData.max_concurrent_users || 50,
+          coverage_radius: hotspotData.coverage_radius || 100,
+          status: hotspotData.status || 'active',
           isp_company_id: profile?.isp_company_id,
+          latitude: hotspotData.latitude,
+          longitude: hotspotData.longitude,
+          hardware_details: hotspotData.hardware_details,
+          ip_address: hotspotData.ip_address,
+          mac_address: hotspotData.mac_address,
+          password: hotspotData.password,
+          installation_date: hotspotData.installation_date,
+          last_maintenance_date: hotspotData.last_maintenance_date,
+          is_active: hotspotData.is_active ?? true,
         })
         .select()
         .single();

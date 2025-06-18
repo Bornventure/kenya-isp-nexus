@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -62,7 +61,7 @@ const ClientAuthSystem: React.FC<ClientAuthSystemProps> = ({ selectedHotspot }) 
           hotspots!inner(name, location)
         `)
         .eq('isp_company_id', profile?.isp_company_id)
-        .order('last_connected_at', { ascending: false, nullsLast: true });
+        .order('last_connected_at', { ascending: false, nullsFirst: false });
 
       if (selectedHotspot) {
         query = query.eq('hotspot_id', selectedHotspot);
@@ -238,118 +237,7 @@ const ClientAuthSystem: React.FC<ClientAuthSystemProps> = ({ selectedHotspot }) 
         </div>
       </div>
 
-      {/* Client Access List */}
-      <div className="space-y-4">
-        {filteredAccess.map((access) => (
-          <Card key={access.id}>
-            <CardContent className="p-6">
-              <div className="flex items-start justify-between">
-                <div className="flex items-start gap-4">
-                  <div className="p-2 bg-blue-100 rounded-lg">
-                    <Smartphone className="h-5 w-5 text-blue-600" />
-                  </div>
-                  
-                  <div className="space-y-2">
-                    <div className="flex items-center gap-2">
-                      <h4 className="font-medium">{access.clients?.name || 'Unknown Client'}</h4>
-                      <Badge className={getClientStatusColor(access.clients?.status || 'pending')}>
-                        {access.clients?.status || 'pending'}
-                      </Badge>
-                      <Badge className={getAccessLevelColor(access.access_level)}>
-                        {access.access_level}
-                      </Badge>
-                      {access.is_blocked && (
-                        <Badge variant="destructive">Blocked</Badge>
-                      )}
-                    </div>
-                    
-                    <div className="flex items-center gap-4 text-sm text-muted-foreground">
-                      <span>{access.clients?.phone}</span>
-                      <span>MAC: {access.mac_address}</span>
-                      {access.device_name && <span>Device: {access.device_name}</span>}
-                      {access.hotspots && <span>@ {access.hotspots.name}</span>}
-                    </div>
-                    
-                    <div className="flex items-center gap-4 text-sm text-muted-foreground">
-                      <div className="flex items-center gap-1">
-                        <Clock className="h-3 w-3" />
-                        <span>
-                          {access.total_sessions} sessions, {(access.total_data_used_mb / 1024).toFixed(2)} GB used
-                        </span>
-                      </div>
-                      {access.last_connected_at && (
-                        <span>
-                          Last: {new Date(access.last_connected_at).toLocaleDateString()}
-                        </span>
-                      )}
-                    </div>
-                  </div>
-                </div>
-
-                <div className="flex items-center gap-4">
-                  <div className="text-right space-y-2">
-                    <div className="flex items-center gap-2">
-                      <span className="text-sm text-muted-foreground">Auto-connect:</span>
-                      <Switch
-                        checked={access.auto_connect}
-                        onCheckedChange={(checked) => handleToggleAutoConnect(access.id, checked)}
-                      />
-                    </div>
-                    
-                    <div className="flex items-center gap-2">
-                      <span className="text-sm text-muted-foreground">Bandwidth:</span>
-                      <Input
-                        type="number"
-                        value={access.bandwidth_allocation}
-                        onChange={(e) => handleBandwidthChange(access.id, parseInt(e.target.value) || 5)}
-                        className="w-20 h-8 text-sm"
-                        min="1"
-                        max="100"
-                      />
-                      <span className="text-sm text-muted-foreground">Mbps</span>
-                    </div>
-                  </div>
-
-                  <div className="flex flex-col gap-2">
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => handleToggleBlocked(access.id, !access.is_blocked)}
-                      className={access.is_blocked ? 'text-green-600 hover:text-green-700' : 'text-red-600 hover:text-red-700'}
-                    >
-                      {access.is_blocked ? (
-                        <>
-                          <CheckCircle className="h-3 w-3 mr-1" />
-                          Unblock
-                        </>
-                      ) : (
-                        <>
-                          <XCircle className="h-3 w-3 mr-1" />
-                          Block
-                        </>
-                      )}
-                    </Button>
-                    
-                    <Button variant="outline" size="sm">
-                      <Settings className="h-3 w-3 mr-1" />
-                      Settings
-                    </Button>
-                  </div>
-                </div>
-              </div>
-
-              {access.is_blocked && access.blocked_reason && (
-                <div className="mt-4 p-3 bg-red-50 border border-red-200 rounded-lg">
-                  <p className="text-sm text-red-800">
-                    <strong>Blocked:</strong> {access.blocked_reason}
-                  </p>
-                </div>
-              )}
-            </CardContent>
-          </Card>
-        ))}
-      </div>
-
+      {/* Empty State */}
       {filteredAccess.length === 0 && (
         <div className="text-center py-12">
           <Shield className="h-12 w-12 text-gray-400 mx-auto mb-4" />
