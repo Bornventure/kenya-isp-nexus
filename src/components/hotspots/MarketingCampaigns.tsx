@@ -1,8 +1,8 @@
 
 import React, { useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Switch } from '@/components/ui/switch';
@@ -10,39 +10,32 @@ import {
   Megaphone,
   Target,
   Calendar,
-  TrendingUp,
   Users,
-  Eye,
-  Click,
-  Plus,
-  Edit,
-  Trash2
+  TrendingUp,
+  Mail,
+  MessageSquare,
+  Share2,
+  BarChart3,
+  Settings,
+  Play,
+  Pause,
+  Eye
 } from 'lucide-react';
 import { useQuery } from '@tanstack/react-query';
 
 interface Campaign {
   id: string;
   name: string;
-  type: 'splash_page' | 'popup' | 'banner' | 'email';
-  status: 'active' | 'paused' | 'completed' | 'draft';
+  type: 'email' | 'sms' | 'push' | 'portal_banner';
+  status: 'draft' | 'active' | 'paused' | 'completed';
+  targetAudience: string;
   startDate: string;
   endDate: string;
-  targetAudience: string[];
-  content: {
-    title: string;
-    message: string;
-    imageUrl?: string;
-    ctaText: string;
-    ctaUrl: string;
-  };
-  metrics: {
-    impressions: number;
-    clicks: number;
-    conversions: number;
-    ctr: number;
-  };
-  budget?: number;
-  spend?: number;
+  impressions: number;
+  clicks: number;
+  conversions: number;
+  budget: number;
+  spent: number;
 }
 
 interface MarketingCampaignsProps {
@@ -51,16 +44,12 @@ interface MarketingCampaignsProps {
 
 const MarketingCampaigns: React.FC<MarketingCampaignsProps> = ({ selectedHotspot }) => {
   const [showCreateForm, setShowCreateForm] = useState(false);
-  const [newCampaign, setNewCampaign] = useState<Partial<Campaign>>({
-    type: 'splash_page',
-    status: 'draft',
-    targetAudience: [],
-    content: {
-      title: '',
-      message: '',
-      ctaText: 'Learn More',
-      ctaUrl: ''
-    }
+  const [newCampaign, setNewCampaign] = useState({
+    name: '',
+    type: 'portal_banner' as const,
+    targetAudience: 'all',
+    message: '',
+    budget: 0
   });
 
   const { data: campaigns, isLoading } = useQuery({
@@ -70,97 +59,67 @@ const MarketingCampaigns: React.FC<MarketingCampaignsProps> = ({ selectedHotspot
       const mockCampaigns: Campaign[] = [
         {
           id: '1',
-          name: 'Holiday Special Offer',
-          type: 'splash_page',
+          name: 'Free WiFi Promotion',
+          type: 'portal_banner',
           status: 'active',
+          targetAudience: 'new_users',
           startDate: '2024-01-15',
-          endDate: '2024-01-31',
-          targetAudience: ['new_users', 'frequent_visitors'],
-          content: {
-            title: '50% Off Premium Internet!',
-            message: 'Enjoy blazing fast internet at half the price. Limited time offer for new subscribers.',
-            imageUrl: '/api/placeholder/400/200',
-            ctaText: 'Subscribe Now',
-            ctaUrl: 'https://yoursite.com/subscribe'
-          },
-          metrics: {
-            impressions: 4521,
-            clicks: 687,
-            conversions: 89,
-            ctr: 15.2
-          },
+          endDate: '2024-02-15',
+          impressions: 1250,
+          clicks: 89,
+          conversions: 23,
           budget: 5000,
-          spend: 2340
+          spent: 1200
         },
         {
           id: '2',
-          name: 'Coffee Shop Partnership',
-          type: 'banner',
+          name: 'Premium Upgrade Campaign',
+          type: 'email',
           status: 'active',
+          targetAudience: 'frequent_users',
           startDate: '2024-01-10',
-          endDate: '2024-02-10',
-          targetAudience: ['coffee_shop_visitors'],
-          content: {
-            title: 'Free Coffee with WiFi!',
-            message: 'Show this message at Java House to get a free coffee with any internet purchase.',
-            ctaText: 'Claim Offer',
-            ctaUrl: 'https://javahouse.com/wifi-offer'
-          },
-          metrics: {
-            impressions: 2134,
-            clicks: 321,
-            conversions: 45,
-            ctr: 15.0
-          }
-        },
-        {
-          id: '3',
-          name: 'Student Discount Campaign',
-          type: 'popup',
-          status: 'paused',
-          startDate: '2024-01-01',
-          endDate: '2024-03-31',
-          targetAudience: ['students', 'library_visitors'],
-          content: {
-            title: 'Student Discount Available',
-            message: 'Get 30% off with a valid student ID. Perfect for research and online learning.',
-            ctaText: 'Get Discount',
-            ctaUrl: 'https://yoursite.com/student-discount'
-          },
-          metrics: {
-            impressions: 1876,
-            clicks: 234,
-            conversions: 67,
-            ctr: 12.5
-          },
-          budget: 2000,
-          spend: 890
+          endDate: '2024-01-31',
+          impressions: 856,
+          clicks: 124,
+          conversions: 31,
+          budget: 3000,
+          spent: 890
         }
       ];
 
       return selectedHotspot 
-        ? mockCampaigns 
+        ? mockCampaigns.filter(c => c.id === selectedHotspot)
         : mockCampaigns;
     },
   });
 
+  const handleCreateCampaign = () => {
+    console.log('Creating campaign:', newCampaign);
+    setNewCampaign({
+      name: '',
+      type: 'portal_banner',
+      targetAudience: 'all',
+      message: '',
+      budget: 0
+    });
+    setShowCreateForm(false);
+  };
+
   const getStatusColor = (status: Campaign['status']) => {
     switch (status) {
-      case 'active': return 'bg-green-100 text-green-800';
-      case 'paused': return 'bg-yellow-100 text-yellow-800';
-      case 'completed': return 'bg-blue-100 text-blue-800';
-      case 'draft': return 'bg-gray-100 text-gray-800';
-      default: return 'bg-gray-100 text-gray-800';
+      case 'active': return 'bg-green-500';
+      case 'paused': return 'bg-yellow-500';
+      case 'completed': return 'bg-blue-500';
+      default: return 'bg-gray-500';
     }
   };
 
   const getTypeIcon = (type: Campaign['type']) => {
     switch (type) {
-      case 'splash_page': return <Eye className="h-4 w-4" />;
-      case 'popup': return <Megaphone className="h-4 w-4" />;
-      case 'banner': return <Target className="h-4 w-4" />;
-      case 'email': return <Users className="h-4 w-4" />;
-      default: return <Megaphone className="h-4 w-4" />;
+      case 'email': return <Mail className="h-4 w-4" />;
+      case 'sms': return <MessageSquare className="h-4 w-4" />;
+      case 'push': return <Share2 className="h-4 w-4" />;
+      default: return <Eye className="h-4 w-4" />;
     }
   };
 
@@ -190,152 +149,127 @@ const MarketingCampaigns: React.FC<MarketingCampaignsProps> = ({ selectedHotspot
         <div>
           <h3 className="text-lg font-medium">Marketing Campaigns</h3>
           <p className="text-sm text-muted-foreground">
-            Create and manage promotional campaigns for your hotspot users
+            Create and manage marketing campaigns for hotspot users
           </p>
         </div>
         <Button onClick={() => setShowCreateForm(true)}>
-          <Plus className="h-4 w-4 mr-2" />
+          <Megaphone className="h-4 w-4 mr-2" />
           Create Campaign
         </Button>
       </div>
 
-      {/* Campaign Statistics */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <TrendingUp className="h-5 w-5" />
-            Campaign Performance
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-            <div className="text-center">
-              <p className="text-2xl font-bold text-blue-600">
-                {campaigns?.reduce((sum, c) => sum + c.metrics.impressions, 0).toLocaleString() || 0}
-              </p>
-              <p className="text-sm text-muted-foreground">Total Impressions</p>
+      {/* Campaign Stats */}
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+        <Card>
+          <CardContent className="p-4">
+            <div className="flex items-center gap-2">
+              <Target className="h-5 w-5 text-blue-600" />
+              <div>
+                <p className="text-sm text-muted-foreground">Active Campaigns</p>
+                <p className="text-xl font-bold">{campaigns?.filter(c => c.status === 'active').length || 0}</p>
+              </div>
             </div>
-            <div className="text-center">
-              <p className="text-2xl font-bold text-green-600">
-                {campaigns?.reduce((sum, c) => sum + c.metrics.clicks, 0).toLocaleString() || 0}
-              </p>
-              <p className="text-sm text-muted-foreground">Total Clicks</p>
-            </div>
-            <div className="text-center">
-              <p className="text-2xl font-bold text-purple-600">
-                {campaigns?.reduce((sum, c) => sum + c.metrics.conversions, 0) || 0}
-              </p>
-              <p className="text-sm text-muted-foreground">Conversions</p>
-            </div>
-            <div className="text-center">
-              <p className="text-2xl font-bold text-orange-600">
-                {campaigns?.length ? 
-                  (campaigns.reduce((sum, c) => sum + c.metrics.ctr, 0) / campaigns.length).toFixed(1) 
-                  : 0}%
-              </p>
-              <p className="text-sm text-muted-foreground">Avg CTR</p>
-            </div>
-          </div>
-        </CardContent>
-      </Card>
+          </CardContent>
+        </Card>
 
-      {/* Active Campaigns */}
+        <Card>
+          <CardContent className="p-4">
+            <div className="flex items-center gap-2">
+              <Eye className="h-5 w-5 text-green-600" />
+              <div>
+                <p className="text-sm text-muted-foreground">Total Impressions</p>
+                <p className="text-xl font-bold">
+                  {campaigns?.reduce((sum, c) => sum + c.impressions, 0).toLocaleString() || 0}
+                </p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardContent className="p-4">
+            <div className="flex items-center gap-2">
+              <TrendingUp className="h-5 w-5 text-purple-600" />
+              <div>
+                <p className="text-sm text-muted-foreground">Conversion Rate</p>
+                <p className="text-xl font-bold">
+                  {campaigns?.length ? 
+                    ((campaigns.reduce((sum, c) => sum + c.conversions, 0) / 
+                      campaigns.reduce((sum, c) => sum + c.clicks, 0)) * 100).toFixed(1) + '%'
+                    : '0%'
+                  }
+                </p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardContent className="p-4">
+            <div className="flex items-center gap-2">
+              <BarChart3 className="h-5 w-5 text-orange-600" />
+              <div>
+                <p className="text-sm text-muted-foreground">Total Spent</p>
+                <p className="text-xl font-bold">
+                  KES {campaigns?.reduce((sum, c) => sum + c.spent, 0).toLocaleString() || 0}
+                </p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* Campaign List */}
       <div className="space-y-4">
         {campaigns?.map((campaign) => (
           <Card key={campaign.id}>
-            <CardHeader className="pb-3">
+            <CardHeader>
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-3">
                   {getTypeIcon(campaign.type)}
                   <div>
-                    <CardTitle className="text-lg">{campaign.name}</CardTitle>
+                    <h4 className="font-medium">{campaign.name}</h4>
                     <p className="text-sm text-muted-foreground">
-                      {new Date(campaign.startDate).toLocaleDateString()} - {new Date(campaign.endDate).toLocaleDateString()}
+                      {campaign.startDate} - {campaign.endDate}
                     </p>
                   </div>
                 </div>
                 <div className="flex items-center gap-2">
-                  <Badge className={getStatusColor(campaign.status)}>
+                  <Badge variant="secondary" className="capitalize">
+                    <div className={`w-2 h-2 rounded-full mr-2 ${getStatusColor(campaign.status)}`} />
                     {campaign.status}
                   </Badge>
                   <Button variant="outline" size="sm">
-                    <Edit className="h-4 w-4" />
-                  </Button>
-                  <Button variant="outline" size="sm">
-                    <Trash2 className="h-4 w-4" />
+                    <Settings className="h-4 w-4" />
                   </Button>
                 </div>
               </div>
             </CardHeader>
             <CardContent>
-              <div className="space-y-4">
-                {/* Campaign Content Preview */}
-                <div className="p-4 border rounded-lg bg-gray-50">
-                  <h4 className="font-medium text-lg">{campaign.content.title}</h4>
-                  <p className="text-sm text-muted-foreground mt-1">{campaign.content.message}</p>
-                  <Button variant="outline" size="sm" className="mt-2">
-                    {campaign.content.ctaText}
-                  </Button>
-                </div>
-
-                {/* Metrics */}
-                <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                  <div className="text-center">
-                    <div className="flex items-center justify-center gap-1">
-                      <Eye className="h-4 w-4 text-blue-600" />
-                      <span className="text-lg font-bold text-blue-600">
-                        {campaign.metrics.impressions.toLocaleString()}
-                      </span>
-                    </div>
-                    <p className="text-xs text-muted-foreground">Impressions</p>
-                  </div>
-                  <div className="text-center">
-                    <div className="flex items-center justify-center gap-1">
-                      <Click className="h-4 w-4 text-green-600" />
-                      <span className="text-lg font-bold text-green-600">
-                        {campaign.metrics.clicks}
-                      </span>
-                    </div>
-                    <p className="text-xs text-muted-foreground">Clicks</p>
-                  </div>
-                  <div className="text-center">
-                    <div className="flex items-center justify-center gap-1">
-                      <Target className="h-4 w-4 text-purple-600" />
-                      <span className="text-lg font-bold text-purple-600">
-                        {campaign.metrics.conversions}
-                      </span>
-                    </div>
-                    <p className="text-xs text-muted-foreground">Conversions</p>
-                  </div>
-                  <div className="text-center">
-                    <div className="flex items-center justify-center gap-1">
-                      <TrendingUp className="h-4 w-4 text-orange-600" />
-                      <span className="text-lg font-bold text-orange-600">
-                        {campaign.metrics.ctr}%
-                      </span>
-                    </div>
-                    <p className="text-xs text-muted-foreground">CTR</p>
-                  </div>
-                </div>
-
-                {/* Budget Information */}
-                {campaign.budget && (
-                  <div className="flex items-center justify-between text-sm">
-                    <span className="text-muted-foreground">Budget:</span>
-                    <span>KES {campaign.spend?.toLocaleString()} / KES {campaign.budget.toLocaleString()}</span>
-                  </div>
-                )}
-
-                {/* Target Audience */}
+              <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
                 <div>
-                  <p className="text-sm font-medium mb-1">Target Audience:</p>
-                  <div className="flex flex-wrap gap-1">
-                    {campaign.targetAudience.map((audience) => (
-                      <Badge key={audience} variant="outline" className="text-xs">
-                        {audience.replace('_', ' ')}
-                      </Badge>
-                    ))}
-                  </div>
+                  <p className="text-sm text-muted-foreground">Impressions</p>
+                  <p className="font-medium">{campaign.impressions.toLocaleString()}</p>
+                </div>
+                <div>
+                  <p className="text-sm text-muted-foreground">Clicks</p>
+                  <p className="font-medium">{campaign.clicks}</p>
+                </div>
+                <div>
+                  <p className="text-sm text-muted-foreground">Conversions</p>
+                  <p className="font-medium">{campaign.conversions}</p>
+                </div>
+                <div>
+                  <p className="text-sm text-muted-foreground">CTR</p>
+                  <p className="font-medium">
+                    {((campaign.clicks / campaign.impressions) * 100).toFixed(1)}%
+                  </p>
+                </div>
+                <div>
+                  <p className="text-sm text-muted-foreground">Budget Used</p>
+                  <p className="font-medium">
+                    {((campaign.spent / campaign.budget) * 100).toFixed(0)}%
+                  </p>
                 </div>
               </div>
             </CardContent>
@@ -349,110 +283,59 @@ const MarketingCampaigns: React.FC<MarketingCampaignsProps> = ({ selectedHotspot
           <CardHeader>
             <CardTitle>Create New Campaign</CardTitle>
           </CardHeader>
-          <CardContent>
-            <div className="space-y-4">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div>
-                  <label className="text-sm font-medium">Campaign Name</label>
-                  <Input
-                    value={newCampaign.name || ''}
-                    onChange={(e) => setNewCampaign(prev => ({ ...prev, name: e.target.value }))}
-                    placeholder="Enter campaign name"
-                    className="mt-1"
-                  />
-                </div>
-                <div>
-                  <label className="text-sm font-medium">Campaign Type</label>
-                  <select
-                    value={newCampaign.type}
-                    onChange={(e) => setNewCampaign(prev => ({ ...prev, type: e.target.value as Campaign['type'] }))}
-                    className="mt-1 w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  >
-                    <option value="splash_page">Splash Page</option>
-                    <option value="popup">Popup</option>
-                    <option value="banner">Banner</option>
-                    <option value="email">Email</option>
-                  </select>
-                </div>
-              </div>
-
+          <CardContent className="space-y-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
-                <label className="text-sm font-medium">Campaign Title</label>
+                <label className="text-sm font-medium">Campaign Name</label>
                 <Input
-                  value={newCampaign.content?.title || ''}
-                  onChange={(e) => setNewCampaign(prev => ({ 
-                    ...prev, 
-                    content: { ...prev.content!, title: e.target.value }
-                  }))}
-                  placeholder="Enter campaign title"
-                  className="mt-1"
+                  value={newCampaign.name}
+                  onChange={(e) => setNewCampaign({...newCampaign, name: e.target.value})}
+                  placeholder="Enter campaign name"
                 />
               </div>
-
               <div>
-                <label className="text-sm font-medium">Campaign Message</label>
-                <Textarea
-                  value={newCampaign.content?.message || ''}
-                  onChange={(e) => setNewCampaign(prev => ({ 
-                    ...prev, 
-                    content: { ...prev.content!, message: e.target.value }
-                  }))}
-                  placeholder="Enter campaign message"
-                  className="mt-1"
-                />
+                <label className="text-sm font-medium">Campaign Type</label>
+                <select
+                  value={newCampaign.type}
+                  onChange={(e) => setNewCampaign({...newCampaign, type: e.target.value as any})}
+                  className="w-full p-2 border rounded"
+                >
+                  <option value="portal_banner">Portal Banner</option>
+                  <option value="email">Email</option>
+                  <option value="sms">SMS</option>
+                  <option value="push">Push Notification</option>
+                </select>
               </div>
+            </div>
+            
+            <div>
+              <label className="text-sm font-medium">Message</label>
+              <Textarea
+                value={newCampaign.message}
+                onChange={(e) => setNewCampaign({...newCampaign, message: e.target.value})}
+                placeholder="Enter campaign message"
+              />
+            </div>
 
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div>
-                  <label className="text-sm font-medium">Call-to-Action Text</label>
-                  <Input
-                    value={newCampaign.content?.ctaText || ''}
-                    onChange={(e) => setNewCampaign(prev => ({ 
-                      ...prev, 
-                      content: { ...prev.content!, ctaText: e.target.value }
-                    }))}
-                    placeholder="e.g., Learn More, Subscribe Now"
-                    className="mt-1"
-                  />
-                </div>
-                <div>
-                  <label className="text-sm font-medium">Call-to-Action URL</label>
-                  <Input
-                    value={newCampaign.content?.ctaUrl || ''}
-                    onChange={(e) => setNewCampaign(prev => ({ 
-                      ...prev, 
-                      content: { ...prev.content!, ctaUrl: e.target.value }
-                    }))}
-                    placeholder="https://yoursite.com/offer"
-                    className="mt-1"
-                  />
-                </div>
-              </div>
-
-              <div className="flex items-center gap-4 pt-4">
-                <Button onClick={() => setShowCreateForm(false)} variant="outline">
-                  Cancel
-                </Button>
-                <Button>
-                  Create Campaign
-                </Button>
-              </div>
+            <div className="flex items-center gap-4">
+              <Button onClick={handleCreateCampaign}>
+                Create Campaign
+              </Button>
+              <Button variant="outline" onClick={() => setShowCreateForm(false)}>
+                Cancel
+              </Button>
             </div>
           </CardContent>
         </Card>
       )}
 
-      {(!campaigns || campaigns.length === 0) && !showCreateForm && (
+      {(!campaigns || campaigns.length === 0) && (
         <div className="text-center py-12">
           <Megaphone className="h-12 w-12 text-gray-400 mx-auto mb-4" />
           <h3 className="text-lg font-medium text-gray-900 mb-2">No campaigns yet</h3>
-          <p className="text-gray-500 mb-4">
-            Create your first marketing campaign to engage with hotspot users.
+          <p className="text-gray-500">
+            Create your first marketing campaign to engage hotspot users.
           </p>
-          <Button onClick={() => setShowCreateForm(true)}>
-            <Plus className="h-4 w-4 mr-2" />
-            Create Campaign
-          </Button>
         </div>
       )}
     </div>
