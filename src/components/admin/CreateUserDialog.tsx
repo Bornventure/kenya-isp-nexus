@@ -1,7 +1,6 @@
 
 import React, { useState } from 'react';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
-import { ScrollArea } from '@/components/ui/scroll-area';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -73,50 +72,52 @@ const CreateUserDialog: React.FC<CreateUserDialogProps> = ({ onCreateUser, isCre
           Create New User
         </Button>
       </DialogTrigger>
-      <DialogContent className="w-full max-w-md mx-4 max-h-[90vh] flex flex-col">
-        <DialogHeader className="flex-shrink-0">
+      <DialogContent className="max-w-4xl w-full mx-4 max-h-[95vh] overflow-y-auto">
+        <DialogHeader>
           <DialogTitle>Create New User Account</DialogTitle>
           <DialogDescription>
             Create a complete user account with authentication credentials and profile. Login credentials will be sent to the user via email and SMS.
           </DialogDescription>
         </DialogHeader>
         
-        <ScrollArea className="flex-1 -mx-6 px-6">
-          <div className="space-y-6">
-            <div className="bg-green-50 border border-green-200 rounded-md p-3">
-              <div className="flex">
-                <CheckCircle className="h-5 w-5 text-green-600 mt-0.5 mr-2 flex-shrink-0" />
-                <div className="text-sm text-green-700">
-                  <p className="font-medium">Complete Integration:</p>
-                  <p>This creates both the authentication account and user profile. Login credentials will be automatically sent to the user's email and phone.</p>
-                </div>
+        <div className="py-4">
+          <div className="bg-green-50 border border-green-200 rounded-md p-3 mb-6">
+            <div className="flex">
+              <CheckCircle className="h-5 w-5 text-green-600 mt-0.5 mr-2 flex-shrink-0" />
+              <div className="text-sm text-green-700">
+                <p className="font-medium">Complete Integration:</p>
+                <p>This creates both the authentication account and user profile. Login credentials will be automatically sent to the user's email and phone.</p>
+              </div>
+            </div>
+          </div>
+
+          <form onSubmit={handleSubmit} className="space-y-6">
+            {/* Personal Information Row */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <div className="space-y-2">
+                <Label htmlFor="first_name">First Name *</Label>
+                <Input
+                  id="first_name"
+                  value={newUser.first_name}
+                  onChange={(e) => setNewUser({ ...newUser, first_name: e.target.value })}
+                  required
+                  className="w-full"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="last_name">Last Name *</Label>
+                <Input
+                  id="last_name"
+                  value={newUser.last_name}
+                  onChange={(e) => setNewUser({ ...newUser, last_name: e.target.value })}
+                  required
+                  className="w-full"
+                />
               </div>
             </div>
 
-            <form onSubmit={handleSubmit} className="space-y-4">
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label htmlFor="first_name">First Name *</Label>
-                  <Input
-                    id="first_name"
-                    value={newUser.first_name}
-                    onChange={(e) => setNewUser({ ...newUser, first_name: e.target.value })}
-                    required
-                    className="w-full"
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="last_name">Last Name *</Label>
-                  <Input
-                    id="last_name"
-                    value={newUser.last_name}
-                    onChange={(e) => setNewUser({ ...newUser, last_name: e.target.value })}
-                    required
-                    className="w-full"
-                  />
-                </div>
-              </div>
-
+            {/* Contact Information Row */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               <div className="space-y-2">
                 <Label htmlFor="email">Email Address *</Label>
                 <Input
@@ -129,7 +130,6 @@ const CreateUserDialog: React.FC<CreateUserDialogProps> = ({ onCreateUser, isCre
                   className="w-full"
                 />
               </div>
-
               <div className="space-y-2">
                 <Label htmlFor="phone">Phone Number</Label>
                 <Input
@@ -140,7 +140,10 @@ const CreateUserDialog: React.FC<CreateUserDialogProps> = ({ onCreateUser, isCre
                   className="w-full"
                 />
               </div>
+            </div>
 
+            {/* Authentication & Role Row */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               <div className="space-y-2">
                 <Label htmlFor="password">Password *</Label>
                 <div className="flex gap-2">
@@ -172,7 +175,6 @@ const CreateUserDialog: React.FC<CreateUserDialogProps> = ({ onCreateUser, isCre
                   Password will be sent to user's email and phone automatically
                 </p>
               </div>
-
               <div className="space-y-2">
                 <Label htmlFor="role">Role *</Label>
                 <Select value={newUser.role} onValueChange={(value: any) => setNewUser({ ...newUser, role: value })}>
@@ -190,18 +192,16 @@ const CreateUserDialog: React.FC<CreateUserDialogProps> = ({ onCreateUser, isCre
                   </SelectContent>
                 </Select>
               </div>
+            </div>
+          </form>
+        </div>
 
-              <div className="pb-4"></div>
-            </form>
-          </div>
-        </ScrollArea>
-
-        <DialogFooter className="flex-shrink-0 pt-4">
+        <DialogFooter>
           <Button 
             type="submit" 
             disabled={isCreating}
             onClick={handleSubmit}
-            className="w-full"
+            className="w-full md:w-auto"
           >
             {isCreating ? 'Creating Account...' : 'Create User Account'}
           </Button>
