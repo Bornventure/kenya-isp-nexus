@@ -59,40 +59,20 @@ const HotspotAnalytics: React.FC<HotspotAnalyticsProps> = ({
   const aggregatedData = filteredAnalytics.reduce((acc, item) => {
     acc.totalSessions += item.total_sessions;
     acc.totalRevenue += item.revenue_generated;
-    acc.totalDataUsed += item.total_data_used_gb;
-    acc.avgUptime += item.uptime_percentage;
+    acc.totalDataUsed += item.total_data_mb;
     return acc;
   }, {
     totalSessions: 0,
     totalRevenue: 0,
-    totalDataUsed: 0,
-    avgUptime: 0
+    totalDataUsed: 0
   });
-
-  if (filteredAnalytics.length > 0) {
-    aggregatedData.avgUptime = aggregatedData.avgUptime / filteredAnalytics.length;
-  }
 
   const chartData = filteredAnalytics.map(item => ({
     date: format(new Date(item.date), 'MMM dd'),
     sessions: item.total_sessions,
     revenue: item.revenue_generated,
-    dataUsed: item.total_data_used_gb,
-    uptime: item.uptime_percentage
+    dataUsed: item.total_data_mb / 1024, // Convert MB to GB for display
   }));
-
-  const sessionTypeData = filteredAnalytics.reduce((acc, item) => {
-    acc.client += item.client_sessions;
-    acc.guest += item.guest_sessions;
-    acc.voucher += item.voucher_sessions;
-    return acc;
-  }, { client: 0, guest: 0, voucher: 0 });
-
-  const pieData = [
-    { name: 'Client Sessions', value: sessionTypeData.client, color: COLORS[0] },
-    { name: 'Guest Sessions', value: sessionTypeData.guest, color: COLORS[1] },
-    { name: 'Voucher Sessions', value: sessionTypeData.voucher, color: COLORS[2] }
-  ].filter(item => item.value > 0);
 
   if (isLoading) {
     return (
@@ -157,7 +137,7 @@ const HotspotAnalytics: React.FC<HotspotAnalyticsProps> = ({
       </div>
 
       {/* Summary Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
         <Card>
           <CardContent className="p-6">
             <div className="flex items-center justify-between">
@@ -187,21 +167,9 @@ const HotspotAnalytics: React.FC<HotspotAnalyticsProps> = ({
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm font-medium text-muted-foreground">Data Usage</p>
-                <p className="text-2xl font-bold">{aggregatedData.totalDataUsed.toFixed(1)} GB</p>
+                <p className="text-2xl font-bold">{aggregatedData.totalDataUsed.toFixed(1)} MB</p>
               </div>
               <TrendingUp className="h-8 w-8 text-orange-600" />
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardContent className="p-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm font-medium text-muted-foreground">Avg Uptime</p>
-                <p className="text-2xl font-bold">{aggregatedData.avgUptime.toFixed(1)}%</p>
-              </div>
-              <Wifi className="h-8 w-8 text-purple-600" />
             </div>
           </CardContent>
         </Card>
@@ -227,33 +195,6 @@ const HotspotAnalytics: React.FC<HotspotAnalyticsProps> = ({
           </CardContent>
         </Card>
 
-        {/* Session Types Distribution */}
-        <Card>
-          <CardHeader>
-            <CardTitle>Session Types Distribution</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <ResponsiveContainer width="100%" height={300}>
-              <PieChart>
-                <Pie
-                  data={pieData}
-                  cx="50%"
-                  cy="50%"
-                  outerRadius={80}
-                  fill="#8884d8"
-                  dataKey="value"
-                  label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`}
-                >
-                  {pieData.map((entry, index) => (
-                    <Cell key={`cell-${index}`} fill={entry.color} />
-                  ))}
-                </Pie>
-                <Tooltip />
-              </PieChart>
-            </ResponsiveContainer>
-          </CardContent>
-        </Card>
-
         {/* Revenue Trend */}
         <Card>
           <CardHeader>
@@ -267,24 +208,6 @@ const HotspotAnalytics: React.FC<HotspotAnalyticsProps> = ({
                 <YAxis />
                 <Tooltip formatter={(value) => [`KES ${value}`, 'Revenue']} />
                 <Bar dataKey="revenue" fill="#00C49F" />
-              </BarChart>
-            </ResponsiveContainer>
-          </CardContent>
-        </Card>
-
-        {/* Data Usage */}
-        <Card>
-          <CardHeader>
-            <CardTitle>Data Usage (GB)</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <ResponsiveContainer width="100%" height={300}>
-              <BarChart data={chartData}>
-                <CartesianGrid strokeDasharray="3 3" />
-                <XAxis dataKey="date" />
-                <YAxis />
-                <Tooltip formatter={(value) => [`${value} GB`, 'Data Used']} />
-                <Bar dataKey="dataUsed" fill="#FFBB28" />
               </BarChart>
             </ResponsiveContainer>
           </CardContent>
@@ -305,9 +228,8 @@ const HotspotAnalytics: React.FC<HotspotAnalyticsProps> = ({
                   <th className="text-left p-2">Hotspot</th>
                   <th className="text-right p-2">Sessions</th>
                   <th className="text-right p-2">Unique Users</th>
-                  <th className="text-right p-2">Data (GB)</th>
+                  <th className="text-right p-2">Data (MB)</th>
                   <th className="text-right p-2">Revenue</th>
-                  <th className="text-right p-2">Uptime</th>
                 </tr>
               </thead>
               <tbody>
@@ -317,9 +239,8 @@ const HotspotAnalytics: React.FC<HotspotAnalyticsProps> = ({
                     <td className="p-2">{item.hotspots?.name || 'Unknown'}</td>
                     <td className="text-right p-2">{item.total_sessions}</td>
                     <td className="text-right p-2">{item.unique_users}</td>
-                    <td className="text-right p-2">{item.total_data_used_gb.toFixed(1)}</td>
+                    <td className="text-right p-2">{item.total_data_mb.toFixed(1)}</td>
                     <td className="text-right p-2">KES {item.revenue_generated.toFixed(2)}</td>
-                    <td className="text-right p-2">{item.uptime_percentage.toFixed(1)}%</td>
                   </tr>
                 ))}
               </tbody>

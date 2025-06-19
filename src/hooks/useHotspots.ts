@@ -11,21 +11,28 @@ export interface Hotspot {
   latitude: number;
   longitude: number;
   status: 'active' | 'inactive' | 'maintenance';
-  device_count: number;
-  max_capacity: number;
-  current_users: number;
-  bandwidth_limit_mbps: number;
+  bandwidth_limit: number;
+  max_concurrent_users: number;
+  coverage_radius: number;
   ssid: string;
-  security_type: string;
+  password?: string;
+  mac_address?: string;
+  ip_address?: string;
+  hardware_details?: any;
+  installation_date?: string;
+  last_maintenance_date?: string;
+  is_active: boolean;
   created_at: string;
   isp_company_id: string;
+  updated_at: string;
 }
 
 export interface HotspotSession {
   id: string;
   hotspot_id: string;
   client_id: string | null;
-  device_mac: string;
+  mac_address: string;
+  ip_address?: string;
   session_status: 'active' | 'inactive' | 'expired';
   start_time: string;
   end_time: string | null;
@@ -56,6 +63,10 @@ export interface HotspotAnalytics {
   peak_concurrent_users: number;
   revenue_generated: number;
   created_at: string;
+  hotspots?: {
+    name: string;
+    location: string;
+  };
 }
 
 export const useHotspots = () => {
@@ -97,7 +108,6 @@ export const useHotspotSessions = () => {
 
       if (error) throw error;
       
-      // Transform the data to match our interface since clients relation might not exist
       return (data as any[]).map(session => ({
         ...session,
         clients: session.client_id ? { name: 'Unknown Client', phone: 'N/A' } : null
@@ -132,13 +142,81 @@ export const useHotspotAnalytics = () => {
   });
 };
 
+export const useHotspotMutations = () => {
+  const { toast } = useToast();
+  const queryClient = useQueryClient();
+
+  const terminateSession = useMutation({
+    mutationFn: async (sessionId: string) => {
+      const { data, error } = await supabase
+        .from('hotspot_sessions')
+        .update({ 
+          session_status: 'expired',
+          end_time: new Date().toISOString()
+        })
+        .eq('id', sessionId)
+        .select()
+        .single();
+
+      if (error) throw error;
+      return data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['hotspot-sessions'] });
+      toast({
+        title: "Success",
+        description: "Session terminated successfully",
+      });
+    },
+    onError: (error) => {
+      console.error('Error terminating session:', error);
+      toast({
+        title: "Error",
+        description: "Failed to terminate session",
+        variant: "destructive",
+      });
+    }
+  });
+
+  const deleteHotspot = useMutation({
+    mutationFn: async (hotspotId: string) => {
+      const { error } = await supabase
+        .from('hotspots')
+        .delete()
+        .eq('id', hotspotId);
+
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['hotspots'] });
+      toast({
+        title: "Success",
+        description: "Hotspot deleted successfully",
+      });
+    },
+    onError: (error) => {
+      console.error('Error deleting hotspot:', error);
+      toast({
+        title: "Error",
+        description: "Failed to delete hotspot",
+        variant: "destructive",
+      });
+    }
+  });
+
+  return {
+    terminateSession,
+    deleteHotspot
+  };
+};
+
 export const useCreateHotspot = () => {
   const { profile } = useAuth();
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: async (hotspotData: Omit<Hotspot, 'id' | 'created_at' | 'isp_company_id'>) => {
+    mutationFn: async (hotspotData: Omit<Hotspot, 'id' | 'created_at' | 'isp_company_id' | 'updated_at'>) => {
       const { data, error } = await supabase
         .from('hotspots')
         .insert({

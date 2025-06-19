@@ -25,7 +25,7 @@ const HotspotDashboard: React.FC<HotspotDashboardProps> = ({
   );
 
   const totalRevenue = todayAnalytics.reduce((sum, a) => sum + (a.revenue_generated || 0), 0);
-  const totalDataUsed = todayAnalytics.reduce((sum, a) => sum + (a.total_data_used_gb || 0), 0);
+  const totalDataUsed = todayAnalytics.reduce((sum, a) => sum + (a.total_data_mb || 0), 0);
 
   if (isLoading) {
     return (
@@ -93,7 +93,7 @@ const HotspotDashboard: React.FC<HotspotDashboardProps> = ({
             <Activity className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{totalDataUsed.toFixed(1)} GB</div>
+            <div className="text-2xl font-bold">{(totalDataUsed / 1024).toFixed(1)} GB</div>
             <p className="text-xs text-muted-foreground">
               today's total
             </p>

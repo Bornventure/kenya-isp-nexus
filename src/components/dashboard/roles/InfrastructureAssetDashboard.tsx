@@ -3,32 +3,30 @@ import React from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { 
-  Package, 
-  Laptop, 
   Wrench, 
+  Package, 
+  TrendingDown, 
   AlertTriangle,
-  CheckCircle,
-  Clock,
-  TrendingDown,
-  Building2
+  ShoppingCart,
+  Calendar,
+  DollarSign,
+  BarChart3
 } from 'lucide-react';
 import { useEquipment } from '@/hooks/useEquipment';
-import { useInventory } from '@/hooks/useInventory';
 
 const InfrastructureAssetDashboard = () => {
-  const { data: equipment } = useEquipment();
-  const { data: inventory } = useInventory();
+  const { equipment, isLoading } = useEquipment();
 
-  const totalAssets = (equipment?.length || 0) + (inventory?.length || 0);
-  const deployedEquipment = equipment?.filter(e => e.status === 'active').length || 0;
-  const maintenanceItems = equipment?.filter(e => e.status === 'maintenance').length || 0;
-  const lowStockItems = inventory?.filter(i => i.quantity <= 5).length || 0;
+  const availableEquipment = equipment.filter(e => e.status === 'available').length;
+  const deployedEquipment = equipment.filter(e => e.status === 'deployed').length;
+  const maintenanceEquipment = equipment.filter(e => e.status === 'maintenance').length;
+  const totalValue = equipment.reduce((sum, e) => sum + (e.purchase_cost || 0), 0);
 
   return (
     <div className="space-y-6">
       <div className="flex items-center gap-2">
-        <Building2 className="h-6 w-6 text-teal-600" />
-        <h1 className="text-3xl font-bold">Infrastructure & Asset Management Dashboard</h1>
+        <Wrench className="h-6 w-6 text-teal-600" />
+        <h1 className="text-3xl font-bold">Infrastructure & Asset Management</h1>
       </div>
 
       {/* Asset Metrics */}
@@ -37,22 +35,22 @@ const InfrastructureAssetDashboard = () => {
           <CardContent className="p-6">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm font-medium text-muted-foreground">Total Assets</p>
-                <p className="text-2xl font-bold text-teal-600">{totalAssets}</p>
+                <p className="text-sm font-medium text-muted-foreground">Available Equipment</p>
+                <p className="text-2xl font-bold text-teal-600">{availableEquipment}</p>
               </div>
               <Package className="h-8 w-8 text-teal-600" />
             </div>
           </CardContent>
         </Card>
 
-        <Card className="border-l-4 border-l-green-500">
+        <Card className="border-l-4 border-l-blue-500">
           <CardContent className="p-6">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm font-medium text-muted-foreground">Deployed Equipment</p>
-                <p className="text-2xl font-bold text-green-600">{deployedEquipment}</p>
+                <p className="text-sm font-medium text-muted-foreground">Deployed</p>
+                <p className="text-2xl font-bold text-blue-600">{deployedEquipment}</p>
               </div>
-              <Laptop className="h-8 w-8 text-green-600" />
+              <BarChart3 className="h-8 w-8 text-blue-600" />
             </div>
           </CardContent>
         </Card>
@@ -61,54 +59,52 @@ const InfrastructureAssetDashboard = () => {
           <CardContent className="p-6">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm font-medium text-muted-foreground">In Maintenance</p>
-                <p className="text-2xl font-bold text-yellow-600">{maintenanceItems}</p>
+                <p className="text-sm font-medium text-muted-foreground">Under Maintenance</p>
+                <p className="text-2xl font-bold text-yellow-600">{maintenanceEquipment}</p>
               </div>
-              <Wrench className="h-8 w-8 text-yellow-600" />
+              <AlertTriangle className="h-8 w-8 text-yellow-600" />
             </div>
           </CardContent>
         </Card>
 
-        <Card className="border-l-4 border-l-red-500">
+        <Card className="border-l-4 border-l-green-500">
           <CardContent className="p-6">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm font-medium text-muted-foreground">Low Stock Items</p>
-                <p className="text-2xl font-bold text-red-600">{lowStockItems}</p>
+                <p className="text-sm font-medium text-muted-foreground">Total Asset Value</p>
+                <p className="text-2xl font-bold text-green-600">KES {totalValue.toLocaleString()}</p>
               </div>
-              <AlertTriangle className="h-8 w-8 text-red-600" />
+              <DollarSign className="h-8 w-8 text-green-600" />
             </div>
           </CardContent>
         </Card>
       </div>
 
-      {/* Equipment Status */}
+      {/* Recent Equipment Activity */}
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
-            <Laptop className="h-5 w-5 text-teal-600" />
-            Equipment Status Overview
+            <Package className="h-5 w-5 text-teal-600" />
+            Recent Equipment Activity
           </CardTitle>
         </CardHeader>
         <CardContent>
           <div className="space-y-3">
-            {equipment?.slice(0, 5).map((item) => (
+            {equipment.slice(0, 5).map((item) => (
               <div key={item.id} className="flex items-center justify-between p-3 bg-teal-50 rounded-lg border border-teal-100">
                 <div className="flex items-center gap-3">
-                  <div className={`w-3 h-3 rounded-full ${
-                    item.status === 'active' ? 'bg-green-500' :
-                    item.status === 'maintenance' ? 'bg-yellow-500' : 'bg-red-500'
-                  }`}></div>
+                  <div className="w-2 h-2 bg-teal-500 rounded-full"></div>
                   <div>
-                    <p className="font-medium">{item.model}</p>
+                    <p className="font-medium">{item.brand} {item.model}</p>
                     <p className="text-sm text-muted-foreground">
                       {item.type} • Serial: {item.serial_number}
                     </p>
                   </div>
                 </div>
                 <Badge 
-                  variant={item.status === 'active' ? 'default' : 'secondary'}
-                  className={item.status === 'active' ? 'bg-teal-100 text-teal-800 border-teal-200' : ''}
+                  variant={item.status === 'available' ? 'default' : 
+                          item.status === 'deployed' ? 'secondary' : 'destructive'}
+                  className={item.status === 'available' ? 'bg-teal-100 text-teal-800 border-teal-200' : ''}
                 >
                   {item.status}
                 </Badge>
@@ -118,99 +114,46 @@ const InfrastructureAssetDashboard = () => {
         </CardContent>
       </Card>
 
-      {/* Inventory Alerts */}
+      {/* Asset Management Overview */}
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
-            <TrendingDown className="h-5 w-5 text-teal-600" />
-            Inventory Alerts
+            <Wrench className="h-5 w-5 text-teal-600" />
+            Asset Management Tasks
           </CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="space-y-3">
-            {inventory?.filter(i => i.quantity <= 5).slice(0, 5).map((item) => (
-              <div key={item.id} className="flex items-center justify-between p-3 bg-teal-50 rounded-lg border border-teal-100">
-                <div className="flex items-center gap-3">
-                  <AlertTriangle className="w-5 h-5 text-red-500" />
-                  <div>
-                    <p className="font-medium">{item.name}</p>
-                    <p className="text-sm text-muted-foreground">
-                      {item.category} • {item.manufacturer}
-                    </p>
-                  </div>
-                </div>
-                <div className="text-right">
-                  <p className="font-bold text-red-600">{item.quantity} left</p>
-                  <Badge variant="destructive" className="bg-teal-100 text-red-800 border-red-200">
-                    Low Stock
-                  </Badge>
-                </div>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div className="flex items-center gap-3 p-3 bg-teal-50 rounded-lg border border-teal-100">
+              <div className="w-3 h-3 bg-blue-500 rounded-full"></div>
+              <div>
+                <p className="font-medium">Pending Deployments</p>
+                <p className="text-sm text-muted-foreground">
+                  {equipment.filter(e => e.approval_status === 'pending').length} items awaiting deployment
+                </p>
               </div>
-            ))}
+            </div>
+            <div className="flex items-center gap-3 p-3 bg-teal-50 rounded-lg border border-teal-100">
+              <div className="w-3 h-3 bg-yellow-500 rounded-full"></div>
+              <div>
+                <p className="font-medium">Maintenance Due</p>
+                <p className="text-sm text-muted-foreground">
+                  {maintenanceEquipment} items need attention
+                </p>
+              </div>
+            </div>
+            <div className="flex items-center gap-3 p-3 bg-teal-50 rounded-lg border border-teal-100">
+              <div className="w-3 h-3 bg-green-500 rounded-full"></div>
+              <div>
+                <p className="font-medium">Inventory Levels</p>
+                <p className="text-sm text-muted-foreground">
+                  {availableEquipment} items in stock
+                </p>
+              </div>
+            </div>
           </div>
         </CardContent>
       </Card>
-
-      {/* Maintenance Schedule */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <Clock className="h-5 w-5 text-teal-600" />
-              Upcoming Maintenance
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-3">
-              <div className="flex items-center gap-3 p-3 bg-teal-50 rounded-lg border border-teal-100">
-                <Clock className="w-5 h-5 text-orange-500" />
-                <div>
-                  <p className="font-medium">Router Firmware Update</p>
-                  <p className="text-sm text-muted-foreground">Scheduled: Tomorrow</p>
-                </div>
-              </div>
-              <div className="flex items-center gap-3 p-3 bg-teal-50 rounded-lg border border-teal-100">
-                <Wrench className="w-5 h-5 text-blue-500" />
-                <div>
-                  <p className="font-medium">Access Point Inspection</p>
-                  <p className="text-sm text-muted-foreground">Scheduled: Next Week</p>
-                </div>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <CheckCircle className="h-5 w-5 text-teal-600" />
-              Asset Health Summary
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-4">
-              <div>
-                <div className="flex justify-between text-sm mb-1">
-                  <span>Operational Assets</span>
-                  <span>92%</span>
-                </div>
-                <div className="w-full bg-gray-200 rounded-full h-2">
-                  <div className="bg-teal-500 h-2 rounded-full" style={{width: '92%'}}></div>
-                </div>
-              </div>
-              <div>
-                <div className="flex justify-between text-sm mb-1">
-                  <span>Asset Utilization</span>
-                  <span>78%</span>
-                </div>
-                <div className="w-full bg-gray-200 rounded-full h-2">
-                  <div className="bg-teal-500 h-2 rounded-full" style={{width: '78%'}}></div>
-                </div>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-      </div>
     </div>
   );
 };
