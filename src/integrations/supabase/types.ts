@@ -903,7 +903,7 @@ export type Database = {
           ip_address: unknown | null
           is_network_equipment: boolean | null
           isp_company_id: string | null
-          item_id: string
+          item_id: string | null
           item_sku: string | null
           last_maintenance_date: string | null
           length_meters: number | null
@@ -943,7 +943,7 @@ export type Database = {
           ip_address?: unknown | null
           is_network_equipment?: boolean | null
           isp_company_id?: string | null
-          item_id: string
+          item_id?: string | null
           item_sku?: string | null
           last_maintenance_date?: string | null
           length_meters?: number | null
@@ -983,7 +983,7 @@ export type Database = {
           ip_address?: unknown | null
           is_network_equipment?: boolean | null
           isp_company_id?: string | null
-          item_id?: string
+          item_id?: string | null
           item_sku?: string | null
           last_maintenance_date?: string | null
           length_meters?: number | null
