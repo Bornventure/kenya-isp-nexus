@@ -56,6 +56,9 @@ export interface InventoryStats {
   byCategory: Record<string, number>;
 }
 
+// Type for creating inventory items (excludes auto-generated fields)
+type CreateInventoryItemData = Omit<InventoryItem, 'id' | 'created_at' | 'updated_at' | 'item_id' | 'clients'>;
+
 // Main hook for inventory operations
 export const useInventory = () => {
   const { profile } = useAuth();
@@ -86,7 +89,7 @@ export const useInventory = () => {
   });
 
   const createItemMutation = useMutation({
-    mutationFn: async (itemData: Omit<InventoryItem, 'id' | 'created_at' | 'updated_at' | 'item_id' | 'clients'>) => {
+    mutationFn: async (itemData: CreateInventoryItemData) => {
       if (!profile?.isp_company_id) {
         throw new Error('No ISP company associated with user');
       }
@@ -432,7 +435,7 @@ export const useCreateInventoryItem = () => {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: async (itemData: Omit<InventoryItem, 'id' | 'created_at' | 'updated_at' | 'item_id' | 'clients'>) => {
+    mutationFn: async (itemData: CreateInventoryItemData) => {
       if (!profile?.isp_company_id) {
         throw new Error('No ISP company associated with user');
       }
