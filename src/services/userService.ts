@@ -63,36 +63,113 @@ export const userService = {
       throw new Error('Insufficient permissions');
     }
 
-    // For now, we'll only create the profile without the auth user
-    // This is because creating auth users requires admin privileges that we don't have in the client
-    console.log('Creating user profile only. Email provided for reference:', userData.email);
+    console.log('Creating complete user with auth and profile:', userData);
     
-    const newUserId = crypto.randomUUID();
-    
-    const { data: userProfile, error: profileError } = await supabase
-      .from('profiles')
-      .insert({
-        id: newUserId,
-        first_name: userData.first_name,
-        last_name: userData.last_name,
-        phone: userData.phone,
-        role: userData.role,
-        isp_company_id: userData.isp_company_id || userCompanyId,
-      })
-      .select()
-      .single();
+    try {
+      // Step 1: Create the auth user
+      const { data: authData, error: authError } = await supabase.auth.admin.createUser({
+        email: userData.email,
+        password: userData.password,
+        user_metadata: {
+          first_name: userData.first_name,
+          last_name: userData.last_name,
+        },
+        email_confirm: true, // Auto-confirm email to avoid confirmation flow
+      });
 
-    if (profileError) {
-      console.error('Profile creation error:', profileError);
-      throw new Error(`Failed to create user profile: ${profileError.message}`);
+      if (authError) {
+        console.error('Auth user creation error:', authError);
+        throw new Error(`Failed to create auth user: ${authError.message}`);
+      }
+
+      if (!authData.user) {
+        throw new Error('No user returned from auth creation');
+      }
+
+      console.log('Auth user created successfully:', authData.user.id);
+
+      // Step 2: Create the profile (this should be handled by the trigger, but we'll ensure it exists)
+      const { data: existingProfile } = await supabase
+        .from('profiles')
+        .select('id')
+        .eq('id', authData.user.id)
+        .single();
+
+      if (!existingProfile) {
+        // If profile doesn't exist (trigger didn't fire), create it manually
+        const { data: profileData, error: profileError } = await supabase
+          .from('profiles')
+          .insert({
+            id: authData.user.id,
+            first_name: userData.first_name,
+            last_name: userData.last_name,
+            phone: userData.phone,
+            role: userData.role,
+            isp_company_id: userData.isp_company_id || userCompanyId,
+          })
+          .select()
+          .single();
+
+        if (profileError) {
+          console.error('Profile creation error:', profileError);
+          // If profile creation fails, we should clean up the auth user
+          await supabase.auth.admin.deleteUser(authData.user.id);
+          throw new Error(`Failed to create user profile: ${profileError.message}`);
+        }
+
+        return profileData;
+      } else {
+        // Profile exists, update it with the provided data
+        const { data: updatedProfile, error: updateError } = await supabase
+          .from('profiles')
+          .update({
+            first_name: userData.first_name,
+            last_name: userData.last_name,
+            phone: userData.phone,
+            role: userData.role,
+            isp_company_id: userData.isp_company_id || userCompanyId,
+          })
+          .eq('id', authData.user.id)
+          .select()
+          .single();
+
+        if (updateError) {
+          console.error('Profile update error:', updateError);
+          throw new Error(`Failed to update user profile: ${updateError.message}`);
+        }
+
+        return updatedProfile;
+      }
+    } catch (error) {
+      console.error('User creation process failed:', error);
+      throw error;
     }
-
-    return userProfile;
   },
 
-  async updateUser(id: string, updates: UpdateUserData, userRole: string | undefined) {
+  async updateUser(id: string, updates: UpdateUserData, userRole: string | undefined, userCompanyId: string | null) {
     if (userRole !== 'super_admin' && userRole !== 'isp_admin') {
       throw new Error('Insufficient permissions');
+    }
+
+    // Prevent non-super admins from changing company details
+    if (userRole !== 'super_admin' && updates.isp_company_id) {
+      throw new Error('Only super administrators can change company assignments');
+    }
+
+    // isp_admin can only update users in their company
+    if (userRole === 'isp_admin' && userCompanyId) {
+      const { data: existingUser } = await supabase
+        .from('profiles')
+        .select('isp_company_id')
+        .eq('id', id)
+        .single();
+
+      if (existingUser?.isp_company_id !== userCompanyId) {
+        throw new Error('You can only update users in your company');
+      }
+
+      // Remove company_id from updates for isp_admin
+      delete updates.isp_company_id;
     }
 
     const { data, error } = await supabase

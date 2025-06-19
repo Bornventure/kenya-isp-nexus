@@ -12,19 +12,19 @@ export const useUserMutations = () => {
 
   const createUserMutation = useMutation({
     mutationFn: async (userData: CreateUserData) => {
-      console.log('Creating user with data:', userData);
+      console.log('Creating complete user with data:', userData);
       return await userService.createUser(userData, profile?.role, profile?.isp_company_id);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['system-users'] });
       toast({
-        title: "User Profile Created",
-        description: "User profile has been created successfully. Note: This only creates the profile - authentication setup needs to be done separately.",
+        title: "User Created Successfully",
+        description: "The user account and profile have been created. The user can now log in with their credentials.",
       });
     },
     onError: (error) => {
       console.error('Error creating user:', error);
-      const errorMessage = error instanceof Error ? error.message : 'Failed to create user profile';
+      const errorMessage = error instanceof Error ? error.message : 'Failed to create user';
       toast({
         title: "Error",
         description: errorMessage,
@@ -35,7 +35,7 @@ export const useUserMutations = () => {
 
   const updateUserMutation = useMutation({
     mutationFn: async ({ id, updates }: { id: string; updates: UpdateUserData }) => {
-      return await userService.updateUser(id, updates, profile?.role);
+      return await userService.updateUser(id, updates, profile?.role, profile?.isp_company_id);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['system-users'] });
@@ -46,9 +46,10 @@ export const useUserMutations = () => {
     },
     onError: (error) => {
       console.error('Error updating user:', error);
+      const errorMessage = error instanceof Error ? error.message : 'Failed to update user. Please try again.';
       toast({
         title: "Error",
-        description: "Failed to update user. Please try again.",
+        description: errorMessage,
         variant: "destructive",
       });
     },

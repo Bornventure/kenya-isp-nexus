@@ -5,7 +5,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { UserPlus, AlertCircle } from 'lucide-react';
+import { UserPlus, CheckCircle } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import type { CreateUserData } from '@/types/user';
 
@@ -30,7 +30,7 @@ const CreateUserDialog: React.FC<CreateUserDialogProps> = ({ onCreateUser, isCre
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
-    console.log('Submitting user creation form');
+    console.log('Submitting complete user creation form');
     
     onCreateUser({
       ...newUser,
@@ -49,6 +49,16 @@ const CreateUserDialog: React.FC<CreateUserDialogProps> = ({ onCreateUser, isCre
     setIsOpen(false);
   };
 
+  const generatePassword = () => {
+    const length = 12;
+    const charset = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789@#$%";
+    let password = "";
+    for (let i = 0; i < length; i++) {
+      password += charset.charAt(Math.floor(Math.random() * charset.length));
+    }
+    setNewUser({ ...newUser, password });
+  };
+
   if (profile?.role !== 'super_admin') {
     return null;
   }
@@ -58,24 +68,24 @@ const CreateUserDialog: React.FC<CreateUserDialogProps> = ({ onCreateUser, isCre
       <DialogTrigger asChild>
         <Button>
           <UserPlus className="h-4 w-4 mr-2" />
-          Add User Profile
+          Create New User
         </Button>
       </DialogTrigger>
       <DialogContent className="sm:max-w-[425px]">
         <form onSubmit={handleSubmit}>
           <DialogHeader>
-            <DialogTitle>Create New User Profile</DialogTitle>
+            <DialogTitle>Create New User Account</DialogTitle>
             <DialogDescription>
-              Create a user profile. This creates only the profile record - authentication setup will need to be completed separately through Supabase Auth.
+              Create a complete user account with authentication credentials and profile. The user will be able to log in immediately after creation.
             </DialogDescription>
           </DialogHeader>
           
-          <div className="bg-blue-50 border border-blue-200 rounded-md p-3 mb-4">
+          <div className="bg-green-50 border border-green-200 rounded-md p-3 mb-4">
             <div className="flex">
-              <AlertCircle className="h-5 w-5 text-blue-400 mt-0.5 mr-2 flex-shrink-0" />
-              <div className="text-sm text-blue-700">
-                <p className="font-medium">Note:</p>
-                <p>This creates a user profile only. To enable login, the user's authentication account must be created separately in Supabase Auth admin panel.</p>
+              <CheckCircle className="h-5 w-5 text-green-600 mt-0.5 mr-2 flex-shrink-0" />
+              <div className="text-sm text-green-700">
+                <p className="font-medium">Complete Integration:</p>
+                <p>This creates both the authentication account and user profile in one step. The user can log in immediately after creation.</p>
               </div>
             </div>
           </div>
@@ -102,14 +112,31 @@ const CreateUserDialog: React.FC<CreateUserDialogProps> = ({ onCreateUser, isCre
               </div>
             </div>
             <div className="space-y-2">
-              <Label htmlFor="email">Email (for reference)</Label>
+              <Label htmlFor="email">Email Address</Label>
               <Input
                 id="email"
                 type="email"
                 value={newUser.email}
                 onChange={(e) => setNewUser({ ...newUser, email: e.target.value })}
-                placeholder="Will be used for auth setup later"
+                placeholder="user@example.com"
+                required
               />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="password">Password</Label>
+              <div className="flex gap-2">
+                <Input
+                  id="password"
+                  type="password"
+                  value={newUser.password}
+                  onChange={(e) => setNewUser({ ...newUser, password: e.target.value })}
+                  placeholder="Enter secure password"
+                  required
+                />
+                <Button type="button" variant="outline" onClick={generatePassword}>
+                  Generate
+                </Button>
+              </div>
             </div>
             <div className="space-y-2">
               <Label htmlFor="phone">Phone</Label>
@@ -117,6 +144,7 @@ const CreateUserDialog: React.FC<CreateUserDialogProps> = ({ onCreateUser, isCre
                 id="phone"
                 value={newUser.phone}
                 onChange={(e) => setNewUser({ ...newUser, phone: e.target.value })}
+                placeholder="+254..."
               />
             </div>
             <div className="space-y-2">
@@ -139,7 +167,7 @@ const CreateUserDialog: React.FC<CreateUserDialogProps> = ({ onCreateUser, isCre
           </div>
           <DialogFooter>
             <Button type="submit" disabled={isCreating}>
-              {isCreating ? 'Creating...' : 'Create Profile'}
+              {isCreating ? 'Creating Account...' : 'Create User Account'}
             </Button>
           </DialogFooter>
         </form>
