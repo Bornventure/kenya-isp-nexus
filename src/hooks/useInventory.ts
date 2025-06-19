@@ -1,4 +1,3 @@
-
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
@@ -54,6 +53,7 @@ export interface InventoryStats {
   inStock: number;
   deployed: number;
   maintenance: number;
+  byCategory: Record<string, number>;
 }
 
 // Main hook for inventory operations
@@ -91,12 +91,47 @@ export const useInventory = () => {
         throw new Error('No ISP company associated with user');
       }
 
+      // Create the item data with all required fields
+      const insertData = {
+        name: itemData.name,
+        category: itemData.category,
+        type: itemData.type,
+        manufacturer: itemData.manufacturer,
+        model: itemData.model,
+        serial_number: itemData.serial_number,
+        mac_address: itemData.mac_address,
+        status: itemData.status || 'In Stock',
+        location: itemData.location,
+        supplier: itemData.supplier,
+        cost: itemData.cost,
+        purchase_date: itemData.purchase_date,
+        warranty_expiry_date: itemData.warranty_expiry_date,
+        notes: itemData.notes,
+        quantity_in_stock: itemData.quantity_in_stock,
+        reorder_level: itemData.reorder_level,
+        unit_cost: itemData.unit_cost,
+        item_sku: itemData.item_sku,
+        assigned_customer_id: itemData.assigned_customer_id,
+        assigned_device_id: itemData.assigned_device_id,
+        assignment_date: itemData.assignment_date,
+        capacity: itemData.capacity,
+        ip_address: itemData.ip_address,
+        subnet_mask: itemData.subnet_mask,
+        location_start_lat: itemData.location_start_lat,
+        location_start_lng: itemData.location_start_lng,
+        location_end_lat: itemData.location_end_lat,
+        location_end_lng: itemData.location_end_lng,
+        length_meters: itemData.length_meters,
+        installation_date: itemData.installation_date,
+        last_maintenance_date: itemData.last_maintenance_date,
+        is_network_equipment: itemData.is_network_equipment,
+        equipment_id: itemData.equipment_id,
+        isp_company_id: profile.isp_company_id,
+      };
+
       const { data, error } = await supabase
         .from('inventory_items')
-        .insert({
-          ...itemData,
-          isp_company_id: profile.isp_company_id,
-        })
+        .insert(insertData)
         .select()
         .single();
 
@@ -328,11 +363,11 @@ export const useInventoryStats = () => {
   return useQuery({
     queryKey: ['inventory-stats', profile?.isp_company_id],
     queryFn: async () => {
-      if (!profile?.isp_company_id) return { total: 0, inStock: 0, deployed: 0, maintenance: 0 };
+      if (!profile?.isp_company_id) return { total: 0, inStock: 0, deployed: 0, maintenance: 0, byCategory: {} };
 
       const { data, error } = await supabase
         .from('inventory_items')
-        .select('status')
+        .select('status, category')
         .eq('isp_company_id', profile.isp_company_id);
 
       if (error) throw error;
@@ -351,12 +386,18 @@ export const useInventoryStats = () => {
               acc.maintenance++;
               break;
           }
+          
+          // Count by category
+          if (item.category) {
+            acc.byCategory[item.category] = (acc.byCategory[item.category] || 0) + 1;
+          }
+          
           return acc;
         },
-        { total: 0, inStock: 0, deployed: 0, maintenance: 0 }
+        { total: 0, inStock: 0, deployed: 0, maintenance: 0, byCategory: {} as Record<string, number> }
       );
 
-      return stats;
+      return stats as InventoryStats;
     },
     enabled: !!profile?.isp_company_id,
   });
@@ -396,12 +437,31 @@ export const useCreateInventoryItem = () => {
         throw new Error('No ISP company associated with user');
       }
 
+      const insertData = {
+        name: itemData.name,
+        category: itemData.category,
+        type: itemData.type,
+        manufacturer: itemData.manufacturer,
+        model: itemData.model,
+        serial_number: itemData.serial_number,
+        mac_address: itemData.mac_address,
+        status: itemData.status || 'In Stock',
+        location: itemData.location,
+        supplier: itemData.supplier,
+        cost: itemData.cost,
+        purchase_date: itemData.purchase_date,
+        warranty_expiry_date: itemData.warranty_expiry_date,
+        notes: itemData.notes,
+        quantity_in_stock: itemData.quantity_in_stock,
+        reorder_level: itemData.reorder_level,
+        unit_cost: itemData.unit_cost,
+        item_sku: itemData.item_sku,
+        isp_company_id: profile.isp_company_id,
+      };
+
       const { data, error } = await supabase
         .from('inventory_items')
-        .insert({
-          ...itemData,
-          isp_company_id: profile.isp_company_id,
-        })
+        .insert(insertData)
         .select()
         .single();
 

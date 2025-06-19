@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -106,6 +105,12 @@ const AssignedEquipmentSection: React.FC<AssignedEquipmentSectionProps> = ({
   };
 
   const totalEquipment = clientInventoryEquipment.length + networkEquipment.length;
+
+  const handleAssignEquipment = (data: { itemId: string; clientId: string }) => {
+    // This will be handled by the dialog's onAssign prop
+    console.log('Assigning equipment:', data);
+    setShowAssignDialog(false);
+  };
 
   return (
     <Card>
@@ -262,10 +267,11 @@ const AssignedEquipmentSection: React.FC<AssignedEquipmentSectionProps> = ({
       </CardContent>
 
       <UnifiedEquipmentAssignmentDialog
-        open={showAssignDialog}
-        onOpenChange={setShowAssignDialog}
-        clientId={clientId}
-        clientName={clientName}
+        isOpen={showAssignDialog}
+        onClose={() => setShowAssignDialog(false)}
+        onAssign={handleAssignEquipment}
+        itemId=""
+        itemName="Equipment"
       />
     </Card>
   );

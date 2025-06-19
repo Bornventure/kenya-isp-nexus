@@ -27,9 +27,7 @@ const UnifiedEquipmentAssignmentDialog: React.FC<UnifiedEquipmentAssignmentDialo
 }) => {
   const [selectedClientId, setSelectedClientId] = useState('');
   const [notes, setNotes] = useState('');
-  const clientsQuery = useClients();
-  const clients = clientsQuery.data || [];
-  const clientsLoading = clientsQuery.isLoading;
+  const { clients, isLoading: clientsLoading } = useClients();
 
   const handleAssign = () => {
     if (!selectedClientId) return;
