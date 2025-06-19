@@ -3,325 +3,366 @@ import React, { useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Switch } from '@/components/ui/switch';
+import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
-import {
-  Facebook,
-  Twitter,
-  Instagram,
-  Linkedin,
-  Settings,
+import { 
+  Facebook, 
+  Twitter, 
+  Globe,
   Users,
-  TrendingUp,
-  Eye
+  Settings,
+  Eye,
+  Shield
 } from 'lucide-react';
-
-interface SocialProvider {
-  id: string;
-  name: string;
-  icon: React.ComponentType<any>;
-  isEnabled: boolean;
-  appId?: string;
-  appSecret?: string;
-  permissions: string[];
-  userCount: number;
-  conversionRate: number;
-}
 
 interface SocialAuthProps {
   selectedHotspot: string | null;
 }
 
 const SocialAuth: React.FC<SocialAuthProps> = ({ selectedHotspot }) => {
-  const [socialProviders, setSocialProviders] = useState<SocialProvider[]>([
-    {
-      id: 'facebook',
-      name: 'Facebook',
-      icon: Facebook,
-      isEnabled: true,
-      appId: 'your-facebook-app-id',
-      permissions: ['email', 'public_profile'],
-      userCount: 1247,
-      conversionRate: 67.3
+  const [socialSettings, setSocialSettings] = useState({
+    facebook: {
+      enabled: true,
+      appId: '',
+      appSecret: '',
+      permissions: ['email', 'public_profile']
     },
-    {
-      id: 'google',
-      name: 'Google',
-      icon: () => <div className="w-5 h-5 bg-red-500 rounded">G</div>,
-      isEnabled: true,
-      appId: 'your-google-client-id',
-      permissions: ['email', 'profile'],
-      userCount: 892,
-      conversionRate: 74.8
+    google: {
+      enabled: true,
+      clientId: '',
+      clientSecret: '',
+      permissions: ['email', 'profile']
     },
-    {
-      id: 'twitter',
-      name: 'Twitter',
-      icon: Twitter,
-      isEnabled: false,
-      permissions: ['email'],
-      userCount: 234,
-      conversionRate: 45.2
+    twitter: {
+      enabled: false,
+      apiKey: '',
+      apiSecret: '',
+      permissions: ['read']
     },
-    {
-      id: 'instagram',
-      name: 'Instagram',
-      icon: Instagram,
-      isEnabled: false,
-      permissions: ['email', 'basic'],
-      userCount: 567,
-      conversionRate: 52.1
+    captivePortal: {
+      enabled: true,
+      customBranding: true,
+      termsRequired: true,
+      dataCollection: true
     }
-  ]);
+  });
 
-  const [termsUrl, setTermsUrl] = useState('https://yoursite.com/terms');
-  const [privacyUrl, setPrivacyUrl] = useState('https://yoursite.com/privacy');
+  const mockSocialLogins = [
+    { id: 1, provider: 'Facebook', user: 'John Doe', email: 'john@example.com', time: '2 mins ago' },
+    { id: 2, provider: 'Google', user: 'Jane Smith', email: 'jane@example.com', time: '5 mins ago' },
+    { id: 3, provider: 'Facebook', user: 'Mike Wilson', email: 'mike@example.com', time: '12 mins ago' }
+  ];
 
-  const toggleProvider = (providerId: string) => {
-    setSocialProviders(prev => 
-      prev.map(provider => 
-        provider.id === providerId 
-          ? { ...provider, isEnabled: !provider.isEnabled }
-          : provider
-      )
-    );
+  const getProviderIcon = (provider: string) => {
+    switch (provider.toLowerCase()) {
+      case 'facebook': return <Facebook className="h-4 w-4" />;
+      case 'google': return <Globe className="h-4 w-4" />;
+      case 'twitter': return <Twitter className="h-4 w-4" />;
+      default: return <Users className="h-4 w-4" />;
+    }
   };
 
-  const updateProviderConfig = (providerId: string, field: string, value: string) => {
-    setSocialProviders(prev => 
-      prev.map(provider => 
-        provider.id === providerId 
-          ? { ...provider, [field]: value }
-          : provider
-      )
-    );
+  const getProviderColor = (provider: string) => {
+    switch (provider.toLowerCase()) {
+      case 'facebook': return 'bg-blue-100 text-blue-800';
+      case 'google': return 'bg-red-100 text-red-800';
+      case 'twitter': return 'bg-sky-100 text-sky-800';
+      default: return 'bg-gray-100 text-gray-800';
+    }
   };
 
   return (
     <div className="space-y-6">
+      {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h3 className="text-lg font-medium">Social Media Authentication</h3>
+          <h3 className="text-lg font-medium">Social Authentication</h3>
           <p className="text-sm text-muted-foreground">
-            Allow guests to connect using their social media accounts
+            Configure social login options for guest access
           </p>
         </div>
+        <Button>
+          <Settings className="h-4 w-4 mr-2" />
+          Save Configuration
+        </Button>
       </div>
 
-      {/* Provider Configuration */}
+      {!selectedHotspot && (
+        <Card className="border-orange-200 bg-orange-50">
+          <CardContent className="p-4">
+            <p className="text-orange-800">
+              Please select a hotspot from the Hotspots tab to configure social authentication.
+            </p>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Stats */}
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+        <Card>
+          <CardContent className="p-6">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm font-medium text-muted-foreground">Social Logins</p>
+                <p className="text-2xl font-bold">247</p>
+              </div>
+              <Users className="h-8 w-8 text-blue-600" />
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardContent className="p-6">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm font-medium text-muted-foreground">Facebook</p>
+                <p className="text-2xl font-bold">156</p>
+              </div>
+              <Facebook className="h-8 w-8 text-blue-700" />
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardContent className="p-6">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm font-medium text-muted-foreground">Google</p>
+                <p className="text-2xl font-bold">78</p>
+              </div>
+              <Globe className="h-8 w-8 text-red-600" />
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardContent className="p-6">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm font-medium text-muted-foreground">Conversion Rate</p>
+                <p className="text-2xl font-bold">82%</p>
+              </div>
+              <Eye className="h-8 w-8 text-green-600" />
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* Social Provider Configuration */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {socialProviders.map((provider) => {
-          const IconComponent = provider.icon;
-          return (
-            <Card key={provider.id}>
-              <CardHeader className="pb-3">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-3">
-                    <IconComponent className="h-6 w-6" />
-                    <CardTitle className="text-lg">{provider.name}</CardTitle>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <Badge variant={provider.isEnabled ? "default" : "secondary"}>
-                      {provider.isEnabled ? 'Enabled' : 'Disabled'}
-                    </Badge>
-                    <Switch
-                      checked={provider.isEnabled}
-                      onCheckedChange={() => toggleProvider(provider.id)}
-                    />
-                  </div>
-                </div>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-4">
-                  {/* Configuration */}
-                  <div className="space-y-3">
-                    <div>
-                      <label className="text-sm font-medium">App ID / Client ID</label>
-                      <Input
-                        value={provider.appId || ''}
-                        onChange={(e) => updateProviderConfig(provider.id, 'appId', e.target.value)}
-                        placeholder={`Enter ${provider.name} App ID`}
-                        disabled={!provider.isEnabled}
-                        className="mt-1"
-                      />
-                    </div>
-                    <div>
-                      <label className="text-sm font-medium">App Secret / Client Secret</label>
-                      <Input
-                        type="password"
-                        value={provider.appSecret || ''}
-                        onChange={(e) => updateProviderConfig(provider.id, 'appSecret', e.target.value)}
-                        placeholder={`Enter ${provider.name} App Secret`}
-                        disabled={!provider.isEnabled}
-                        className="mt-1"
-                      />
-                    </div>
-                  </div>
-
-                  {/* Permissions */}
-                  <div>
-                    <label className="text-sm font-medium">Permissions</label>
-                    <div className="flex flex-wrap gap-1 mt-1">
-                      {provider.permissions.map((permission) => (
-                        <Badge key={permission} variant="outline" className="text-xs">
-                          {permission}
-                        </Badge>
-                      ))}
-                    </div>
-                  </div>
-
-                  {/* Statistics */}
-                  <div className="grid grid-cols-2 gap-4 pt-2 border-t">
-                    <div className="text-center">
-                      <div className="flex items-center justify-center gap-1">
-                        <Users className="h-4 w-4 text-blue-600" />
-                        <span className="text-lg font-bold text-blue-600">{provider.userCount}</span>
-                      </div>
-                      <p className="text-xs text-muted-foreground">Total Users</p>
-                    </div>
-                    <div className="text-center">
-                      <div className="flex items-center justify-center gap-1">
-                        <TrendingUp className="h-4 w-4 text-green-600" />
-                        <span className="text-lg font-bold text-green-600">{provider.conversionRate}%</span>
-                      </div>
-                      <p className="text-xs text-muted-foreground">Conversion Rate</p>
-                    </div>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-          );
-        })}
-      </div>
-
-      {/* Global Settings */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <Settings className="h-5 w-5" />
-            Global Settings
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="space-y-4">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div>
-                <label className="text-sm font-medium">Terms of Service URL</label>
-                <Input
-                  value={termsUrl}
-                  onChange={(e) => setTermsUrl(e.target.value)}
-                  placeholder="https://yoursite.com/terms"
-                  className="mt-1"
-                />
-              </div>
-              <div>
-                <label className="text-sm font-medium">Privacy Policy URL</label>
-                <Input
-                  value={privacyUrl}
-                  onChange={(e) => setPrivacyUrl(e.target.value)}
-                  placeholder="https://yoursite.com/privacy"
-                  className="mt-1"
-                />
-              </div>
-            </div>
-
-            <div className="space-y-3">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm font-medium">Require Email Verification</p>
-                  <p className="text-xs text-muted-foreground">Send verification email after social login</p>
-                </div>
-                <Switch defaultChecked />
-              </div>
-              
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm font-medium">Auto-create Accounts</p>
-                  <p className="text-xs text-muted-foreground">Automatically create user accounts for social logins</p>
-                </div>
-                <Switch defaultChecked />
-              </div>
-
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm font-medium">Collect Marketing Data</p>
-                  <p className="text-xs text-muted-foreground">Use social data for marketing insights</p>
-                </div>
-                <Switch />
-              </div>
-            </div>
-          </div>
-        </CardContent>
-      </Card>
-
-      {/* Social Login Preview */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <Eye className="h-5 w-5" />
-            Login Page Preview
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="max-w-md mx-auto p-6 border rounded-lg bg-gray-50">
-            <div className="text-center mb-6">
-              <h3 className="text-lg font-medium">Welcome to WiFi</h3>
-              <p className="text-sm text-muted-foreground">Connect with your social account</p>
+        {/* Facebook */}
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Facebook className="h-5 w-5 text-blue-600" />
+              Facebook Login
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="flex items-center justify-between">
+              <Label>Enable Facebook Login</Label>
+              <Switch
+                checked={socialSettings.facebook.enabled}
+                onCheckedChange={(checked) => setSocialSettings({
+                  ...socialSettings,
+                  facebook: { ...socialSettings.facebook, enabled: checked }
+                })}
+              />
             </div>
             
-            <div className="space-y-3">
-              {socialProviders.filter(p => p.isEnabled).map((provider) => {
-                const IconComponent = provider.icon;
-                return (
-                  <Button key={provider.id} variant="outline" className="w-full">
-                    <IconComponent className="h-4 w-4 mr-2" />
-                    Continue with {provider.name}
-                  </Button>
-                );
-              })}
+            {socialSettings.facebook.enabled && (
+              <>
+                <div className="space-y-2">
+                  <Label>App ID</Label>
+                  <Input
+                    placeholder="Enter Facebook App ID"
+                    value={socialSettings.facebook.appId}
+                    onChange={(e) => setSocialSettings({
+                      ...socialSettings,
+                      facebook: { ...socialSettings.facebook, appId: e.target.value }
+                    })}
+                  />
+                </div>
+                
+                <div className="space-y-2">
+                  <Label>App Secret</Label>
+                  <Input
+                    type="password"
+                    placeholder="Enter Facebook App Secret"
+                    value={socialSettings.facebook.appSecret}
+                    onChange={(e) => setSocialSettings({
+                      ...socialSettings,
+                      facebook: { ...socialSettings.facebook, appSecret: e.target.value }
+                    })}
+                  />
+                </div>
+              </>
+            )}
+          </CardContent>
+        </Card>
+
+        {/* Google */}
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Globe className="h-5 w-5 text-red-600" />
+              Google Login
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="flex items-center justify-between">
+              <Label>Enable Google Login</Label>
+              <Switch
+                checked={socialSettings.google.enabled}
+                onCheckedChange={(checked) => setSocialSettings({
+                  ...socialSettings,
+                  google: { ...socialSettings.google, enabled: checked }
+                })}
+              />
+            </div>
+            
+            {socialSettings.google.enabled && (
+              <>
+                <div className="space-y-2">
+                  <Label>Client ID</Label>
+                  <Input
+                    placeholder="Enter Google Client ID"
+                    value={socialSettings.google.clientId}
+                    onChange={(e) => setSocialSettings({
+                      ...socialSettings,
+                      google: { ...socialSettings.google, clientId: e.target.value }
+                    })}
+                  />
+                </div>
+                
+                <div className="space-y-2">
+                  <Label>Client Secret</Label>
+                  <Input
+                    type="password"
+                    placeholder="Enter Google Client Secret"
+                    value={socialSettings.google.clientSecret}
+                    onChange={(e) => setSocialSettings({
+                      ...socialSettings,
+                      google: { ...socialSettings.google, clientSecret: e.target.value }
+                    })}
+                  />
+                </div>
+              </>
+            )}
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* Captive Portal Settings */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <Shield className="h-5 w-5" />
+            Captive Portal Settings
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-6">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div className="flex items-center justify-between">
+              <div>
+                <Label>Enable Captive Portal</Label>
+                <p className="text-sm text-muted-foreground">
+                  Show login page before internet access
+                </p>
+              </div>
+              <Switch
+                checked={socialSettings.captivePortal.enabled}
+                onCheckedChange={(checked) => setSocialSettings({
+                  ...socialSettings,
+                  captivePortal: { ...socialSettings.captivePortal, enabled: checked }
+                })}
+              />
             </div>
 
-            <div className="text-center mt-4">
-              <p className="text-xs text-muted-foreground">
-                By continuing, you agree to our{' '}
-                <a href={termsUrl} className="text-blue-600 hover:underline">Terms</a>
-                {' '}and{' '}
-                <a href={privacyUrl} className="text-blue-600 hover:underline">Privacy Policy</a>
-              </p>
+            <div className="flex items-center justify-between">
+              <div>
+                <Label>Custom Branding</Label>
+                <p className="text-sm text-muted-foreground">
+                  Use custom logo and colors
+                </p>
+              </div>
+              <Switch
+                checked={socialSettings.captivePortal.customBranding}
+                onCheckedChange={(checked) => setSocialSettings({
+                  ...socialSettings,
+                  captivePortal: { ...socialSettings.captivePortal, customBranding: checked }
+                })}
+              />
+            </div>
+
+            <div className="flex items-center justify-between">
+              <div>
+                <Label>Terms & Conditions</Label>
+                <p className="text-sm text-muted-foreground">
+                  Require users to accept terms
+                </p>
+              </div>
+              <Switch
+                checked={socialSettings.captivePortal.termsRequired}
+                onCheckedChange={(checked) => setSocialSettings({
+                  ...socialSettings,
+                  captivePortal: { ...socialSettings.captivePortal, termsRequired: checked }
+                })}
+              />
+            </div>
+
+            <div className="flex items-center justify-between">
+              <div>
+                <Label>Data Collection</Label>
+                <p className="text-sm text-muted-foreground">
+                  Collect user information for analytics
+                </p>
+              </div>
+              <Switch
+                checked={socialSettings.captivePortal.dataCollection}
+                onCheckedChange={(checked) => setSocialSettings({
+                  ...socialSettings,
+                  captivePortal: { ...socialSettings.captivePortal, dataCollection: checked }
+                })}
+              />
             </div>
           </div>
         </CardContent>
       </Card>
 
-      {/* Analytics Summary */}
+      {/* Recent Social Logins */}
       <Card>
         <CardHeader>
-          <CardTitle>Social Authentication Analytics</CardTitle>
+          <CardTitle>Recent Social Logins</CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-            <div className="text-center">
-              <p className="text-2xl font-bold text-blue-600">
-                {socialProviders.reduce((sum, p) => sum + p.userCount, 0)}
-              </p>
-              <p className="text-sm text-muted-foreground">Total Social Users</p>
-            </div>
-            <div className="text-center">
-              <p className="text-2xl font-bold text-green-600">
-                {(socialProviders.reduce((sum, p) => sum + p.conversionRate, 0) / socialProviders.length).toFixed(1)}%
-              </p>
-              <p className="text-sm text-muted-foreground">Avg Conversion</p>
-            </div>
-            <div className="text-center">
-              <p className="text-2xl font-bold text-purple-600">
-                {socialProviders.filter(p => p.isEnabled).length}
-              </p>
-              <p className="text-sm text-muted-foreground">Active Providers</p>
-            </div>
-            <div className="text-center">
-              <p className="text-2xl font-bold text-orange-600">342</p>
-              <p className="text-sm text-muted-foreground">Today's Logins</p>
-            </div>
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="border-b">
+                  <th className="text-left p-2">Provider</th>
+                  <th className="text-left p-2">User</th>
+                  <th className="text-left p-2">Email</th>
+                  <th className="text-left p-2">Login Time</th>
+                </tr>
+              </thead>
+              <tbody>
+                {mockSocialLogins.map((login) => (
+                  <tr key={login.id} className="border-b hover:bg-gray-50">
+                    <td className="p-2">
+                      <Badge className={`${getProviderColor(login.provider)} flex items-center gap-1 w-fit`}>
+                        {getProviderIcon(login.provider)}
+                        {login.provider}
+                      </Badge>
+                    </td>
+                    <td className="p-2 font-medium">{login.user}</td>
+                    <td className="p-2">{login.email}</td>
+                    <td className="p-2 text-muted-foreground">{login.time}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
           </div>
         </CardContent>
       </Card>

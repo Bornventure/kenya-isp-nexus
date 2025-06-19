@@ -1,14 +1,15 @@
 
 import React from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
 import { useAuth } from '@/contexts/AuthContext';
-import { Settings, Shield, Users, Database } from 'lucide-react';
+import { Settings, Shield, Users, Database, Key, Cog } from 'lucide-react';
+import { Link } from 'react-router-dom';
 import UserManagement from '@/components/admin/UserManagement';
 
 const SettingsPage = () => {
   const { profile } = useAuth();
 
-  // Debug: Log the profile to see what we're getting
   console.log('Settings page - Current profile:', profile);
   console.log('Settings page - User role:', profile?.role);
 
@@ -24,6 +25,69 @@ const SettingsPage = () => {
         </p>
       </div>
 
+      {/* Quick Actions */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+        <Card className="hover:shadow-md transition-shadow cursor-pointer">
+          <Link to="/api-settings">
+            <CardHeader className="pb-3">
+              <div className="flex items-center gap-3">
+                <div className="p-2 bg-blue-100 rounded-lg">
+                  <Key className="h-5 w-5 text-blue-600" />
+                </div>
+                <div>
+                  <CardTitle className="text-lg">API & Integrations</CardTitle>
+                  <CardDescription>
+                    Configure M-Pesa, SMS, and other API settings
+                  </CardDescription>
+                </div>
+              </div>
+            </CardHeader>
+          </Link>
+        </Card>
+
+        <Card className="hover:shadow-md transition-shadow">
+          <CardHeader className="pb-3">
+            <div className="flex items-center gap-3">
+              <div className="p-2 bg-purple-100 rounded-lg">
+                <Cog className="h-5 w-5 text-purple-600" />
+              </div>
+              <div>
+                <CardTitle className="text-lg">System Settings</CardTitle>
+                <CardDescription>
+                  General system configuration options
+                </CardDescription>
+              </div>
+            </div>
+          </CardHeader>
+          <CardContent>
+            <Button variant="outline" size="sm" className="w-full">
+              Configure
+            </Button>
+          </CardContent>
+        </Card>
+
+        <Card className="hover:shadow-md transition-shadow">
+          <CardHeader className="pb-3">
+            <div className="flex items-center gap-3">
+              <div className="p-2 bg-green-100 rounded-lg">
+                <Shield className="h-5 w-5 text-green-600" />
+              </div>
+              <div>
+                <CardTitle className="text-lg">Security</CardTitle>
+                <CardDescription>
+                  Password policies and security settings
+                </CardDescription>
+              </div>
+            </div>
+          </CardHeader>
+          <CardContent>
+            <Button variant="outline" size="sm" className="w-full">
+              Manage
+            </Button>
+          </CardContent>
+        </Card>
+      </div>
+
       <div className="grid gap-6">
         {/* User Management - Only for admins */}
         {canManageUsers && (
@@ -36,19 +100,7 @@ const SettingsPage = () => {
           </div>
         )}
 
-        {/* Debug info for troubleshooting */}
-        {profile?.role === 'super_admin' && !canManageUsers && (
-          <Card className="border-orange-200 bg-orange-50">
-            <CardContent className="p-4">
-              <p className="text-orange-800">
-                Debug: You have super_admin role but UserManagement is not showing. 
-                Role: {profile?.role}
-              </p>
-            </CardContent>
-          </Card>
-        )}
-
-        {/* Show role info for debugging */}
+        {/* Profile Information */}
         <Card>
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
@@ -113,6 +165,10 @@ const SettingsPage = () => {
               <div className="flex justify-between">
                 <span className="font-medium">Client Limit:</span>
                 <span>{profile?.isp_companies?.client_limit || 'N/A'}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="font-medium">Environment:</span>
+                <span>Production</span>
               </div>
             </div>
           </CardContent>

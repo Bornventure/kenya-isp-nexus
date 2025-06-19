@@ -2,239 +2,128 @@
 import React, { useState } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Badge } from '@/components/ui/badge';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from '@/components/ui/table';
-import { Search, CheckCircle, Network, Package } from 'lucide-react';
-import { useInventoryItems, useAssignInventoryToClient } from '@/hooks/useInventory';
-import { useEquipment } from '@/hooks/useEquipment';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Label } from '@/components/ui/label';
+import { Textarea } from '@/components/ui/textarea';
+import { useClients } from '@/hooks/useClients';
+import { Loader2, User, Package } from 'lucide-react';
 
 interface UnifiedEquipmentAssignmentDialogProps {
-  open: boolean;
-  onOpenChange: (open: boolean) => void;
-  clientId: string;
-  clientName: string;
+  isOpen: boolean;
+  onClose: () => void;
+  onAssign: (data: { itemId: string; clientId: string }) => void;
+  itemId: string;
+  itemName: string;
+  isLoading?: boolean;
 }
 
 const UnifiedEquipmentAssignmentDialog: React.FC<UnifiedEquipmentAssignmentDialogProps> = ({
-  open,
-  onOpenChange,
-  clientId,
-  clientName,
+  isOpen,
+  onClose,
+  onAssign,
+  itemId,
+  itemName,
+  isLoading = false
 }) => {
-  const [search, setSearch] = useState('');
-  const [activeTab, setActiveTab] = useState('cpe');
-  const { mutate: assignEquipment, isPending } = useAssignInventoryToClient();
-  
-  // Get CPE items from inventory (customer equipment)
-  const { data: cpeItems, isLoading: isLoadingCPE } = useInventoryItems({
-    category: 'CPE',
-    status: 'In Stock',
-    search: search || undefined,
-  });
+  const [selectedClientId, setSelectedClientId] = useState('');
+  const [notes, setNotes] = useState('');
+  const { data: clients = [], isLoading: clientsLoading } = useClients();
 
-  // Get approved network equipment
-  const { equipment, isLoading: isLoadingEquipment } = useEquipment();
-  const networkEquipment = equipment.filter(item => 
-    item.approval_status === 'approved' && 
-    item.status === 'active' &&
-    !item.client_id &&
-    (search === '' || 
-     item.type.toLowerCase().includes(search.toLowerCase()) ||
-     item.model?.toLowerCase().includes(search.toLowerCase()) ||
-     item.serial_number.toLowerCase().includes(search.toLowerCase()))
-  );
+  const handleAssign = () => {
+    if (!selectedClientId) return;
+    
+    onAssign({
+      itemId,
+      clientId: selectedClientId
+    });
+  };
 
-  const handleAssign = (itemId: string, equipmentType: 'inventory' | 'equipment') => {
-    assignEquipment(
-      { itemId, clientId, equipmentType },
-      {
-        onSuccess: () => {
-          onOpenChange(false);
-          setSearch('');
-        },
-      }
-    );
+  const handleClose = () => {
+    setSelectedClientId('');
+    setNotes('');
+    onClose();
   };
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-6xl max-h-[700px]">
+    <Dialog open={isOpen} onOpenChange={handleClose}>
+      <DialogContent className="max-w-md">
         <DialogHeader>
-          <DialogTitle>Assign Equipment to {clientName}</DialogTitle>
+          <DialogTitle className="flex items-center gap-2">
+            <Package className="h-5 w-5" />
+            Assign Equipment to Client
+          </DialogTitle>
         </DialogHeader>
-
+        
         <div className="space-y-4">
-          {/* Search */}
-          <div className="relative">
-            <Search className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
-            <Input
-              placeholder="Search equipment..."
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              className="pl-10"
+          <div className="p-3 bg-gray-50 rounded-lg">
+            <p className="text-sm font-medium">Equipment:</p>
+            <p className="text-sm text-gray-600">{itemName}</p>
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="client">Select Client</Label>
+            <Select value={selectedClientId} onValueChange={setSelectedClientId}>
+              <SelectTrigger>
+                <SelectValue placeholder="Choose a client..." />
+              </SelectTrigger>
+              <SelectContent>
+                {clientsLoading ? (
+                  <SelectItem value="loading" disabled>
+                    <div className="flex items-center gap-2">
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                      Loading clients...
+                    </div>
+                  </SelectItem>
+                ) : clients.length === 0 ? (
+                  <SelectItem value="no-clients" disabled>
+                    No clients available
+                  </SelectItem>
+                ) : (
+                  clients.map((client) => (
+                    <SelectItem key={client.id} value={client.id}>
+                      <div className="flex items-center gap-2">
+                        <User className="h-4 w-4" />
+                        <div>
+                          <span className="font-medium">{client.name}</span>
+                          <span className="text-xs text-gray-500 ml-2">
+                            ({client.phone})
+                          </span>
+                        </div>
+                      </div>
+                    </SelectItem>
+                  ))
+                )}
+              </SelectContent>
+            </Select>
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="notes">Assignment Notes (Optional)</Label>
+            <Textarea
+              id="notes"
+              placeholder="Add any notes about this assignment..."
+              value={notes}
+              onChange={(e) => setNotes(e.target.value)}
+              rows={3}
             />
           </div>
 
-          {/* Equipment Tabs */}
-          <Tabs value={activeTab} onValueChange={setActiveTab}>
-            <TabsList className="grid w-full grid-cols-2">
-              <TabsTrigger value="cpe" className="flex items-center gap-2">
-                <Package className="h-4 w-4" />
-                Customer Equipment (CPE)
-              </TabsTrigger>
-              <TabsTrigger value="network" className="flex items-center gap-2">
-                <Network className="h-4 w-4" />
-                Network Equipment
-              </TabsTrigger>
-            </TabsList>
-
-            <TabsContent value="cpe" className="space-y-4">
-              <div className="text-sm text-muted-foreground">
-                Customer premises equipment (routers, modems, etc.) from inventory
-              </div>
-              <div className="border rounded-lg max-h-96 overflow-y-auto">
-                {isLoadingCPE ? (
-                  <div className="p-6 text-center">Loading CPE equipment...</div>
-                ) : cpeItems && cpeItems.length > 0 ? (
-                  <Table>
-                    <TableHeader>
-                      <TableRow>
-                        <TableHead>Item ID</TableHead>
-                        <TableHead>Type</TableHead>
-                        <TableHead>Model</TableHead>
-                        <TableHead>Serial Number</TableHead>
-                        <TableHead>Status</TableHead>
-                        <TableHead>Action</TableHead>
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {cpeItems.map((item) => (
-                        <TableRow key={item.id}>
-                          <TableCell className="font-mono text-sm">
-                            {item.item_id}
-                          </TableCell>
-                          <TableCell>
-                            <div>
-                              <div className="font-medium">{item.type}</div>
-                              <Badge variant="outline" className="text-xs">
-                                {item.category}
-                              </Badge>
-                            </div>
-                          </TableCell>
-                          <TableCell>
-                            <div>
-                              {item.manufacturer && (
-                                <div className="text-xs text-muted-foreground">
-                                  {item.manufacturer}
-                                </div>
-                              )}
-                              <div className="font-medium">{item.model || item.name}</div>
-                            </div>
-                          </TableCell>
-                          <TableCell className="font-mono text-sm">
-                            {item.serial_number || '-'}
-                          </TableCell>
-                          <TableCell>
-                            <Badge variant="secondary">{item.status}</Badge>
-                          </TableCell>
-                          <TableCell>
-                            <Button
-                              size="sm"
-                              onClick={() => handleAssign(item.id, 'inventory')}
-                              disabled={isPending}
-                            >
-                              <CheckCircle className="h-4 w-4 mr-1" />
-                              Assign
-                            </Button>
-                          </TableCell>
-                        </TableRow>
-                      ))}
-                    </TableBody>
-                  </Table>
-                ) : (
-                  <div className="p-6 text-center text-muted-foreground">
-                    <p>No available CPE equipment found</p>
-                    <p className="text-sm">Add CPE equipment to inventory first</p>
-                  </div>
-                )}
-              </div>
-            </TabsContent>
-
-            <TabsContent value="network" className="space-y-4">
-              <div className="text-sm text-muted-foreground">
-                Approved network infrastructure equipment with SNMP management
-              </div>
-              <div className="border rounded-lg max-h-96 overflow-y-auto">
-                {isLoadingEquipment ? (
-                  <div className="p-6 text-center">Loading network equipment...</div>
-                ) : networkEquipment.length > 0 ? (
-                  <Table>
-                    <TableHeader>
-                      <TableRow>
-                        <TableHead>Type</TableHead>
-                        <TableHead>Brand/Model</TableHead>
-                        <TableHead>Serial Number</TableHead>
-                        <TableHead>IP Address</TableHead>
-                        <TableHead>Status</TableHead>
-                        <TableHead>Action</TableHead>
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {networkEquipment.map((item) => (
-                        <TableRow key={item.id}>
-                          <TableCell>
-                            <div className="font-medium">{item.type}</div>
-                          </TableCell>
-                          <TableCell>
-                            <div>
-                              <div className="font-medium">{item.brand} {item.model}</div>
-                            </div>
-                          </TableCell>
-                          <TableCell className="font-mono text-sm">
-                            {item.serial_number}
-                          </TableCell>
-                          <TableCell className="font-mono text-sm">
-                            {item.ip_address || '-'}
-                          </TableCell>
-                          <TableCell>
-                            <Badge variant="default">{item.status}</Badge>
-                          </TableCell>
-                          <TableCell>
-                            <Button
-                              size="sm"
-                              onClick={() => handleAssign(item.id, 'equipment')}
-                              disabled={isPending}
-                            >
-                              <CheckCircle className="h-4 w-4 mr-1" />
-                              Assign
-                            </Button>
-                          </TableCell>
-                        </TableRow>
-                      ))}
-                    </TableBody>
-                  </Table>
-                ) : (
-                  <div className="p-6 text-center text-muted-foreground">
-                    <p>No available network equipment found</p>
-                    <p className="text-sm">Promote inventory items to network equipment or add new equipment</p>
-                  </div>
-                )}
-              </div>
-            </TabsContent>
-          </Tabs>
-
-          <div className="flex justify-end">
-            <Button variant="outline" onClick={() => onOpenChange(false)}>
+          <div className="flex justify-end gap-2 pt-4">
+            <Button variant="outline" onClick={handleClose}>
               Cancel
+            </Button>
+            <Button 
+              onClick={handleAssign}
+              disabled={!selectedClientId || isLoading}
+            >
+              {isLoading ? (
+                <>
+                  <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                  Assigning...
+                </>
+              ) : (
+                'Assign Equipment'
+              )}
             </Button>
           </div>
         </div>

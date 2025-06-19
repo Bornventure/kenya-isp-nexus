@@ -25,6 +25,44 @@ const ClientRegistrationForm: React.FC<ClientRegistrationFormProps> = ({ onClose
     handleSubmit,
   } = useClientRegistrationForm({ onClose, onSave });
 
+  // Transform database format to component format
+  const transformedFormData = {
+    name: formData.name,
+    email: formData.email,
+    phone: formData.phone,
+    idNumber: formData.id_number,
+    kraPinNumber: formData.kra_pin_number,
+    mpesaNumber: formData.mpesa_number,
+    address: formData.address,
+    county: formData.county,
+    subCounty: formData.sub_county,
+    latitude: formData.latitude,
+    longitude: formData.longitude,
+    servicePackageId: formData.service_package_id,
+    monthlyRate: formData.monthly_rate,
+    connectionType: formData.connection_type,
+    clientType: formData.client_type,
+    installationDate: formData.installation_date,
+  };
+
+  const transformedUpdateFormData = (field: string, value: any) => {
+    // Transform component format back to database format
+    const fieldMap: Record<string, string> = {
+      idNumber: 'id_number',
+      kraPinNumber: 'kra_pin_number',
+      mpesaNumber: 'mpesa_number',
+      subCounty: 'sub_county',
+      servicePackageId: 'service_package_id',
+      monthlyRate: 'monthly_rate',
+      connectionType: 'connection_type',
+      clientType: 'client_type',
+      installationDate: 'installation_date',
+    };
+    
+    const dbField = fieldMap[field] || field;
+    updateFormData(dbField, value);
+  };
+
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
       <Card className="w-full max-w-4xl max-h-[90vh] overflow-y-auto">
@@ -47,26 +85,26 @@ const ClientRegistrationForm: React.FC<ClientRegistrationFormProps> = ({ onClose
 
           <form onSubmit={handleSubmit} className="space-y-6">
             <PersonalInfoSection
-              formData={formData}
+              formData={transformedFormData}
               errors={errors}
               isSubmitting={isSubmitting}
-              updateFormData={updateFormData}
+              updateFormData={transformedUpdateFormData}
             />
 
             <LocationInfoSection
-              formData={formData}
+              formData={transformedFormData}
               errors={errors}
               isSubmitting={isSubmitting}
-              updateFormData={updateFormData}
+              updateFormData={transformedUpdateFormData}
             />
 
             <ServiceInfoSection
-              formData={formData}
+              formData={transformedFormData}
               errors={errors}
               isSubmitting={isSubmitting}
               servicePackages={servicePackages}
               packagesLoading={packagesLoading}
-              updateFormData={updateFormData}
+              updateFormData={transformedUpdateFormData}
             />
 
             <div className="flex justify-end gap-3 pt-4 border-t">

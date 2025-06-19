@@ -2,390 +2,294 @@
 import React, { useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
 import { Switch } from '@/components/ui/switch';
+import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
-import {
-  MapPin,
-  Store,
-  Coffee,
-  ShoppingBag,
-  Car,
-  Utensils,
-  Star,
-  Navigation,
-  Clock,
-  Phone
+import { Badge } from '@/components/ui/badge';
+import { 
+  MapPin, 
+  Navigation, 
+  Globe, 
+  Users,
+  Settings,
+  Radar,
+  Target
 } from 'lucide-react';
-import { useQuery } from '@tanstack/react-query';
-
-interface BusinessPartner {
-  id: string;
-  name: string;
-  category: string;
-  distance: number;
-  rating: number;
-  address: string;
-  phone?: string;
-  website?: string;
-  offer?: string;
-  isPromoted: boolean;
-  openingHours: {
-    open: string;
-    close: string;
-    isOpen: boolean;
-  };
-}
-
-interface LocationService {
-  id: string;
-  name: string;
-  type: 'nearby_businesses' | 'directions' | 'promotions' | 'events';
-  isEnabled: boolean;
-  settings: Record<string, any>;
-}
 
 interface LocationServicesProps {
   selectedHotspot: string | null;
 }
 
 const LocationServices: React.FC<LocationServicesProps> = ({ selectedHotspot }) => {
-  const [services, setServices] = useState<LocationService[]>([
-    {
-      id: 'nearby_businesses',
-      name: 'Nearby Businesses',
-      type: 'nearby_businesses',
-      isEnabled: true,
-      settings: { radius: 500, categories: ['restaurant', 'shop', 'cafe'] }
-    },
-    {
-      id: 'directions',
-      name: 'Turn-by-turn Directions',
-      type: 'directions',
-      isEnabled: true,
-      settings: { provider: 'google_maps' }
-    },
-    {
-      id: 'promotions',
-      name: 'Location-based Promotions',
-      type: 'promotions',
-      isEnabled: true,
-      settings: { autoShow: true, maxPerDay: 3 }
-    },
-    {
-      id: 'events',
-      name: 'Local Events',
-      type: 'events',
-      isEnabled: false,
-      settings: { categories: ['entertainment', 'business', 'community'] }
-    }
-  ]);
-
-  const { data: nearbyBusinesses, isLoading } = useQuery({
-    queryKey: ['nearby-businesses', selectedHotspot],
-    queryFn: async () => {
-      // Mock data - in real implementation, fetch from location APIs
-      const mockBusinesses: BusinessPartner[] = [
-        {
-          id: '1',
-          name: 'Java House Coffee',
-          category: 'Cafe',
-          distance: 120,
-          rating: 4.5,
-          address: 'Tom Mboya Street, Nairobi',
-          phone: '+254 701 234567',
-          website: 'https://javahouse.co.ke',
-          offer: '10% off with WiFi receipt',
-          isPromoted: true,
-          openingHours: {
-            open: '06:00',
-            close: '22:00',
-            isOpen: true
-          }
-        },
-        {
-          id: '2',
-          name: 'Nakumatt Lifestyle',
-          category: 'Shopping',
-          distance: 250,
-          rating: 4.2,
-          address: 'Kimathi Street, Nairobi',
-          phone: '+254 701 345678',
-          offer: 'Free parking for WiFi users',
-          isPromoted: false,
-          openingHours: {
-            open: '08:00',
-            close: '21:00',
-            isOpen: true
-          }
-        },
-        {
-          id: '3',
-          name: 'Carnivore Restaurant',
-          category: 'Restaurant',
-          distance: 450,
-          rating: 4.7,
-          address: 'Langata Road, Nairobi',
-          phone: '+254 701 456789',
-          website: 'https://carnivore.co.ke',
-          offer: 'Complimentary appetizer',
-          isPromoted: true,
-          openingHours: {
-            open: '12:00',
-            close: '23:00',
-            isOpen: true
-          }
-        },
-        {
-          id: '4',
-          name: 'Shell Petrol Station',
-          category: 'Fuel',
-          distance: 180,
-          rating: 4.0,
-          address: 'Uhuru Highway, Nairobi',
-          isPromoted: false,
-          openingHours: {
-            open: '24/7',
-            close: '24/7',
-            isOpen: true
-          }
-        }
-      ];
-
-      return mockBusinesses;
-    },
+  const [locationSettings, setLocationSettings] = useState({
+    geoLocation: true,
+    proximityAlerts: true,
+    locationBasedContent: false,
+    heatmapTracking: true,
+    geofencing: false,
+    accuracyRadius: 50,
+    trackingInterval: 30
   });
 
-  const toggleService = (serviceId: string) => {
-    setServices(prev =>
-      prev.map(service =>
-        service.id === serviceId
-          ? { ...service, isEnabled: !service.isEnabled }
-          : service
-      )
-    );
-  };
+  const mockLocationData = [
+    { id: 1, user: 'User_001', device: 'iPhone', location: 'Main Entrance', distance: '5m', time: '2 mins ago' },
+    { id: 2, user: 'User_002', device: 'Android', location: 'Food Court', distance: '15m', time: '5 mins ago' },
+    { id: 3, user: 'User_003', device: 'Laptop', location: 'Seating Area', distance: '8m', time: '8 mins ago' }
+  ];
 
-  const getCategoryIcon = (category: string) => {
-    switch (category.toLowerCase()) {
-      case 'cafe': return <Coffee className="h-4 w-4" />;
-      case 'restaurant': return <Utensils className="h-4 w-4" />;
-      case 'shopping': return <ShoppingBag className="h-4 w-4" />;
-      case 'fuel': return <Car className="h-4 w-4" />;
-      default: return <Store className="h-4 w-4" />;
+  const mockHeatmapZones = [
+    { zone: 'Main Entrance', users: 45, density: 'High', avgDuration: '12m' },
+    { zone: 'Food Court', users: 32, density: 'Medium', avgDuration: '25m' },
+    { zone: 'Seating Area', users: 28, density: 'Medium', avgDuration: '18m' },
+    { zone: 'Parking Area', users: 15, density: 'Low', avgDuration: '8m' }
+  ];
+
+  const getDensityColor = (density: string) => {
+    switch (density.toLowerCase()) {
+      case 'high': return 'bg-red-100 text-red-800';
+      case 'medium': return 'bg-yellow-100 text-yellow-800';
+      case 'low': return 'bg-green-100 text-green-800';
+      default: return 'bg-gray-100 text-gray-800';
     }
   };
-
-  if (isLoading) {
-    return (
-      <div className="space-y-4">
-        {[...Array(4)].map((_, i) => (
-          <Card key={i} className="animate-pulse">
-            <CardHeader>
-              <div className="h-6 bg-gray-200 rounded w-1/3"></div>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-2">
-                <div className="h-4 bg-gray-200 rounded w-2/3"></div>
-                <div className="h-4 bg-gray-200 rounded w-1/2"></div>
-              </div>
-            </CardContent>
-          </Card>
-        ))}
-      </div>
-    );
-  }
 
   return (
     <div className="space-y-6">
+      {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h3 className="text-lg font-medium">Location-based Services</h3>
+          <h3 className="text-lg font-medium">Location Services</h3>
           <p className="text-sm text-muted-foreground">
-            Provide contextual services and promotions based on user location
+            Track and analyze user location data and movement patterns
           </p>
         </div>
+        <Button>
+          <Settings className="h-4 w-4 mr-2" />
+          Update Privacy Settings
+        </Button>
       </div>
 
-      {/* Service Configuration */}
+      {!selectedHotspot && (
+        <Card className="border-orange-200 bg-orange-50">
+          <CardContent className="p-4">
+            <p className="text-orange-800">
+              Please select a hotspot from the Hotspots tab to configure location services.
+            </p>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Stats */}
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+        <Card>
+          <CardContent className="p-6">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm font-medium text-muted-foreground">Tracked Users</p>
+                <p className="text-2xl font-bold">124</p>
+              </div>
+              <Navigation className="h-8 w-8 text-blue-600" />
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardContent className="p-6">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm font-medium text-muted-foreground">Active Zones</p>
+                <p className="text-2xl font-bold">4</p>
+              </div>
+              <Target className="h-8 w-8 text-green-600" />
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardContent className="p-6">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm font-medium text-muted-foreground">Avg. Session Time</p>
+                <p className="text-2xl font-bold">16m</p>
+              </div>
+              <Radar className="h-8 w-8 text-orange-600" />
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardContent className="p-6">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm font-medium text-muted-foreground">Coverage Area</p>
+                <p className="text-2xl font-bold">2.5km²</p>
+              </div>
+              <Globe className="h-8 w-8 text-purple-600" />
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* Location Settings */}
       <Card>
         <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <Navigation className="h-5 w-5" />
-            Location Services Configuration
-          </CardTitle>
+          <CardTitle>Location Tracking Configuration</CardTitle>
         </CardHeader>
-        <CardContent>
-          <div className="space-y-4">
-            {services.map((service) => (
-              <div key={service.id} className="flex items-center justify-between p-3 border rounded-lg">
-                <div>
-                  <p className="font-medium">{service.name}</p>
-                  <p className="text-sm text-muted-foreground">
-                    {service.type === 'nearby_businesses' && 'Show nearby shops, restaurants, and services'}
-                    {service.type === 'directions' && 'Provide GPS navigation and directions'}
-                    {service.type === 'promotions' && 'Display location-specific offers and deals'}
-                    {service.type === 'events' && 'Show local events and activities'}
-                  </p>
-                </div>
-                <Switch
-                  checked={service.isEnabled}
-                  onCheckedChange={() => toggleService(service.id)}
-                />
+        <CardContent className="space-y-6">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div className="flex items-center justify-between">
+              <div>
+                <Label>Enable Geo-Location</Label>
+                <p className="text-sm text-muted-foreground">
+                  Track user device locations within coverage area
+                </p>
               </div>
-            ))}
+              <Switch
+                checked={locationSettings.geoLocation}
+                onCheckedChange={(checked) => setLocationSettings({...locationSettings, geoLocation: checked})}
+              />
+            </div>
+
+            <div className="flex items-center justify-between">
+              <div>
+                <Label>Proximity Alerts</Label>
+                <p className="text-sm text-muted-foreground">
+                  Send notifications based on user proximity
+                </p>
+              </div>
+              <Switch
+                checked={locationSettings.proximityAlerts}
+                onCheckedChange={(checked) => setLocationSettings({...locationSettings, proximityAlerts: checked})}
+              />
+            </div>
+
+            <div className="flex items-center justify-between">
+              <div>
+                <Label>Location-based Content</Label>
+                <p className="text-sm text-muted-foreground">
+                  Show content based on user location
+                </p>
+              </div>
+              <Switch
+                checked={locationSettings.locationBasedContent}
+                onCheckedChange={(checked) => setLocationSettings({...locationSettings, locationBasedContent: checked})}
+              />
+            </div>
+
+            <div className="flex items-center justify-between">
+              <div>
+                <Label>Heatmap Tracking</Label>
+                <p className="text-sm text-muted-foreground">
+                  Generate usage heatmaps and analytics
+                </p>
+              </div>
+              <Switch
+                checked={locationSettings.heatmapTracking}
+                onCheckedChange={(checked) => setLocationSettings({...locationSettings, heatmapTracking: checked})}
+              />
+            </div>
+
+            <div className="flex items-center justify-between">
+              <div>
+                <Label>Geofencing</Label>
+                <p className="text-sm text-muted-foreground">
+                  Create virtual boundaries for zones
+                </p>
+              </div>
+              <Switch
+                checked={locationSettings.geofencing}
+                onCheckedChange={(checked) => setLocationSettings({...locationSettings, geofencing: checked})}
+              />
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="space-y-2">
+              <Label>Accuracy Radius (meters)</Label>
+              <Input
+                type="number"
+                value={locationSettings.accuracyRadius}
+                onChange={(e) => setLocationSettings({...locationSettings, accuracyRadius: parseInt(e.target.value) || 0})}
+              />
+            </div>
+
+            <div className="space-y-2">
+              <Label>Tracking Interval (seconds)</Label>
+              <Input
+                type="number"
+                value={locationSettings.trackingInterval}
+                onChange={(e) => setLocationSettings({...locationSettings, trackingInterval: parseInt(e.target.value) || 0})}
+              />
+            </div>
           </div>
         </CardContent>
       </Card>
 
-      {/* Nearby Businesses */}
-      {services.find(s => s.id === 'nearby_businesses')?.isEnabled && (
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <MapPin className="h-5 w-5" />
-              Nearby Businesses
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-4">
-              {nearbyBusinesses?.map((business) => (
-                <div key={business.id} className="flex items-start justify-between p-4 border rounded-lg">
-                  <div className="flex items-start gap-3">
-                    {getCategoryIcon(business.category)}
-                    <div className="flex-1">
-                      <div className="flex items-center gap-2">
-                        <h4 className="font-medium">{business.name}</h4>
-                        {business.isPromoted && (
-                          <Badge className="bg-orange-100 text-orange-800">Promoted</Badge>
-                        )}
-                      </div>
-                      <p className="text-sm text-muted-foreground">{business.address}</p>
-                      
-                      <div className="flex items-center gap-4 mt-2 text-sm">
-                        <div className="flex items-center gap-1">
-                          <MapPin className="h-3 w-3" />
-                          <span>{business.distance}m away</span>
-                        </div>
-                        <div className="flex items-center gap-1">
-                          <Star className="h-3 w-3 fill-yellow-400 text-yellow-400" />
-                          <span>{business.rating}</span>
-                        </div>
-                        <div className="flex items-center gap-1">
-                          <Clock className="h-3 w-3" />
-                          <span className={business.openingHours.isOpen ? 'text-green-600' : 'text-red-600'}>
-                            {business.openingHours.isOpen ? 'Open' : 'Closed'}
-                          </span>
-                        </div>
-                      </div>
-
-                      {business.offer && (
-                        <div className="mt-2 p-2 bg-green-50 border border-green-200 rounded text-sm text-green-800">
-                          🎉 {business.offer}
-                        </div>
-                      )}
-                    </div>
-                  </div>
-
-                  <div className="flex flex-col gap-2">
-                    {business.phone && (
-                      <Button variant="outline" size="sm">
-                        <Phone className="h-3 w-3 mr-1" />
-                        Call
-                      </Button>
-                    )}
-                    <Button variant="outline" size="sm">
-                      <Navigation className="h-3 w-3 mr-1" />
-                      Directions
-                    </Button>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </CardContent>
-        </Card>
-      )}
-
-      {/* Promotion Settings */}
-      {services.find(s => s.id === 'promotions')?.isEnabled && (
-        <Card>
-          <CardHeader>
-            <CardTitle>Promotion Settings</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-4">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div>
-                  <label className="text-sm font-medium">Promotion Radius (meters)</label>
-                  <Input
-                    type="number"
-                    defaultValue={500}
-                    className="mt-1"
-                  />
-                </div>
-                <div>
-                  <label className="text-sm font-medium">Max Promotions per User per Day</label>
-                  <Input
-                    type="number"
-                    defaultValue={3}
-                    className="mt-1"
-                  />
-                </div>
-              </div>
-
-              <div className="space-y-3">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="text-sm font-medium">Auto-show Promotions</p>
-                    <p className="text-xs text-muted-foreground">Automatically display promotions when users connect</p>
-                  </div>
-                  <Switch defaultChecked />
-                </div>
-
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="text-sm font-medium">Collect User Preferences</p>
-                    <p className="text-xs text-muted-foreground">Learn user preferences for better targeting</p>
-                  </div>
-                  <Switch defaultChecked />
-                </div>
-
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="text-sm font-medium">Share Analytics with Partners</p>
-                    <p className="text-xs text-muted-foreground">Provide anonymized analytics to business partners</p>
-                  </div>
-                  <Switch />
-                </div>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-      )}
-
-      {/* Performance Analytics */}
+      {/* Real-time Location Data */}
       <Card>
         <CardHeader>
-          <CardTitle>Location Services Analytics</CardTitle>
+          <CardTitle>Real-time User Locations</CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-            <div className="text-center">
-              <p className="text-2xl font-bold text-blue-600">847</p>
-              <p className="text-sm text-muted-foreground">Business Views</p>
-            </div>
-            <div className="text-center">
-              <p className="text-2xl font-bold text-green-600">234</p>
-              <p className="text-sm text-muted-foreground">Directions Requested</p>
-            </div>
-            <div className="text-center">
-              <p className="text-2xl font-bold text-purple-600">67</p>
-              <p className="text-sm text-muted-foreground">Promotions Claimed</p>
-            </div>
-            <div className="text-center">
-              <p className="text-2xl font-bold text-orange-600">12.3%</p>
-              <p className="text-sm text-muted-foreground">Conversion Rate</p>
-            </div>
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="border-b">
+                  <th className="text-left p-2">User ID</th>
+                  <th className="text-left p-2">Device</th>
+                  <th className="text-left p-2">Zone</th>
+                  <th className="text-left p-2">Distance</th>
+                  <th className="text-left p-2">Last Update</th>
+                </tr>
+              </thead>
+              <tbody>
+                {mockLocationData.map((location) => (
+                  <tr key={location.id} className="border-b hover:bg-gray-50">
+                    <td className="p-2 font-mono text-xs">{location.user}</td>
+                    <td className="p-2">{location.device}</td>
+                    <td className="p-2">
+                      <div className="flex items-center gap-2">
+                        <MapPin className="h-4 w-4 text-blue-600" />
+                        {location.location}
+                      </div>
+                    </td>
+                    <td className="p-2">{location.distance}</td>
+                    <td className="p-2 text-muted-foreground">{location.time}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Heatmap Zones */}
+      <Card>
+        <CardHeader>
+          <CardTitle>Usage Heatmap by Zones</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            {mockHeatmapZones.map((zone, index) => (
+              <div key={index} className="p-4 border rounded-lg">
+                <div className="flex items-center justify-between mb-2">
+                  <h4 className="font-medium">{zone.zone}</h4>
+                  <Badge className={getDensityColor(zone.density)}>
+                    {zone.density}
+                  </Badge>
+                </div>
+                <div className="grid grid-cols-2 gap-4 text-sm">
+                  <div>
+                    <p className="text-muted-foreground">Active Users</p>
+                    <p className="font-medium">{zone.users}</p>
+                  </div>
+                  <div>
+                    <p className="text-muted-foreground">Avg. Duration</p>
+                    <p className="font-medium">{zone.avgDuration}</p>
+                  </div>
+                </div>
+              </div>
+            ))}
           </div>
         </CardContent>
       </Card>
