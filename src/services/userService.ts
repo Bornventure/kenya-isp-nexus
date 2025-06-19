@@ -63,6 +63,10 @@ export const userService = {
       throw new Error('Insufficient permissions');
     }
 
+    // For now, we'll only create the profile without the auth user
+    // This is because creating auth users requires admin privileges that we don't have in the client
+    console.log('Creating user profile only. Email provided for reference:', userData.email);
+    
     const newUserId = crypto.randomUUID();
     
     const { data: userProfile, error: profileError } = await supabase
@@ -78,7 +82,10 @@ export const userService = {
       .select()
       .single();
 
-    if (profileError) throw profileError;
+    if (profileError) {
+      console.error('Profile creation error:', profileError);
+      throw new Error(`Failed to create user profile: ${profileError.message}`);
+    }
 
     return userProfile;
   },

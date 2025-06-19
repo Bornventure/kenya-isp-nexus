@@ -12,20 +12,22 @@ export const useUserMutations = () => {
 
   const createUserMutation = useMutation({
     mutationFn: async (userData: CreateUserData) => {
+      console.log('Creating user with data:', userData);
       return await userService.createUser(userData, profile?.role, profile?.isp_company_id);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['system-users'] });
       toast({
         title: "User Profile Created",
-        description: "New user profile has been created. Auth setup needs to be completed separately.",
+        description: "User profile has been created successfully. Note: This only creates the profile - authentication setup needs to be done separately.",
       });
     },
     onError: (error) => {
       console.error('Error creating user:', error);
+      const errorMessage = error instanceof Error ? error.message : 'Failed to create user profile';
       toast({
         title: "Error",
-        description: "Failed to create user profile. Please try again.",
+        description: errorMessage,
         variant: "destructive",
       });
     },

@@ -5,7 +5,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { UserPlus } from 'lucide-react';
+import { UserPlus, AlertCircle } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import type { CreateUserData } from '@/types/user';
 
@@ -29,6 +29,8 @@ const CreateUserDialog: React.FC<CreateUserDialogProps> = ({ onCreateUser, isCre
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    
+    console.log('Submitting user creation form');
     
     onCreateUser({
       ...newUser,
@@ -64,9 +66,20 @@ const CreateUserDialog: React.FC<CreateUserDialogProps> = ({ onCreateUser, isCre
           <DialogHeader>
             <DialogTitle>Create New User Profile</DialogTitle>
             <DialogDescription>
-              Create a user profile. Authentication setup will need to be completed separately.
+              Create a user profile. This creates only the profile record - authentication setup will need to be completed separately through Supabase Auth.
             </DialogDescription>
           </DialogHeader>
+          
+          <div className="bg-blue-50 border border-blue-200 rounded-md p-3 mb-4">
+            <div className="flex">
+              <AlertCircle className="h-5 w-5 text-blue-400 mt-0.5 mr-2 flex-shrink-0" />
+              <div className="text-sm text-blue-700">
+                <p className="font-medium">Note:</p>
+                <p>This creates a user profile only. To enable login, the user's authentication account must be created separately in Supabase Auth admin panel.</p>
+              </div>
+            </div>
+          </div>
+
           <div className="grid gap-4 py-4">
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
