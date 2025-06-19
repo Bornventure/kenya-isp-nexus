@@ -282,7 +282,7 @@ const InventoryItemDetail: React.FC<InventoryItemDetailProps> = ({ item: itemId,
       <EditInventoryItemDialog
         open={showEditDialog}
         onOpenChange={setShowEditDialog}
-        item={item}
+        itemId={item.id}
       />
 
       <UnifiedEquipmentAssignmentDialog
@@ -296,7 +296,7 @@ const InventoryItemDetail: React.FC<InventoryItemDetailProps> = ({ item: itemId,
       <PromoteToEquipmentDialog
         open={showPromoteDialog}
         onOpenChange={setShowPromoteDialog}
-        item={item}
+        inventoryItem={item}
       />
     </div>
   );
