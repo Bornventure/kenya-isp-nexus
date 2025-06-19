@@ -1,264 +1,184 @@
 
-import React from 'react';
-import { useForm } from 'react-hook-form';
-import { zodResolver } from '@hookform/resolvers/zod';
-import * as z from 'zod';
+import React, { useState, useEffect } from 'react';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Textarea } from '@/components/ui/textarea';
+import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
-import { useCreateHotspot } from '@/hooks/useHotspots';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-
-const hotspotSchema = z.object({
-  name: z.string().min(1, 'Name is required'),
-  location: z.string().min(1, 'Location is required'),
-  ssid: z.string().min(1, 'SSID is required'),
-  password: z.string().optional(),
-  bandwidth_limit: z.number().min(1, 'Bandwidth limit must be at least 1 Mbps'),
-  max_concurrent_users: z.number().min(1, 'Must allow at least 1 user'),
-  coverage_radius: z.number().min(1, 'Coverage radius must be at least 1 meter'),
-  latitude: z.number().min(-90).max(90),
-  longitude: z.number().min(-180).max(180),
-  status: z.enum(['active', 'inactive', 'maintenance']),
-});
-
-type HotspotFormData = z.infer<typeof hotspotSchema>;
+import { Textarea } from '@/components/ui/textarea';
+import { useCreateHotspot, useUpdateHotspot, type Hotspot } from '@/hooks/useHotspots';
 
 interface HotspotFormProps {
-  onSuccess?: () => void;
+  hotspot?: Hotspot;
+  onSuccess: () => void;
 }
 
-const HotspotForm: React.FC<HotspotFormProps> = ({ onSuccess }) => {
-  const createHotspot = useCreateHotspot();
-
-  const form = useForm<HotspotFormData>({
-    resolver: zodResolver(hotspotSchema),
-    defaultValues: {
-      name: '',
-      location: '',
-      ssid: '',
-      password: '',
-      bandwidth_limit: 10,
-      max_concurrent_users: 50,
-      coverage_radius: 100,
-      latitude: 0,
-      longitude: 0,
-      status: 'active',
-    },
+const HotspotForm: React.FC<HotspotFormProps> = ({ hotspot, onSuccess }) => {
+  const [formData, setFormData] = useState({
+    name: '',
+    location: '',
+    latitude: 0,
+    longitude: 0,
+    status: 'active' as const,
+    bandwidth_limit: 10,
+    max_concurrent_users: 50,
+    coverage_radius: 100,
+    ssid: '',
+    password: '',
+    is_active: true,
   });
 
-  const onSubmit = async (data: HotspotFormData) => {
-    try {
-      await createHotspot.mutateAsync({
-        ...data,
-        is_active: data.status === 'active',
+  const { mutate: createHotspot, isPending: isCreating } = useCreateHotspot();
+  const { mutate: updateHotspot, isPending: isUpdating } = useUpdateHotspot();
+
+  useEffect(() => {
+    if (hotspot) {
+      setFormData({
+        name: hotspot.name,
+        location: hotspot.location,
+        latitude: hotspot.latitude,
+        longitude: hotspot.longitude,
+        status: hotspot.status,
+        bandwidth_limit: hotspot.bandwidth_limit,
+        max_concurrent_users: hotspot.max_concurrent_users,
+        coverage_radius: hotspot.coverage_radius,
+        ssid: hotspot.ssid,
+        password: hotspot.password || '',
+        is_active: hotspot.is_active,
       });
-      form.reset();
-      onSuccess?.();
-    } catch (error) {
-      console.error('Error creating hotspot:', error);
+    }
+  }, [hotspot]);
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    
+    if (hotspot) {
+      updateHotspot(
+        { id: hotspot.id, updates: formData },
+        { onSuccess }
+      );
+    } else {
+      createHotspot(formData as any, { onSuccess });
     }
   };
 
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle>Create New Hotspot</CardTitle>
-      </CardHeader>
-      <CardContent>
-        <Form {...form}>
-          <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <FormField
-                control={form.control}
-                name="name"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Hotspot Name</FormLabel>
-                    <FormControl>
-                      <Input placeholder="Enter hotspot name" {...field} />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
+    <form onSubmit={handleSubmit} className="space-y-4">
+      <div className="grid grid-cols-2 gap-4">
+        <div className="space-y-2">
+          <Label htmlFor="name">Name *</Label>
+          <Input
+            id="name"
+            value={formData.name}
+            onChange={(e) => setFormData(prev => ({ ...prev, name: e.target.value }))}
+            required
+          />
+        </div>
+        <div className="space-y-2">
+          <Label htmlFor="ssid">SSID *</Label>
+          <Input
+            id="ssid"
+            value={formData.ssid}
+            onChange={(e) => setFormData(prev => ({ ...prev, ssid: e.target.value }))}
+            required
+          />
+        </div>
+      </div>
 
-              <FormField
-                control={form.control}
-                name="location"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Location</FormLabel>
-                    <FormControl>
-                      <Input placeholder="Enter location" {...field} />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
+      <div className="space-y-2">
+        <Label htmlFor="location">Location *</Label>
+        <Textarea
+          id="location"
+          value={formData.location}
+          onChange={(e) => setFormData(prev => ({ ...prev, location: e.target.value }))}
+          required
+        />
+      </div>
 
-              <FormField
-                control={form.control}
-                name="ssid"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>SSID</FormLabel>
-                    <FormControl>
-                      <Input placeholder="Enter WiFi network name" {...field} />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
+      <div className="grid grid-cols-2 gap-4">
+        <div className="space-y-2">
+          <Label htmlFor="latitude">Latitude</Label>
+          <Input
+            id="latitude"
+            type="number"
+            step="any"
+            value={formData.latitude}
+            onChange={(e) => setFormData(prev => ({ ...prev, latitude: parseFloat(e.target.value) || 0 }))}
+          />
+        </div>
+        <div className="space-y-2">
+          <Label htmlFor="longitude">Longitude</Label>
+          <Input
+            id="longitude"
+            type="number"
+            step="any"
+            value={formData.longitude}
+            onChange={(e) => setFormData(prev => ({ ...prev, longitude: parseFloat(e.target.value) || 0 }))}
+          />
+        </div>
+      </div>
 
-              <FormField
-                control={form.control}
-                name="password"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Password (Optional)</FormLabel>
-                    <FormControl>
-                      <Input type="password" placeholder="Enter WiFi password" {...field} />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
+      <div className="grid grid-cols-3 gap-4">
+        <div className="space-y-2">
+          <Label htmlFor="bandwidth_limit">Bandwidth Limit (Mbps)</Label>
+          <Input
+            id="bandwidth_limit"
+            type="number"
+            value={formData.bandwidth_limit}
+            onChange={(e) => setFormData(prev => ({ ...prev, bandwidth_limit: parseInt(e.target.value) || 0 }))}
+          />
+        </div>
+        <div className="space-y-2">
+          <Label htmlFor="max_concurrent_users">Max Users</Label>
+          <Input
+            id="max_concurrent_users"
+            type="number"
+            value={formData.max_concurrent_users}
+            onChange={(e) => setFormData(prev => ({ ...prev, max_concurrent_users: parseInt(e.target.value) || 0 }))}
+          />
+        </div>
+        <div className="space-y-2">
+          <Label htmlFor="coverage_radius">Coverage Radius (m)</Label>
+          <Input
+            id="coverage_radius"
+            type="number"
+            value={formData.coverage_radius}
+            onChange={(e) => setFormData(prev => ({ ...prev, coverage_radius: parseInt(e.target.value) || 0 }))}
+          />
+        </div>
+      </div>
 
-              <FormField
-                control={form.control}
-                name="bandwidth_limit"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Bandwidth Limit (Mbps)</FormLabel>
-                    <FormControl>
-                      <Input 
-                        type="number" 
-                        placeholder="10" 
-                        {...field}
-                        onChange={(e) => field.onChange(Number(e.target.value))}
-                      />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
+      <div className="grid grid-cols-2 gap-4">
+        <div className="space-y-2">
+          <Label htmlFor="status">Status</Label>
+          <Select value={formData.status} onValueChange={(value: any) => setFormData(prev => ({ ...prev, status: value }))}>
+            <SelectTrigger>
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="active">Active</SelectItem>
+              <SelectItem value="inactive">Inactive</SelectItem>
+              <SelectItem value="maintenance">Maintenance</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
+        <div className="space-y-2">
+          <Label htmlFor="password">Password</Label>
+          <Input
+            id="password"
+            type="password"
+            value={formData.password}
+            onChange={(e) => setFormData(prev => ({ ...prev, password: e.target.value }))}
+          />
+        </div>
+      </div>
 
-              <FormField
-                control={form.control}
-                name="max_concurrent_users"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Max Concurrent Users</FormLabel>
-                    <FormControl>
-                      <Input 
-                        type="number" 
-                        placeholder="50" 
-                        {...field}
-                        onChange={(e) => field.onChange(Number(e.target.value))}
-                      />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-
-              <FormField
-                control={form.control}
-                name="coverage_radius"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Coverage Radius (meters)</FormLabel>
-                    <FormControl>
-                      <Input 
-                        type="number" 
-                        placeholder="100" 
-                        {...field}
-                        onChange={(e) => field.onChange(Number(e.target.value))}
-                      />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-
-              <FormField
-                control={form.control}
-                name="status"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Status</FormLabel>
-                    <Select onValueChange={field.onChange} defaultValue={field.value}>
-                      <FormControl>
-                        <SelectTrigger>
-                          <SelectValue placeholder="Select status" />
-                        </SelectTrigger>
-                      </FormControl>
-                      <SelectContent>
-                        <SelectItem value="active">Active</SelectItem>
-                        <SelectItem value="inactive">Inactive</SelectItem>
-                        <SelectItem value="maintenance">Maintenance</SelectItem>
-                      </SelectContent>
-                    </Select>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-
-              <FormField
-                control={form.control}
-                name="latitude"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Latitude</FormLabel>
-                    <FormControl>
-                      <Input 
-                        type="number" 
-                        step="any"
-                        placeholder="0.0" 
-                        {...field}
-                        onChange={(e) => field.onChange(Number(e.target.value))}
-                      />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-
-              <FormField
-                control={form.control}
-                name="longitude"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Longitude</FormLabel>
-                    <FormControl>
-                      <Input 
-                        type="number" 
-                        step="any"
-                        placeholder="0.0" 
-                        {...field}
-                        onChange={(e) => field.onChange(Number(e.target.value))}
-                      />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-            </div>
-
-            <Button 
-              type="submit" 
-              className="w-full" 
-              disabled={createHotspot.isPending}
-            >
-              {createHotspot.isPending ? 'Creating...' : 'Create Hotspot'}
-            </Button>
-          </form>
-        </Form>
-      </CardContent>
-    </Card>
+      <div className="flex justify-end gap-2">
+        <Button type="submit" disabled={isCreating || isUpdating}>
+          {(isCreating || isUpdating) ? 'Saving...' : hotspot ? 'Update Hotspot' : 'Create Hotspot'}
+        </Button>
+      </div>
+    </form>
   );
 };
 

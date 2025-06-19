@@ -1,21 +1,15 @@
 
 import React, { useState } from 'react';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Plus, Wifi, Activity, BarChart3, Users, Shield, Ticket, Settings, Monitor, TrendingUp, Network, ArrowRightLeft, Megaphone, MapPin, Share2 } from 'lucide-react';
-import { useHotspots, useHotspotSessions, useHotspotAnalytics } from '@/hooks/useHotspots';
-import { useAuth } from '@/contexts/AuthContext';
-
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Plus } from 'lucide-react';
+import { useHotspots } from '@/hooks/useHotspots';
 import HotspotsList from './HotspotsList';
 import HotspotForm from './HotspotForm';
-import HotspotDashboard from './HotspotDashboard';
-import ActiveSessions from './ActiveSessions';
-import HotspotAnalytics from './HotspotAnalytics';
-import ClientAuthSystem from './ClientAuthSystem';
 import VoucherManagement from './VoucherManagement';
-import HotspotSettings from './HotspotSettings';
-import HotspotNetworkMonitor from './HotspotNetworkMonitor';
-import HotspotRealTimeStats from './HotspotRealTimeStats';
+import SessionManagement from './SessionManagement';
 import LoadBalancer from './LoadBalancer';
 import RoamingManager from './RoamingManager';
 import SocialAuth from './SocialAuth';
@@ -23,184 +17,102 @@ import MarketingCampaigns from './MarketingCampaigns';
 import LocationServices from './LocationServices';
 
 const HotspotManagement = () => {
-  const { profile } = useAuth();
-  const [showCreateForm, setShowCreateForm] = useState(false);
-  const [selectedHotspot, setSelectedHotspot] = useState<string | null>(null);
+  const [showCreateDialog, setShowCreateDialog] = useState(false);
+  const { data: hotspots = [], isLoading } = useHotspots();
 
-  const { data: hotspots, isLoading: hotspotsLoading } = useHotspots();
-  const { data: sessions, isLoading: sessionsLoading } = useHotspotSessions();
-  const { data: analytics, isLoading: analyticsLoading } = useHotspotAnalytics();
-
-  const isAdmin = profile?.role === 'super_admin' || profile?.role === 'isp_admin';
-
-  const stats = {
-    totalHotspots: hotspots?.length || 0,
-    activeHotspots: hotspots?.filter(h => h.status === 'active').length || 0,
-    activeSessions: sessions?.filter(s => s.session_status === 'active').length || 0,
-    totalRevenue: analytics?.reduce((sum, a) => sum + (a.revenue_generated || 0), 0) || 0,
+  const handleCreateSuccess = () => {
+    setShowCreateDialog(false);
   };
 
   return (
-    <div className="p-6 space-y-6">
+    <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-3xl font-bold">Hotspot Management</h1>
-          <p className="text-muted-foreground">
-            Manage WiFi hotspots, monitor usage, and track performance
+          <p className="text-muted-foreground mt-2">
+            Manage Wi-Fi hotspots, sessions, and user access
           </p>
         </div>
-        {isAdmin && (
-          <Button onClick={() => setShowCreateForm(true)}>
-            <Plus className="h-4 w-4 mr-2" />
-            Add Hotspot
-          </Button>
-        )}
+        <Button onClick={() => setShowCreateDialog(true)}>
+          <Plus className="h-4 w-4 mr-2" />
+          Create Hotspot
+        </Button>
       </div>
 
-      {/* Quick Stats */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-        <div className="bg-white p-6 rounded-lg border">
-          <div className="flex items-center gap-2">
-            <Wifi className="h-5 w-5 text-blue-600" />
-            <div>
-              <p className="text-2xl font-bold">{stats.totalHotspots}</p>
-              <p className="text-sm text-muted-foreground">Total Hotspots</p>
-            </div>
-          </div>
-        </div>
-
-        <div className="bg-white p-6 rounded-lg border">
-          <div className="flex items-center gap-2">
-            <Activity className="h-5 w-5 text-green-600" />
-            <div>
-              <p className="text-2xl font-bold">{stats.activeHotspots}</p>
-              <p className="text-sm text-muted-foreground">Active Hotspots</p>
-            </div>
-          </div>
-        </div>
-
-        <div className="bg-white p-6 rounded-lg border">
-          <div className="flex items-center gap-2">
-            <Users className="h-5 w-5 text-orange-600" />
-            <div>
-              <p className="text-2xl font-bold">{stats.activeSessions}</p>
-              <p className="text-sm text-muted-foreground">Active Sessions</p>
-            </div>
-          </div>
-        </div>
-
-        <div className="bg-white p-6 rounded-lg border">
-          <div className="flex items-center gap-2">
-            <BarChart3 className="h-5 w-5 text-purple-600" />
-            <div>
-              <p className="text-2xl font-bold">KES {stats.totalRevenue.toLocaleString()}</p>
-              <p className="text-sm text-muted-foreground">Total Revenue</p>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      <Tabs defaultValue="dashboard" className="w-full">
-        <TabsList className="grid w-full grid-cols-6 lg:grid-cols-12 xl:grid-cols-14">
-          <TabsTrigger value="dashboard">Dashboard</TabsTrigger>
+      <Tabs defaultValue="hotspots" className="w-full">
+        <TabsList className="grid w-full grid-cols-9">
           <TabsTrigger value="hotspots">Hotspots</TabsTrigger>
           <TabsTrigger value="sessions">Sessions</TabsTrigger>
-          <TabsTrigger value="analytics">Analytics</TabsTrigger>
-          <TabsTrigger value="client-auth">Client Auth</TabsTrigger>
           <TabsTrigger value="vouchers">Vouchers</TabsTrigger>
-          <TabsTrigger value="monitoring">Monitoring</TabsTrigger>
-          <TabsTrigger value="realtime">Real-time</TabsTrigger>
           <TabsTrigger value="load-balancer">Load Balancer</TabsTrigger>
           <TabsTrigger value="roaming">Roaming</TabsTrigger>
           <TabsTrigger value="social-auth">Social Auth</TabsTrigger>
-          <TabsTrigger value="campaigns">Campaigns</TabsTrigger>
+          <TabsTrigger value="marketing">Marketing</TabsTrigger>
           <TabsTrigger value="location">Location</TabsTrigger>
-          <TabsTrigger value="settings">Settings</TabsTrigger>
+          <TabsTrigger value="analytics">Analytics</TabsTrigger>
         </TabsList>
 
-        <TabsContent value="dashboard" className="space-y-4">
-          <HotspotDashboard 
-            hotspots={hotspots || []}
-            sessions={sessions || []}
-            analytics={analytics || []}
-            isLoading={hotspotsLoading || sessionsLoading || analyticsLoading}
-          />
+        <TabsContent value="hotspots">
+          <Card>
+            <CardHeader>
+              <CardTitle>Hotspot Locations</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <HotspotsList hotspots={hotspots} isLoading={isLoading} />
+            </CardContent>
+          </Card>
         </TabsContent>
 
-        <TabsContent value="hotspots" className="space-y-4">
-          <HotspotsList 
-            hotspots={hotspots || []}
-            isLoading={hotspotsLoading}
-            onSelectHotspot={setSelectedHotspot}
-            selectedHotspot={selectedHotspot}
-          />
+        <TabsContent value="sessions">
+          <SessionManagement />
         </TabsContent>
 
-        <TabsContent value="sessions" className="space-y-4">
-          <ActiveSessions 
-            sessions={sessions || []}
-            isLoading={sessionsLoading}
-            selectedHotspot={selectedHotspot}
-          />
+        <TabsContent value="vouchers">
+          <VoucherManagement />
         </TabsContent>
 
-        <TabsContent value="analytics" className="space-y-4">
-          <HotspotAnalytics 
-            analytics={analytics || []}
-            hotspots={hotspots || []}
-            isLoading={analyticsLoading}
-            selectedHotspot={selectedHotspot}
-          />
+        <TabsContent value="load-balancer">
+          <LoadBalancer />
         </TabsContent>
 
-        <TabsContent value="client-auth" className="space-y-4">
-          <ClientAuthSystem selectedHotspot={selectedHotspot} />
+        <TabsContent value="roaming">
+          <RoamingManager />
         </TabsContent>
 
-        <TabsContent value="vouchers" className="space-y-4">
-          <VoucherManagement selectedHotspot={selectedHotspot} />
+        <TabsContent value="social-auth">
+          <SocialAuth />
         </TabsContent>
 
-        <TabsContent value="monitoring" className="space-y-4">
-          <HotspotNetworkMonitor selectedHotspot={selectedHotspot} />
+        <TabsContent value="marketing">
+          <MarketingCampaigns />
         </TabsContent>
 
-        <TabsContent value="realtime" className="space-y-4">
-          <HotspotRealTimeStats selectedHotspot={selectedHotspot} />
+        <TabsContent value="location">
+          <LocationServices />
         </TabsContent>
 
-        <TabsContent value="load-balancer" className="space-y-4">
-          <LoadBalancer selectedHotspot={selectedHotspot} />
-        </TabsContent>
-
-        <TabsContent value="roaming" className="space-y-4">
-          <RoamingManager selectedHotspot={selectedHotspot} />
-        </TabsContent>
-
-        <TabsContent value="social-auth" className="space-y-4">
-          <SocialAuth selectedHotspot={selectedHotspot} />
-        </TabsContent>
-
-        <TabsContent value="campaigns" className="space-y-4">
-          <MarketingCampaigns selectedHotspot={selectedHotspot} />
-        </TabsContent>
-
-        <TabsContent value="location" className="space-y-4">
-          <LocationServices selectedHotspot={selectedHotspot} />
-        </TabsContent>
-
-        <TabsContent value="settings" className="space-y-4">
-          <HotspotSettings selectedHotspot={selectedHotspot} />
+        <TabsContent value="analytics">
+          <Card>
+            <CardHeader>
+              <CardTitle>Analytics Dashboard</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <p className="text-muted-foreground">
+                Detailed analytics coming soon...
+              </p>
+            </CardContent>
+          </Card>
         </TabsContent>
       </Tabs>
 
-      {/* Create Hotspot Dialog */}
-      {showCreateForm && (
-        <HotspotForm 
-          onClose={() => setShowCreateForm(false)}
-          onSuccess={() => setShowCreateForm(false)}
-        />
-      )}
+      <Dialog open={showCreateDialog} onOpenChange={setShowCreateDialog}>
+        <DialogContent className="max-w-2xl">
+          <DialogHeader>
+            <DialogTitle>Create New Hotspot</DialogTitle>
+          </DialogHeader>
+          <HotspotForm onSuccess={handleCreateSuccess} />
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };

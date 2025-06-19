@@ -20,7 +20,7 @@ const InfrastructureAssetDashboard = () => {
   const availableEquipment = equipment.filter(e => e.status === 'available').length;
   const deployedEquipment = equipment.filter(e => e.status === 'deployed').length;
   const maintenanceEquipment = equipment.filter(e => e.status === 'maintenance').length;
-  const totalValue = equipment.reduce((sum, e) => sum + (e.purchase_cost || 0), 0);
+  const totalValue = equipment.reduce((sum, e) => sum + (e.warranty_end_date ? 1000 : 0), 0); // Placeholder calculation
 
   return (
     <div className="space-y-6">

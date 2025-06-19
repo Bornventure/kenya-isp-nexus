@@ -1,243 +1,189 @@
 
-import { useState, useCallback, useMemo } from 'react';
-import { useAuth } from '@/contexts/AuthContext';
-import { useToast } from '@/hooks/use-toast';
+import { useState } from 'react';
 import { useServicePackages } from '@/hooks/useServicePackages';
+import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
-import { Client } from '@/types/client';
-import { FormData, validateForm } from './formValidation';
+import { useAuth } from '@/contexts/AuthContext';
+import type { Client } from '@/types/client';
 
 interface UseClientRegistrationFormProps {
   onClose: () => void;
   onSave: (client: Partial<Client>) => void;
 }
 
-interface RegistrationError {
-  code: string;
-  message: string;
-  step?: string;
-}
-
 export const useClientRegistrationForm = ({ onClose, onSave }: UseClientRegistrationFormProps) => {
-  const { user, profile } = useAuth();
+  const { profile } = useAuth();
   const { toast } = useToast();
-  const { servicePackages, isLoading: packagesLoading } = useServicePackages();
-  const [isSubmitting, setIsSubmitting] = useState(false);
+  const { data: servicePackages = [], isLoading: packagesLoading } = useServicePackages();
 
-  const [formData, setFormData] = useState<FormData>({
+  const [formData, setFormData] = useState({
+    // Personal Information
     name: '',
     email: '',
     phone: '',
-    mpesaNumber: '',
-    idNumber: '',
-    kraPinNumber: '',
-    clientType: 'individual',
-    connectionType: 'fiber',
-    servicePackage: '',
+    id_number: '',
+    kra_pin_number: '',
+    mpesa_number: '',
+    
+    // Location Information
     address: '',
-    county: 'Kisumu',
-    subCounty: ''
+    county: '',
+    sub_county: '',
+    latitude: null as number | null,
+    longitude: null as number | null,
+    
+    // Service Information
+    service_package_id: '',
+    monthly_rate: 0,
+    connection_type: '' as any,
+    client_type: '' as any,
+    installation_date: '',
   });
 
   const [errors, setErrors] = useState<Record<string, string>>({});
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
-  // Memoize the selected package for performance
-  const selectedPackage = useMemo(() => {
-    return servicePackages.find(pkg => pkg.id === formData.servicePackage);
-  }, [servicePackages, formData.servicePackage]);
-
-  const updateFormData = useCallback((field: string, value: string) => {
+  const updateFormData = (field: string, value: any) => {
     setFormData(prev => ({ ...prev, [field]: value }));
+    
+    // Clear error when user starts typing
     if (errors[field]) {
       setErrors(prev => ({ ...prev, [field]: '' }));
     }
-  }, [errors]);
 
-  const getErrorMessage = (error: RegistrationError): string => {
-    switch (error.code) {
-      case 'EMAIL_EXISTS':
-        return 'A client with this email already exists. Please use a different email address.';
-      case 'ID_EXISTS':
-        return 'A client with this ID number already exists. Please check the ID number.';
-      case 'USER_EXISTS':
-        return 'A user account with this email already exists. Please use a different email.';
-      case 'INVALID_EMAIL':
-        return 'Please enter a valid email address.';
-      case 'INVALID_PHONE':
-        return 'Phone number must be in format +254XXXXXXXXX.';
-      case 'MISSING_FIELD':
-        return `Missing required field: ${error.message.split(': ')[1] || 'unknown'}`;
-      case 'UNAUTHORIZED':
-        return 'You are not authorized to register clients. Please log in again.';
-      case 'INSUFFICIENT_PERMISSIONS':
-        return 'You do not have permission to register clients. Contact your administrator.';
-      case 'PROFILE_NOT_FOUND':
-        return 'Your profile could not be found. Please contact support.';
-      default:
-        return error.message || 'Registration failed. Please try again.';
+    // Auto-fill monthly rate when service package is selected
+    if (field === 'service_package_id' && value) {
+      const selectedPackage = servicePackages.find(pkg => pkg.id === value);
+      if (selectedPackage) {
+        setFormData(prev => ({ ...prev, monthly_rate: selectedPackage.monthly_rate }));
+      }
     }
   };
 
-  const setFieldError = (error: RegistrationError) => {
-    switch (error.code) {
-      case 'EMAIL_EXISTS':
-      case 'USER_EXISTS':
-      case 'INVALID_EMAIL':
-        setErrors(prev => ({ ...prev, email: getErrorMessage(error) }));
-        break;
-      case 'ID_EXISTS':
-        setErrors(prev => ({ ...prev, idNumber: getErrorMessage(error) }));
-        break;
-      case 'INVALID_PHONE':
-        setErrors(prev => ({ ...prev, phone: getErrorMessage(error) }));
-        break;
-      default:
-        // Don't set field-specific errors for general errors
-        break;
-    }
-  };
+  const validateForm = () => {
+    const newErrors: Record<string, string> = {};
 
-  const parseErrorResponse = async (error: any): Promise<RegistrationError> => {
-    console.log('Parsing error response:', error);
-    
-    // Handle different types of errors
-    if (error.message && error.message.includes('Edge Function returned a non-2xx status code')) {
-      // Try to get more details from the response if available
-      return {
-        code: 'USER_EXISTS',
-        message: 'A user with this email already exists. Please use a different email address.'
-      };
+    // Required field validation
+    if (!formData.name.trim()) newErrors.name = 'Name is required';
+    if (!formData.phone.trim()) newErrors.phone = 'Phone is required';
+    if (!formData.id_number.trim()) newErrors.id_number = 'ID Number is required';
+    if (!formData.address.trim()) newErrors.address = 'Address is required';
+    if (!formData.county.trim()) newErrors.county = 'County is required';
+    if (!formData.sub_county.trim()) newErrors.sub_county = 'Sub County is required';
+    if (!formData.service_package_id) newErrors.service_package_id = 'Service package is required';
+    if (!formData.connection_type) newErrors.connection_type = 'Connection type is required';
+    if (!formData.client_type) newErrors.client_type = 'Client type is required';
+
+    // Email validation
+    if (formData.email && !/\S+@\S+\.\S+/.test(formData.email)) {
+      newErrors.email = 'Please enter a valid email address';
     }
-    
-    if (error.context && typeof error.context === 'object') {
-      const errorData = error.context;
-      return {
-        code: errorData.code || 'REGISTRATION_FAILED',
-        message: errorData.error || errorData.message || 'Registration failed',
-        step: errorData.step
-      };
+
+    // Phone validation
+    if (formData.phone && !/^(\+254|0)[17]\d{8}$/.test(formData.phone.replace(/\s/g, ''))) {
+      newErrors.phone = 'Please enter a valid Kenyan phone number';
     }
-    
-    // Fallback error parsing
-    return {
-      code: 'REGISTRATION_FAILED',
-      message: error.message || 'Registration failed. Please try again.'
-    };
+
+    // M-Pesa number validation (if provided)
+    if (formData.mpesa_number && !/^(\+254|0)[17]\d{8}$/.test(formData.mpesa_number.replace(/\s/g, ''))) {
+      newErrors.mpesa_number = 'Please enter a valid M-Pesa number';
+    }
+
+    setErrors(newErrors);
+    return Object.keys(newErrors).length === 0;
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
-    const validationErrors = validateForm(formData);
-    if (Object.keys(validationErrors).length > 0) {
-      setErrors(validationErrors);
-      return;
-    }
-
-    if (!user || !profile?.isp_company_id) {
-      toast({
-        title: "Error",
-        description: "You must be logged in and have a valid company to register clients.",
-        variant: "destructive",
-      });
-      return;
-    }
+    if (!validateForm()) return;
 
     setIsSubmitting(true);
-    setErrors({}); // Clear any previous errors
 
     try {
-      // Calculate monthly rate from selected package
-      const monthlyRate = selectedPackage?.monthly_rate || 0;
-
+      // Prepare client data
       const clientData = {
-        name: formData.name,
-        email: formData.email,
-        phone: formData.phone,
-        mpesa_number: formData.mpesaNumber || formData.phone,
-        id_number: formData.idNumber,
-        kra_pin_number: formData.kraPinNumber || null,
-        client_type: formData.clientType,
-        connection_type: formData.connectionType,
-        address: formData.address,
-        county: formData.county,
-        sub_county: formData.subCounty,
-        service_package_id: formData.servicePackage || null,
-        monthly_rate: monthlyRate,
-        isp_company_id: profile.isp_company_id,
+        ...formData,
+        isp_company_id: profile?.isp_company_id,
+        status: 'pending' as const,
+        balance: 0,
+        wallet_balance: 0,
+        is_active: true,
+        installation_date: formData.installation_date || null,
+        mpesa_number: formData.mpesa_number || formData.phone, // Default to phone if no M-Pesa number
       };
 
-      console.log('Client data being sent:', clientData);
-
-      // Get the session and access token
-      const { data: sessionData, error: sessionError } = await supabase.auth.getSession();
-      if (sessionError || !sessionData.session?.access_token) {
-        throw new Error('No valid session found');
-      }
-
-      // Call the edge function
-      const { data: result, error: functionError } = await supabase.functions.invoke('authenticated-client-registration', {
-        body: clientData,
-        headers: {
-          Authorization: `Bearer ${sessionData.session.access_token}`,
-        },
+      console.log('Submitting client data with coordinates:', {
+        latitude: clientData.latitude,
+        longitude: clientData.longitude,
+        address: clientData.address
       });
 
-      if (functionError) {
-        console.error('Edge function error:', functionError);
-        
-        const errorDetails = await parseErrorResponse(functionError);
-        setFieldError(errorDetails);
-        throw new Error(getErrorMessage(errorDetails));
+      // Create client record
+      const { data: client, error: clientError } = await supabase
+        .from('clients')
+        .insert(clientData)
+        .select()
+        .single();
+
+      if (clientError) {
+        console.error('Error creating client:', clientError);
+        throw clientError;
       }
 
-      if (!result?.success) {
-        const errorDetails: RegistrationError = {
-          code: result?.code || 'REGISTRATION_FAILED',
-          message: result?.error || 'Failed to register client',
-          step: result?.step
-        };
-        
-        setFieldError(errorDetails);
-        throw new Error(getErrorMessage(errorDetails));
+      console.log('Client created successfully:', client);
+
+      // If email is provided, create user account
+      if (formData.email) {
+        try {
+          const { error: authError } = await supabase.auth.admin.createUser({
+            email: formData.email,
+            password: Math.random().toString(36).slice(-8), // Temporary password
+            email_confirm: true,
+            user_metadata: {
+              first_name: formData.name.split(' ')[0],
+              last_name: formData.name.split(' ').slice(1).join(' '),
+              client_id: client.id,
+              role: 'client'
+            }
+          });
+
+          if (authError) {
+            console.error('Error creating user account:', authError);
+            // Don't throw here, client creation was successful
+            toast({
+              title: "Client Created",
+              description: "Client created successfully, but user account creation failed. You can create the account manually later.",
+              variant: "default",
+            });
+          } else {
+            toast({
+              title: "Success",
+              description: "Client registered successfully! Login credentials will be sent to their email.",
+            });
+          }
+        } catch (authError) {
+          console.error('Auth error:', authError);
+          toast({
+            title: "Client Created",
+            description: "Client created successfully, but user account creation failed. You can create the account manually later.",
+            variant: "default",
+          });
+        }
+      } else {
+        toast({
+          title: "Success",
+          description: "Client registered successfully!",
+        });
       }
 
-      toast({
-        title: "Success",
-        description: result.message || "Client registered successfully! Login credentials have been sent to their email.",
-      });
-
-      const newClient: Partial<Client> = {
-        id: result.user_id,
-        name: formData.name,
-        email: formData.email,
-        phone: formData.phone,
-        mpesaNumber: formData.mpesaNumber || formData.phone,
-        idNumber: formData.idNumber,
-        kraPinNumber: formData.kraPinNumber || undefined,
-        clientType: formData.clientType,
-        status: 'pending',
-        connectionType: formData.connectionType,
-        servicePackage: selectedPackage?.name || '',
-        monthlyRate: monthlyRate,
-        installationDate: new Date().toISOString().split('T')[0],
-        location: {
-          address: formData.address,
-          county: formData.county,
-          subCounty: formData.subCounty
-        },
-        balance: 0
-      };
-
-      onSave(newClient);
+      onSave(client);
       onClose();
-
-    } catch (error: any) {
-      console.error('Registration failed:', error);
-      
+    } catch (error) {
+      console.error('Error during client registration:', error);
       toast({
-        title: "Registration Failed",
-        description: error.message || "Failed to register client. Please try again.",
+        title: "Error",
+        description: "Failed to register client. Please try again.",
         variant: "destructive",
       });
     } finally {
