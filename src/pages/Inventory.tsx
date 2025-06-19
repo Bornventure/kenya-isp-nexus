@@ -57,7 +57,7 @@ const Inventory = () => {
         <TabsContent value="detail">
           {selectedItemId && (
             <InventoryItemDetail 
-              itemId={selectedItemId}
+              item={selectedItemId}
               onBack={() => setActiveTab('list')}
             />
           )}

@@ -16,6 +16,7 @@ import Analytics from "@/pages/Analytics";
 import NetworkStatus from "@/pages/NetworkStatus";
 import Support from "@/pages/Support";
 import Settings from "@/pages/Settings";
+import ApiSettings from "@/pages/ApiSettings";
 import HotspotManagement from "@/pages/HotspotManagement";
 import AccessDenied from "@/components/AccessDenied";
 
@@ -34,7 +35,7 @@ const AppContent: React.FC = () => {
   const ispManagementRoles = ['super_admin', 'isp_admin', 'technician', 'readonly'];
   const hasIspAccess = user && profile && ispManagementRoles.includes(profile.role);
 
-  console.log('Auth state:', { user: !!user, profile, hasIspAccess });
+  console.log('Auth state:', { user: !!user, profile, hasIspAccess, isLoading });
   
   return (
     <Routes>
@@ -65,6 +66,7 @@ const AppContent: React.FC = () => {
             <Route path="support" element={<Support />} />
             <Route path="hotspots" element={<HotspotManagement />} />
             <Route path="settings" element={<Settings />} />
+            <Route path="api-settings" element={<ApiSettings />} />
           </Route>
           <Route path="*" element={<Navigate to="/" replace />} />
         </>

@@ -118,11 +118,15 @@ const ApiSettings = () => {
 
   useEffect(() => {
     if (existingNotificationSettings) {
+      const notificationTypes = Array.isArray(existingNotificationSettings.notification_types) 
+        ? existingNotificationSettings.notification_types 
+        : [];
+
       setNotificationSettings({
         email_notifications: existingNotificationSettings.email_notifications,
         sms_notifications: existingNotificationSettings.sms_notifications,
         whatsapp_notifications: existingNotificationSettings.whatsapp_notifications,
-        notification_types: existingNotificationSettings.notification_types || []
+        notification_types: notificationTypes
       });
     }
   }, [existingNotificationSettings]);
