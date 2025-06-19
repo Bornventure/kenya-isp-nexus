@@ -1,7 +1,7 @@
-
 import { supabase } from '@/integrations/supabase/client';
 import { Database } from '@/integrations/supabase/types';
 import type { CreateUserData, SystemUser, UpdateUserData } from '@/types/user';
+import { credentialDeliveryService } from './credentialDeliveryService';
 
 type ProfileWithCompany = Database['public']['Tables']['profiles']['Row'] & {
   isp_companies: {
@@ -74,7 +74,7 @@ export const userService = {
           first_name: userData.first_name,
           last_name: userData.last_name,
         },
-        email_confirm: true, // Auto-confirm email to avoid confirmation flow
+        email_confirm: true,
       });
 
       if (authError) {
@@ -88,16 +88,17 @@ export const userService = {
 
       console.log('Auth user created successfully:', authData.user.id);
 
-      // Step 2: Create the profile (this should be handled by the trigger, but we'll ensure it exists)
+      // Step 2: Create/update the profile
       const { data: existingProfile } = await supabase
         .from('profiles')
         .select('id')
         .eq('id', authData.user.id)
         .single();
 
+      let profileData;
+
       if (!existingProfile) {
-        // If profile doesn't exist (trigger didn't fire), create it manually
-        const { data: profileData, error: profileError } = await supabase
+        const { data: newProfile, error: profileError } = await supabase
           .from('profiles')
           .insert({
             id: authData.user.id,
@@ -112,14 +113,12 @@ export const userService = {
 
         if (profileError) {
           console.error('Profile creation error:', profileError);
-          // If profile creation fails, we should clean up the auth user
           await supabase.auth.admin.deleteUser(authData.user.id);
           throw new Error(`Failed to create user profile: ${profileError.message}`);
         }
 
-        return profileData;
+        profileData = newProfile;
       } else {
-        // Profile exists, update it with the provided data
         const { data: updatedProfile, error: updateError } = await supabase
           .from('profiles')
           .update({
@@ -138,8 +137,26 @@ export const userService = {
           throw new Error(`Failed to update user profile: ${updateError.message}`);
         }
 
-        return updatedProfile;
+        profileData = updatedProfile;
       }
+
+      // Step 3: Send credentials to user via email and SMS
+      try {
+        await credentialDeliveryService.sendCredentials({
+          email: userData.email,
+          phone: userData.phone,
+          first_name: userData.first_name,
+          last_name: userData.last_name,
+          password: userData.password,
+          role: userData.role,
+        });
+        console.log('Credentials sent successfully to user');
+      } catch (credentialError) {
+        console.warn('Failed to send credentials, but user was created successfully:', credentialError);
+        // Don't fail the entire operation if credential delivery fails
+      }
+
+      return profileData;
     } catch (error) {
       console.error('User creation process failed:', error);
       throw error;
