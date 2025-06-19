@@ -1,4 +1,3 @@
-
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
@@ -136,7 +135,13 @@ export const useHotspotAnalytics = () => {
         .order('date', { ascending: false });
 
       if (error) throw error;
-      return data as HotspotAnalytics[];
+      
+      // Map the database fields to match our interface
+      return (data as any[]).map(item => ({
+        ...item,
+        total_data_mb: item.total_data_used_gb * 1024, // Convert GB to MB
+        avg_session_duration: item.avg_session_duration_minutes
+      })) as HotspotAnalytics[];
     },
     enabled: !!profile?.isp_company_id,
   });

@@ -18,10 +18,15 @@ import LocationServices from './LocationServices';
 
 const HotspotManagement = () => {
   const [showCreateDialog, setShowCreateDialog] = useState(false);
+  const [selectedHotspot, setSelectedHotspot] = useState<string | null>(null);
   const { data: hotspots = [], isLoading } = useHotspots();
 
   const handleCreateSuccess = () => {
     setShowCreateDialog(false);
+  };
+
+  const handleSelectHotspot = (hotspotId: string) => {
+    setSelectedHotspot(hotspotId);
   };
 
   return (
@@ -58,7 +63,12 @@ const HotspotManagement = () => {
               <CardTitle>Hotspot Locations</CardTitle>
             </CardHeader>
             <CardContent>
-              <HotspotsList hotspots={hotspots} isLoading={isLoading} />
+              <HotspotsList 
+                hotspots={hotspots} 
+                isLoading={isLoading}
+                onSelectHotspot={handleSelectHotspot}
+                selectedHotspot={selectedHotspot}
+              />
             </CardContent>
           </Card>
         </TabsContent>
@@ -68,27 +78,27 @@ const HotspotManagement = () => {
         </TabsContent>
 
         <TabsContent value="vouchers">
-          <VoucherManagement />
+          <VoucherManagement selectedHotspot={selectedHotspot} />
         </TabsContent>
 
         <TabsContent value="load-balancer">
-          <LoadBalancer />
+          <LoadBalancer selectedHotspot={selectedHotspot} />
         </TabsContent>
 
         <TabsContent value="roaming">
-          <RoamingManager />
+          <RoamingManager selectedHotspot={selectedHotspot} />
         </TabsContent>
 
         <TabsContent value="social-auth">
-          <SocialAuth />
+          <SocialAuth selectedHotspot={selectedHotspot} />
         </TabsContent>
 
         <TabsContent value="marketing">
-          <MarketingCampaigns />
+          <MarketingCampaigns selectedHotspot={selectedHotspot} />
         </TabsContent>
 
         <TabsContent value="location">
-          <LocationServices />
+          <LocationServices selectedHotspot={selectedHotspot} />
         </TabsContent>
 
         <TabsContent value="analytics">

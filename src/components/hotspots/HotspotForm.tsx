@@ -19,7 +19,7 @@ const HotspotForm: React.FC<HotspotFormProps> = ({ hotspot, onSuccess }) => {
     location: '',
     latitude: 0,
     longitude: 0,
-    status: 'active' as const,
+    status: 'active' as 'active' | 'inactive' | 'maintenance',
     bandwidth_limit: 10,
     max_concurrent_users: 50,
     coverage_radius: 100,
@@ -151,7 +151,7 @@ const HotspotForm: React.FC<HotspotFormProps> = ({ hotspot, onSuccess }) => {
       <div className="grid grid-cols-2 gap-4">
         <div className="space-y-2">
           <Label htmlFor="status">Status</Label>
-          <Select value={formData.status} onValueChange={(value: any) => setFormData(prev => ({ ...prev, status: value }))}>
+          <Select value={formData.status} onValueChange={(value: 'active' | 'inactive' | 'maintenance') => setFormData(prev => ({ ...prev, status: value }))}>
             <SelectTrigger>
               <SelectValue />
             </SelectTrigger>

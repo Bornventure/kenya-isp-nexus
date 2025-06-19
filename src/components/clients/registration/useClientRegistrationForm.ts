@@ -14,7 +14,7 @@ interface UseClientRegistrationFormProps {
 export const useClientRegistrationForm = ({ onClose, onSave }: UseClientRegistrationFormProps) => {
   const { profile } = useAuth();
   const { toast } = useToast();
-  const { data: servicePackages = [], isLoading: packagesLoading } = useServicePackages();
+  const { servicePackages = [], isLoading: packagesLoading } = useServicePackages();
 
   const [formData, setFormData] = useState({
     // Personal Information
