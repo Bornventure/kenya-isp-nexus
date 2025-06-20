@@ -31,8 +31,19 @@ const AppContent: React.FC = () => {
     );
   }
 
-  // Define roles that have access to ISP management system
-  const ispManagementRoles = ['super_admin', 'isp_admin', 'technician', 'readonly'];
+  // Define roles that have access to ISP management system - now includes all department roles
+  const ispManagementRoles = [
+    'super_admin', 
+    'isp_admin', 
+    'customer_support', 
+    'sales_manager', 
+    'billing_admin', 
+    'network_engineer', 
+    'infrastructure_manager', 
+    'hotspot_admin', 
+    'technician', 
+    'readonly'
+  ];
   const hasIspAccess = user && profile && ispManagementRoles.includes(profile.role);
 
   console.log('Auth state:', { user: !!user, profile, hasIspAccess, isLoading });

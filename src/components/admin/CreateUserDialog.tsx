@@ -184,12 +184,18 @@ const CreateUserDialog: React.FC<CreateUserDialogProps> = ({ onCreateUser, isCre
                   <SelectContent>
                     <SelectItem value="readonly">Read Only</SelectItem>
                     <SelectItem value="technician">Technician</SelectItem>
+                    <SelectItem value="customer_support">Customer Support</SelectItem>
+                    <SelectItem value="sales_manager">Sales Manager</SelectItem>
+                    <SelectItem value="billing_admin">Billing Admin</SelectItem>
+                    <SelectItem value="network_engineer">Network Engineer</SelectItem>
+                    <SelectItem value="infrastructure_manager">Infrastructure Manager</SelectItem>
+                    <SelectItem value="hotspot_admin">Hotspot Admin</SelectItem>
                     <SelectItem value="isp_admin">ISP Admin</SelectItem>
                     <SelectItem value="super_admin">Super Admin</SelectItem>
                   </SelectContent>
                 </Select>
                 <p className="text-xs text-muted-foreground">
-                  Only these roles can access the ISP management system
+                  Each role has access to specific department dashboards and features
                 </p>
               </div>
             </div>
