@@ -159,14 +159,18 @@ serve(async (req) => {
 
     // Step 3: Send credentials to user via email and SMS
     try {
+      // Get the current site URL from the request headers
+      const origin = req.headers.get('origin') || req.headers.get('referer')?.split('/').slice(0, 3).join('/') || 'https://your-domain.com'
+      
       await supabaseAdmin.functions.invoke('send-user-credentials', {
         body: {
           email: email,
           phone: phone,
           first_name: first_name,
           last_name: last_name,
-          password: password,
+          password: password, // Use the exact same password
           role: role,
+          site_url: origin, // Pass the actual site URL
         },
       })
       console.log('Credentials sent successfully to user')

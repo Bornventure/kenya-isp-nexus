@@ -4,7 +4,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { useAuth } from '@/contexts/AuthContext';
-import { AlertCircle, Mail, Shield } from 'lucide-react';
+import { AlertCircle, Mail, Shield, Users } from 'lucide-react';
 
 const Login = () => {
   const [email, setEmail] = useState('');
@@ -19,6 +19,18 @@ const Login = () => {
     const success = await login(email, password);
     if (!success) {
       setError('Invalid credentials. Please check your email and password.');
+    }
+  };
+
+  const handleGoToCustomerPortal = () => {
+    // Auto-detect current domain and redirect to client portal
+    const currentDomain = window.location.hostname;
+    if (currentDomain.includes('localhost') || currentDomain.includes('127.0.0.1')) {
+      // Development environment
+      window.location.href = '/customer-portal';
+    } else {
+      // Production environment - redirect to client subdomain
+      window.location.href = `https://client.${currentDomain}/login`;
     }
   };
 
@@ -83,15 +95,32 @@ const Login = () => {
             </Button>
           </form>
           
+          <div className="mt-6 space-y-4">
+            <div className="relative">
+              <div className="absolute inset-0 flex items-center">
+                <span className="w-full border-t" />
+              </div>
+              <div className="relative flex justify-center text-xs uppercase">
+                <span className="bg-white px-2 text-muted-foreground">Or</span>
+              </div>
+            </div>
+            
+            <Button 
+              variant="outline" 
+              className="w-full" 
+              onClick={handleGoToCustomerPortal}
+            >
+              <Users className="h-4 w-4 mr-2" />
+              Access Customer Portal
+            </Button>
+          </div>
+          
           <div className="mt-6 p-4 bg-blue-50 rounded-lg border border-blue-200">
             <div className="text-xs text-blue-800">
               <p className="font-semibold mb-2">🔧 For ISP Staff Only</p>
               <p>• This portal is for technicians and administrators</p>
               <p>• Use this to register new internet customers</p>
               <p>• Manage existing client accounts and billing</p>
-              <p className="mt-3 text-blue-700 font-medium">
-                Are you a customer? <a href="https://client.qorioninnovations.com/login" className="underline">Visit Customer Portal</a>
-              </p>
             </div>
           </div>
           

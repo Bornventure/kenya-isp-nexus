@@ -13,6 +13,7 @@ interface CredentialRequest {
   last_name: string;
   password: string;
   role: string;
+  site_url?: string;
 }
 
 serve(async (req) => {
@@ -26,29 +27,39 @@ serve(async (req) => {
     const requestBody: CredentialRequest = await req.json()
     console.log('Sending credentials to:', requestBody.email)
 
-    const { email, phone, first_name, last_name, password, role } = requestBody
+    const { email, phone, first_name, last_name, password, role, site_url } = requestBody
+
+    // Use the passed site_url or fallback to environment variable
+    const loginUrl = site_url || Deno.env.get('SITE_URL') || 'https://your-domain.com'
 
     // Generate email content
-    const emailSubject = 'Your Account Credentials - Welcome!'
+    const emailSubject = 'Your Account Credentials - Welcome to DataDefender!'
     const emailMessage = `
 Dear ${first_name} ${last_name},
 
-Welcome! Your account has been created with the following credentials:
+Welcome to DataDefender ISP Management System! Your account has been created with the following credentials:
 
+Login Details:
 Email: ${email}
 Password: ${password}
-Role: ${role}
+Role: ${role.replace('_', ' ').toUpperCase()}
 
-Please keep these credentials secure and change your password after your first login.
+You can access the system at: ${loginUrl}
 
-You can access the system at: ${Deno.env.get('SITE_URL') || 'https://your-domain.com'}
+IMPORTANT SECURITY NOTES:
+• Please keep these credentials secure and confidential
+• Change your password after your first login for enhanced security
+• Do not share your login credentials with anyone
+
+If you have any questions or need assistance, please contact your system administrator.
 
 Best regards,
-Your ISP Management Team
+DataDefender Team
+ISP Management System
     `.trim()
 
     // Generate SMS content
-    const smsMessage = `Welcome ${first_name}! Your account credentials: Email: ${email}, Password: ${password}. Please login and change your password. ${Deno.env.get('SITE_URL') || 'your-domain.com'}`
+    const smsMessage = `Welcome to DataDefender! Your login credentials: Email: ${email}, Password: ${password}. Login at: ${loginUrl}. Please change password after first login.`
 
     // Send email notification
     try {
@@ -114,7 +125,7 @@ async function sendSMS(phoneNumber: string, message: string) {
       username: username,
       to: phoneNumber,
       message: message,
-      from: senderId || 'ISP'
+      from: senderId || 'DataDefender'
     }),
   })
 
@@ -126,9 +137,12 @@ async function sendEmail(email: string, subject: string, message: string) {
   const resendKey = Deno.env.get('RESEND_API_KEY')
 
   if (!resendKey) {
-    console.log('Email service not configured')
+    console.log('Email service not configured - Resend API key missing')
     return
   }
+
+  // Use a verified domain or the default Resend domain
+  const fromEmail = 'noreply@resend.dev' // Using Resend's default verified domain
 
   const response = await fetch('https://api.resend.com/emails', {
     method: 'POST',
@@ -137,14 +151,18 @@ async function sendEmail(email: string, subject: string, message: string) {
       'Content-Type': 'application/json',
     },
     body: JSON.stringify({
-      from: 'noreply@yourisp.co.ke',
+      from: `DataDefender <${fromEmail}>`,
       to: email,
       subject: subject,
       text: message,
-      html: `<pre>${message}</pre>`,
+      html: `<pre style="font-family: Arial, sans-serif; white-space: pre-wrap;">${message}</pre>`,
     }),
   })
 
   const result = await response.json()
   console.log('Email API response:', result)
+  
+  if (!response.ok) {
+    throw new Error(`Email sending failed: ${result.error || 'Unknown error'}`)
+  }
 }

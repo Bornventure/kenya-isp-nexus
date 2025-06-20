@@ -2,11 +2,23 @@
 import React from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { AlertCircle } from 'lucide-react';
+import { AlertCircle, LogIn, Users } from 'lucide-react';
 
 const AccessDenied: React.FC = () => {
   const handleGoToCustomerPortal = () => {
-    window.location.href = '/customer-portal';
+    // Auto-detect current domain and redirect to client portal
+    const currentDomain = window.location.hostname;
+    if (currentDomain.includes('localhost') || currentDomain.includes('127.0.0.1')) {
+      // Development environment
+      window.location.href = '/customer-portal';
+    } else {
+      // Production environment - redirect to client subdomain
+      window.location.href = `https://client.${currentDomain}/login`;
+    }
+  };
+
+  const handleRetryLogin = () => {
+    window.location.href = '/login';
   };
 
   return (
@@ -20,14 +32,32 @@ const AccessDenied: React.FC = () => {
           </div>
           <CardTitle className="text-2xl text-gray-900">Access Denied</CardTitle>
         </CardHeader>
-        <CardContent className="text-center">
+        <CardContent className="text-center space-y-4">
           <p className="text-gray-600 mb-6">
             You don't have permission to access the ISP management system. 
-            Please contact your administrator if you believe this is an error.
+            This could be because you're using the wrong credentials or your account doesn't have the required permissions.
           </p>
-          <Button onClick={handleGoToCustomerPortal}>
-            Go to Customer Portal
-          </Button>
+          
+          <div className="space-y-3">
+            <Button onClick={handleRetryLogin} className="w-full" variant="default">
+              <LogIn className="h-4 w-4 mr-2" />
+              Try Login Again
+            </Button>
+            
+            <Button onClick={handleGoToCustomerPortal} variant="outline" className="w-full">
+              <Users className="h-4 w-4 mr-2" />
+              Go to Customer Portal
+            </Button>
+          </div>
+          
+          <div className="mt-6 p-4 bg-blue-50 rounded-lg border border-blue-200">
+            <div className="text-xs text-blue-800">
+              <p className="font-semibold mb-2">Need Help?</p>
+              <p>• ISP Staff: Contact your system administrator</p>
+              <p>• Customers: Use the Customer Portal button above</p>
+              <p>• Wrong account? Try logging in with different credentials</p>
+            </div>
+          </div>
         </CardContent>
       </Card>
     </div>
