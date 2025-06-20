@@ -55,6 +55,22 @@ serve(async (req) => {
 
     if (authError) {
       console.error('Auth user creation error:', authError)
+      
+      // Provide specific error messages for common issues
+      if (authError.message?.includes('already been registered')) {
+        return new Response(
+          JSON.stringify({
+            success: false,
+            error: `A user with email ${email} already exists. Please use a different email address.`,
+            code: 'EMAIL_EXISTS'
+          }),
+          { 
+            status: 400, 
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
+          }
+        )
+      }
+      
       return new Response(
         JSON.stringify({
           success: false,
@@ -94,6 +110,7 @@ serve(async (req) => {
     let profileData
 
     if (!existingProfile) {
+      console.log('Creating new profile for user:', authData.user.id)
       const { data: newProfile, error: profileError } = await supabaseAdmin
         .from('profiles')
         .insert({
@@ -109,6 +126,22 @@ serve(async (req) => {
 
       if (profileError) {
         console.error('Profile creation error:', profileError)
+        
+        // Provide specific error message for role enum issues
+        if (profileError.message?.includes('invalid input value for enum user_role')) {
+          return new Response(
+            JSON.stringify({
+              success: false,
+              error: `Invalid role: ${role}. Please check that the role is valid.`,
+              code: 'INVALID_ROLE'
+            }),
+            { 
+              status: 400, 
+              headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
+            }
+          )
+        }
+        
         // Cleanup: delete the auth user if profile creation fails
         await supabaseAdmin.auth.admin.deleteUser(authData.user.id)
         return new Response(
@@ -126,6 +159,7 @@ serve(async (req) => {
 
       profileData = newProfile
     } else {
+      console.log('Updating existing profile for user:', authData.user.id)
       const { data: updatedProfile, error: updateError } = await supabaseAdmin
         .from('profiles')
         .update({
@@ -156,6 +190,8 @@ serve(async (req) => {
 
       profileData = updatedProfile
     }
+
+    console.log('Profile created/updated successfully:', profileData.id)
 
     // Step 3: Send credentials to user via email and SMS
     try {
@@ -195,7 +231,7 @@ serve(async (req) => {
     return new Response(
       JSON.stringify({
         success: false,
-        error: 'Failed to create user account',
+        error: `Failed to create user account: ${error.message}`,
         code: 'INTERNAL_ERROR'
       }),
       { 
