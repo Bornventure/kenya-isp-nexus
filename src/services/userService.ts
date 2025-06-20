@@ -1,7 +1,7 @@
+
 import { supabase } from '@/integrations/supabase/client';
 import { Database } from '@/integrations/supabase/types';
 import type { CreateUserData, SystemUser, UpdateUserData } from '@/types/user';
-import { credentialDeliveryService } from './credentialDeliveryService';
 
 type ProfileWithCompany = Database['public']['Tables']['profiles']['Row'] & {
   isp_companies: {
@@ -66,97 +66,31 @@ export const userService = {
     console.log('Creating complete user with auth and profile:', userData);
     
     try {
-      // Step 1: Create the auth user
-      const { data: authData, error: authError } = await supabase.auth.admin.createUser({
-        email: userData.email,
-        password: userData.password,
-        user_metadata: {
+      // Call the edge function to create the user with admin privileges
+      const { data, error } = await supabase.functions.invoke('create-user-account', {
+        body: {
+          email: userData.email,
+          password: userData.password,
           first_name: userData.first_name,
           last_name: userData.last_name,
+          phone: userData.phone,
+          role: userData.role,
+          isp_company_id: userData.isp_company_id || userCompanyId,
         },
-        email_confirm: true,
       });
 
-      if (authError) {
-        console.error('Auth user creation error:', authError);
-        throw new Error(`Failed to create auth user: ${authError.message}`);
+      if (error) {
+        console.error('Edge function error:', error);
+        throw new Error(`Failed to create user: ${error.message}`);
       }
 
-      if (!authData.user) {
-        throw new Error('No user returned from auth creation');
+      if (!data?.success) {
+        console.error('User creation failed:', data);
+        throw new Error(data?.error || 'Failed to create user account');
       }
 
-      console.log('Auth user created successfully:', authData.user.id);
-
-      // Step 2: Create/update the profile
-      const { data: existingProfile } = await supabase
-        .from('profiles')
-        .select('id')
-        .eq('id', authData.user.id)
-        .single();
-
-      let profileData;
-
-      if (!existingProfile) {
-        const { data: newProfile, error: profileError } = await supabase
-          .from('profiles')
-          .insert({
-            id: authData.user.id,
-            first_name: userData.first_name,
-            last_name: userData.last_name,
-            phone: userData.phone,
-            role: userData.role,
-            isp_company_id: userData.isp_company_id || userCompanyId,
-          })
-          .select()
-          .single();
-
-        if (profileError) {
-          console.error('Profile creation error:', profileError);
-          await supabase.auth.admin.deleteUser(authData.user.id);
-          throw new Error(`Failed to create user profile: ${profileError.message}`);
-        }
-
-        profileData = newProfile;
-      } else {
-        const { data: updatedProfile, error: updateError } = await supabase
-          .from('profiles')
-          .update({
-            first_name: userData.first_name,
-            last_name: userData.last_name,
-            phone: userData.phone,
-            role: userData.role,
-            isp_company_id: userData.isp_company_id || userCompanyId,
-          })
-          .eq('id', authData.user.id)
-          .select()
-          .single();
-
-        if (updateError) {
-          console.error('Profile update error:', updateError);
-          throw new Error(`Failed to update user profile: ${updateError.message}`);
-        }
-
-        profileData = updatedProfile;
-      }
-
-      // Step 3: Send credentials to user via email and SMS
-      try {
-        await credentialDeliveryService.sendCredentials({
-          email: userData.email,
-          phone: userData.phone,
-          first_name: userData.first_name,
-          last_name: userData.last_name,
-          password: userData.password,
-          role: userData.role,
-        });
-        console.log('Credentials sent successfully to user');
-      } catch (credentialError) {
-        console.warn('Failed to send credentials, but user was created successfully:', credentialError);
-        // Don't fail the entire operation if credential delivery fails
-      }
-
-      return profileData;
+      console.log('User created successfully:', data.data);
+      return data.data;
     } catch (error) {
       console.error('User creation process failed:', error);
       throw error;
