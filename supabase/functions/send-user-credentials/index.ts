@@ -141,8 +141,8 @@ async function sendEmail(email: string, subject: string, message: string) {
     return
   }
 
-  // Use a verified domain or the default Resend domain
-  const fromEmail = 'noreply@resend.dev' // Using Resend's default verified domain
+  // Use your verified domain
+  const fromEmail = 'noreply@qorioninnovations.com'
 
   const response = await fetch('https://api.resend.com/emails', {
     method: 'POST',
