@@ -2,9 +2,12 @@
 import React from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { AlertCircle, LogIn, Users } from 'lucide-react';
+import { AlertCircle, LogIn, Users, LogOut } from 'lucide-react';
+import { useAuth } from '@/contexts/AuthContext';
 
 const AccessDenied: React.FC = () => {
+  const { logout } = useAuth();
+
   const handleGoToCustomerPortal = () => {
     // Auto-detect current domain and redirect to client portal
     const currentDomain = window.location.hostname;
@@ -17,7 +20,9 @@ const AccessDenied: React.FC = () => {
     }
   };
 
-  const handleRetryLogin = () => {
+  const handleRetryLogin = async () => {
+    // First logout the current user, then redirect to login
+    await logout();
     window.location.href = '/login';
   };
 
@@ -40,8 +45,8 @@ const AccessDenied: React.FC = () => {
           
           <div className="space-y-3">
             <Button onClick={handleRetryLogin} className="w-full" variant="default">
-              <LogIn className="h-4 w-4 mr-2" />
-              Try Login Again
+              <LogOut className="h-4 w-4 mr-2" />
+              Logout & Try Again
             </Button>
             
             <Button onClick={handleGoToCustomerPortal} variant="outline" className="w-full">
@@ -55,7 +60,7 @@ const AccessDenied: React.FC = () => {
               <p className="font-semibold mb-2">Need Help?</p>
               <p>• ISP Staff: Contact your system administrator</p>
               <p>• Customers: Use the Customer Portal button above</p>
-              <p>• Wrong account? Try logging in with different credentials</p>
+              <p>• Wrong account? Use "Logout & Try Again" to login with different credentials</p>
             </div>
           </div>
         </CardContent>

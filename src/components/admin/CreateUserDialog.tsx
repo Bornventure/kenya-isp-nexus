@@ -183,14 +183,14 @@ const CreateUserDialog: React.FC<CreateUserDialogProps> = ({ onCreateUser, isCre
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="readonly">Read Only</SelectItem>
-                    <SelectItem value="support">Support</SelectItem>
-                    <SelectItem value="billing">Billing</SelectItem>
                     <SelectItem value="technician">Technician</SelectItem>
-                    <SelectItem value="manager">Manager</SelectItem>
                     <SelectItem value="isp_admin">ISP Admin</SelectItem>
                     <SelectItem value="super_admin">Super Admin</SelectItem>
                   </SelectContent>
                 </Select>
+                <p className="text-xs text-muted-foreground">
+                  Only these roles can access the ISP management system
+                </p>
               </div>
             </div>
           </form>
