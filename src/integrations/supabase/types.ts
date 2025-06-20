@@ -1867,6 +1867,12 @@ export type Database = {
         | "support"
         | "billing"
         | "readonly"
+        | "customer_support"
+        | "sales_manager"
+        | "billing_admin"
+        | "network_engineer"
+        | "infrastructure_manager"
+        | "hotspot_admin"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -2005,6 +2011,12 @@ export const Constants = {
         "support",
         "billing",
         "readonly",
+        "customer_support",
+        "sales_manager",
+        "billing_admin",
+        "network_engineer",
+        "infrastructure_manager",
+        "hotspot_admin",
       ],
     },
   },
