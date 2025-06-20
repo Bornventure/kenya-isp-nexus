@@ -49,7 +49,7 @@ export const userService = {
       first_name: profileData.first_name,
       last_name: profileData.last_name,
       phone: profileData.phone,
-      role: profileData.role,
+      role: profileData.role as SystemUser['role'], // Type assertion to match SystemUser interface
       isp_company_id: profileData.isp_company_id,
       is_active: profileData.is_active ?? true,
       created_at: profileData.created_at ?? '',
@@ -123,9 +123,12 @@ export const userService = {
       delete updates.isp_company_id;
     }
 
+    // Create the update object with proper typing
+    const updatePayload: any = { ...updates };
+
     const { data, error } = await supabase
       .from('profiles')
-      .update(updates)
+      .update(updatePayload)
       .eq('id', id)
       .select()
       .single();
