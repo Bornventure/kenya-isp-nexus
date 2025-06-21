@@ -6,6 +6,7 @@ import Login from "@/components/Login";
 import CustomerPortal from "@/pages/CustomerPortal";
 import DashboardLayout from "@/components/dashboard/DashboardLayout";
 import Dashboard from "@/pages/Dashboard";
+import Profile from "@/pages/Profile";
 import Clients from "@/pages/Clients";
 import Billing from "@/pages/Billing";
 import NetworkMap from "@/pages/NetworkMap";
@@ -66,6 +67,7 @@ const AppContent: React.FC = () => {
           <Route path="/access-denied" element={<Navigate to="/" replace />} />
           <Route path="/" element={<DashboardLayout />}>
             <Route index element={<Dashboard />} />
+            <Route path="profile" element={<Profile />} />
             <Route path="clients" element={<Clients />} />
             <Route path="billing" element={<Billing />} />
             <Route path="network-map" element={<NetworkMap />} />
