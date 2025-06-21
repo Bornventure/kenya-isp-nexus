@@ -26,29 +26,18 @@ serve(async (req) => {
 
     const action: WorkflowAction = await req.json()
     
-    let result: any = {}
-
     switch (action.type) {
       case 'escalate':
-        result = await handleEscalation(supabaseClient, action)
-        break
+        return await escalateTicket(supabaseClient, action)
       case 'auto_assign':
-        result = await handleAutoAssignment(supabaseClient, action)
-        break
+        return await autoAssignTicket(supabaseClient, action)
       case 'sla_check':
-        result = await handleSLACheck(supabaseClient, action)
-        break
+        return await checkSLA(supabaseClient, action)
       case 'close_resolved':
-        result = await handleCloseResolved(supabaseClient, action)
-        break
+        return await closeResolvedTicket(supabaseClient, action)
       default:
         throw new Error(`Unknown workflow action: ${action.type}`)
     }
-
-    return new Response(
-      JSON.stringify({ success: true, result }),
-      { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-    )
 
   } catch (error) {
     console.error('Error:', error)
@@ -62,10 +51,10 @@ serve(async (req) => {
   }
 })
 
-async function handleEscalation(supabaseClient: any, action: WorkflowAction) {
-  const { data: ticket } = await supabaseClient
+async function escalateTicket(supabase: any, action: WorkflowAction) {
+  const { data: ticket } = await supabase
     .from('support_tickets')
-    .select('*')
+    .select('*, departments(name)')
     .eq('id', action.ticket_id)
     .single()
 
@@ -73,98 +62,87 @@ async function handleEscalation(supabaseClient: any, action: WorkflowAction) {
     throw new Error('Ticket not found')
   }
 
+  // Increase escalation level
   const newEscalationLevel = (ticket.escalation_level || 1) + 1
   
   // Update ticket
-  await supabaseClient
+  await supabase
     .from('support_tickets')
     .update({
       escalation_level: newEscalationLevel,
-      priority: newEscalationLevel > 2 ? 'high' : ticket.priority,
-      updated_at: new Date().toISOString(),
+      priority: newEscalationLevel >= 3 ? 'high' : ticket.priority,
+      updated_at: new Date().toISOString()
     })
     .eq('id', action.ticket_id)
 
-  // Add escalation comment
-  await supabaseClient
+  // Log the escalation
+  await supabase
     .from('ticket_comments')
     .insert({
       ticket_id: action.ticket_id,
-      author_id: ticket.created_by,
-      content: `Ticket escalated to level ${newEscalationLevel}. Reason: ${action.parameters?.reason || 'Not specified'}`,
+      author_id: null, // System comment
+      content: `Ticket escalated to level ${newEscalationLevel}. Reason: ${action.parameters?.reason || 'Automatic escalation'}`,
       is_internal: true,
-      isp_company_id: ticket.isp_company_id,
+      is_resolution: false
     })
 
-  // Send escalation notification
-  await fetch(`${Deno.env.get('SUPABASE_URL')}/functions/v1/send-ticket-notifications`, {
-    method: 'POST',
-    headers: {
-      'Authorization': `Bearer ${Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')}`,
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify({
-      type: 'ticket_escalated',
-      ticket_id: action.ticket_id,
-      message: `Ticket has been escalated to level ${newEscalationLevel}`,
-      channels: ['email', 'sms'],
-      priority: 'high',
-      recipients: [],
+  return new Response(
+    JSON.stringify({ 
+      success: true, 
+      message: `Ticket escalated to level ${newEscalationLevel}`,
+      escalation_level: newEscalationLevel
     }),
-  })
-
-  return { escalation_level: newEscalationLevel }
+    { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+  )
 }
 
-async function handleAutoAssignment(supabaseClient: any, action: WorkflowAction) {
-  const departmentId = action.parameters?.department_id
-  
-  if (!departmentId) {
-    throw new Error('Department ID required for auto assignment')
-  }
-
-  // Find available technicians in the department
-  const { data: technicians } = await supabaseClient
+async function autoAssignTicket(supabase: any, action: WorkflowAction) {
+  // Find available users in the department
+  const { data: availableUsers } = await supabase
     .from('profiles')
-    .select('*')
-    .eq('role', 'technician')
+    .select('id, first_name, last_name')
+    .eq('department_id', action.parameters?.department_id)
     .eq('is_active', true)
-    .limit(10)
 
-  if (!technicians || technicians.length === 0) {
-    throw new Error('No available technicians found')
+  if (!availableUsers || availableUsers.length === 0) {
+    throw new Error('No available users in the specified department')
   }
 
-  // Simple round-robin assignment (you could implement more sophisticated logic)
-  const assignedTechnician = technicians[Math.floor(Math.random() * technicians.length)]
+  // Simple round-robin assignment (in production, you might want more sophisticated logic)
+  const assignedUser = availableUsers[Math.floor(Math.random() * availableUsers.length)]
 
   // Update ticket
-  await supabaseClient
+  await supabase
     .from('support_tickets')
     .update({
-      assigned_to: assignedTechnician.id,
-      department_id: departmentId,
+      assigned_to: assignedUser.id,
       status: 'in_progress',
-      updated_at: new Date().toISOString(),
+      updated_at: new Date().toISOString()
     })
     .eq('id', action.ticket_id)
 
   // Create assignment record
-  await supabaseClient
+  await supabase
     .from('ticket_assignments')
     .insert({
       ticket_id: action.ticket_id,
-      assigned_to: assignedTechnician.id,
-      department_id: departmentId,
-      assignment_reason: 'Auto-assigned based on department workload',
-      status: 'active',
+      assigned_to: assignedUser.id,
+      department_id: action.parameters?.department_id,
+      assignment_reason: 'Auto-assigned by system'
     })
 
-  return { assigned_to: assignedTechnician.id }
+  return new Response(
+    JSON.stringify({ 
+      success: true, 
+      message: `Ticket auto-assigned to ${assignedUser.first_name} ${assignedUser.last_name}`,
+      assigned_to: assignedUser
+    }),
+    { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+  )
 }
 
-async function handleSLACheck(supabaseClient: any, action: WorkflowAction) {
-  const { data: ticket } = await supabaseClient
+async function checkSLA(supabase: any, action: WorkflowAction) {
+  const { data: ticket } = await supabase
     .from('support_tickets')
     .select('*')
     .eq('id', action.ticket_id)
@@ -175,47 +153,43 @@ async function handleSLACheck(supabaseClient: any, action: WorkflowAction) {
   }
 
   const now = new Date()
-  const createdAt = new Date(ticket.created_at)
-  const hoursOpen = (now.getTime() - createdAt.getTime()) / (1000 * 60 * 60)
+  const slaTime = new Date(ticket.sla_due_date)
+  const timeUntilSLA = slaTime.getTime() - now.getTime()
+  const hoursUntilSLA = timeUntilSLA / (1000 * 60 * 60)
 
-  let slaStatus = 'on_time'
-  let slaThreshold = 24 // Default 24 hours
+  let action_taken = false
 
-  // Adjust SLA based on priority
-  switch (ticket.priority) {
-    case 'high':
-      slaThreshold = 4
-      break
-    case 'medium':
-      slaThreshold = 12
-      break
-    case 'low':
-      slaThreshold = 48
-      break
-  }
-
-  if (hoursOpen > slaThreshold) {
-    slaStatus = 'overdue'
-  } else if (hoursOpen > slaThreshold * 0.8) {
-    slaStatus = 'at_risk'
-  }
-
-  // Update SLA due date if not set
-  if (!ticket.sla_due_date) {
-    const slaDueDate = new Date(createdAt)
-    slaDueDate.setHours(slaDueDate.getHours() + slaThreshold)
-    
-    await supabaseClient
+  // If SLA is breached
+  if (timeUntilSLA <= 0) {
+    await supabase
       .from('support_tickets')
-      .update({ sla_due_date: slaDueDate.toISOString() })
+      .update({
+        escalation_level: (ticket.escalation_level || 1) + 1,
+        priority: 'high'
+      })
       .eq('id', action.ticket_id)
+    
+    action_taken = true
+  }
+  // If SLA is within 2 hours, send warning
+  else if (hoursUntilSLA <= 2) {
+    // Send notification (this would integrate with your notification system)
+    console.log(`SLA Warning: Ticket ${ticket.id} SLA due in ${hoursUntilSLA.toFixed(1)} hours`)
   }
 
-  return { sla_status: slaStatus, hours_open: hoursOpen, sla_threshold: slaThreshold }
+  return new Response(
+    JSON.stringify({ 
+      success: true, 
+      sla_status: timeUntilSLA <= 0 ? 'breached' : 'on_track',
+      hours_until_sla: hoursUntilSLA,
+      action_taken
+    }),
+    { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+  )
 }
 
-async function handleCloseResolved(supabaseClient: any, action: WorkflowAction) {
-  const { data: ticket } = await supabaseClient
+async function closeResolvedTicket(supabase: any, action: WorkflowAction) {
+  const { data: ticket } = await supabase
     .from('support_tickets')
     .select('*')
     .eq('id', action.ticket_id)
@@ -226,26 +200,23 @@ async function handleCloseResolved(supabaseClient: any, action: WorkflowAction) 
   }
 
   if (ticket.status !== 'resolved') {
-    throw new Error('Only resolved tickets can be closed')
+    throw new Error('Ticket must be in resolved status to close')
   }
 
-  // Check if resolved for more than specified time (default 24 hours)
-  const resolvedAt = new Date(ticket.resolved_at || ticket.updated_at)
-  const now = new Date()
-  const hoursResolved = (now.getTime() - resolvedAt.getTime()) / (1000 * 60 * 60)
-  const autoCloseHours = action.parameters?.auto_close_hours || 24
+  // Update ticket to closed
+  await supabase
+    .from('support_tickets')
+    .update({
+      status: 'closed',
+      updated_at: new Date().toISOString()
+    })
+    .eq('id', action.ticket_id)
 
-  if (hoursResolved >= autoCloseHours) {
-    await supabaseClient
-      .from('support_tickets')
-      .update({
-        status: 'closed',
-        updated_at: new Date().toISOString(),
-      })
-      .eq('id', action.ticket_id)
-
-    return { closed: true, auto_closed: true }
-  }
-
-  return { closed: false, hours_until_auto_close: autoCloseHours - hoursResolved }
+  return new Response(
+    JSON.stringify({ 
+      success: true, 
+      message: 'Ticket closed successfully'
+    }),
+    { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+  )
 }

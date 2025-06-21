@@ -56,7 +56,7 @@ const UserSelector: React.FC<UserSelectorProps> = ({ selectedUser, onSelectUser 
       const { data, error } = await supabase
         .from('profiles')
         .select('id, first_name, last_name, role')
-        .eq('role', selectedDepartment)
+        .eq('role', selectedDepartment as any) // Type assertion to handle the enum
         .neq('id', profile?.id) // Exclude current user
         .eq('isp_company_id', profile?.isp_company_id)
         .eq('is_active', true);
