@@ -7,6 +7,7 @@ import CustomerPortal from "@/pages/CustomerPortal";
 import DashboardLayout from "@/components/dashboard/DashboardLayout";
 import Dashboard from "@/pages/Dashboard";
 import Profile from "@/pages/Profile";
+import Messages from "@/pages/Messages";
 import Clients from "@/pages/Clients";
 import Billing from "@/pages/Billing";
 import NetworkMap from "@/pages/NetworkMap";
@@ -68,6 +69,7 @@ const AppContent: React.FC = () => {
           <Route path="/" element={<DashboardLayout />}>
             <Route index element={<Dashboard />} />
             <Route path="profile" element={<Profile />} />
+            <Route path="messages" element={<Messages />} />
             <Route path="clients" element={<Clients />} />
             <Route path="billing" element={<Billing />} />
             <Route path="network-map" element={<NetworkMap />} />

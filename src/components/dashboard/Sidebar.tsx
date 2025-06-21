@@ -16,6 +16,7 @@ import {
   Wifi,
   User,
   LogOut,
+  Mail,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
@@ -35,6 +36,7 @@ const Sidebar = () => {
     
     const baseItems = [
       { name: 'Dashboard', href: '/', icon: LayoutDashboard },
+      { name: 'Messages', href: '/messages', icon: Mail },
       { name: 'Profile', href: '/profile', icon: User },
     ];
 

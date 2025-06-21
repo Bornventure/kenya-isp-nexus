@@ -836,6 +836,89 @@ export type Database = {
         }
         Relationships: []
       }
+      internal_messages: {
+        Row: {
+          attachments: Json | null
+          content: string
+          deleted_at: string | null
+          id: string
+          is_deleted: boolean
+          is_read: boolean
+          isp_company_id: string | null
+          message_type: string
+          read_at: string | null
+          recipient_id: string
+          reply_to_id: string | null
+          sender_id: string
+          sent_at: string
+          subject: string
+          thread_id: string | null
+        }
+        Insert: {
+          attachments?: Json | null
+          content: string
+          deleted_at?: string | null
+          id?: string
+          is_deleted?: boolean
+          is_read?: boolean
+          isp_company_id?: string | null
+          message_type?: string
+          read_at?: string | null
+          recipient_id: string
+          reply_to_id?: string | null
+          sender_id: string
+          sent_at?: string
+          subject: string
+          thread_id?: string | null
+        }
+        Update: {
+          attachments?: Json | null
+          content?: string
+          deleted_at?: string | null
+          id?: string
+          is_deleted?: boolean
+          is_read?: boolean
+          isp_company_id?: string | null
+          message_type?: string
+          read_at?: string | null
+          recipient_id?: string
+          reply_to_id?: string | null
+          sender_id?: string
+          sent_at?: string
+          subject?: string
+          thread_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "internal_messages_isp_company_id_fkey"
+            columns: ["isp_company_id"]
+            isOneToOne: false
+            referencedRelation: "isp_companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "internal_messages_recipient_id_fkey"
+            columns: ["recipient_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "internal_messages_reply_to_id_fkey"
+            columns: ["reply_to_id"]
+            isOneToOne: false
+            referencedRelation: "internal_messages"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "internal_messages_sender_id_fkey"
+            columns: ["sender_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       inventory_history: {
         Row: {
           action: string
@@ -1156,6 +1239,54 @@ export type Database = {
         }
         Relationships: []
       }
+      message_attachments: {
+        Row: {
+          file_name: string
+          file_size: number
+          file_type: string
+          file_url: string
+          id: string
+          isp_company_id: string | null
+          message_id: string
+          uploaded_at: string
+        }
+        Insert: {
+          file_name: string
+          file_size: number
+          file_type: string
+          file_url: string
+          id?: string
+          isp_company_id?: string | null
+          message_id: string
+          uploaded_at?: string
+        }
+        Update: {
+          file_name?: string
+          file_size?: number
+          file_type?: string
+          file_url?: string
+          id?: string
+          isp_company_id?: string | null
+          message_id?: string
+          uploaded_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "message_attachments_isp_company_id_fkey"
+            columns: ["isp_company_id"]
+            isOneToOne: false
+            referencedRelation: "isp_companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "message_attachments_message_id_fkey"
+            columns: ["message_id"]
+            isOneToOne: false
+            referencedRelation: "internal_messages"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       mpesa_settings: {
         Row: {
           consumer_key: string | null
@@ -1341,6 +1472,66 @@ export type Database = {
         Relationships: [
           {
             foreignKeyName: "notification_preferences_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      notifications: {
+        Row: {
+          action_url: string | null
+          created_at: string
+          id: string
+          is_read: boolean
+          isp_company_id: string | null
+          message: string
+          read_at: string | null
+          related_entity_id: string | null
+          related_entity_type: string | null
+          title: string
+          type: string
+          user_id: string
+        }
+        Insert: {
+          action_url?: string | null
+          created_at?: string
+          id?: string
+          is_read?: boolean
+          isp_company_id?: string | null
+          message: string
+          read_at?: string | null
+          related_entity_id?: string | null
+          related_entity_type?: string | null
+          title: string
+          type?: string
+          user_id: string
+        }
+        Update: {
+          action_url?: string | null
+          created_at?: string
+          id?: string
+          is_read?: boolean
+          isp_company_id?: string | null
+          message?: string
+          read_at?: string | null
+          related_entity_id?: string | null
+          related_entity_type?: string | null
+          title?: string
+          type?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "notifications_isp_company_id_fkey"
+            columns: ["isp_company_id"]
+            isOneToOne: false
+            referencedRelation: "isp_companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "notifications_user_id_fkey"
             columns: ["user_id"]
             isOneToOne: false
             referencedRelation: "profiles"
