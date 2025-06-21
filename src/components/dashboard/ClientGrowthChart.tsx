@@ -2,10 +2,10 @@
 import React from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
-import { useRevenueData } from '@/hooks/useDashboardAnalytics';
+import { useClientGrowthData } from '@/hooks/useDashboardAnalytics';
 
 const ClientGrowthChart = () => {
-  const { data: revenueData, isLoading } = useRevenueData(6); // Last 6 months
+  const { data: growthData, isLoading } = useClientGrowthData(6); // Last 6 months
 
   if (isLoading) {
     return (
@@ -22,38 +22,45 @@ const ClientGrowthChart = () => {
     );
   }
 
-  // Transform data for chart and calculate cumulative clients
-  let cumulativeClients = 0;
-  const chartData = revenueData?.data?.map(item => {
-    cumulativeClients += item.clients;
-    return {
-      month: new Date(item.month + '-01').toLocaleDateString('en-US', { month: 'short' }),
-      new_clients: item.clients,
-      total_clients: cumulativeClients
-    };
-  }) || [];
+  // Transform data for chart
+  const chartData = growthData?.data?.map(item => ({
+    month: new Date(item.month + '-01').toLocaleDateString('en-US', { month: 'short' }),
+    new_clients: item.new_clients,
+    total_clients: item.total_clients
+  })) || [];
 
-  // If no data, show sample data
-  const displayData = chartData.length > 0 ? chartData : [
-    { month: 'Jan', new_clients: 12, total_clients: 120 },
-    { month: 'Feb', new_clients: 15, total_clients: 135 },
-    { month: 'Mar', new_clients: 18, total_clients: 153 },
-    { month: 'Apr', new_clients: 22, total_clients: 175 },
-    { month: 'May', new_clients: 25, total_clients: 200 },
-    { month: 'Jun', new_clients: 28, total_clients: 228 },
-  ];
+  // Show message if no data
+  if (chartData.length === 0) {
+    return (
+      <Card>
+        <CardHeader>
+          <CardTitle>Client Growth</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="h-80 flex items-center justify-center">
+            <div className="text-center">
+              <p className="text-muted-foreground">No client data available</p>
+              <p className="text-sm text-muted-foreground mt-2">
+                Add clients to see growth trends
+              </p>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+    );
+  }
 
   return (
     <Card>
       <CardHeader>
         <CardTitle>Client Growth</CardTitle>
         <p className="text-sm text-muted-foreground">
-          {chartData.length > 0 ? 'New and total clients over the last 6 months' : 'Sample data - add clients to see real growth data'}
+          New and total clients over the last 6 months
         </p>
       </CardHeader>
       <CardContent>
         <ResponsiveContainer width="100%" height={300}>
-          <LineChart data={displayData}>
+          <LineChart data={chartData}>
             <CartesianGrid strokeDasharray="3 3" />
             <XAxis dataKey="month" />
             <YAxis />

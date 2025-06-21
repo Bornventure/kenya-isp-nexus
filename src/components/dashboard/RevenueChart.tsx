@@ -25,31 +25,42 @@ const RevenueChart = () => {
   // Transform data for chart
   const chartData = revenueData?.data?.map(item => ({
     month: new Date(item.month + '-01').toLocaleDateString('en-US', { month: 'short' }),
-    revenue: Number(item.revenue) / 1000, // Convert to thousands for better display and ensure it's a number
+    revenue: Number(item.revenue) / 1000, // Convert to thousands for better display
     clients: item.clients
   })) || [];
 
-  // If no data, show sample data
-  const displayData = chartData.length > 0 ? chartData : [
-    { month: 'Jan', revenue: 245, clients: 12 },
-    { month: 'Feb', revenue: 280, clients: 15 },
-    { month: 'Mar', revenue: 320, clients: 18 },
-    { month: 'Apr', revenue: 390, clients: 22 },
-    { month: 'May', revenue: 420, clients: 25 },
-    { month: 'Jun', revenue: 485, clients: 28 },
-  ];
+  // Show message if no data
+  if (chartData.length === 0) {
+    return (
+      <Card>
+        <CardHeader>
+          <CardTitle>Monthly Revenue</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="h-80 flex items-center justify-center">
+            <div className="text-center">
+              <p className="text-muted-foreground">No revenue data available</p>
+              <p className="text-sm text-muted-foreground mt-2">
+                Record payments to see revenue trends
+              </p>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+    );
+  }
 
   return (
     <Card>
       <CardHeader>
         <CardTitle>Monthly Revenue</CardTitle>
         <p className="text-sm text-muted-foreground">
-          {chartData.length > 0 ? 'Revenue and client growth over the last 6 months' : 'Sample data - connect clients and payments for real data'}
+          Revenue and client growth over the last 6 months
         </p>
       </CardHeader>
       <CardContent>
         <ResponsiveContainer width="100%" height={300}>
-          <BarChart data={displayData}>
+          <BarChart data={chartData}>
             <CartesianGrid strokeDasharray="3 3" />
             <XAxis dataKey="month" />
             <YAxis />

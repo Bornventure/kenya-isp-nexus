@@ -11,10 +11,29 @@ import {
 } from 'lucide-react';
 import { useClients } from '@/hooks/useClients';
 import { useDashboardStats } from '@/hooks/useDashboardAnalytics';
+import { useQuery } from '@tanstack/react-query';
+import { supabase } from '@/integrations/supabase/client';
+import { useAuth } from '@/contexts/AuthContext';
 
 const NetworkStats: React.FC = () => {
   const { clients, isLoading: clientsLoading } = useClients();
   const { data: dashboardStats, isLoading: statsLoading } = useDashboardStats();
+  const { profile } = useAuth();
+
+  // Get real hotspot data
+  const { data: hotspotData } = useQuery({
+    queryKey: ['hotspots-stats', profile?.isp_company_id],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('hotspots')
+        .select('status')
+        .eq('isp_company_id', profile?.isp_company_id);
+      
+      if (error) throw error;
+      return data;
+    },
+    enabled: !!profile?.isp_company_id,
+  });
 
   if (clientsLoading || statsLoading) {
     return (
@@ -39,13 +58,15 @@ const NetworkStats: React.FC = () => {
   const activeConnections = stats?.activeClients || 0;
   const suspendedClients = stats?.suspendedClients || 0;
   
-  // Calculate connection types from clients data
+  // Calculate connection types from real client data
   const fiberConnections = clients?.filter(client => client.connection_type === 'fiber').length || 0;
   const wirelessConnections = clients?.filter(client => client.connection_type === 'wireless').length || 0;
   const satelliteConnections = clients?.filter(client => client.connection_type === 'satellite').length || 0;
   const dslConnections = clients?.filter(client => client.connection_type === 'dsl').length || 0;
 
-  const uptime = 99.2; // This would come from actual network monitoring
+  const uptime = stats?.networkUptime || 99.2;
+  const totalHotspots = stats?.totalHotspots || 0;
+  const activeHotspots = hotspotData?.filter(h => h.status === 'active').length || 0;
 
   return (
     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
@@ -106,12 +127,14 @@ const NetworkStats: React.FC = () => {
 
       <Card>
         <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-          <CardTitle className="text-sm font-medium">Issues</CardTitle>
-          <AlertTriangle className="h-4 w-4 text-yellow-500" />
+          <CardTitle className="text-sm font-medium">Hotspots</CardTitle>
+          <Wifi className="h-4 w-4 text-muted-foreground" />
         </CardHeader>
         <CardContent>
-          <div className="text-2xl font-bold text-yellow-600">{suspendedClients}</div>
-          <p className="text-xs text-muted-foreground">Suspended clients</p>
+          <div className="text-2xl font-bold">{activeHotspots}</div>
+          <p className="text-xs text-muted-foreground">
+            {activeHotspots} of {totalHotspots} active
+          </p>
         </CardContent>
       </Card>
     </div>
