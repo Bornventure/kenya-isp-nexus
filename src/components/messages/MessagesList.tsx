@@ -24,8 +24,8 @@ const MessagesList: React.FC<MessagesListProps> = ({ type, selectedMessage, onSe
         .from('internal_messages')
         .select(`
           *,
-          sender:sender_id(first_name, last_name, role),
-          recipient:recipient_id(first_name, last_name, role)
+          sender:profiles!internal_messages_sender_id_fkey(first_name, last_name, role),
+          recipient:profiles!internal_messages_recipient_id_fkey(first_name, last_name, role)
         `)
         .eq('is_deleted', false)
         .order('sent_at', { ascending: false });
