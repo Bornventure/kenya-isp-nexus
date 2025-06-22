@@ -9,6 +9,54 @@ export type Json =
 export type Database = {
   public: {
     Tables: {
+      bandwidth_statistics: {
+        Row: {
+          equipment_id: string
+          id: string
+          in_octets: number | null
+          in_packets: number | null
+          isp_company_id: string | null
+          out_octets: number | null
+          out_packets: number | null
+          timestamp: string | null
+        }
+        Insert: {
+          equipment_id: string
+          id?: string
+          in_octets?: number | null
+          in_packets?: number | null
+          isp_company_id?: string | null
+          out_octets?: number | null
+          out_packets?: number | null
+          timestamp?: string | null
+        }
+        Update: {
+          equipment_id?: string
+          id?: string
+          in_octets?: number | null
+          in_packets?: number | null
+          isp_company_id?: string | null
+          out_octets?: number | null
+          out_packets?: number | null
+          timestamp?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "bandwidth_statistics_equipment_id_fkey"
+            columns: ["equipment_id"]
+            isOneToOne: false
+            referencedRelation: "equipment"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "bandwidth_statistics_isp_company_id_fkey"
+            columns: ["isp_company_id"]
+            isOneToOne: false
+            referencedRelation: "isp_companies"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       base_stations: {
         Row: {
           coverage_radius: number | null
@@ -202,6 +250,64 @@ export type Database = {
           },
         ]
       }
+      client_service_assignments: {
+        Row: {
+          assigned_at: string | null
+          client_id: string
+          created_at: string | null
+          id: string
+          is_active: boolean | null
+          isp_company_id: string | null
+          notes: string | null
+          service_package_id: string
+          updated_at: string | null
+        }
+        Insert: {
+          assigned_at?: string | null
+          client_id: string
+          created_at?: string | null
+          id?: string
+          is_active?: boolean | null
+          isp_company_id?: string | null
+          notes?: string | null
+          service_package_id: string
+          updated_at?: string | null
+        }
+        Update: {
+          assigned_at?: string | null
+          client_id?: string
+          created_at?: string | null
+          id?: string
+          is_active?: boolean | null
+          isp_company_id?: string | null
+          notes?: string | null
+          service_package_id?: string
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "client_service_assignments_client_id_fkey"
+            columns: ["client_id"]
+            isOneToOne: false
+            referencedRelation: "clients"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "client_service_assignments_isp_company_id_fkey"
+            columns: ["isp_company_id"]
+            isOneToOne: false
+            referencedRelation: "isp_companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "client_service_assignments_service_package_id_fkey"
+            columns: ["service_package_id"]
+            isOneToOne: false
+            referencedRelation: "service_packages"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       clients: {
         Row: {
           address: string
@@ -356,9 +462,11 @@ export type Database = {
           client_id: string | null
           created_at: string | null
           equipment_type_id: string | null
+          firmware_version: string | null
           id: string
           ip_address: unknown | null
           isp_company_id: string | null
+          location: string | null
           location_coordinates: unknown | null
           mac_address: string | null
           model: string | null
@@ -384,9 +492,11 @@ export type Database = {
           client_id?: string | null
           created_at?: string | null
           equipment_type_id?: string | null
+          firmware_version?: string | null
           id?: string
           ip_address?: unknown | null
           isp_company_id?: string | null
+          location?: string | null
           location_coordinates?: unknown | null
           mac_address?: string | null
           model?: string | null
@@ -412,9 +522,11 @@ export type Database = {
           client_id?: string | null
           created_at?: string | null
           equipment_type_id?: string | null
+          firmware_version?: string | null
           id?: string
           ip_address?: unknown | null
           isp_company_id?: string | null
+          location?: string | null
           location_coordinates?: unknown | null
           mac_address?: string | null
           model?: string | null
@@ -835,6 +947,60 @@ export type Database = {
           updated_at?: string
         }
         Relationships: []
+      }
+      interface_statistics: {
+        Row: {
+          equipment_id: string
+          errors: number | null
+          id: string
+          interface_index: number
+          interface_name: string
+          isp_company_id: string | null
+          speed: number | null
+          status: string | null
+          timestamp: string | null
+          utilization: number | null
+        }
+        Insert: {
+          equipment_id: string
+          errors?: number | null
+          id?: string
+          interface_index: number
+          interface_name: string
+          isp_company_id?: string | null
+          speed?: number | null
+          status?: string | null
+          timestamp?: string | null
+          utilization?: number | null
+        }
+        Update: {
+          equipment_id?: string
+          errors?: number | null
+          id?: string
+          interface_index?: number
+          interface_name?: string
+          isp_company_id?: string | null
+          speed?: number | null
+          status?: string | null
+          timestamp?: string | null
+          utilization?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "interface_statistics_equipment_id_fkey"
+            columns: ["equipment_id"]
+            isOneToOne: false
+            referencedRelation: "equipment"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "interface_statistics_isp_company_id_fkey"
+            columns: ["isp_company_id"]
+            isOneToOne: false
+            referencedRelation: "isp_companies"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       internal_messages: {
         Row: {
@@ -1643,6 +1809,59 @@ export type Database = {
         Relationships: [
           {
             foreignKeyName: "profiles_isp_company_id_fkey"
+            columns: ["isp_company_id"]
+            isOneToOne: false
+            referencedRelation: "isp_companies"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      qos_policies: {
+        Row: {
+          burst_size: number | null
+          created_at: string | null
+          guaranteed_bandwidth: number | null
+          id: string
+          is_active: boolean | null
+          isp_company_id: string | null
+          max_bandwidth_down: number
+          max_bandwidth_up: number
+          name: string
+          priority: string | null
+          protocol: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          burst_size?: number | null
+          created_at?: string | null
+          guaranteed_bandwidth?: number | null
+          id?: string
+          is_active?: boolean | null
+          isp_company_id?: string | null
+          max_bandwidth_down: number
+          max_bandwidth_up: number
+          name: string
+          priority?: string | null
+          protocol?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          burst_size?: number | null
+          created_at?: string | null
+          guaranteed_bandwidth?: number | null
+          id?: string
+          is_active?: boolean | null
+          isp_company_id?: string | null
+          max_bandwidth_down?: number
+          max_bandwidth_up?: number
+          name?: string
+          priority?: string | null
+          protocol?: string | null
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "qos_policies_isp_company_id_fkey"
             columns: ["isp_company_id"]
             isOneToOne: false
             referencedRelation: "isp_companies"

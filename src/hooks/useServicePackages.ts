@@ -92,19 +92,23 @@ export const useServicePackages = () => {
 
       // If speed was updated, update QoS for all clients using this package
       if (updates.speed) {
-        const { data: clientAssignments } = await supabase
-          .from('client_service_assignments')
-          .select('client_id')
-          .eq('service_package_id', id)
-          .eq('is_active', true);
+        try {
+          // Find clients using this package via the clients table directly
+          const { data: clientsWithPackage } = await supabase
+            .from('clients')
+            .select('id')
+            .eq('service_package_id', id);
 
-        if (clientAssignments?.length) {
-          // Import QoS service dynamically to avoid circular dependencies
-          const { qosService } = await import('@/services/qosService');
-          
-          for (const assignment of clientAssignments) {
-            await qosService.updateClientQoS(assignment.client_id, id);
+          if (clientsWithPackage?.length) {
+            // Import QoS service dynamically to avoid circular dependencies
+            const { qosService } = await import('@/services/qosService');
+            
+            for (const client of clientsWithPackage) {
+              await qosService.updateClientQoS(client.id, id);
+            }
           }
+        } catch (qosError) {
+          console.error('Error updating QoS for clients:', qosError);
         }
       }
 
