@@ -171,7 +171,7 @@ const Support = () => {
         </div>
       </div>
       
-      <SupportStats stats={ticketStats} />
+      <SupportStats />
 
       <Tabs defaultValue="tickets" className="w-full">
         <TabsList className="grid w-full grid-cols-9">
