@@ -25,7 +25,7 @@ const EditPackageDialog: React.FC<EditPackageDialogProps> = ({
   onOpenChange,
 }) => {
   const { updatePackage, isUpdating } = useServicePackages();
-  const [formData, set FormData] = useState({
+  const [formData, setFormData] = useState({
     name: '',
     speed: '',
     monthly_rate: '',
