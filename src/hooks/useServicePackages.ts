@@ -66,7 +66,7 @@ export const useServicePackages = () => {
       queryClient.invalidateQueries({ queryKey: ['service-packages'] });
       toast({
         title: "Service Package Created",
-        description: "New service package has been successfully created.",
+        description: "New service package has been successfully created with QoS capabilities.",
       });
     },
     onError: (error) => {
@@ -89,13 +89,36 @@ export const useServicePackages = () => {
         .single();
 
       if (error) throw error;
+
+      // If speed was updated, update QoS for all clients using this package
+      if (updates.speed) {
+        const { data: clientAssignments } = await supabase
+          .from('client_service_assignments')
+          .select('client_id')
+          .eq('service_package_id', id)
+          .eq('is_active', true);
+
+        if (clientAssignments?.length) {
+          // Import QoS service dynamically to avoid circular dependencies
+          const { qosService } = await import('@/services/qosService');
+          
+          for (const assignment of clientAssignments) {
+            await qosService.updateClientQoS(assignment.client_id, id);
+          }
+        }
+      }
+
       return data;
     },
-    onSuccess: () => {
+    onSuccess: (data, variables) => {
       queryClient.invalidateQueries({ queryKey: ['service-packages'] });
+      
+      const speedUpdated = variables.updates.speed !== undefined;
       toast({
         title: "Service Package Updated",
-        description: "Service package has been updated successfully.",
+        description: speedUpdated 
+          ? "Service package and client QoS policies have been updated successfully."
+          : "Service package has been updated successfully.",
       });
     },
     onError: (error) => {
