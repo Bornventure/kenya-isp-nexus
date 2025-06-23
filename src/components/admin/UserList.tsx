@@ -2,6 +2,7 @@
 import React from 'react';
 import { Badge } from '@/components/ui/badge';
 import { Shield } from 'lucide-react';
+import UserActions from './UserActions';
 import type { SystemUser } from '@/types/user';
 
 interface UserListProps {
@@ -52,6 +53,7 @@ const UserList: React.FC<UserListProps> = ({ users }) => {
           </div>
           <div className="flex items-center gap-2">
             <Shield className="h-4 w-4 text-gray-400" />
+            <UserActions user={user} />
           </div>
         </div>
       ))}
