@@ -2,7 +2,7 @@
 import React from 'react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Card } from '@/components/ui/card';
-import InvoiceActions from '@/components/billing/InvoiceActions';
+import InvoiceList from '@/components/billing/InvoiceList';
 import PaymentTracker from '@/components/billing/PaymentTracker';
 import FinancialManagement from '@/components/billing/FinancialManagement';
 
@@ -25,9 +25,7 @@ const Billing = () => {
           </TabsList>
 
           <TabsContent value="invoices" className="space-y-4">
-            <Card className="p-6">
-              <InvoiceActions />
-            </Card>
+            <InvoiceList />
           </TabsContent>
 
           <TabsContent value="payments" className="space-y-4">
