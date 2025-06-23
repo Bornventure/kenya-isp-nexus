@@ -5,6 +5,8 @@ import { Card } from '@/components/ui/card';
 import UserManagement from '@/components/admin/UserManagement';
 import SecuritySettings from '@/components/settings/SecuritySettings';
 import SystemSettings from '@/components/settings/SystemSettings';
+import CompanySettings from '@/components/settings/CompanySettings';
+import DataManagement from '@/components/settings/DataManagement';
 import { useAuth } from '@/contexts/AuthContext';
 
 const Settings = () => {
@@ -24,6 +26,8 @@ const Settings = () => {
         <Tabs defaultValue="users" className="space-y-4">
           <TabsList>
             <TabsTrigger value="users">User Management</TabsTrigger>
+            <TabsTrigger value="company">Company</TabsTrigger>
+            <TabsTrigger value="data">Data Management</TabsTrigger>
             <TabsTrigger value="security">Security</TabsTrigger>
             <TabsTrigger value="system">System</TabsTrigger>
           </TabsList>
@@ -32,6 +36,30 @@ const Settings = () => {
             <Card className="p-6">
               <UserManagement />
             </Card>
+          </TabsContent>
+
+          <TabsContent value="company" className="space-y-4">
+            {isSuperAdmin ? (
+              <CompanySettings />
+            ) : (
+              <Card className="p-6">
+                <p className="text-center text-muted-foreground">
+                  You don't have permission to access company settings.
+                </p>
+              </Card>
+            )}
+          </TabsContent>
+
+          <TabsContent value="data" className="space-y-4">
+            {isSuperAdmin ? (
+              <DataManagement />
+            ) : (
+              <Card className="p-6">
+                <p className="text-center text-muted-foreground">
+                  You don't have permission to access data management settings.
+                </p>
+              </Card>
+            )}
           </TabsContent>
 
           <TabsContent value="security" className="space-y-4">

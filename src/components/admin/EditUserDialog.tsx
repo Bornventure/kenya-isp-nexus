@@ -27,7 +27,7 @@ const EditUserDialog: React.FC<EditUserDialogProps> = ({ user, open, onOpenChang
     first_name: user?.first_name || '',
     last_name: user?.last_name || '',
     phone: user?.phone || '',
-    role: user?.role || 'readonly'
+    role: user?.role || 'readonly' as SystemUser['role']
   });
 
   const { updateUserRole, isUpdatingRole } = useUserRoleUpdate();
@@ -50,7 +50,7 @@ const EditUserDialog: React.FC<EditUserDialogProps> = ({ user, open, onOpenChang
 
       // Update role if changed
       if (formData.role !== user.role) {
-        updateUserRole({ userId: user.id, newRole: formData.role as SystemUser['role'] });
+        updateUserRole({ userId: user.id, newRole: formData.role });
       }
 
       onOpenChange(false);
@@ -119,7 +119,7 @@ const EditUserDialog: React.FC<EditUserDialogProps> = ({ user, open, onOpenChang
             <Label htmlFor="role">Role</Label>
             <Select
               value={formData.role}
-              onValueChange={(value) => setFormData({ ...formData, role: value })}
+              onValueChange={(value) => setFormData({ ...formData, role: value as SystemUser['role'] })}
             >
               <SelectTrigger>
                 <SelectValue />
