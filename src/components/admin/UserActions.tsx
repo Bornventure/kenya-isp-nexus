@@ -20,20 +20,27 @@ import {
 } from '@/components/ui/alert-dialog';
 import { MoreHorizontal, UserX, Edit, Lock, Unlock } from 'lucide-react';
 import { useUserDeletion } from '@/hooks/useUserDeletion';
+import { useUserActivation } from '@/hooks/useUserActivation';
+import EditUserDialog from './EditUserDialog';
 import type { SystemUser } from '@/types/user';
 
 interface UserActionsProps {
   user: SystemUser;
-  onEdit?: (user: SystemUser) => void;
 }
 
-const UserActions: React.FC<UserActionsProps> = ({ user, onEdit }) => {
+const UserActions: React.FC<UserActionsProps> = ({ user }) => {
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
+  const [showEditDialog, setShowEditDialog] = useState(false);
   const { deleteUser, isDeletingUser } = useUserDeletion();
+  const { toggleUserActivation, isUpdatingActivation } = useUserActivation();
 
   const handleDelete = () => {
     deleteUser(user.id);
     setShowDeleteDialog(false);
+  };
+
+  const handleToggleActivation = () => {
+    toggleUserActivation({ userId: user.id, isActive: !user.is_active });
   };
 
   return (
@@ -45,13 +52,14 @@ const UserActions: React.FC<UserActionsProps> = ({ user, onEdit }) => {
           </Button>
         </DropdownMenuTrigger>
         <DropdownMenuContent align="end">
-          {onEdit && (
-            <DropdownMenuItem onClick={() => onEdit(user)}>
-              <Edit className="h-4 w-4 mr-2" />
-              Edit User
-            </DropdownMenuItem>
-          )}
-          <DropdownMenuItem>
+          <DropdownMenuItem onClick={() => setShowEditDialog(true)}>
+            <Edit className="h-4 w-4 mr-2" />
+            Edit User
+          </DropdownMenuItem>
+          <DropdownMenuItem 
+            onClick={handleToggleActivation}
+            disabled={isUpdatingActivation}
+          >
             {user.is_active ? (
               <>
                 <Lock className="h-4 w-4 mr-2" />
@@ -102,6 +110,12 @@ const UserActions: React.FC<UserActionsProps> = ({ user, onEdit }) => {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      <EditUserDialog 
+        user={user}
+        open={showEditDialog}
+        onOpenChange={setShowEditDialog}
+      />
     </>
   );
 };
