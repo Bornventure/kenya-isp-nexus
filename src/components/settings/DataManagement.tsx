@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -7,7 +6,7 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Switch } from '@/components/ui/switch';
 import { Progress } from '@/components/ui/progress';
-import { database, file-import, file-export, settings } from 'lucide-react';
+import { Database, FileText, Upload, Download, Settings } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 
 const DataManagement = () => {
@@ -84,7 +83,7 @@ const DataManagement = () => {
         <Card>
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
-              <database className="h-5 w-5" />
+              <Database className="h-5 w-5" />
               Backup & Recovery
             </CardTitle>
             <CardDescription>
@@ -173,7 +172,7 @@ const DataManagement = () => {
         <Card>
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
-              <file-import className="h-5 w-5" />
+              <FileText className="h-5 w-5" />
               Data Import/Export
             </CardTitle>
             <CardDescription>
@@ -190,7 +189,7 @@ const DataManagement = () => {
                     className="w-full justify-start"
                     onClick={() => handleExportData('Clients')}
                   >
-                    <file-export className="h-4 w-4 mr-2" />
+                    <Download className="h-4 w-4 mr-2" />
                     Export Clients
                   </Button>
                   <Button 
@@ -198,7 +197,7 @@ const DataManagement = () => {
                     className="w-full justify-start"
                     onClick={() => handleExportData('Equipment')}
                   >
-                    <file-export className="h-4 w-4 mr-2" />
+                    <Download className="h-4 w-4 mr-2" />
                     Export Equipment
                   </Button>
                   <Button 
@@ -206,7 +205,7 @@ const DataManagement = () => {
                     className="w-full justify-start"
                     onClick={() => handleExportData('Invoices')}
                   >
-                    <file-export className="h-4 w-4 mr-2" />
+                    <Download className="h-4 w-4 mr-2" />
                     Export Invoices
                   </Button>
                   <Button 
@@ -214,7 +213,7 @@ const DataManagement = () => {
                     className="w-full justify-start"
                     onClick={() => handleExportData('Payments')}
                   >
-                    <file-export className="h-4 w-4 mr-2" />
+                    <Download className="h-4 w-4 mr-2" />
                     Export Payments
                   </Button>
                 </div>
@@ -228,7 +227,7 @@ const DataManagement = () => {
                     className="w-full justify-start"
                     onClick={() => handleImportData('Clients')}
                   >
-                    <file-import className="h-4 w-4 mr-2" />
+                    <Upload className="h-4 w-4 mr-2" />
                     Import Clients
                   </Button>
                   <Button 
@@ -236,7 +235,7 @@ const DataManagement = () => {
                     className="w-full justify-start"
                     onClick={() => handleImportData('Equipment')}
                   >
-                    <file-import className="h-4 w-4 mr-2" />
+                    <Upload className="h-4 w-4 mr-2" />
                     Import Equipment
                   </Button>
                   <Button 
@@ -244,7 +243,7 @@ const DataManagement = () => {
                     className="w-full justify-start"
                     onClick={() => handleImportData('Service Packages')}
                   >
-                    <file-import className="h-4 w-4 mr-2" />
+                    <Upload className="h-4 w-4 mr-2" />
                     Import Packages
                   </Button>
                 </div>
@@ -287,7 +286,7 @@ const DataManagement = () => {
         <Card>
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
-              <settings className="h-5 w-5" />
+              <Settings className="h-5 w-5" />
               Data Integrity & Validation
             </CardTitle>
             <CardDescription>
