@@ -21,6 +21,7 @@ import Invoices from "@/pages/Invoices";
 import CustomerPortal from "@/pages/CustomerPortal";
 import PackageManagement from "@/pages/PackageManagement";
 import DeveloperPortal from "@/pages/DeveloperPortal";
+import ApiDocumentation from "@/pages/ApiDocumentation";
 import AccessDenied from "./AccessDenied";
 import NotFound from "@/pages/NotFound";
 import NetworkStatus from "@/pages/NetworkStatus";
@@ -59,6 +60,8 @@ const AppContent = () => {
         <Route path="/messages" element={canAccessDashboard ? <Messages /> : <Navigate to="/access-denied" />} />
         <Route path="/analytics" element={canAccessDashboard ? <Analytics /> : <Navigate to="/access-denied" />} />
         <Route path="/packages" element={isAdmin ? <PackageManagement /> : <Navigate to="/access-denied" />} />
+        <Route path="/developer-portal" element={isAdmin ? <DeveloperPortal /> : <Navigate to="/access-denied" />} />
+        <Route path="/api-documentation" element={isAdmin ? <ApiDocumentation /> : <Navigate to="/access-denied" />} />
         <Route path="/profile" element={<Profile />} />
         <Route path="/settings" element={isAdmin ? <Settings /> : <Navigate to="/access-denied" />} />
         <Route path="/api-settings" element={isAdmin ? <ApiSettings /> : <Navigate to="/access-denied" />} />
