@@ -23,8 +23,6 @@ const InvoiceList = () => {
       status: 'paid',
       due_date: new Date('2024-01-15').toISOString(),
       created_at: new Date('2024-01-01').toISOString(),
-      items: [],
-      client_name: 'John Doe'
     },
     {
       id: '2',
@@ -34,8 +32,6 @@ const InvoiceList = () => {
       status: 'pending',
       due_date: new Date('2024-02-15').toISOString(),
       created_at: new Date('2024-02-01').toISOString(),
-      items: [],
-      client_name: 'Jane Smith'
     },
   ]);
 
@@ -75,8 +71,7 @@ const InvoiceList = () => {
   };
 
   const filteredInvoices = invoices.filter(invoice => 
-    invoice.invoice_number.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    invoice.client_name?.toLowerCase().includes(searchTerm.toLowerCase())
+    invoice.invoice_number.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
   return (
@@ -115,7 +110,7 @@ const InvoiceList = () => {
             {filteredInvoices.map((invoice) => (
               <TableRow key={invoice.id}>
                 <TableCell className="font-medium">{invoice.invoice_number}</TableCell>
-                <TableCell>{invoice.client_name}</TableCell>
+                <TableCell>{invoice.client_id}</TableCell>
                 <TableCell>KES {invoice.amount.toLocaleString()}</TableCell>
                 <TableCell>{new Date(invoice.due_date).toLocaleDateString()}</TableCell>
                 <TableCell>

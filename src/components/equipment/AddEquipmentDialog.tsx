@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
@@ -7,11 +6,13 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useToast } from '@/hooks/use-toast';
 import { useEquipment } from '@/hooks/useEquipment';
 import { useClients } from '@/hooks/useClients';
 import { EquipmentType } from '@/hooks/useEquipmentTypes';
 import EquipmentTypeSelector from './EquipmentTypeSelector';
+import BarcodeScanner from '@/components/common/BarcodeScanner';
 
 interface AddEquipmentDialogProps {
   open: boolean;
@@ -23,6 +24,7 @@ const AddEquipmentDialog: React.FC<AddEquipmentDialogProps> = ({ open, onOpenCha
   const [selectedType, setSelectedType] = useState<EquipmentType | null>(null);
   const [formData, setFormData] = useState({
     serial_number: '',
+    barcode: '',
     mac_address: '',
     ip_address: '',
     snmp_community: 'public',
@@ -36,6 +38,10 @@ const AddEquipmentDialog: React.FC<AddEquipmentDialogProps> = ({ open, onOpenCha
   const { toast } = useToast();
   const { createEquipment, isCreating } = useEquipment();
   const { clients } = useClients();
+
+  const handleBarcodeScanned = (scannedBarcode: string) => {
+    setFormData(prev => ({ ...prev, barcode: scannedBarcode }));
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -88,6 +94,7 @@ const AddEquipmentDialog: React.FC<AddEquipmentDialogProps> = ({ open, onOpenCha
     setSelectedType(null);
     setFormData({
       serial_number: '',
+      barcode: '',
       mac_address: '',
       ip_address: '',
       snmp_community: 'public',
@@ -113,169 +120,211 @@ const AddEquipmentDialog: React.FC<AddEquipmentDialogProps> = ({ open, onOpenCha
   return (
     <>
       <Dialog open={open} onOpenChange={onOpenChange}>
-        <DialogContent className="max-w-2xl max-h-[600px] overflow-y-auto">
+        <DialogContent className="max-w-4xl max-h-[700px] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>Add New Equipment</DialogTitle>
           </DialogHeader>
 
-          <form onSubmit={handleSubmit} className="space-y-6">
-            {/* Equipment Type Selection */}
-            <Card>
-              <CardHeader>
-                <CardTitle className="text-sm">Equipment Type</CardTitle>
-              </CardHeader>
-              <CardContent>
-                {selectedType ? (
-                  <div className="flex items-center justify-between p-3 border rounded-lg">
-                    <div>
-                      <p className="font-medium">{selectedType.name}</p>
-                      <p className="text-sm text-muted-foreground">
-                        {selectedType.brand} {selectedType.model}
-                      </p>
+          <Tabs defaultValue="barcode" className="space-y-4">
+            <TabsList className="grid w-full grid-cols-3">
+              <TabsTrigger value="barcode">Barcode Scanner</TabsTrigger>
+              <TabsTrigger value="type">Equipment Type</TabsTrigger>
+              <TabsTrigger value="details">Details</TabsTrigger>
+            </TabsList>
+
+            <TabsContent value="barcode">
+              <BarcodeScanner
+                onBarcodeScanned={handleBarcodeScanned}
+                placeholder="Scan equipment barcode..."
+                label="Equipment Barcode Scanner"
+              />
+            </TabsContent>
+
+            <TabsContent value="type">
+              {/* Equipment Type Selection */}
+              <Card>
+                <CardHeader>
+                  <CardTitle className="text-sm">Equipment Type</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  {selectedType ? (
+                    <div className="flex items-center justify-between p-3 border rounded-lg">
+                      <div>
+                        <p className="font-medium">{selectedType.name}</p>
+                        <p className="text-sm text-muted-foreground">
+                          {selectedType.brand} {selectedType.model}
+                        </p>
+                      </div>
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setShowTypeSelector(true)}
+                      >
+                        Change
+                      </Button>
                     </div>
+                  ) : (
                     <Button
                       type="button"
                       variant="outline"
-                      size="sm"
+                      className="w-full"
                       onClick={() => setShowTypeSelector(true)}
                     >
-                      Change
+                      Select Equipment Type
                     </Button>
-                  </div>
-                ) : (
-                  <Button
-                    type="button"
-                    variant="outline"
-                    className="w-full"
-                    onClick={() => setShowTypeSelector(true)}
-                  >
-                    Select Equipment Type
-                  </Button>
+                  )}
+                </CardContent>
+              </Card>
+            </TabsContent>
+
+            <TabsContent value="details">
+              <form onSubmit={handleSubmit} className="space-y-6">
+                {/* Barcode Display */}
+                {formData.barcode && (
+                  <Card className="border-green-200 bg-green-50">
+                    <CardHeader className="pb-2">
+                      <CardTitle className="text-sm text-green-800">Scanned Barcode</CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                      <code className="text-green-700 font-mono">{formData.barcode}</code>
+                    </CardContent>
+                  </Card>
                 )}
-              </CardContent>
-            </Card>
 
-            {/* Basic Information */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label htmlFor="serial_number">Serial Number *</Label>
-                <Input
-                  id="serial_number"
-                  value={formData.serial_number}
-                  onChange={(e) => setFormData(prev => ({ ...prev, serial_number: e.target.value }))}
-                  required
-                />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="mac_address">MAC Address</Label>
-                <Input
-                  id="mac_address"
-                  value={formData.mac_address}
-                  onChange={(e) => setFormData(prev => ({ ...prev, mac_address: e.target.value }))}
-                  placeholder="00:00:00:00:00:00"
-                />
-              </div>
-            </div>
-
-            {/* Network Configuration */}
-            <Card>
-              <CardHeader>
-                <CardTitle className="text-sm">Network Configuration</CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-4">
+                {/* Basic Information */}
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div className="space-y-2">
-                    <Label htmlFor="ip_address">IP Address</Label>
+                    <Label htmlFor="serial_number">Serial Number *</Label>
                     <Input
-                      id="ip_address"
-                      value={formData.ip_address}
-                      onChange={(e) => setFormData(prev => ({ ...prev, ip_address: e.target.value }))}
-                      placeholder="192.168.1.1"
+                      id="serial_number"
+                      value={formData.serial_number}
+                      onChange={(e) => setFormData(prev => ({ ...prev, serial_number: e.target.value }))}
+                      required
                     />
                   </div>
                   <div className="space-y-2">
-                    <Label htmlFor="snmp_community">SNMP Community</Label>
+                    <Label htmlFor="barcode">Barcode</Label>
                     <Input
-                      id="snmp_community"
-                      value={formData.snmp_community}
-                      onChange={(e) => setFormData(prev => ({ ...prev, snmp_community: e.target.value }))}
-                    />
-                  </div>
-                </div>
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                  <div className="space-y-2">
-                    <Label htmlFor="snmp_version">SNMP Version</Label>
-                    <Select value={formData.snmp_version} onValueChange={(value) => setFormData(prev => ({ ...prev, snmp_version: value }))}>
-                      <SelectTrigger>
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="1">v1</SelectItem>
-                        <SelectItem value="2">v2c</SelectItem>
-                        <SelectItem value="3">v3</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="port_number">Port Number</Label>
-                    <Input
-                      id="port_number"
-                      type="number"
-                      value={formData.port_number}
-                      onChange={(e) => setFormData(prev => ({ ...prev, port_number: e.target.value }))}
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="vlan_id">VLAN ID</Label>
-                    <Input
-                      id="vlan_id"
-                      type="number"
-                      value={formData.vlan_id}
-                      onChange={(e) => setFormData(prev => ({ ...prev, vlan_id: e.target.value }))}
+                      id="barcode"
+                      value={formData.barcode}
+                      onChange={(e) => setFormData(prev => ({ ...prev, barcode: e.target.value }))}
+                      placeholder="Barcode (scan or enter manually)"
                     />
                   </div>
                 </div>
-              </CardContent>
-            </Card>
 
-            {/* Client Assignment */}
-            <div className="space-y-2">
-              <Label htmlFor="client_id">Assign to Client (Optional)</Label>
-              <Select value={formData.client_id} onValueChange={(value) => setFormData(prev => ({ ...prev, client_id: value }))}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Select a client" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="no-client">No client</SelectItem>
-                  {clients.map((client) => (
-                    <SelectItem key={client.id} value={client.id}>
-                      {client.name} - {client.phone}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
+                <div className="space-y-2">
+                  <Label htmlFor="mac_address">MAC Address</Label>
+                  <Input
+                    id="mac_address"
+                    value={formData.mac_address}
+                    onChange={(e) => setFormData(prev => ({ ...prev, mac_address: e.target.value }))}
+                    placeholder="00:00:00:00:00:00"
+                  />
+                </div>
 
-            {/* Notes */}
-            <div className="space-y-2">
-              <Label htmlFor="notes">Notes</Label>
-              <Textarea
-                id="notes"
-                value={formData.notes}
-                onChange={(e) => setFormData(prev => ({ ...prev, notes: e.target.value }))}
-                placeholder="Additional notes about this equipment..."
-              />
-            </div>
+                {/* Network Configuration */}
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="text-sm">Network Configuration</CardTitle>
+                  </CardHeader>
+                  <CardContent className="space-y-4">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div className="space-y-2">
+                        <Label htmlFor="ip_address">IP Address</Label>
+                        <Input
+                          id="ip_address"
+                          value={formData.ip_address}
+                          onChange={(e) => setFormData(prev => ({ ...prev, ip_address: e.target.value }))}
+                          placeholder="192.168.1.1"
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <Label htmlFor="snmp_community">SNMP Community</Label>
+                        <Input
+                          id="snmp_community"
+                          value={formData.snmp_community}
+                          onChange={(e) => setFormData(prev => ({ ...prev, snmp_community: e.target.value }))}
+                        />
+                      </div>
+                    </div>
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                      <div className="space-y-2">
+                        <Label htmlFor="snmp_version">SNMP Version</Label>
+                        <Select value={formData.snmp_version} onValueChange={(value) => setFormData(prev => ({ ...prev, snmp_version: value }))}>
+                          <SelectTrigger>
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="1">v1</SelectItem>
+                            <SelectItem value="2">v2c</SelectItem>
+                            <SelectItem value="3">v3</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+                      <div className="space-y-2">
+                        <Label htmlFor="port_number">Port Number</Label>
+                        <Input
+                          id="port_number"
+                          type="number"
+                          value={formData.port_number}
+                          onChange={(e) => setFormData(prev => ({ ...prev, port_number: e.target.value }))}
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <Label htmlFor="vlan_id">VLAN ID</Label>
+                        <Input
+                          id="vlan_id"
+                          type="number"
+                          value={formData.vlan_id}
+                          onChange={(e) => setFormData(prev => ({ ...prev, vlan_id: e.target.value }))}
+                        />
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
 
-            <div className="flex justify-end gap-2">
-              <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
-                Cancel
-              </Button>
-              <Button type="submit" disabled={isCreating || !selectedType}>
-                {isCreating ? 'Adding...' : 'Add Equipment'}
-              </Button>
-            </div>
-          </form>
+                {/* Client Assignment */}
+                <div className="space-y-2">
+                  <Label htmlFor="client_id">Assign to Client (Optional)</Label>
+                  <Select value={formData.client_id} onValueChange={(value) => setFormData(prev => ({ ...prev, client_id: value }))}>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select a client" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="no-client">No client</SelectItem>
+                      {clients.map((client) => (
+                        <SelectItem key={client.id} value={client.id}>
+                          {client.name} - {client.phone}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                {/* Notes */}
+                <div className="space-y-2">
+                  <Label htmlFor="notes">Notes</Label>
+                  <Textarea
+                    id="notes"
+                    value={formData.notes}
+                    onChange={(e) => setFormData(prev => ({ ...prev, notes: e.target.value }))}
+                    placeholder="Additional notes about this equipment..."
+                  />
+                </div>
+
+                <div className="flex justify-end gap-2">
+                  <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
+                    Cancel
+                  </Button>
+                  <Button type="submit" disabled={isCreating || !selectedType}>
+                    {isCreating ? 'Adding...' : 'Add Equipment'}
+                  </Button>
+                </div>
+              </form>
+            </TabsContent>
+          </Tabs>
         </DialogContent>
       </Dialog>
 
