@@ -1,3 +1,4 @@
+
 import React from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { 
@@ -17,7 +18,8 @@ import {
   User,
   Box,
   FileText,
-  Code
+  Code,
+  LogOut
 } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { cn } from '@/lib/utils';
@@ -30,7 +32,7 @@ interface NavItem {
 }
 
 const Sidebar = () => {
-  const { profile } = useAuth();
+  const { profile, logout } = useAuth();
   const location = useLocation();
   const navigate = useNavigate();
   
@@ -69,6 +71,11 @@ const Sidebar = () => {
   ];
 
   const navigationItems = getNavigationItems();
+
+  const handleLogout = async () => {
+    await logout();
+    navigate('/');
+  };
 
   return (
     <div className="flex flex-col h-full bg-gray-100 dark:bg-gray-900 border-r border-gray-200 dark:border-gray-800 w-64">
@@ -127,6 +134,15 @@ const Sidebar = () => {
           ))}
         </div>
       )}
+      <div className="px-2 py-4 border-t border-gray-200 dark:border-gray-800">
+        <button
+          onClick={handleLogout}
+          className="w-full group flex items-center px-3 py-2 text-sm font-medium rounded-md text-gray-700 dark:text-gray-400 hover:bg-gray-200 hover:text-gray-900 dark:hover:bg-gray-700 dark:hover:text-gray-100 transition-colors"
+        >
+          <LogOut className="h-4 w-4 mr-2" />
+          Logout
+        </button>
+      </div>
     </div>
   );
 };

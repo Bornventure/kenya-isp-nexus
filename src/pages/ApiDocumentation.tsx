@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -20,7 +19,9 @@ import {
   HeadphonesIcon,
   Wifi,
   FileText,
-  MessageSquare
+  MessageSquare,
+  Settings,
+  Bell
 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 
@@ -73,6 +74,21 @@ const ApiDocumentation = () => {
             client_type: 'individual',
             connection_type: 'fiber',
             isp_company_id: 'uuid'
+          }
+        },
+        {
+          method: 'POST',
+          path: '/authenticated-client-registration',
+          summary: 'Authenticated Client Registration',
+          description: 'Register client with authenticated user session',
+          requestBody: {
+            name: 'John Doe',
+            email: 'john@example.com',
+            phone: '+254700123456',
+            id_number: '12345678',
+            address: '123 Main St',
+            county: 'Nairobi',
+            sub_county: 'Westlands'
           }
         }
       ]
@@ -166,6 +182,40 @@ const ApiDocumentation = () => {
         },
         {
           method: 'POST',
+          path: '/mpesa-callback',
+          summary: 'M-Pesa Payment Callback',
+          description: 'Handle M-Pesa payment callback notifications',
+          requestBody: {
+            Body: {
+              stkCallback: {
+                MerchantRequestID: 'merchant-request-id',
+                CheckoutRequestID: 'checkout-request-id',
+                ResultCode: 0
+              }
+            }
+          }
+        },
+        {
+          method: 'POST',
+          path: '/mpesa-register-callback',
+          summary: 'Register M-Pesa Callback URL',
+          description: 'Register callback URLs for M-Pesa notifications',
+          requestBody: {
+            ValidationURL: 'https://your-domain.com/validation',
+            ConfirmationURL: 'https://your-domain.com/confirmation'
+          }
+        },
+        {
+          method: 'POST',
+          path: '/mpesa-query-status',
+          summary: 'Query M-Pesa Transaction Status',
+          description: 'Check the status of an M-Pesa transaction',
+          requestBody: {
+            TransactionID: 'transaction-id'
+          }
+        },
+        {
+          method: 'POST',
           path: '/check-payment-status',
           summary: 'Check Payment Status',
           description: 'Query the status of a payment transaction',
@@ -196,6 +246,17 @@ const ApiDocumentation = () => {
             amount: 1000,
             payment_method: 'mpesa',
             reference: 'payment-ref'
+          }
+        },
+        {
+          method: 'POST',
+          path: '/process-payment',
+          summary: 'Process Payment',
+          description: 'Process and validate payment transactions',
+          requestBody: {
+            amount: 1500,
+            payment_method: 'mpesa',
+            client_id: 'uuid'
           }
         }
       ]
@@ -256,13 +317,25 @@ const ApiDocumentation = () => {
             client_id_number: '12345678',
             status: 'open'
           }
+        },
+        {
+          method: 'POST',
+          path: '/ticket-workflow',
+          summary: 'Ticket Workflow Management',
+          description: 'Manage support ticket workflow and status updates',
+          requestBody: {
+            ticket_id: 'uuid',
+            action: 'assign',
+            assigned_to: 'user-id',
+            status: 'in_progress'
+          }
         }
       ]
     },
     {
       id: 'notifications',
       title: 'Notifications',
-      icon: <MessageSquare className="h-5 w-5" />,
+      icon: <Bell className="h-5 w-5" />,
       endpoints: [
         {
           method: 'POST',
@@ -274,6 +347,56 @@ const ApiDocumentation = () => {
             type: 'payment_reminder',
             channels: ['sms', 'email'],
             message: 'Your payment is due'
+          }
+        },
+        {
+          method: 'POST',
+          path: '/send-ticket-notifications',
+          summary: 'Send Ticket Notifications',
+          description: 'Send notifications related to support tickets',
+          requestBody: {
+            ticket_id: 'uuid',
+            notification_type: 'status_update',
+            recipients: ['client', 'technician']
+          }
+        }
+      ]
+    },
+    {
+      id: 'user-management',
+      title: 'User Management',
+      icon: <Settings className="h-5 w-5" />,
+      endpoints: [
+        {
+          method: 'POST',
+          path: '/create-user-account',
+          summary: 'Create User Account',
+          description: 'Create a new user account in the system',
+          requestBody: {
+            email: 'user@example.com',
+            password: 'secure-password',
+            first_name: 'John',
+            last_name: 'Doe',
+            role: 'customer_support'
+          }
+        },
+        {
+          method: 'DELETE',
+          path: '/delete-user-account',
+          summary: 'Delete User Account',
+          description: 'Delete a user account from the system',
+          requestBody: {
+            user_id: 'uuid'
+          }
+        },
+        {
+          method: 'POST',
+          path: '/send-user-credentials',
+          summary: 'Send User Credentials',
+          description: 'Send login credentials to a user via email',
+          requestBody: {
+            user_id: 'uuid',
+            temporary_password: 'temp-password'
           }
         }
       ]
@@ -386,7 +509,7 @@ const ApiDocumentation = () => {
       </div>
 
       <Tabs defaultValue="authentication" className="space-y-6">
-        <TabsList className="grid grid-cols-3 md:grid-cols-7 w-full">
+        <TabsList className="grid grid-cols-4 md:grid-cols-8 w-full">
           {apiSections.map((section) => (
             <TabsTrigger
               key={section.id}
