@@ -20,6 +20,7 @@ import ApiSettings from "@/pages/ApiSettings";
 import Invoices from "@/pages/Invoices";
 import CustomerPortal from "@/pages/CustomerPortal";
 import PackageManagement from "@/pages/PackageManagement";
+import DeveloperPortal from "@/pages/DeveloperPortal";
 import AccessDenied from "./AccessDenied";
 import NotFound from "@/pages/NotFound";
 import NetworkStatus from "@/pages/NetworkStatus";
