@@ -37,7 +37,10 @@ const MessagesList: React.FC<MessagesListProps> = ({ type, selectedMessage, onSe
       }
 
       const { data, error } = await query;
-      if (error) throw error;
+      if (error) {
+        console.error('Error fetching messages:', error);
+        throw error;
+      }
       return data;
     },
     enabled: !!profile?.id,
@@ -89,9 +92,9 @@ const MessagesList: React.FC<MessagesListProps> = ({ type, selectedMessage, onSe
                   key={message.id}
                   className={`p-3 rounded-lg border cursor-pointer transition-colors ${
                     isSelected 
-                      ? 'bg-blue-50 border-blue-200' 
-                      : 'hover:bg-gray-50'
-                  } ${isUnread ? 'bg-blue-25 border-l-4 border-l-blue-500' : ''}`}
+                      ? 'bg-blue-50 dark:bg-blue-900/20 border-blue-200 dark:border-blue-700' 
+                      : 'hover:bg-gray-50 dark:hover:bg-gray-800'
+                  } ${isUnread ? 'bg-blue-25 dark:bg-blue-950/30 border-l-4 border-l-blue-500' : ''}`}
                   onClick={() => onSelectMessage(message.id)}
                 >
                   <div className="flex items-start justify-between mb-2">
@@ -102,10 +105,10 @@ const MessagesList: React.FC<MessagesListProps> = ({ type, selectedMessage, onSe
                         <MailOpen className="h-4 w-4 text-gray-400" />
                       )}
                       <span className={`text-sm ${isUnread ? 'font-semibold' : 'font-medium'}`}>
-                        {otherPerson?.first_name} {otherPerson?.last_name}
+                        {otherPerson?.first_name || 'Unknown'} {otherPerson?.last_name || 'User'}
                       </span>
                       <Badge variant="outline" className="text-xs">
-                        {otherPerson?.role?.replace('_', ' ')}
+                        {otherPerson?.role?.replace('_', ' ') || 'unknown'}
                       </Badge>
                     </div>
                     <div className="flex items-center gap-1 text-xs text-muted-foreground">

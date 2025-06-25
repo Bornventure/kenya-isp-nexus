@@ -50,6 +50,7 @@ import PaymentDialog from '@/components/billing/PaymentDialog';
 import InvoiceActions from '@/components/billing/InvoiceActions';
 import { useToast } from '@/hooks/use-toast';
 import InvoiceExportActions from '@/components/billing/InvoiceExportActions';
+import { downloadInvoicePDF } from '@/utils/pdfGenerator';
 
 const Invoices = () => {
   const { invoices, isLoading, updateInvoice } = useInvoices();
@@ -107,79 +108,10 @@ const Invoices = () => {
 
   const handleDownloadInvoice = async (invoice: any) => {
     try {
-      // Generate and download invoice HTML
-      const invoiceHTML = `
-        <!DOCTYPE html>
-        <html>
-        <head>
-          <title>Invoice ${invoice.invoice_number}</title>
-          <style>
-            body { font-family: Arial, sans-serif; margin: 20px; }
-            .header { text-align: center; border-bottom: 2px solid #333; padding-bottom: 20px; }
-            .details { margin: 20px 0; }
-            .amount { font-size: 24px; font-weight: bold; color: #2563eb; }
-            .table { width: 100%; border-collapse: collapse; margin: 20px 0; }
-            .table th, .table td { border: 1px solid #ddd; padding: 8px; text-align: left; }
-            .table th { background-color: #f2f2f2; }
-          </style>
-        </head>
-        <body>
-          <div class="header">
-            <h1>INVOICE</h1>
-            <p>Invoice #: ${invoice.invoice_number}</p>
-            <p>Date: ${new Date(invoice.created_at).toLocaleDateString()}</p>
-          </div>
-          
-          <div class="details">
-            <h3>Bill To:</h3>
-            <p><strong>${invoice.clients?.name || 'N/A'}</strong></p>
-            <p>Service Period: ${new Date(invoice.service_period_start).toLocaleDateString()} - ${new Date(invoice.service_period_end).toLocaleDateString()}</p>
-          </div>
-          
-          <table class="table">
-            <thead>
-              <tr>
-                <th>Description</th>
-                <th>Amount</th>
-              </tr>
-            </thead>
-            <tbody>
-              <tr>
-                <td>Internet Service</td>
-                <td>KES ${invoice.amount.toLocaleString()}</td>
-              </tr>
-              <tr>
-                <td>VAT (16%)</td>
-                <td>KES ${invoice.vat_amount.toLocaleString()}</td>
-              </tr>
-              <tr style="font-weight: bold;">
-                <td>Total</td>
-                <td>KES ${invoice.total_amount.toLocaleString()}</td>
-              </tr>
-            </tbody>
-          </table>
-          
-          <div style="margin-top: 30px;">
-            <p><strong>Status:</strong> ${invoice.status.toUpperCase()}</p>
-            <p><strong>Due Date:</strong> ${new Date(invoice.due_date).toLocaleDateString()}</p>
-          </div>
-        </body>
-        </html>
-      `;
-
-      const blob = new Blob([invoiceHTML], { type: 'text/html' });
-      const url = URL.createObjectURL(blob);
-      const link = document.createElement('a');
-      link.href = url;
-      link.download = `invoice-${invoice.invoice_number}.html`;
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
-      URL.revokeObjectURL(url);
-
+      downloadInvoicePDF(invoice);
       toast({
         title: "Download Complete",
-        description: `Invoice ${invoice.invoice_number} has been downloaded.`,
+        description: `Invoice ${invoice.invoice_number} has been downloaded as PDF.`,
       });
     } catch (error) {
       console.error('Download error:', error);

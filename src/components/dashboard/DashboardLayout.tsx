@@ -2,6 +2,7 @@
 import React, { useState } from 'react';
 import Sidebar from './Sidebar';
 import { Button } from '@/components/ui/button';
+import { ThemeToggle } from '@/components/ui/theme-toggle';
 import { Menu, X } from 'lucide-react';
 
 interface DashboardLayoutProps {
@@ -33,22 +34,28 @@ const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children }) => {
 
       {/* Main content */}
       <div className="flex-1 flex flex-col overflow-hidden">
-        {/* Mobile header */}
-        <div className="lg:hidden flex items-center justify-between p-4 bg-white dark:bg-gray-800 border-b dark:border-gray-700">
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => setSidebarOpen(!sidebarOpen)}
-          >
-            {sidebarOpen ? <X className="h-4 w-4" /> : <Menu className="h-4 w-4" />}
-          </Button>
-          <div className="flex items-center space-x-2">
-            <img 
-              src="/lovable-uploads/29dec1bf-11a7-44c4-b61f-4cdfe1cbdc5c.png" 
-              alt="DataDefender Logo" 
-              className="h-8 w-8 object-contain"
-            />
-            <span className="font-bold text-gray-900 dark:text-gray-100">DataDefender</span>
+        {/* Header with theme toggle */}
+        <div className="flex items-center justify-between p-4 bg-white dark:bg-gray-800 border-b dark:border-gray-700">
+          <div className="flex items-center">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setSidebarOpen(!sidebarOpen)}
+              className="lg:hidden mr-4"
+            >
+              {sidebarOpen ? <X className="h-4 w-4" /> : <Menu className="h-4 w-4" />}
+            </Button>
+            <div className="flex items-center space-x-2 lg:hidden">
+              <img 
+                src="/lovable-uploads/29dec1bf-11a7-44c4-b61f-4cdfe1cbdc5c.png" 
+                alt="DataDefender Logo" 
+                className="h-8 w-8 object-contain"
+              />
+              <span className="font-bold text-gray-900 dark:text-gray-100">DataDefender</span>
+            </div>
+          </div>
+          <div className="flex items-center space-x-4">
+            <ThemeToggle />
           </div>
         </div>
 

@@ -29,11 +29,14 @@ const UserSelector: React.FC<UserSelectorProps> = ({ selectedUser, onSelectUser 
       const { data, error } = await supabase
         .from('profiles')
         .select('role')
-        .neq('role', 'super_admin') // Exclude super admin
         .neq('id', profile?.id) // Exclude current user
-        .eq('isp_company_id', profile?.isp_company_id);
+        .eq('isp_company_id', profile?.isp_company_id)
+        .eq('is_active', true);
 
-      if (error) throw error;
+      if (error) {
+        console.error('Error fetching departments:', error);
+        throw error;
+      }
 
       // Get unique roles/departments
       const uniqueRoles = [...new Set(data.map(p => p.role))];
@@ -56,12 +59,15 @@ const UserSelector: React.FC<UserSelectorProps> = ({ selectedUser, onSelectUser 
       const { data, error } = await supabase
         .from('profiles')
         .select('id, first_name, last_name, role')
-        .eq('role', selectedDepartment as any) // Type assertion to handle the enum
+        .eq('role', selectedDepartment)
         .neq('id', profile?.id) // Exclude current user
         .eq('isp_company_id', profile?.isp_company_id)
         .eq('is_active', true);
 
-      if (error) throw error;
+      if (error) {
+        console.error('Error fetching users:', error);
+        throw error;
+      }
       return data;
     },
     enabled: !!selectedDepartment && !!profile?.isp_company_id,
