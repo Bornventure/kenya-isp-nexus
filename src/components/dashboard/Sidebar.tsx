@@ -23,6 +23,7 @@ import {
 } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { cn } from '@/lib/utils';
+import { ThemeToggle } from '@/components/ui/theme-toggle';
 
 interface NavItem {
   icon: React.ComponentType<any>;
@@ -80,12 +81,17 @@ const Sidebar = () => {
   return (
     <div className="flex flex-col h-full bg-gray-100 dark:bg-gray-900 border-r border-gray-200 dark:border-gray-800 w-64">
       <div className="px-4 py-6">
-        <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100">
-          DataDefender
-        </h1>
-        <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">
-          Kenya Internet Services
-        </p>
+        <div className="flex items-center justify-between">
+          <div>
+            <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100">
+              DataDefender
+            </h1>
+            <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">
+              Kenya Internet Services
+            </p>
+          </div>
+          <ThemeToggle />
+        </div>
       </div>
       <nav className="flex-1 px-2 py-4 space-y-1">
         {navigationItems.map((item) => (

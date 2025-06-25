@@ -1,111 +1,232 @@
 
 import React, { useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select';
-import {
+import { 
+  BarChart, 
+  Bar, 
+  XAxis, 
+  YAxis, 
+  CartesianGrid, 
+  Tooltip, 
+  Legend, 
+  ResponsiveContainer,
   LineChart,
   Line,
-  AreaChart,
-  Area,
-  BarChart,
-  Bar,
   PieChart,
   Pie,
-  Cell,
-  XAxis,
-  YAxis,
-  CartesianGrid,
-  Tooltip,
-  Legend,
-  ResponsiveContainer,
+  Cell
 } from 'recharts';
 import { 
-  TrendingUp, 
-  TrendingDown,
-  Users,
-  DollarSign,
-  Wifi,
-  Calendar,
+  DollarSign, 
+  Users, 
+  Activity, 
+  TrendingUp,
   Download,
-  Filter
+  Calendar,
+  Filter,
+  RefreshCw
 } from 'lucide-react';
-
-// Mock analytics data
-const revenueData = [
-  { month: 'Jan', revenue: 450000, clients: 120, newClients: 15 },
-  { month: 'Feb', revenue: 520000, clients: 135, newClients: 18 },
-  { month: 'Mar', revenue: 480000, clients: 142, newClients: 12 },
-  { month: 'Apr', revenue: 620000, clients: 158, newClients: 22 },
-  { month: 'May', revenue: 680000, clients: 175, newClients: 20 },
-  { month: 'Jun', revenue: 750000, clients: 190, newClients: 25 },
-];
-
-const serviceTypeData = [
-  { name: 'Fiber', value: 45, color: '#10b981' },
-  { name: 'Wireless', value: 30, color: '#3b82f6' },
-  { name: 'Satellite', value: 15, color: '#f59e0b' },
-  { name: 'DSL', value: 10, color: '#ef4444' },
-];
-
-const clientStatusData = [
-  { status: 'Active', count: 152, percentage: 80 },
-  { status: 'Suspended', count: 20, percentage: 10.5 },
-  { status: 'Pending', count: 12, percentage: 6.3 },
-  { status: 'Disconnected', count: 6, percentage: 3.2 },
-];
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { DatePickerWithRange } from '@/components/ui/date-picker';
+import { useQuery } from '@tanstack/react-query';
+import { supabase } from '@/integrations/supabase/client';
+import { useAuth } from '@/contexts/AuthContext';
+import { formatKenyanCurrency } from '@/utils/kenyanValidation';
 
 const Analytics = () => {
-  const [timePeriod, setTimePeriod] = useState('6months');
-  const [selectedMetric, setSelectedMetric] = useState('revenue');
+  const { profile } = useAuth();
+  const [dateRange, setDateRange] = useState<{ from: Date; to: Date }>({
+    from: new Date(new Date().getFullYear(), new Date().getMonth(), 1),
+    to: new Date()
+  });
+  const [filterType, setFilterType] = useState('all');
 
-  const totalRevenue = revenueData.reduce((sum, item) => sum + item.revenue, 0);
-  const totalClients = revenueData[revenueData.length - 1].clients;
-  const averageRevenue = totalRevenue / revenueData.length;
-  const revenueGrowth = ((revenueData[revenueData.length - 1].revenue - revenueData[0].revenue) / revenueData[0].revenue) * 100;
+  // Fetch real analytics data
+  const { data: analyticsData, isLoading, error, refetch } = useQuery({
+    queryKey: ['analytics', profile?.isp_company_id, dateRange, filterType],
+    queryFn: async () => {
+      if (!profile?.isp_company_id) return null;
 
-  const formatCurrency = (amount: number) => {
-    return new Intl.NumberFormat('en-KE', {
-      style: 'currency',
-      currency: 'KES',
-      minimumFractionDigits: 0
-    }).format(amount);
+      const startDate = dateRange.from.toISOString();
+      const endDate = dateRange.to.toISOString();
+
+      // Fetch clients data
+      const { data: clients, error: clientsError } = await supabase
+        .from('clients')
+        .select('*')
+        .eq('isp_company_id', profile.isp_company_id)
+        .gte('created_at', startDate)
+        .lte('created_at', endDate);
+
+      if (clientsError) throw clientsError;
+
+      // Fetch invoices data
+      const { data: invoices, error: invoicesError } = await supabase
+        .from('invoices')
+        .select('*, clients!inner(*)')
+        .eq('clients.isp_company_id', profile.isp_company_id)
+        .gte('created_at', startDate)
+        .lte('created_at', endDate);
+
+      if (invoicesError) throw invoicesError;
+
+      // Fetch payments data
+      const { data: payments, error: paymentsError } = await supabase
+        .from('payments')
+        .select('*, clients!inner(*)')
+        .eq('clients.isp_company_id', profile.isp_company_id)
+        .gte('payment_date', startDate)
+        .lte('payment_date', endDate);
+
+      if (paymentsError) throw paymentsError;
+
+      // Calculate metrics
+      const totalRevenue = payments?.reduce((sum, payment) => sum + payment.amount, 0) || 0;
+      const totalClients = clients?.length || 0;
+      const activeClients = clients?.filter(c => c.status === 'active').length || 0;
+      const suspendedClients = clients?.filter(c => c.status === 'suspended').length || 0;
+      const newClients = clients?.length || 0;
+
+      // Monthly revenue data
+      const monthlyRevenue = payments?.reduce((acc: any, payment) => {
+        const month = new Date(payment.payment_date).toLocaleDateString('en-US', { month: 'short' });
+        acc[month] = (acc[month] || 0) + payment.amount;
+        return acc;
+      }, {});
+
+      const revenueData = Object.entries(monthlyRevenue || {}).map(([month, revenue]) => ({
+        month,
+        revenue: revenue as number
+      }));
+
+      // Client status distribution
+      const clientStatusData = [
+        { name: 'Active', value: activeClients, color: '#10b981' },
+        { name: 'Suspended', value: suspendedClients, color: '#ef4444' },
+        { name: 'New', value: newClients, color: '#3b82f6' }
+      ];
+
+      // Payment methods distribution
+      const paymentMethods = payments?.reduce((acc: any, payment) => {
+        acc[payment.payment_method] = (acc[payment.payment_method] || 0) + 1;
+        return acc;
+      }, {});
+
+      const paymentMethodData = Object.entries(paymentMethods || {}).map(([method, count]) => ({
+        method,
+        count: count as number
+      }));
+
+      return {
+        totalRevenue,
+        totalClients,
+        activeClients,
+        suspendedClients,
+        newClients,
+        revenueData,
+        clientStatusData,
+        paymentMethodData,
+        invoices: invoices || [],
+        payments: payments || []
+      };
+    },
+    enabled: !!profile?.isp_company_id,
+  });
+
+  const handleExportData = () => {
+    if (!analyticsData) return;
+
+    const csvData = [
+      ['Metric', 'Value'],
+      ['Total Revenue', formatKenyanCurrency(analyticsData.totalRevenue)],
+      ['Total Clients', analyticsData.totalClients.toString()],
+      ['Active Clients', analyticsData.activeClients.toString()],
+      ['Suspended Clients', analyticsData.suspendedClients.toString()],
+      ['New Clients', analyticsData.newClients.toString()],
+    ];
+
+    const csvContent = csvData.map(row => row.join(',')).join('\n');
+    const blob = new Blob([csvContent], { type: 'text/csv' });
+    const url = window.URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `analytics-${new Date().toISOString().split('T')[0]}.csv`;
+    a.click();
+    window.URL.revokeObjectURL(url);
   };
+
+  if (isLoading) {
+    return (
+      <div className="p-6">
+        <div className="flex items-center gap-2">
+          <RefreshCw className="h-4 w-4 animate-spin" />
+          <span>Loading analytics...</span>
+        </div>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="p-6">
+        <div className="text-red-600">Error loading analytics data</div>
+      </div>
+    );
+  }
 
   return (
     <div className="p-6 space-y-6">
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-3xl font-bold">Analytics</h1>
+          <h1 className="text-3xl font-bold">Analytics Dashboard</h1>
           <p className="text-muted-foreground">
             Business insights and performance metrics
           </p>
         </div>
         <div className="flex items-center gap-2">
-          <Select value={timePeriod} onValueChange={setTimePeriod}>
-            <SelectTrigger className="w-40">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="1month">Last Month</SelectItem>
-              <SelectItem value="3months">Last 3 Months</SelectItem>
-              <SelectItem value="6months">Last 6 Months</SelectItem>
-              <SelectItem value="1year">Last Year</SelectItem>
-            </SelectContent>
-          </Select>
-          <Button variant="outline" size="sm">
+          <Button variant="outline" onClick={() => refetch()}>
+            <RefreshCw className="h-4 w-4 mr-2" />
+            Refresh
+          </Button>
+          <Button onClick={handleExportData}>
             <Download className="h-4 w-4 mr-2" />
-            Export Report
+            Export Data
           </Button>
         </div>
       </div>
+
+      {/* Filters */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <Filter className="h-5 w-5" />
+            Filters
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="flex flex-col md:flex-row gap-4">
+            <div className="flex-1">
+              <DatePickerWithRange
+                date={dateRange}
+                onDateChange={(range) => range && setDateRange(range)}
+              />
+            </div>
+            <Select value={filterType} onValueChange={setFilterType}>
+              <SelectTrigger className="w-48">
+                <SelectValue placeholder="Filter by..." />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All Data</SelectItem>
+                <SelectItem value="active">Active Clients Only</SelectItem>
+                <SelectItem value="revenue">Revenue Focus</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+        </CardContent>
+      </Card>
 
       {/* Key Metrics */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
@@ -115,11 +236,7 @@ const Analytics = () => {
               <DollarSign className="h-8 w-8 text-green-600" />
               <div className="ml-4">
                 <p className="text-sm font-medium text-muted-foreground">Total Revenue</p>
-                <p className="text-2xl font-bold">{formatCurrency(totalRevenue)}</p>
-                <p className="text-xs text-green-600 flex items-center mt-1">
-                  <TrendingUp className="h-3 w-3 mr-1" />
-                  +{revenueGrowth.toFixed(1)}% from last period
-                </p>
+                <p className="text-2xl font-bold">{formatKenyanCurrency(analyticsData?.totalRevenue || 0)}</p>
               </div>
             </div>
           </CardContent>
@@ -131,11 +248,7 @@ const Analytics = () => {
               <Users className="h-8 w-8 text-blue-600" />
               <div className="ml-4">
                 <p className="text-sm font-medium text-muted-foreground">Total Clients</p>
-                <p className="text-2xl font-bold">{totalClients}</p>
-                <p className="text-xs text-green-600 flex items-center mt-1">
-                  <TrendingUp className="h-3 w-3 mr-1" />
-                  +{revenueData[revenueData.length - 1].newClients} new this month
-                </p>
+                <p className="text-2xl font-bold">{analyticsData?.totalClients || 0}</p>
               </div>
             </div>
           </CardContent>
@@ -144,14 +257,10 @@ const Analytics = () => {
         <Card>
           <CardContent className="p-6">
             <div className="flex items-center">
-              <Calendar className="h-8 w-8 text-purple-600" />
+              <Activity className="h-8 w-8 text-green-600" />
               <div className="ml-4">
-                <p className="text-sm font-medium text-muted-foreground">Avg Monthly Revenue</p>
-                <p className="text-2xl font-bold">{formatCurrency(averageRevenue)}</p>
-                <p className="text-xs text-gray-600 flex items-center mt-1">
-                  <Wifi className="h-3 w-3 mr-1" />
-                  Per active client: {formatCurrency(averageRevenue / totalClients)}
-                </p>
+                <p className="text-sm font-medium text-muted-foreground">Active Clients</p>
+                <p className="text-2xl font-bold text-green-600">{analyticsData?.activeClients || 0}</p>
               </div>
             </div>
           </CardContent>
@@ -160,82 +269,54 @@ const Analytics = () => {
         <Card>
           <CardContent className="p-6">
             <div className="flex items-center">
-              <TrendingUp className="h-8 w-8 text-orange-600" />
+              <TrendingUp className="h-8 w-8 text-purple-600" />
               <div className="ml-4">
-                <p className="text-sm font-medium text-muted-foreground">Growth Rate</p>
-                <p className="text-2xl font-bold">{revenueGrowth.toFixed(1)}%</p>
-                <p className="text-xs text-green-600 flex items-center mt-1">
-                  <TrendingUp className="h-3 w-3 mr-1" />
-                  Month over month
-                </p>
+                <p className="text-sm font-medium text-muted-foreground">New Clients</p>
+                <p className="text-2xl font-bold text-purple-600">{analyticsData?.newClients || 0}</p>
               </div>
             </div>
           </CardContent>
         </Card>
       </div>
 
-      {/* Charts Row 1 */}
+      {/* Charts */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* Revenue Trend */}
+        {/* Revenue Chart */}
         <Card>
           <CardHeader>
-            <CardTitle>Revenue Trend</CardTitle>
+            <CardTitle>Monthly Revenue</CardTitle>
           </CardHeader>
           <CardContent>
             <ResponsiveContainer width="100%" height={300}>
-              <AreaChart data={revenueData}>
-                <CartesianGrid strokeDasharray="3 3" />
-                <XAxis dataKey="month" />
-                <YAxis tickFormatter={(value) => `${value / 1000}K`} />
-                <Tooltip formatter={(value) => formatCurrency(Number(value))} />
-                <Area type="monotone" dataKey="revenue" stroke="#10b981" fill="#10b981" fillOpacity={0.2} />
-              </AreaChart>
-            </ResponsiveContainer>
-          </CardContent>
-        </Card>
-
-        {/* Client Growth */}
-        <Card>
-          <CardHeader>
-            <CardTitle>Client Growth</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <ResponsiveContainer width="100%" height={300}>
-              <LineChart data={revenueData}>
+              <BarChart data={analyticsData?.revenueData || []}>
                 <CartesianGrid strokeDasharray="3 3" />
                 <XAxis dataKey="month" />
                 <YAxis />
-                <Tooltip />
-                <Legend />
-                <Line type="monotone" dataKey="clients" stroke="#3b82f6" strokeWidth={2} name="Total Clients" />
-                <Line type="monotone" dataKey="newClients" stroke="#f59e0b" strokeWidth={2} name="New Clients" />
-              </LineChart>
+                <Tooltip formatter={(value) => formatKenyanCurrency(value as number)} />
+                <Bar dataKey="revenue" fill="#3b82f6" />
+              </BarChart>
             </ResponsiveContainer>
           </CardContent>
         </Card>
-      </div>
 
-      {/* Charts Row 2 */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* Service Type Distribution */}
+        {/* Client Status Distribution */}
         <Card>
           <CardHeader>
-            <CardTitle>Service Type Distribution</CardTitle>
+            <CardTitle>Client Status Distribution</CardTitle>
           </CardHeader>
           <CardContent>
             <ResponsiveContainer width="100%" height={300}>
               <PieChart>
                 <Pie
-                  data={serviceTypeData}
+                  data={analyticsData?.clientStatusData || []}
                   cx="50%"
                   cy="50%"
-                  labelLine={false}
-                  label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`}
                   outerRadius={80}
                   fill="#8884d8"
                   dataKey="value"
+                  label={({ name, value }) => `${name}: ${value}`}
                 >
-                  {serviceTypeData.map((entry, index) => (
+                  {analyticsData?.clientStatusData?.map((entry, index) => (
                     <Cell key={`cell-${index}`} fill={entry.color} />
                   ))}
                 </Pie>
@@ -244,50 +325,23 @@ const Analytics = () => {
             </ResponsiveContainer>
           </CardContent>
         </Card>
-
-        {/* Client Status */}
-        <Card>
-          <CardHeader>
-            <CardTitle>Client Status Overview</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <ResponsiveContainer width="100%" height={300}>
-              <BarChart data={clientStatusData} layout="horizontal">
-                <CartesianGrid strokeDasharray="3 3" />
-                <XAxis type="number" />
-                <YAxis dataKey="status" type="category" width={80} />
-                <Tooltip />
-                <Bar dataKey="count" fill="#3b82f6" />
-              </BarChart>
-            </ResponsiveContainer>
-          </CardContent>
-        </Card>
       </div>
 
-      {/* Summary Stats */}
+      {/* Payment Methods */}
       <Card>
         <CardHeader>
-          <CardTitle>Performance Summary</CardTitle>
+          <CardTitle>Payment Methods Usage</CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-            <div className="text-center">
-              <div className="text-2xl font-bold text-green-600">95.2%</div>
-              <div className="text-sm text-muted-foreground">Service Uptime</div>
-            </div>
-            <div className="text-center">
-              <div className="text-2xl font-bold text-blue-600">4.8/5</div>
-              <div className="text-sm text-muted-foreground">Customer Satisfaction</div>
-            </div>
-            <div className="text-center">
-              <div className="text-2xl font-bold text-purple-600">87%</div>
-              <div className="text-sm text-muted-foreground">Payment Success Rate</div>
-            </div>
-            <div className="text-center">
-              <div className="text-2xl font-bold text-orange-600">12.5%</div>
-              <div className="text-sm text-muted-foreground">Monthly Churn Rate</div>
-            </div>
-          </div>
+          <ResponsiveContainer width="100%" height={300}>
+            <BarChart data={analyticsData?.paymentMethodData || []}>
+              <CartesianGrid strokeDasharray="3 3" />
+              <XAxis dataKey="method" />
+              <YAxis />
+              <Tooltip />
+              <Bar dataKey="count" fill="#10b981" />
+            </BarChart>
+          </ResponsiveContainer>
         </CardContent>
       </Card>
     </div>

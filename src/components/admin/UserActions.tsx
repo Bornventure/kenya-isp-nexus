@@ -31,8 +31,11 @@ interface UserActionsProps {
 const UserActions: React.FC<UserActionsProps> = ({ user }) => {
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
   const [showEditDialog, setShowEditDialog] = useState(false);
-  const { deleteUser, isDeletingUser } = useUserDeletion();
+  const { deleteUser, isDeletingUser, canDeleteUser } = useUserDeletion();
   const { toggleUserActivation, isUpdatingActivation } = useUserActivation();
+
+  const canDelete = canDeleteUser(user.id, user.role);
+  const canEdit = user.role !== 'super_admin' || canDeleteUser(user.id, user.role);
 
   const handleDelete = () => {
     deleteUser(user.id);
@@ -52,70 +55,82 @@ const UserActions: React.FC<UserActionsProps> = ({ user }) => {
           </Button>
         </DropdownMenuTrigger>
         <DropdownMenuContent align="end">
-          <DropdownMenuItem onClick={() => setShowEditDialog(true)}>
-            <Edit className="h-4 w-4 mr-2" />
-            Edit User
-          </DropdownMenuItem>
-          <DropdownMenuItem 
-            onClick={handleToggleActivation}
-            disabled={isUpdatingActivation}
-          >
-            {user.is_active ? (
-              <>
-                <Lock className="h-4 w-4 mr-2" />
-                Deactivate
-              </>
-            ) : (
-              <>
-                <Unlock className="h-4 w-4 mr-2" />
-                Activate
-              </>
-            )}
-          </DropdownMenuItem>
-          <DropdownMenuSeparator />
-          <DropdownMenuItem 
-            onClick={() => setShowDeleteDialog(true)}
-            className="text-red-600 focus:text-red-600"
-          >
-            <UserX className="h-4 w-4 mr-2" />
-            Delete User
-          </DropdownMenuItem>
+          {canEdit && (
+            <DropdownMenuItem onClick={() => setShowEditDialog(true)}>
+              <Edit className="h-4 w-4 mr-2" />
+              Edit User
+            </DropdownMenuItem>
+          )}
+          {canDelete && (
+            <DropdownMenuItem 
+              onClick={handleToggleActivation}
+              disabled={isUpdatingActivation}
+            >
+              {user.is_active ? (
+                <>
+                  <Lock className="h-4 w-4 mr-2" />
+                  Deactivate
+                </>
+              ) : (
+                <>
+                  <Unlock className="h-4 w-4 mr-2" />
+                  Activate
+                </>
+              )}
+            </DropdownMenuItem>
+          )}
+          {canDelete && (
+            <>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem 
+                onClick={() => setShowDeleteDialog(true)}
+                className="text-red-600 focus:text-red-600"
+              >
+                <UserX className="h-4 w-4 mr-2" />
+                Delete User
+              </DropdownMenuItem>
+            </>
+          )}
         </DropdownMenuContent>
       </DropdownMenu>
 
-      <AlertDialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>Delete User Account</AlertDialogTitle>
-            <AlertDialogDescription>
-              Are you sure you want to permanently delete {user.first_name} {user.last_name}'s account? 
-              This action cannot be undone and will remove all associated data including:
-              <ul className="list-disc list-inside mt-2 space-y-1">
-                <li>User profile and credentials</li>
-                <li>All created tickets and comments</li>
-                <li>Message history</li>
-                <li>Activity logs</li>
-              </ul>
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel>Cancel</AlertDialogCancel>
-            <AlertDialogAction 
-              onClick={handleDelete}
-              disabled={isDeletingUser}
-              className="bg-red-600 hover:bg-red-700"
-            >
-              {isDeletingUser ? 'Deleting...' : 'Delete User'}
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
+      {canDelete && (
+        <AlertDialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>Delete User Account</AlertDialogTitle>
+              <AlertDialogDescription>
+                Are you sure you want to permanently delete {user.first_name} {user.last_name}'s account? 
+                This action cannot be undone and will remove all associated data including:
+                <ul className="list-disc list-inside mt-2 space-y-1">
+                  <li>User profile and credentials</li>
+                  <li>All created tickets and comments</li>
+                  <li>Message history</li>
+                  <li>Activity logs</li>
+                </ul>
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel>Cancel</AlertDialogCancel>
+              <AlertDialogAction 
+                onClick={handleDelete}
+                disabled={isDeletingUser}
+                className="bg-red-600 hover:bg-red-700"
+              >
+                {isDeletingUser ? 'Deleting...' : 'Delete User'}
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
+      )}
 
-      <EditUserDialog 
-        user={user}
-        open={showEditDialog}
-        onOpenChange={setShowEditDialog}
-      />
+      {canEdit && (
+        <EditUserDialog 
+          user={user}
+          open={showEditDialog}
+          onOpenChange={setShowEditDialog}
+        />
+      )}
     </>
   );
 };

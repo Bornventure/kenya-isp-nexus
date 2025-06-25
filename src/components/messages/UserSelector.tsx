@@ -17,6 +17,8 @@ interface UserSelectorProps {
   onSelectUser: (userId: string) => void;
 }
 
+type UserRole = 'super_admin' | 'isp_admin' | 'manager' | 'technician' | 'support' | 'billing' | 'readonly' | 'customer_support' | 'sales_manager' | 'billing_admin' | 'network_engineer' | 'infrastructure_manager' | 'hotspot_admin' | 'sales_account_manager' | 'billing_finance' | 'network_operations' | 'infrastructure_asset';
+
 const UserSelector: React.FC<UserSelectorProps> = ({ selectedUser, onSelectUser }) => {
   const { profile } = useAuth();
   const [open, setOpen] = useState(false);
@@ -39,7 +41,7 @@ const UserSelector: React.FC<UserSelectorProps> = ({ selectedUser, onSelectUser 
       }
 
       // Get unique roles/departments
-      const uniqueRoles = [...new Set(data.map(p => p.role))];
+      const uniqueRoles = [...new Set(data.map(p => p.role as UserRole))];
       return uniqueRoles.map(role => ({
         value: role,
         label: role.replace('_', ' ').split(' ').map(word => 
