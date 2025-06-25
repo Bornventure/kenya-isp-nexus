@@ -17,7 +17,7 @@ interface UserSelectorProps {
   onSelectUser: (userId: string) => void;
 }
 
-type UserRole = 'super_admin' | 'isp_admin' | 'manager' | 'technician' | 'support' | 'billing' | 'readonly' | 'customer_support' | 'sales_manager' | 'billing_admin' | 'network_engineer' | 'infrastructure_manager' | 'hotspot_admin' | 'sales_account_manager' | 'billing_finance' | 'network_operations' | 'infrastructure_asset';
+type UserRole = 'super_admin' | 'isp_admin' | 'manager' | 'technician' | 'support' | 'billing' | 'readonly' | 'customer_support' | 'sales_manager' | 'billing_admin' | 'network_engineer' | 'infrastructure_manager' | 'hotspot_admin';
 
 const UserSelector: React.FC<UserSelectorProps> = ({ selectedUser, onSelectUser }) => {
   const { profile } = useAuth();
@@ -61,7 +61,7 @@ const UserSelector: React.FC<UserSelectorProps> = ({ selectedUser, onSelectUser 
       const { data, error } = await supabase
         .from('profiles')
         .select('id, first_name, last_name, role')
-        .eq('role', selectedDepartment as UserRole)
+        .eq('role', selectedDepartment)
         .neq('id', profile?.id) // Exclude current user
         .eq('isp_company_id', profile?.isp_company_id)
         .eq('is_active', true);
