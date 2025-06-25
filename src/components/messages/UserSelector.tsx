@@ -22,7 +22,7 @@ type UserRole = 'super_admin' | 'isp_admin' | 'manager' | 'technician' | 'suppor
 const UserSelector: React.FC<UserSelectorProps> = ({ selectedUser, onSelectUser }) => {
   const { profile } = useAuth();
   const [open, setOpen] = useState(false);
-  const [selectedDepartment, setSelectedDepartment] = useState<string>('');
+  const [selectedDepartment, setSelectedDepartment] = useState<UserRole | ''>('');
 
   // Get all departments
   const { data: departments } = useQuery({
@@ -61,7 +61,7 @@ const UserSelector: React.FC<UserSelectorProps> = ({ selectedUser, onSelectUser 
       const { data, error } = await supabase
         .from('profiles')
         .select('id, first_name, last_name, role')
-        .eq('role', selectedDepartment)
+        .eq('role', selectedDepartment as UserRole)
         .neq('id', profile?.id) // Exclude current user
         .eq('isp_company_id', profile?.isp_company_id)
         .eq('is_active', true);
@@ -77,11 +77,15 @@ const UserSelector: React.FC<UserSelectorProps> = ({ selectedUser, onSelectUser 
 
   const selectedUserData = users?.find(user => user.id === selectedUser);
 
+  const handleDepartmentChange = (value: string) => {
+    setSelectedDepartment(value as UserRole);
+  };
+
   return (
     <div className="space-y-3">
       <div className="space-y-2">
         <Label>Select Department</Label>
-        <Select value={selectedDepartment} onValueChange={setSelectedDepartment}>
+        <Select value={selectedDepartment} onValueChange={handleDepartmentChange}>
           <SelectTrigger>
             <SelectValue placeholder="Choose a department..." />
           </SelectTrigger>
