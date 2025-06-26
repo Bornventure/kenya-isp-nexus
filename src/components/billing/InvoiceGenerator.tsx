@@ -67,9 +67,6 @@ const InvoiceGenerator: React.FC = () => {
       service_period_start: formData.servicePeriodStart,
       service_period_end: formData.servicePeriodEnd,
       notes: formData.notes || null,
-      isp_company_id: '',
-      created_at: '',
-      updated_at: '',
     });
 
     // Reset form
