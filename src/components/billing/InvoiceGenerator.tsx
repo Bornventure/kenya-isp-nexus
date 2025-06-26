@@ -15,11 +15,12 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { useClients } from '@/hooks/useClients';
 import { useInvoices } from '@/hooks/useInvoices';
 import { formatKenyanCurrency } from '@/utils/kenyanValidation';
-import { CalendarIcon } from 'lucide-react';
+import { useAuth } from '@/contexts/AuthContext';
 
 const InvoiceGenerator: React.FC = () => {
   const { clients } = useClients();
   const { createInvoice, isCreating } = useInvoices();
+  const { profile } = useAuth();
   
   const [formData, setFormData] = useState({
     clientId: '',
@@ -67,6 +68,7 @@ const InvoiceGenerator: React.FC = () => {
       service_period_start: formData.servicePeriodStart,
       service_period_end: formData.servicePeriodEnd,
       notes: formData.notes || null,
+      isp_company_id: profile?.isp_company_id || '',
     });
 
     // Reset form
