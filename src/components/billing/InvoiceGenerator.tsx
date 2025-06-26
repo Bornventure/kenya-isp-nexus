@@ -1,7 +1,9 @@
+
 import React, { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { Textarea } from '@/components/ui/textarea';
 import {
   Select,
   SelectContent,
@@ -10,81 +12,86 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Textarea } from '@/components/ui/textarea';
 import { useClients } from '@/hooks/useClients';
-import { useServicePackages } from '@/hooks/useServicePackages';
 import { useInvoices } from '@/hooks/useInvoices';
-import { calculateVAT, formatKenyanCurrency } from '@/utils/kenyanValidation';
+import { formatKenyanCurrency } from '@/utils/kenyanValidation';
+import { CalendarIcon } from 'lucide-react';
 
-interface InvoiceGeneratorProps {
-  onInvoiceGenerated?: (invoice: any) => void;
-}
-
-const InvoiceGenerator: React.FC<InvoiceGeneratorProps> = ({ onInvoiceGenerated }) => {
+const InvoiceGenerator: React.FC = () => {
   const { clients } = useClients();
-  const { servicePackages } = useServicePackages();
   const { createInvoice, isCreating } = useInvoices();
   
   const [formData, setFormData] = useState({
     clientId: '',
-    servicePackageId: '',
     amount: '',
     dueDate: '',
-    notes: '',
     servicePeriodStart: '',
     servicePeriodEnd: '',
+    notes: '',
   });
+
+  const [errors, setErrors] = useState<Record<string, string>>({});
+
+  const validateForm = () => {
+    const newErrors: Record<string, string> = {};
+
+    if (!formData.clientId) newErrors.clientId = 'Please select a client';
+    if (!formData.amount || parseFloat(formData.amount) <= 0) newErrors.amount = 'Please enter a valid amount';
+    if (!formData.dueDate) newErrors.dueDate = 'Please select a due date';
+    if (!formData.servicePeriodStart) newErrors.servicePeriodStart = 'Please select service start date';
+    if (!formData.servicePeriodEnd) newErrors.servicePeriodEnd = 'Please select service end date';
+
+    setErrors(newErrors);
+    return Object.keys(newErrors).length === 0;
+  };
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     
-    if (!formData.clientId || !formData.amount || !formData.dueDate) {
-      return;
-    }
+    if (!validateForm()) return;
 
-    const baseAmount = parseFloat(formData.amount);
-    const { vat, total } = calculateVAT(baseAmount);
-    
-    const invoiceData = {
+    const amount = parseFloat(formData.amount);
+    const vatAmount = amount * 0.16; // 16% VAT
+    const totalAmount = amount + vatAmount;
+
+    const invoiceNumber = `INV-${Date.now()}`;
+
+    createInvoice({
+      invoice_number: invoiceNumber,
       client_id: formData.clientId,
-      amount: baseAmount,
-      vat_amount: vat,
-      total_amount: total,
+      amount,
+      vat_amount: vatAmount,
+      total_amount: totalAmount,
+      status: 'pending',
       due_date: formData.dueDate,
-      service_period_start: formData.servicePeriodStart || new Date().toISOString().split('T')[0],
-      service_period_end: formData.servicePeriodEnd || new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
-      notes: formData.notes,
-      status: 'pending' as const,
-      invoice_number: `INV-${Date.now()}`,
-      invoice_id: null,
-    };
+      service_period_start: formData.servicePeriodStart,
+      service_period_end: formData.servicePeriodEnd,
+      notes: formData.notes || null,
+      isp_company_id: '',
+      created_at: '',
+      updated_at: '',
+    });
 
-    createInvoice(invoiceData);
-    
     // Reset form
     setFormData({
       clientId: '',
-      servicePackageId: '',
       amount: '',
       dueDate: '',
-      notes: '',
       servicePeriodStart: '',
       servicePeriodEnd: '',
+      notes: '',
     });
-
-    if (onInvoiceGenerated) {
-      onInvoiceGenerated(invoiceData);
-    }
+    setErrors({});
   };
 
-  const selectedPackage = servicePackages.find(p => p.id === formData.servicePackageId);
-  const baseAmount = parseFloat(formData.amount) || 0;
-  const { vat, total } = calculateVAT(baseAmount);
+  const amount = parseFloat(formData.amount) || 0;
+  const vatAmount = amount * 0.16;
+  const totalAmount = amount + vatAmount;
 
   return (
     <Card>
       <CardHeader>
-        <CardTitle>Create New Invoice</CardTitle>
+        <CardTitle>Generate New Invoice</CardTitle>
       </CardHeader>
       <CardContent>
         <form onSubmit={handleSubmit} className="space-y-4">
@@ -106,48 +113,20 @@ const InvoiceGenerator: React.FC<InvoiceGeneratorProps> = ({ onInvoiceGenerated 
                   ))}
                 </SelectContent>
               </Select>
+              {errors.clientId && <p className="text-sm text-red-600 mt-1">{errors.clientId}</p>}
             </div>
 
             <div>
-              <Label htmlFor="servicePackage">Service Package</Label>
-              <Select
-                value={formData.servicePackageId}
-                onValueChange={(value) => {
-                  const pkg = servicePackages.find(p => p.id === value);
-                  setFormData({ 
-                    ...formData, 
-                    servicePackageId: value,
-                    amount: pkg?.monthly_rate.toString() || ''
-                  });
-                }}
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder="Choose a service package" />
-                </SelectTrigger>
-                <SelectContent>
-                  {servicePackages.map((pkg) => (
-                    <SelectItem key={pkg.id} value={pkg.id}>
-                      {pkg.name} - {formatKenyanCurrency(pkg.monthly_rate)}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-
-            <div>
-              <Label htmlFor="amount">Base Amount (KES)</Label>
+              <Label htmlFor="amount">Amount (KES) - Excluding VAT</Label>
               <Input
                 id="amount"
                 type="number"
+                step="0.01"
                 value={formData.amount}
                 onChange={(e) => setFormData({ ...formData, amount: e.target.value })}
                 placeholder="Enter amount"
               />
-              {selectedPackage && (
-                <p className="text-sm text-gray-500 mt-1">
-                  Default: {formatKenyanCurrency(selectedPackage.monthly_rate)}
-                </p>
-              )}
+              {errors.amount && <p className="text-sm text-red-600 mt-1">{errors.amount}</p>}
             </div>
 
             <div>
@@ -158,6 +137,7 @@ const InvoiceGenerator: React.FC<InvoiceGeneratorProps> = ({ onInvoiceGenerated 
                 value={formData.dueDate}
                 onChange={(e) => setFormData({ ...formData, dueDate: e.target.value })}
               />
+              {errors.dueDate && <p className="text-sm text-red-600 mt-1">{errors.dueDate}</p>}
             </div>
 
             <div>
@@ -168,6 +148,7 @@ const InvoiceGenerator: React.FC<InvoiceGeneratorProps> = ({ onInvoiceGenerated 
                 value={formData.servicePeriodStart}
                 onChange={(e) => setFormData({ ...formData, servicePeriodStart: e.target.value })}
               />
+              {errors.servicePeriodStart && <p className="text-sm text-red-600 mt-1">{errors.servicePeriodStart}</p>}
             </div>
 
             <div>
@@ -178,24 +159,25 @@ const InvoiceGenerator: React.FC<InvoiceGeneratorProps> = ({ onInvoiceGenerated 
                 value={formData.servicePeriodEnd}
                 onChange={(e) => setFormData({ ...formData, servicePeriodEnd: e.target.value })}
               />
+              {errors.servicePeriodEnd && <p className="text-sm text-red-600 mt-1">{errors.servicePeriodEnd}</p>}
             </div>
           </div>
 
-          {baseAmount > 0 && (
+          {amount > 0 && (
             <div className="bg-gray-50 p-4 rounded-lg">
-              <h4 className="font-semibold mb-2">Invoice Summary</h4>
-              <div className="space-y-1">
+              <h4 className="font-medium mb-2">Invoice Summary</h4>
+              <div className="space-y-1 text-sm">
                 <div className="flex justify-between">
-                  <span>Base Amount:</span>
-                  <span>{formatKenyanCurrency(baseAmount)}</span>
+                  <span>Amount:</span>
+                  <span>{formatKenyanCurrency(amount)}</span>
                 </div>
                 <div className="flex justify-between">
                   <span>VAT (16%):</span>
-                  <span>{formatKenyanCurrency(vat)}</span>
+                  <span>{formatKenyanCurrency(vatAmount)}</span>
                 </div>
-                <div className="flex justify-between font-semibold border-t pt-1">
-                  <span>Total Amount:</span>
-                  <span>{formatKenyanCurrency(total)}</span>
+                <div className="flex justify-between font-medium text-lg border-t pt-1">
+                  <span>Total:</span>
+                  <span>{formatKenyanCurrency(totalAmount)}</span>
                 </div>
               </div>
             </div>
@@ -207,17 +189,14 @@ const InvoiceGenerator: React.FC<InvoiceGeneratorProps> = ({ onInvoiceGenerated 
               id="notes"
               value={formData.notes}
               onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
-              placeholder="Additional notes or terms..."
+              placeholder="Additional notes for the invoice..."
               rows={3}
             />
           </div>
 
-          <div className="flex justify-end space-x-2">
-            <Button type="button" variant="outline">
-              Save as Draft
-            </Button>
+          <div className="flex justify-end">
             <Button type="submit" disabled={isCreating}>
-              {isCreating ? 'Creating...' : 'Generate Invoice'}
+              {isCreating ? 'Generating...' : 'Generate Invoice'}
             </Button>
           </div>
         </form>

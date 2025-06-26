@@ -1,19 +1,16 @@
 
 import React, { useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
 import { 
   kenyanPaymentProviders, 
-  calculatePaymentFees,
-  getMobileMoneyProviders,
-  getBankProviders,
-  getPaymentGatewayProviders,
-  type PaymentProvider 
+  calculatePaymentFees, 
+  PaymentProvider 
 } from '@/utils/kenyanPayments';
 import { formatKenyanCurrency } from '@/utils/kenyanValidation';
-import { Smartphone, Building2, CreditCard, Wallet } from 'lucide-react';
 import MpesaPayment from './MpesaPayment';
+import { Smartphone, Building2, CreditCard } from 'lucide-react';
 
 interface PaymentProviderSelectorProps {
   clientId: string;
@@ -34,160 +31,128 @@ const PaymentProviderSelector: React.FC<PaymentProviderSelectorProps> = ({
   onProviderSelect,
   onPaymentComplete,
 }) => {
-  const [showMpesaPayment, setShowMpesaPayment] = useState(false);
+  const [activeTab, setActiveTab] = useState<'mobile_money' | 'bank' | 'payment_gateway'>('mobile_money');
 
-  const getProviderIcon = (type: string) => {
-    switch (type) {
+  const getProvidersByType = (type: 'mobile_money' | 'bank' | 'payment_gateway') => {
+    return kenyanPaymentProviders.filter(provider => provider.type === type);
+  };
+
+  const getProviderIcon = (provider: PaymentProvider) => {
+    switch (provider.type) {
       case 'mobile_money': return <Smartphone className="h-5 w-5" />;
       case 'bank': return <Building2 className="h-5 w-5" />;
       case 'payment_gateway': return <CreditCard className="h-5 w-5" />;
-      default: return <Wallet className="h-5 w-5" />;
     }
   };
 
-  const getTypeColor = (type: string) => {
-    switch (type) {
-      case 'mobile_money': return 'bg-green-100 text-green-800';
-      case 'bank': return 'bg-blue-100 text-blue-800';
-      case 'payment_gateway': return 'bg-purple-100 text-purple-800';
-      default: return 'bg-gray-100 text-gray-800';
-    }
-  };
+  const renderProviderCard = (provider: PaymentProvider) => {
+    const fees = calculatePaymentFees(provider, amount);
+    const totalAmount = amount + fees;
+    const isSelected = selectedProvider?.id === provider.id;
 
-  const handleProviderSelect = (provider: PaymentProvider) => {
-    onProviderSelect(provider);
-    
-    if (provider.id === 'mpesa') {
-      setShowMpesaPayment(true);
-    } else {
-      setShowMpesaPayment(false);
-    }
-  };
-
-  const renderProviderSection = (title: string, providers: PaymentProvider[], icon: React.ReactNode) => (
-    <div className="space-y-3">
-      <div className="flex items-center gap-2">
-        {icon}
-        <h3 className="font-semibold text-lg">{title}</h3>
-      </div>
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
-        {providers.map((provider) => {
-          const fee = calculatePaymentFees(provider, amount);
-          const total = amount + fee;
-          const isSelected = selectedProvider?.id === provider.id;
-          
-          return (
-            <Card 
-              key={provider.id} 
-              className={`cursor-pointer transition-all hover:shadow-md ${
-                isSelected ? 'ring-2 ring-blue-500 bg-blue-50' : ''
-              }`}
-              onClick={() => handleProviderSelect(provider)}
-            >
-              <CardContent className="p-4">
-                <div className="flex items-center justify-between mb-2">
-                  <h4 className="font-medium">{provider.name}</h4>
-                  <Badge className={getTypeColor(provider.type)}>
-                    {provider.type.replace('_', ' ')}
-                  </Badge>
-                </div>
-                
-                <div className="space-y-1 text-sm">
-                  <div className="flex justify-between">
-                    <span>Amount:</span>
-                    <span>{formatKenyanCurrency(amount)}</span>
-                  </div>
-                  {fee > 0 && (
-                    <div className="flex justify-between">
-                      <span>Fee:</span>
-                      <span>{formatKenyanCurrency(fee)}</span>
-                    </div>
-                  )}
-                  <div className="flex justify-between font-medium border-t pt-1">
-                    <span>Total:</span>
-                    <span>{formatKenyanCurrency(total)}</span>
-                  </div>
-                </div>
-                
-                <div className="mt-3">
-                  <Button 
-                    variant={isSelected ? "default" : "outline"} 
-                    size="sm" 
-                    className="w-full"
-                  >
-                    {isSelected ? 'Selected' : 'Select'}
-                  </Button>
-                </div>
-              </CardContent>
-            </Card>
-          );
-        })}
-      </div>
-    </div>
-  );
-
-  if (amount <= 0) {
     return (
-      <Card>
-        <CardContent className="p-6 text-center">
-          <p className="text-muted-foreground">Enter an amount to see payment options</p>
+      <Card 
+        key={provider.id}
+        className={`cursor-pointer transition-all ${isSelected ? 'ring-2 ring-blue-500 bg-blue-50' : 'hover:shadow-md'}`}
+        onClick={() => onProviderSelect(provider)}
+      >
+        <CardContent className="p-4">
+          <div className="flex items-center justify-between mb-2">
+            <div className="flex items-center gap-2">
+              {getProviderIcon(provider)}
+              <span className="font-medium">{provider.name}</span>
+            </div>
+            {isSelected && <Badge variant="default">Selected</Badge>}
+          </div>
+          <div className="text-sm text-gray-600 space-y-1">
+            <div className="flex justify-between">
+              <span>Amount:</span>
+              <span>{formatKenyanCurrency(amount)}</span>
+            </div>
+            {fees > 0 && (
+              <div className="flex justify-between">
+                <span>Fees:</span>
+                <span>{formatKenyanCurrency(fees)}</span>
+              </div>
+            )}
+            <div className="flex justify-between font-medium text-gray-900 border-t pt-1">
+              <span>Total:</span>
+              <span>{formatKenyanCurrency(totalAmount)}</span>
+            </div>
+          </div>
         </CardContent>
       </Card>
     );
-  }
-
-  if (showMpesaPayment && selectedProvider?.id === 'mpesa') {
-    return (
-      <div className="space-y-6">
-        <MpesaPayment
-          clientId={clientId}
-          amount={amount}
-          invoiceId={invoiceId}
-          accountReference={accountReference}
-          onPaymentComplete={onPaymentComplete}
-        />
-        
-        <div className="text-center">
-          <Button 
-            variant="outline" 
-            onClick={() => setShowMpesaPayment(false)}
-          >
-            Choose Different Payment Method
-          </Button>
-        </div>
-      </div>
-    );
-  }
+  };
 
   return (
     <div className="space-y-6">
-      <Card>
-        <CardHeader>
-          <CardTitle>Select Payment Method</CardTitle>
-          <p className="text-sm text-muted-foreground">
-            Choose your preferred payment method for {formatKenyanCurrency(amount)}
-          </p>
-        </CardHeader>
-        <CardContent className="space-y-6">
-          {renderProviderSection(
-            'Mobile Money', 
-            getMobileMoneyProviders(), 
-            <Smartphone className="h-5 w-5 text-green-600" />
-          )}
-          
-          {renderProviderSection(
-            'Bank Transfer', 
-            getBankProviders(), 
-            <Building2 className="h-5 w-5 text-blue-600" />
-          )}
-          
-          {renderProviderSection(
-            'Payment Gateway', 
-            getPaymentGatewayProviders(), 
-            <CreditCard className="h-5 w-5 text-purple-600" />
-          )}
-        </CardContent>
-      </Card>
+      <div>
+        <h3 className="text-lg font-medium mb-4">Select Payment Method</h3>
+        
+        {/* Payment Type Tabs */}
+        <div className="flex space-x-4 mb-4">
+          {[
+            { key: 'mobile_money', label: 'Mobile Money', icon: <Smartphone className="h-4 w-4" /> },
+            { key: 'bank', label: 'Bank Transfer', icon: <Building2 className="h-4 w-4" /> },
+            { key: 'payment_gateway', label: 'Payment Gateway', icon: <CreditCard className="h-4 w-4" /> },
+          ].map((tab) => (
+            <button
+              key={tab.key}
+              onClick={() => setActiveTab(tab.key as any)}
+              className={`flex items-center gap-2 px-4 py-2 rounded-md transition-colors ${
+                activeTab === tab.key
+                  ? 'bg-blue-500 text-white'
+                  : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
+              }`}
+            >
+              {tab.icon}
+              {tab.label}
+            </button>
+          ))}
+        </div>
+
+        {/* Provider Cards */}
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+          {getProvidersByType(activeTab).map(renderProviderCard)}
+        </div>
+      </div>
+
+      {/* Payment Form */}
+      {selectedProvider && selectedProvider.id === 'mpesa' && (
+        <div className="border-t pt-6">
+          <MpesaPayment
+            clientId={clientId}
+            amount={amount + calculatePaymentFees(selectedProvider, amount)}
+            invoiceId={invoiceId}
+            accountReference={accountReference}
+            onPaymentComplete={onPaymentComplete}
+          />
+        </div>
+      )}
+
+      {selectedProvider && selectedProvider.id !== 'mpesa' && (
+        <div className="border-t pt-6">
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                {getProviderIcon(selectedProvider)}
+                {selectedProvider.name} Payment
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="text-center py-8">
+                <p className="text-gray-600 mb-4">
+                  {selectedProvider.name} integration is coming soon.
+                </p>
+                <p className="text-sm text-gray-500">
+                  Please use M-Pesa for now or contact support for manual payment processing.
+                </p>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+      )}
     </div>
   );
 };

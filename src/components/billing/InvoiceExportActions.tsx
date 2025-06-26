@@ -1,31 +1,28 @@
 
-import React, { useState } from 'react';
+import React from 'react';
 import { Button } from '@/components/ui/button';
-import { Download, FileText, FileSpreadsheet } from 'lucide-react';
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from '@/components/ui/dropdown-menu';
+import { Download, FileSpreadsheet, Mail } from 'lucide-react';
+import { Invoice } from '@/hooks/useInvoices';
 import { useToast } from '@/hooks/use-toast';
+import { formatKenyanCurrency } from '@/utils/kenyanValidation';
 
 interface InvoiceExportActionsProps {
-  invoices: any[];
-  selectedInvoices?: string[];
-  className?: string;
+  invoices: Invoice[];
+  selectedInvoices: string[];
 }
 
 const InvoiceExportActions: React.FC<InvoiceExportActionsProps> = ({
   invoices,
-  selectedInvoices = [],
-  className
+  selectedInvoices,
 }) => {
-  const [isExporting, setIsExporting] = useState(false);
   const { toast } = useToast();
 
-  const generateCSV = (data: any[]) => {
-    const headers = [
+  const exportToCSV = () => {
+    const dataToExport = selectedInvoices.length > 0 
+      ? invoices.filter(inv => selectedInvoices.includes(inv.id))
+      : invoices;
+
+    const csvHeaders = [
       'Invoice Number',
       'Client Name',
       'Amount',
@@ -35,190 +32,100 @@ const InvoiceExportActions: React.FC<InvoiceExportActionsProps> = ({
       'Issue Date',
       'Due Date',
       'Service Period Start',
-      'Service Period End'
+      'Service Period End',
+      'Notes'
     ];
 
-    const csvContent = [
-      headers.join(','),
-      ...data.map(invoice => [
-        invoice.invoice_number,
-        invoice.clients?.name || 'N/A',
-        invoice.amount,
-        invoice.vat_amount,
-        invoice.total_amount,
-        invoice.status,
-        new Date(invoice.created_at).toLocaleDateString(),
-        new Date(invoice.due_date).toLocaleDateString(),
-        new Date(invoice.service_period_start).toLocaleDateString(),
-        new Date(invoice.service_period_end).toLocaleDateString()
-      ].join(','))
-    ].join('\n');
+    const csvData = dataToExport.map(invoice => [
+      invoice.invoice_number,
+      invoice.clients?.name || 'N/A',
+      invoice.amount.toString(),
+      invoice.vat_amount.toString(),
+      invoice.total_amount.toString(),
+      invoice.status,
+      new Date(invoice.created_at).toLocaleDateString(),
+      new Date(invoice.due_date).toLocaleDateString(),
+      new Date(invoice.service_period_start).toLocaleDateString(),
+      new Date(invoice.service_period_end).toLocaleDateString(),
+      invoice.notes || ''
+    ]);
 
-    return csvContent;
-  };
+    const csvContent = [csvHeaders, ...csvData]
+      .map(row => row.map(cell => `"${cell}"`).join(','))
+      .join('\n');
 
-  const downloadFile = (content: string, filename: string, type: string) => {
-    const blob = new Blob([content], { type });
-    const url = URL.createObjectURL(blob);
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
     const link = document.createElement('a');
-    link.href = url;
-    link.download = filename;
+    const url = URL.createObjectURL(blob);
+    link.setAttribute('href', url);
+    link.setAttribute('download', `invoices-${new Date().toISOString().split('T')[0]}.csv`);
+    link.style.visibility = 'hidden';
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
-    URL.revokeObjectURL(url);
+
+    toast({
+      title: "Export Complete",
+      description: `Exported ${dataToExport.length} invoices to CSV.`,
+    });
   };
 
-  const handleExport = async (format: 'csv' | 'pdf') => {
-    setIsExporting(true);
-    
-    try {
-      const dataToExport = selectedInvoices.length > 0 
-        ? invoices.filter(inv => selectedInvoices.includes(inv.id))
-        : invoices;
+  const exportSummaryReport = () => {
+    const dataToExport = selectedInvoices.length > 0 
+      ? invoices.filter(inv => selectedInvoices.includes(inv.id))
+      : invoices;
 
-      if (dataToExport.length === 0) {
-        toast({
-          title: "No Data",
-          description: "No invoices to export.",
-          variant: "destructive",
-        });
-        return;
-      }
+    const totalAmount = dataToExport.reduce((sum, inv) => sum + inv.total_amount, 0);
+    const paidAmount = dataToExport.filter(inv => inv.status === 'paid').reduce((sum, inv) => sum + inv.total_amount, 0);
+    const pendingAmount = dataToExport.filter(inv => inv.status === 'pending').reduce((sum, inv) => sum + inv.total_amount, 0);
+    const overdueAmount = dataToExport.filter(inv => inv.status === 'overdue').reduce((sum, inv) => sum + inv.total_amount, 0);
 
-      const timestamp = new Date().toISOString().split('T')[0];
-      
-      if (format === 'csv') {
-        const csvContent = generateCSV(dataToExport);
-        downloadFile(csvContent, `invoices-${timestamp}.csv`, 'text/csv');
-        
-        toast({
-          title: "Export Successful",
-          description: `${dataToExport.length} invoices exported to CSV.`,
-        });
-      } else if (format === 'pdf') {
-        // Simulate PDF generation
-        await new Promise(resolve => setTimeout(resolve, 2000));
-        
-        toast({
-          title: "PDF Export",
-          description: "PDF export functionality will be available soon.",
-        });
-      }
-    } catch (error) {
-      console.error('Export error:', error);
-      toast({
-        title: "Export Failed",
-        description: "Failed to export invoices. Please try again.",
-        variant: "destructive",
-      });
-    } finally {
-      setIsExporting(false);
-    }
-  };
+    const summaryData = [
+      ['Invoice Summary Report'],
+      ['Generated on:', new Date().toLocaleDateString()],
+      [''],
+      ['Total Invoices:', dataToExport.length.toString()],
+      ['Total Amount:', formatKenyanCurrency(totalAmount)],
+      ['Paid Amount:', formatKenyanCurrency(paidAmount)],
+      ['Pending Amount:', formatKenyanCurrency(pendingAmount)],
+      ['Overdue Amount:', formatKenyanCurrency(overdueAmount)],
+      [''],
+      ['Status Breakdown:'],
+      ['Paid:', dataToExport.filter(inv => inv.status === 'paid').length.toString()],
+      ['Pending:', dataToExport.filter(inv => inv.status === 'pending').length.toString()],
+      ['Overdue:', dataToExport.filter(inv => inv.status === 'overdue').length.toString()],
+      ['Draft:', dataToExport.filter(inv => inv.status === 'draft').length.toString()],
+    ];
 
-  const handleDownloadInvoice = async (invoice: any) => {
-    setIsExporting(true);
-    
-    try {
-      // Generate invoice HTML content
-      const invoiceHTML = `
-        <!DOCTYPE html>
-        <html>
-        <head>
-          <title>Invoice ${invoice.invoice_number}</title>
-          <style>
-            body { font-family: Arial, sans-serif; margin: 20px; }
-            .header { text-align: center; border-bottom: 2px solid #333; padding-bottom: 20px; }
-            .details { margin: 20px 0; }
-            .amount { font-size: 24px; font-weight: bold; color: #2563eb; }
-            .table { width: 100%; border-collapse: collapse; margin: 20px 0; }
-            .table th, .table td { border: 1px solid #ddd; padding: 8px; text-align: left; }
-            .table th { background-color: #f2f2f2; }
-          </style>
-        </head>
-        <body>
-          <div class="header">
-            <h1>INVOICE</h1>
-            <p>Invoice #: ${invoice.invoice_number}</p>
-            <p>Date: ${new Date(invoice.created_at).toLocaleDateString()}</p>
-          </div>
-          
-          <div class="details">
-            <h3>Bill To:</h3>
-            <p><strong>${invoice.clients?.name || 'N/A'}</strong></p>
-            <p>Service Period: ${new Date(invoice.service_period_start).toLocaleDateString()} - ${new Date(invoice.service_period_end).toLocaleDateString()}</p>
-          </div>
-          
-          <table class="table">
-            <thead>
-              <tr>
-                <th>Description</th>
-                <th>Amount</th>
-              </tr>
-            </thead>
-            <tbody>
-              <tr>
-                <td>Internet Service</td>
-                <td>KES ${invoice.amount.toLocaleString()}</td>
-              </tr>
-              <tr>
-                <td>VAT (16%)</td>
-                <td>KES ${invoice.vat_amount.toLocaleString()}</td>
-              </tr>
-              <tr style="font-weight: bold;">
-                <td>Total</td>
-                <td>KES ${invoice.total_amount.toLocaleString()}</td>
-              </tr>
-            </tbody>
-          </table>
-          
-          <div style="margin-top: 30px;">
-            <p><strong>Status:</strong> ${invoice.status.toUpperCase()}</p>
-            <p><strong>Due Date:</strong> ${new Date(invoice.due_date).toLocaleDateString()}</p>
-          </div>
-        </body>
-        </html>
-      `;
+    const csvContent = summaryData.map(row => row.join(',')).join('\n');
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const link = document.createElement('a');
+    const url = URL.createObjectURL(blob);
+    link.setAttribute('href', url);
+    link.setAttribute('download', `invoice-summary-${new Date().toISOString().split('T')[0]}.csv`);
+    link.style.visibility = 'hidden';
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
 
-      downloadFile(invoiceHTML, `invoice-${invoice.invoice_number}.html`, 'text/html');
-      
-      toast({
-        title: "Download Complete",
-        description: `Invoice ${invoice.invoice_number} downloaded successfully.`,
-      });
-    } catch (error) {
-      console.error('Download error:', error);
-      toast({
-        title: "Download Failed",
-        description: "Failed to download invoice. Please try again.",
-        variant: "destructive",
-      });
-    } finally {
-      setIsExporting(false);
-    }
+    toast({
+      title: "Summary Export Complete",
+      description: "Invoice summary report has been exported.",
+    });
   };
 
   return (
-    <DropdownMenu>
-      <DropdownMenuTrigger asChild>
-        <Button variant="outline" size="sm" disabled={isExporting} className={className}>
-          <Download className="h-4 w-4 mr-2" />
-          {isExporting ? 'Exporting...' : 'Export'}
-        </Button>
-      </DropdownMenuTrigger>
-      <DropdownMenuContent>
-        <DropdownMenuItem onClick={() => handleExport('csv')}>
-          <FileSpreadsheet className="h-4 w-4 mr-2" />
-          Export as CSV
-        </DropdownMenuItem>
-        <DropdownMenuItem onClick={() => handleExport('pdf')}>
-          <FileText className="h-4 w-4 mr-2" />
-          Export as PDF
-        </DropdownMenuItem>
-      </DropdownMenuContent>
-    </DropdownMenu>
+    <div className="flex items-center gap-2">
+      <Button variant="outline" size="sm" onClick={exportToCSV}>
+        <FileSpreadsheet className="h-4 w-4 mr-2" />
+        Export CSV
+      </Button>
+      <Button variant="outline" size="sm" onClick={exportSummaryReport}>
+        <Download className="h-4 w-4 mr-2" />
+        Summary Report
+      </Button>
+    </div>
   );
 };
 
-export { InvoiceExportActions, InvoiceExportActions as default };
+export default InvoiceExportActions;

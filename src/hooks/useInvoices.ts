@@ -11,10 +11,10 @@ export interface Invoice {
   amount: number;
   vat_amount: number;
   total_amount: number;
+  status: 'draft' | 'pending' | 'paid' | 'overdue';
   due_date: string;
   service_period_start: string;
   service_period_end: string;
-  status: string;
   notes: string | null;
   isp_company_id: string;
   created_at: string;
@@ -57,57 +57,8 @@ export const useInvoices = () => {
     enabled: !!profile?.isp_company_id,
   });
 
-  const createInvoiceMutation = useMutation({
-    mutationFn: async (invoiceData: Omit<Invoice, 'id' | 'created_at' | 'updated_at' | 'isp_company_id' | 'clients'>) => {
-      if (!profile?.isp_company_id) {
-        throw new Error('No ISP company associated with user');
-      }
-
-      // Calculate VAT (16% in Kenya)
-      const vatRate = 0.16;
-      const vatAmount = invoiceData.amount * vatRate;
-      const totalAmount = invoiceData.amount + vatAmount;
-
-      const { data, error } = await supabase
-        .from('invoices')
-        .insert({
-          ...invoiceData,
-          vat_amount: vatAmount,
-          total_amount: totalAmount,
-          isp_company_id: profile.isp_company_id,
-        })
-        .select()
-        .single();
-
-      if (error) throw error;
-      return data;
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['invoices'] });
-      toast({
-        title: "Invoice Created",
-        description: "New invoice has been successfully created.",
-      });
-    },
-    onError: (error) => {
-      console.error('Error creating invoice:', error);
-      toast({
-        title: "Error",
-        description: "Failed to create invoice. Please try again.",
-        variant: "destructive",
-      });
-    },
-  });
-
   const updateInvoiceMutation = useMutation({
     mutationFn: async ({ id, updates }: { id: string; updates: Partial<Invoice> }) => {
-      // Recalculate VAT if amount is being updated
-      if (updates.amount) {
-        const vatRate = 0.16;
-        updates.vat_amount = updates.amount * vatRate;
-        updates.total_amount = updates.amount + updates.vat_amount;
-      }
-
       const { data, error } = await supabase
         .from('invoices')
         .update(updates)
@@ -135,13 +86,44 @@ export const useInvoices = () => {
     },
   });
 
+  const createInvoiceMutation = useMutation({
+    mutationFn: async (invoiceData: Omit<Invoice, 'id' | 'created_at' | 'updated_at'>) => {
+      const { data, error } = await supabase
+        .from('invoices')
+        .insert({
+          ...invoiceData,
+          isp_company_id: profile?.isp_company_id,
+        })
+        .select()
+        .single();
+
+      if (error) throw error;
+      return data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['invoices'] });
+      toast({
+        title: "Invoice Created",
+        description: "Invoice has been created successfully.",
+      });
+    },
+    onError: (error) => {
+      console.error('Error creating invoice:', error);
+      toast({
+        title: "Error",
+        description: "Failed to create invoice. Please try again.",
+        variant: "destructive",
+      });
+    },
+  });
+
   return {
     invoices,
     isLoading,
     error,
-    createInvoice: createInvoiceMutation.mutate,
     updateInvoice: updateInvoiceMutation.mutate,
-    isCreating: createInvoiceMutation.isPending,
+    createInvoice: createInvoiceMutation.mutate,
     isUpdating: updateInvoiceMutation.isPending,
+    isCreating: createInvoiceMutation.isPending,
   };
 };

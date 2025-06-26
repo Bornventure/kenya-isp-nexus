@@ -1,153 +1,113 @@
 
-import { useState, useCallback } from 'react';
+import { useState, useRef } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 
-export interface PaymentStatusData {
-  success: boolean;
-  status: 'pending' | 'completed' | 'failed' | 'error';
-  message: string;
-  mpesaResponse?: any;
+interface PaymentStatusCallbacks {
+  onSuccess: (data: any) => void;
+  onFailure: (data: any) => void;
+  onTimeout: () => void;
 }
 
 export const usePaymentStatus = () => {
-  const [isChecking, setIsChecking] = useState(false);
+  const [isMonitoring, setIsMonitoring] = useState(false);
+  const timeoutRef = useRef<NodeJS.Timeout>();
+  const intervalRef = useRef<NodeJS.Timeout>();
   const { toast } = useToast();
 
-  const checkPaymentStatus = useCallback(async (
-    paymentId: string, 
-    checkoutRequestId: string,
-    onSuccess?: (data: PaymentStatusData) => void,
-    onFailure?: (data: PaymentStatusData) => void
-  ): Promise<PaymentStatusData | null> => {
-    setIsChecking(true);
-    
-    try {
-      console.log('Checking payment status for:', checkoutRequestId);
-      console.log('Payment status request data:', {
-        checkout_request_id: checkoutRequestId,
-        checkoutRequestId: checkoutRequestId,
-        payment_id: paymentId,
-        paymentId: paymentId
-      });
-
-      const { data, error } = await supabase.functions.invoke('check-payment-status', {
-        body: {
-          paymentId,
-          checkoutRequestId
-        }
-      });
-
-      console.log('Payment status result:', data || { success: false, error: error?.message, code: 'HTTP_500' });
-
-      if (error) {
-        console.error('Payment status check error:', error);
-        toast({
-          title: "Status Check Failed",
-          description: "Failed to check payment status. Please try again.",
-          variant: "destructive",
-        });
-        return null;
-      }
-
-      const statusData: PaymentStatusData = {
-        success: data.success,
-        status: data.status,
-        message: data.message,
-        mpesaResponse: data.mpesaResponse
-      };
-
-      // Handle different status outcomes
-      if (statusData.status === 'completed') {
-        toast({
-          title: "Payment Successful!",
-          description: statusData.message,
-        });
-        if (onSuccess) onSuccess(statusData);
-      } else if (statusData.status === 'failed') {
-        toast({
-          title: "Payment Failed",
-          description: statusData.message,
-          variant: "destructive",
-        });
-        if (onFailure) onFailure(statusData);
-      } else if (statusData.status === 'pending') {
-        console.log('Payment still pending, will check again...');
-      }
-
-      return statusData;
-    } catch (error) {
-      console.error('Payment status check error:', error);
-      toast({
-        title: "Status Check Error",
-        description: "An unexpected error occurred while checking payment status.",
-        variant: "destructive",
-      });
-      return null;
-    } finally {
-      setIsChecking(false);
-    }
-  }, [toast]);
-
-  const startPaymentMonitoring = useCallback((
+  const startPaymentMonitoring = (
     paymentId: string,
     checkoutRequestId: string,
-    options: {
-      maxAttempts?: number;
-      intervalMs?: number;
-      onSuccess?: (data: PaymentStatusData) => void;
-      onFailure?: (data: PaymentStatusData) => void;
-      onTimeout?: () => void;
-    } = {}
+    callbacks: PaymentStatusCallbacks,
+    timeoutMs: number = 120000 // 2 minutes
   ) => {
-    const {
-      maxAttempts = 10, // Reduced from 20 to prevent excessive calls
-      intervalMs = 15000, // Increased from 10s to 15s
-      onSuccess,
-      onFailure,
-      onTimeout
-    } = options;
+    console.log('Starting payment monitoring for:', { paymentId, checkoutRequestId });
+    setIsMonitoring(true);
 
     let attempts = 0;
-    let timeoutId: ReturnType<typeof setTimeout>;
-    
+    const maxAttempts = 24; // 2 minutes with 5-second intervals
+
     const checkStatus = async () => {
       attempts++;
-      console.log(`Payment check attempt ${attempts}/${maxAttempts}`);
-      
-      const result = await checkPaymentStatus(paymentId, checkoutRequestId, onSuccess, onFailure);
-      
-      if (result?.status === 'completed' || result?.status === 'failed') {
-        return; // Stop monitoring
-      }
-      
-      if (attempts < maxAttempts) {
-        timeoutId = setTimeout(checkStatus, intervalMs);
-      } else {
-        console.log('Payment monitoring timeout reached');
-        toast({
-          title: "Payment Status Unknown",
-          description: "Payment status check timed out. Please check your account or contact support.",
-          variant: "destructive",
+      console.log(`Payment status check attempt ${attempts}/${maxAttempts}`);
+
+      try {
+        const { data, error } = await supabase.functions.invoke('mpesa-query-status', {
+          body: {
+            checkout_request_id: checkoutRequestId,
+          },
         });
-        if (onTimeout) onTimeout();
+
+        if (error) {
+          console.error('Payment status check error:', error);
+          return;
+        }
+
+        console.log('Payment status response:', data);
+
+        if (data?.ResultCode === '0') {
+          // Payment successful
+          console.log('Payment successful!');
+          clearMonitoring();
+          setIsMonitoring(false);
+          callbacks.onSuccess(data);
+          return;
+        } else if (data?.ResultCode && data.ResultCode !== '1032') {
+          // Payment failed (not pending)
+          console.log('Payment failed with code:', data.ResultCode);
+          clearMonitoring();
+          setIsMonitoring(false);
+          callbacks.onFailure(data);
+          return;
+        }
+
+        // Continue monitoring if still pending or no definitive result
+        if (attempts >= maxAttempts) {
+          console.log('Payment monitoring timeout reached');
+          clearMonitoring();
+          setIsMonitoring(false);
+          callbacks.onTimeout();
+        }
+      } catch (err) {
+        console.error('Payment status check error:', err);
+        if (attempts >= maxAttempts) {
+          clearMonitoring();
+          setIsMonitoring(false);
+          callbacks.onTimeout();
+        }
       }
     };
 
-    // Start monitoring after initial delay
-    timeoutId = setTimeout(checkStatus, 10000); // Wait 10 seconds before first check
+    // Start checking immediately, then every 5 seconds
+    checkStatus();
+    intervalRef.current = setInterval(checkStatus, 5000);
 
-    // Return cleanup function
-    return () => {
-      if (timeoutId) {
-        clearTimeout(timeoutId);
-      }
-    };
-  }, [checkPaymentStatus, toast]);
+    // Set overall timeout
+    timeoutRef.current = setTimeout(() => {
+      console.log('Payment monitoring overall timeout');
+      clearMonitoring();
+      setIsMonitoring(false);
+      callbacks.onTimeout();
+    }, timeoutMs);
+  };
+
+  const clearMonitoring = () => {
+    if (timeoutRef.current) {
+      clearTimeout(timeoutRef.current);
+    }
+    if (intervalRef.current) {
+      clearInterval(intervalRef.current);
+    }
+  };
+
+  const stopMonitoring = () => {
+    clearMonitoring();
+    setIsMonitoring(false);
+  };
 
   return {
-    checkPaymentStatus,
     startPaymentMonitoring,
-    isChecking
+    stopMonitoring,
+    isMonitoring,
   };
 };
