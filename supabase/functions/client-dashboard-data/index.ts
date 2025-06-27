@@ -24,10 +24,21 @@ serve(async (req) => {
     const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
     const supabase = createClient(supabaseUrl, supabaseServiceKey)
 
-    const requestBody: ClientDataRequest = await req.json()
-    console.log('Received dashboard data request for:', requestBody.client_email)
+    // Handle both GET and POST requests
+    let client_email: string;
+    let client_id_number: string | undefined;
 
-    const { client_email, client_id_number } = requestBody
+    if (req.method === 'GET') {
+      const url = new URL(req.url);
+      client_email = url.searchParams.get('client_email') || '';
+      client_id_number = url.searchParams.get('client_id_number') || undefined;
+    } else {
+      const requestBody: ClientDataRequest = await req.json()
+      client_email = requestBody.client_email;
+      client_id_number = requestBody.client_id_number;
+    }
+
+    console.log('Received dashboard data request for:', client_email)
 
     if (!client_email) {
       return new Response(
