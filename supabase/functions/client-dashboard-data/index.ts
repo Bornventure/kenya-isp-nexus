@@ -140,6 +140,13 @@ serve(async (req) => {
 
     console.log('Dashboard data compiled for:', client.name)
 
+    // Safely parse numeric values
+    const parseNumeric = (value: any): number => {
+      if (value === null || value === undefined) return 0;
+      const parsed = parseFloat(value.toString());
+      return isNaN(parsed) ? 0 : parsed;
+    };
+
     return new Response(
       JSON.stringify({
         success: true,
@@ -152,8 +159,8 @@ serve(async (req) => {
             mpesa_number: client.mpesa_number,
             id_number: client.id_number,
             status: client.status,
-            wallet_balance: client.wallet_balance || 0,
-            monthly_rate: client.monthly_rate,
+            wallet_balance: parseNumeric(client.wallet_balance),
+            monthly_rate: parseNumeric(client.monthly_rate),
             subscription_start_date: client.subscription_start_date,
             subscription_end_date: client.subscription_end_date,
             subscription_type: client.subscription_type || 'monthly',
@@ -180,8 +187,8 @@ serve(async (req) => {
             total_payments: payments?.length || 0,
             pending_invoices_count: pendingInvoices?.length || 0,
             open_tickets: supportTickets?.filter(t => t.status === 'open').length || 0,
-            current_balance: client.wallet_balance || 0,
-            monthly_rate: client.monthly_rate
+            current_balance: parseNumeric(client.wallet_balance),
+            monthly_rate: parseNumeric(client.monthly_rate)
           }
         }
       }),
