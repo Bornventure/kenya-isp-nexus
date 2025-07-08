@@ -1,5 +1,6 @@
 
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
+import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -11,6 +12,13 @@ interface STKPushRequest {
   amount: number;
   accountReference: string;
   transactionDesc: string;
+  metadata?: {
+    client_email?: string;
+    client_id?: string;
+    invoice_id?: string;
+    currency?: string;
+    description?: string;
+  };
 }
 
 interface MpesaTokenResponse {
@@ -74,7 +82,16 @@ const handler = async (req: Request): Promise<Response> => {
   }
 
   try {
-    const { phoneNumber, amount, accountReference, transactionDesc }: STKPushRequest = await req.json();
+    console.log('=== M-Pesa STK Push Started ===');
+    
+    const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
+    const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
+    const supabase = createClient(supabaseUrl, supabaseServiceKey);
+
+    const requestBody: STKPushRequest = await req.json();
+    console.log('STK Push request:', requestBody);
+
+    const { phoneNumber, amount, accountReference, transactionDesc, metadata } = requestBody;
 
     // Get M-Pesa configuration
     const shortcode = Deno.env.get("MPESA_SHORTCODE");
@@ -115,6 +132,8 @@ const handler = async (req: Request): Promise<Response> => {
       TransactionDesc: transactionDesc,
     };
 
+    console.log('Making STK Push request to M-Pesa...');
+
     // Make STK Push request
     const stkResponse = await fetch("https://sandbox.safaricom.co.ke/mpesa/stkpush/v1/processrequest", {
       method: "POST",
@@ -130,8 +149,56 @@ const handler = async (req: Request): Promise<Response> => {
     }
 
     const stkData: STKPushResponse = await stkResponse.json();
-
     console.log("STK Push response:", stkData);
+
+    // Check if STK Push was successful
+    if (stkData.ResponseCode === '0') {
+      console.log('STK Push successful, saving payment record...');
+
+      // Find client by ID number if provided
+      let client_id = null;
+      if (metadata?.client_id) {
+        const { data: clientData } = await supabase
+          .from('clients')
+          .select('id, isp_company_id')
+          .eq('id_number', metadata.client_id)
+          .single();
+        
+        if (clientData) {
+          client_id = clientData.id;
+        }
+      }
+
+      // Save initial payment record to database
+      const { data: paymentData, error: paymentError } = await supabase
+        .from('payments')
+        .insert({
+          client_id: client_id,
+          amount: amount,
+          payment_method: 'mpesa',
+          reference_number: stkData.CheckoutRequestID,
+          mpesa_receipt_number: stkData.MerchantRequestID,
+          notes: JSON.stringify({
+            checkout_request_id: stkData.CheckoutRequestID,
+            merchant_request_id: stkData.MerchantRequestID,
+            account_reference: accountReference,
+            phone_number: formattedPhone,
+            transaction_desc: transactionDesc,
+            status: 'pending',
+            metadata: metadata
+          }),
+          isp_company_id: client_id ? undefined : null // Will be set by client lookup or left null
+        })
+        .select()
+        .single();
+
+      if (paymentError) {
+        console.error('Error saving payment record:', paymentError);
+        // Don't fail the request, just log the error
+      } else {
+        console.log('Payment record saved:', paymentData);
+      }
+    }
 
     return new Response(JSON.stringify(stkData), {
       status: 200,
