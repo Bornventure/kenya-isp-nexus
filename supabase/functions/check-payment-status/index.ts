@@ -71,13 +71,57 @@ serve(async (req) => {
       }
     }
 
-    // For testing, simulate payment confirmation after 30 seconds
-    // In production, this would query the actual M-Pesa API
-    const paymentAge = Date.now() - new Date(existingPayment.payment_date).getTime()
-    const shouldConfirmPayment = paymentAge > 30000 // 30 seconds for testing
+    // Query M-Pesa API for actual payment status
+    console.log('Querying M-Pesa API for payment status...')
     
-    if (!shouldConfirmPayment) {
-      console.log('Payment still pending (less than 30 seconds old)')
+    const consumerKey = Deno.env.get("MPESA_CONSUMER_KEY")
+    const consumerSecret = Deno.env.get("MPESA_CONSUMER_SECRET")
+    const shortcode = Deno.env.get("MPESA_SHORTCODE")
+    const passkey = Deno.env.get("MPESA_PASSKEY")
+    
+    if (!consumerKey || !consumerSecret || !shortcode || !passkey) {
+      throw new Error("M-Pesa credentials not configured")
+    }
+
+    // Get M-Pesa access token
+    const auth = btoa(`${consumerKey}:${consumerSecret}`)
+    const tokenResponse = await fetch("https://api.safaricom.co.ke/oauth/v1/generate?grant_type=client_credentials", {
+      method: "GET",
+      headers: {
+        "Authorization": `Basic ${auth}`,
+      },
+    })
+
+    if (!tokenResponse.ok) {
+      throw new Error("Failed to get M-Pesa access token")
+    }
+
+    const tokenData = await tokenResponse.json()
+    const accessToken = tokenData.access_token
+
+    // Generate timestamp and password for query
+    const timestamp = new Date().toISOString().replace(/[-:T.]/g, '').slice(0, 14)
+    const password = btoa(shortcode + passkey + timestamp)
+
+    // Query M-Pesa transaction status
+    const queryPayload = {
+      BusinessShortCode: shortcode,
+      Password: password,
+      Timestamp: timestamp,
+      CheckoutRequestID: checkoutRequestId
+    }
+
+    const queryResponse = await fetch("https://api.safaricom.co.ke/mpesa/stkpushquery/v1/query", {
+      method: "POST",
+      headers: {
+        "Authorization": `Bearer ${accessToken}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(queryPayload),
+    })
+
+    if (!queryResponse.ok) {
+      console.log('M-Pesa query failed, payment likely still pending')
       return new Response(
         JSON.stringify({
           success: true,
@@ -90,19 +134,8 @@ serve(async (req) => {
       )
     }
 
-    console.log('Payment ready for confirmation (testing mode)')
-    const mpesaStatus = {
-      ResponseCode: '0',
-      ResultCode: '0',
-      MpesaReceiptNumber: `TEST${Date.now()}`,
-      CallbackMetadata: {
-        Item: [
-          { Name: 'Amount', Value: existingPayment.amount },
-          { Name: 'PhoneNumber', Value: '254700431426' },
-          { Name: 'MpesaReceiptNumber', Value: `TEST${Date.now()}` }
-        ]
-      }
-    }
+    const mpesaStatus = await queryResponse.json()
+    console.log('M-Pesa query response:', mpesaStatus)
 
     // Handle different M-Pesa response scenarios
     if (mpesaStatus.ResponseCode === '0' && mpesaStatus.ResultCode === '0') {

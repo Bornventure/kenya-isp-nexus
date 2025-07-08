@@ -43,7 +43,7 @@ const getMpesaToken = async (): Promise<string> => {
 
   const auth = btoa(`${consumerKey}:${consumerSecret}`);
   
-  const response = await fetch("https://sandbox.safaricom.co.ke/oauth/v1/generate?grant_type=client_credentials", {
+  const response = await fetch("https://api.safaricom.co.ke/oauth/v1/generate?grant_type=client_credentials", {
     method: "GET",
     headers: {
       "Authorization": `Basic ${auth}`,
@@ -161,7 +161,7 @@ const handler = async (req: Request): Promise<Response> => {
       PartyA: formattedPhone,
       PartyB: shortcode,
       PhoneNumber: formattedPhone,
-      CallBackURL: "https://your-callback-url.com/mpesa/callback", // Replace with actual callback URL
+      CallBackURL: `${Deno.env.get('SUPABASE_URL')}/functions/v1/mpesa-callback`,
       AccountReference: accountReference,
       TransactionDesc: transactionDesc,
     };
@@ -169,7 +169,7 @@ const handler = async (req: Request): Promise<Response> => {
     console.log('Making STK Push request to M-Pesa...');
 
     // Make STK Push request
-    const stkResponse = await fetch("https://sandbox.safaricom.co.ke/mpesa/stkpush/v1/processrequest", {
+    const stkResponse = await fetch("https://api.safaricom.co.ke/mpesa/stkpush/v1/processrequest", {
       method: "POST",
       headers: {
         "Authorization": `Bearer ${accessToken}`,
