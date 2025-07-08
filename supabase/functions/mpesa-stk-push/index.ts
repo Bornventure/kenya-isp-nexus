@@ -76,6 +76,11 @@ const generatePassword = (shortcode: string, passkey: string, timestamp: string)
   return btoa(data);
 };
 
+const generateInvoiceNumber = (): string => {
+  const timestamp = Date.now();
+  return `INV-${timestamp}`;
+};
+
 const handler = async (req: Request): Promise<Response> => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
@@ -117,6 +122,36 @@ const handler = async (req: Request): Promise<Response> => {
       formattedPhone = '254' + formattedPhone;
     }
 
+    // Find client by ID number or email
+    let client_record = null;
+    if (metadata?.client_id) {
+      const { data: clientData } = await supabase
+        .from('clients')
+        .select('*')
+        .eq('id_number', metadata.client_id)
+        .single();
+      
+      if (clientData) {
+        client_record = clientData;
+      }
+    }
+
+    if (!client_record && metadata?.client_email) {
+      const { data: clientData } = await supabase
+        .from('clients')
+        .select('*')
+        .eq('email', metadata.client_email)
+        .single();
+      
+      if (clientData) {
+        client_record = clientData;
+      }
+    }
+
+    if (!client_record) {
+      throw new Error("Client not found for wallet top-up");
+    }
+
     // STK Push request payload
     const stkPushPayload = {
       BusinessShortCode: shortcode,
@@ -153,30 +188,49 @@ const handler = async (req: Request): Promise<Response> => {
 
     // Check if STK Push was successful
     if (stkData.ResponseCode === '0') {
-      console.log('STK Push successful, saving payment record...');
+      console.log('STK Push successful, creating invoice and payment record...');
 
-      // Find client by ID number if provided
-      let client_id = null;
-      if (metadata?.client_id) {
-        const { data: clientData } = await supabase
-          .from('clients')
-          .select('id, isp_company_id')
-          .eq('id_number', metadata.client_id)
-          .single();
-        
-        if (clientData) {
-          client_id = clientData.id;
-        }
+      // Generate invoice number
+      const invoiceNumber = generateInvoiceNumber();
+      const vatAmount = amount * 0.16; // 16% VAT
+      const totalAmount = amount + vatAmount;
+
+      // Create invoice for wallet top-up
+      const { data: invoiceData, error: invoiceError } = await supabase
+        .from('invoices')
+        .insert({
+          invoice_number: invoiceNumber,
+          client_id: client_record.id,
+          amount: amount,
+          vat_amount: vatAmount,
+          total_amount: totalAmount,
+          status: 'pending', // Will be updated to 'paid' when payment is confirmed
+          due_date: new Date().toISOString().split('T')[0], // Today
+          service_period_start: new Date().toISOString().split('T')[0],
+          service_period_end: new Date().toISOString().split('T')[0],
+          notes: `Wallet top-up via M-Pesa - ${transactionDesc}`,
+          isp_company_id: client_record.isp_company_id
+        })
+        .select()
+        .single();
+
+      if (invoiceError) {
+        console.error('Error creating invoice:', invoiceError);
+        throw new Error('Failed to create invoice');
       }
 
-      // Save initial payment record to database
+      console.log('Invoice created:', invoiceData);
+
+      // Create initial payment record
       const { data: paymentData, error: paymentError } = await supabase
         .from('payments')
         .insert({
-          client_id: client_id,
-          amount: amount,
+          client_id: client_record.id,
+          invoice_id: invoiceData.id,
+          amount: totalAmount, // Full amount including VAT
           payment_method: 'mpesa',
-          reference_number: stkData.CheckoutRequestID,
+          payment_date: new Date().toISOString(),
+          reference_number: stkData.CheckoutRequestID, // Use CheckoutRequestID for verification
           mpesa_receipt_number: stkData.MerchantRequestID,
           notes: JSON.stringify({
             checkout_request_id: stkData.CheckoutRequestID,
@@ -185,18 +239,37 @@ const handler = async (req: Request): Promise<Response> => {
             phone_number: formattedPhone,
             transaction_desc: transactionDesc,
             status: 'pending',
-            metadata: metadata
+            payment_type: 'wallet_topup',
+            metadata: metadata,
+            stk_push_response: stkData
           }),
-          isp_company_id: client_id ? undefined : null // Will be set by client lookup or left null
+          isp_company_id: client_record.isp_company_id
         })
         .select()
         .single();
 
       if (paymentError) {
-        console.error('Error saving payment record:', paymentError);
+        console.error('Error creating payment record:', paymentError);
         // Don't fail the request, just log the error
       } else {
-        console.log('Payment record saved:', paymentData);
+        console.log('Payment record created:', paymentData);
+      }
+
+      // Also create wallet transaction record for tracking
+      const { error: walletTransactionError } = await supabase
+        .from('wallet_transactions')
+        .insert({
+          client_id: client_record.id,
+          transaction_type: 'credit',
+          amount: amount, // Original amount without VAT for wallet
+          description: `Pending wallet top-up via M-Pesa - ${transactionDesc}`,
+          reference_number: stkData.CheckoutRequestID,
+          mpesa_receipt_number: stkData.MerchantRequestID,
+          isp_company_id: client_record.isp_company_id
+        });
+
+      if (walletTransactionError) {
+        console.error('Error creating wallet transaction:', walletTransactionError);
       }
     }
 
