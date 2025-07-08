@@ -1,4 +1,3 @@
-
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 
@@ -188,14 +187,14 @@ const handler = async (req: Request): Promise<Response> => {
 
     // Check if STK Push was successful
     if (stkData.ResponseCode === '0') {
-      console.log('STK Push successful, creating invoice and payment record...');
+      console.log('STK Push successful, creating initial records...');
 
       // Generate invoice number
       const invoiceNumber = generateInvoiceNumber();
       const vatAmount = amount * 0.16; // 16% VAT
       const totalAmount = amount + vatAmount;
 
-      // Create invoice for wallet top-up
+      // Create invoice for wallet top-up - PENDING until payment confirmed
       const { data: invoiceData, error: invoiceError } = await supabase
         .from('invoices')
         .insert({
@@ -204,11 +203,11 @@ const handler = async (req: Request): Promise<Response> => {
           amount: amount,
           vat_amount: vatAmount,
           total_amount: totalAmount,
-          status: 'pending', // Will be updated to 'paid' when payment is confirmed
+          status: 'pending', // Keep as pending until payment confirmed
           due_date: new Date().toISOString().split('T')[0], // Today
           service_period_start: new Date().toISOString().split('T')[0],
           service_period_end: new Date().toISOString().split('T')[0],
-          notes: `Wallet top-up via M-Pesa - ${transactionDesc}`,
+          notes: `Wallet top-up via M-Pesa - ${transactionDesc} (PENDING CONFIRMATION)`,
           isp_company_id: client_record.isp_company_id
         })
         .select()
@@ -221,7 +220,7 @@ const handler = async (req: Request): Promise<Response> => {
 
       console.log('Invoice created:', invoiceData);
 
-      // Create initial payment record
+      // Create initial payment record - PENDING until confirmed
       const { data: paymentData, error: paymentError } = await supabase
         .from('payments')
         .insert({
@@ -230,18 +229,19 @@ const handler = async (req: Request): Promise<Response> => {
           amount: totalAmount, // Full amount including VAT
           payment_method: 'mpesa',
           payment_date: new Date().toISOString(),
-          reference_number: stkData.CheckoutRequestID, // Use CheckoutRequestID for verification
-          mpesa_receipt_number: stkData.MerchantRequestID,
+          reference_number: stkData.CheckoutRequestID, // CRITICAL: Use CheckoutRequestID for verification
+          mpesa_receipt_number: null, // Will be set when confirmed
           notes: JSON.stringify({
             checkout_request_id: stkData.CheckoutRequestID,
             merchant_request_id: stkData.MerchantRequestID,
             account_reference: accountReference,
             phone_number: formattedPhone,
             transaction_desc: transactionDesc,
-            status: 'pending',
+            status: 'pending', // CRITICAL: Mark as pending until confirmed
             payment_type: 'wallet_topup',
             metadata: metadata,
-            stk_push_response: stkData
+            stk_push_response: stkData,
+            initiated_at: new Date().toISOString()
           }),
           isp_company_id: client_record.isp_company_id
         })
@@ -252,25 +252,12 @@ const handler = async (req: Request): Promise<Response> => {
         console.error('Error creating payment record:', paymentError);
         // Don't fail the request, just log the error
       } else {
-        console.log('Payment record created:', paymentData);
+        console.log('Payment record created (PENDING):', paymentData);
       }
 
-      // Also create wallet transaction record for tracking
-      const { error: walletTransactionError } = await supabase
-        .from('wallet_transactions')
-        .insert({
-          client_id: client_record.id,
-          transaction_type: 'credit',
-          amount: amount, // Original amount without VAT for wallet
-          description: `Pending wallet top-up via M-Pesa - ${transactionDesc}`,
-          reference_number: stkData.CheckoutRequestID,
-          mpesa_receipt_number: stkData.MerchantRequestID,
-          isp_company_id: client_record.isp_company_id
-        });
-
-      if (walletTransactionError) {
-        console.error('Error creating wallet transaction:', walletTransactionError);
-      }
+      // DO NOT update wallet balance or create wallet transactions yet
+      // These will be done by process-payment function when payment is confirmed
+      console.log('STK Push initiated successfully. Awaiting payment confirmation...');
     }
 
     return new Response(JSON.stringify(stkData), {

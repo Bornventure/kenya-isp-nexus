@@ -19,46 +19,60 @@ export const usePaymentStatus = () => {
     paymentId: string,
     checkoutRequestId: string,
     callbacks: PaymentStatusCallbacks,
-    timeoutMs: number = 120000 // 2 minutes
+    timeoutMs: number = 300000 // 5 minutes timeout
   ) => {
     console.log('Starting payment monitoring for:', { paymentId, checkoutRequestId });
     setIsMonitoring(true);
 
     let attempts = 0;
-    const maxAttempts = 24; // 2 minutes with 5-second intervals
+    const maxAttempts = 60; // 5 minutes with 5-second intervals
 
     const checkStatus = async () => {
       attempts++;
       console.log(`Payment status check attempt ${attempts}/${maxAttempts}`);
 
       try {
-        const { data, error } = await supabase.functions.invoke('mpesa-query-status', {
+        const { data, error } = await supabase.functions.invoke('check-payment-status', {
           body: {
             checkout_request_id: checkoutRequestId,
+            paymentId: paymentId,
+            checkoutRequestId: checkoutRequestId,
           },
         });
 
         if (error) {
           console.error('Payment status check error:', error);
+          // Don't return immediately, continue checking unless it's a fatal error
+          if (attempts >= maxAttempts) {
+            clearMonitoring();
+            setIsMonitoring(false);
+            callbacks.onTimeout();
+          }
           return;
         }
 
         console.log('Payment status response:', data);
 
-        if (data?.ResultCode === '0') {
+        if (data?.status === 'completed' && data?.success) {
           // Payment successful
-          console.log('Payment successful!');
+          console.log('Payment confirmed successful!');
           clearMonitoring();
           setIsMonitoring(false);
           callbacks.onSuccess(data);
           return;
-        } else if (data?.ResultCode && data.ResultCode !== '1032') {
-          // Payment failed (not pending)
-          console.log('Payment failed with code:', data.ResultCode);
+        } else if (data?.status === 'failed') {
+          // Payment failed
+          console.log('Payment failed:', data?.message);
           clearMonitoring();
           setIsMonitoring(false);
           callbacks.onFailure(data);
           return;
+        } else if (data?.status === 'pending') {
+          // Payment still pending, continue monitoring
+          console.log('Payment still pending, continuing to monitor...');
+        } else {
+          // Unknown status
+          console.log('Unknown payment status:', data);
         }
 
         // Continue monitoring if still pending or no definitive result
@@ -78,9 +92,11 @@ export const usePaymentStatus = () => {
       }
     };
 
-    // Start checking immediately, then every 5 seconds
-    checkStatus();
-    intervalRef.current = setInterval(checkStatus, 5000);
+    // Start checking after 3 seconds to allow M-Pesa to process, then every 5 seconds
+    setTimeout(() => {
+      checkStatus();
+      intervalRef.current = setInterval(checkStatus, 5000);
+    }, 3000);
 
     // Set overall timeout
     timeoutRef.current = setTimeout(() => {

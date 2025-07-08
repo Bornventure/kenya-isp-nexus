@@ -159,7 +159,47 @@ serve(async (req) => {
 
     console.log('Found client:', client.name, 'ID:', client.id, 'ISP Company:', client.isp_company_id)
 
-    // Step 2: Update client's wallet balance
+    // Step 2: Update existing payment record to mark as confirmed
+    const { data: existingPayment, error: paymentFetchError } = await supabase
+      .from('payments')
+      .select('*')
+      .eq('reference_number', checkoutRequestId)
+      .single()
+
+    if (paymentFetchError || !existingPayment) {
+      console.error('Payment record not found for checkout request:', checkoutRequestId)
+      return new Response(
+        JSON.stringify({
+          success: false,
+          error: 'Payment record not found',
+          code: 'PAYMENT_NOT_FOUND'
+        }),
+        { 
+          status: 404, 
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
+        }
+      )
+    }
+
+    // Update payment record with confirmation details
+    const { error: paymentUpdateError } = await supabase
+      .from('payments')
+      .update({
+        mpesa_receipt_number: mpesaReceiptNumber,
+        notes: JSON.stringify({
+          ...JSON.parse(existingPayment.notes || '{}'),
+          status: 'confirmed',
+          confirmed_at: new Date().toISOString(),
+          mpesa_receipt: mpesaReceiptNumber
+        })
+      })
+      .eq('id', existingPayment.id)
+
+    if (paymentUpdateError) {
+      console.error('Error updating payment record:', paymentUpdateError)
+    }
+
+    // Step 3: Update client's wallet balance
     const currentBalance = client.wallet_balance || 0
     const newWalletBalance = currentBalance + amount
     
@@ -180,14 +220,14 @@ serve(async (req) => {
 
     console.log('Wallet updated successfully. New balance:', newWalletBalance)
 
-    // Step 3: Record wallet transaction
+    // Step 4: Record wallet transaction
     const { error: transactionError } = await supabase
       .from('wallet_transactions')
       .insert({
         client_id: client.id,
         transaction_type: 'credit',
         amount: amount,
-        description: `Payment received via ${paymentMethod.toUpperCase()}`,
+        description: `Payment received via ${paymentMethod.toUpperCase()} - Confirmed`,
         reference_number: checkoutRequestId,
         mpesa_receipt_number: mpesaReceiptNumber,
         isp_company_id: client.isp_company_id
@@ -199,29 +239,27 @@ serve(async (req) => {
       console.log('Wallet transaction recorded successfully')
     }
 
-    // Step 4: Record payment
-    const { data: paymentRecord, error: paymentError } = await supabase
-      .from('payments')
-      .insert({
-        client_id: client.id,
-        amount: amount,
-        payment_method: paymentMethod,
-        payment_date: new Date().toISOString(),
-        reference_number: checkoutRequestId,
-        mpesa_receipt_number: mpesaReceiptNumber,
-        notes: `Payment processed via ${paymentMethod.toUpperCase()}`,
-        isp_company_id: client.isp_company_id
-      })
-      .select()
+    // Step 5: Update invoice status to paid if it exists
+    const { data: invoice } = await supabase
+      .from('invoices')
+      .select('*')
+      .eq('id', existingPayment.invoice_id)
       .single()
 
-    if (paymentError) {
-      console.error('Error recording payment:', paymentError)
-    } else {
-      console.log('Payment recorded successfully:', paymentRecord?.id)
+    if (invoice) {
+      const { error: invoiceUpdateError } = await supabase
+        .from('invoices')
+        .update({ status: 'paid' })
+        .eq('id', invoice.id)
+
+      if (invoiceUpdateError) {
+        console.error('Error updating invoice status:', invoiceUpdateError)
+      } else {
+        console.log('Invoice marked as paid:', invoice.invoice_number)
+      }
     }
 
-    // Step 5: Check if subscription renewal is needed and possible
+    // Step 6: Check if subscription renewal is needed and possible
     let renewalPerformed = false
     let invoiceGenerated = null
     
@@ -286,7 +324,7 @@ serve(async (req) => {
         const vatAmount = renewalAmount * 0.16
         const totalAmount = renewalAmount + vatAmount
 
-        const { data: invoice, error: invoiceError } = await supabase
+        const { data: renewalInvoice, error: invoiceError } = await supabase
           .from('invoices')
           .insert({
             client_id: client.id,
@@ -304,26 +342,18 @@ serve(async (req) => {
           .select()
           .single()
 
-        if (!invoiceError && invoice) {
-          invoiceGenerated = invoice
-          console.log('Invoice generated:', invoice.invoice_number)
-
-          // Link payment to invoice
-          if (paymentRecord) {
-            await supabase
-              .from('payments')
-              .update({ invoice_id: invoice.id })
-              .eq('id', paymentRecord.id)
-          }
+        if (!invoiceError && renewalInvoice) {
+          invoiceGenerated = renewalInvoice
+          console.log('Renewal invoice generated:', renewalInvoice.invoice_number)
         } else {
-          console.error('Error generating invoice:', invoiceError)
+          console.error('Error generating renewal invoice:', invoiceError)
         }
       } else {
         console.error('Error during renewal:', renewalError)
       }
     }
 
-    // Step 6: Send notifications
+    // Step 7: Send notifications
     try {
       console.log('Sending payment success notification...')
       await supabase.functions.invoke('send-notifications', {
