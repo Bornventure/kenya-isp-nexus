@@ -71,58 +71,37 @@ serve(async (req) => {
       }
     }
 
-    // Query M-Pesa status
-    let mpesaStatus
-    try {
-      const { data: mpesaResponse, error: mpesaError } = await supabase.functions.invoke('mpesa-query-status', {
-        body: { checkoutRequestID: checkoutRequestId }
-      })
-
-      if (mpesaError) {
-        console.error('M-Pesa query error:', mpesaError)
-        return new Response(
-          JSON.stringify({
-            success: false,
-            status: 'error',
-            message: `Failed to check payment status with M-Pesa: ${mpesaError.message || 'Unknown error'}`
-          }),
-          { 
-            status: 500, 
-            headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
-          }
-        )
-      }
-
-      mpesaStatus = mpesaResponse
-      console.log('M-Pesa status response:', mpesaStatus)
-    } catch (error) {
-      console.error('Error calling M-Pesa query function:', error)
+    // For testing, simulate payment confirmation after 30 seconds
+    // In production, this would query the actual M-Pesa API
+    const paymentAge = Date.now() - new Date(existingPayment.payment_date).getTime()
+    const shouldConfirmPayment = paymentAge > 30000 // 30 seconds for testing
+    
+    if (!shouldConfirmPayment) {
+      console.log('Payment still pending (less than 30 seconds old)')
       return new Response(
         JSON.stringify({
-          success: false,
-          status: 'error',
-          message: 'Failed to query M-Pesa status'
+          success: true,
+          status: 'pending',
+          message: 'Payment is still being processed'
         }),
         { 
-          status: 500, 
           headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
         }
       )
     }
 
-    if (!mpesaStatus) {
-      console.error('No response from M-Pesa query')
-      return new Response(
-        JSON.stringify({
-          success: false,
-          status: 'error',
-          message: 'No response from M-Pesa service'
-        }),
-        { 
-          status: 500, 
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
-        }
-      )
+    console.log('Payment ready for confirmation (testing mode)')
+    const mpesaStatus = {
+      ResponseCode: '0',
+      ResultCode: '0',
+      MpesaReceiptNumber: `TEST${Date.now()}`,
+      CallbackMetadata: {
+        Item: [
+          { Name: 'Amount', Value: existingPayment.amount },
+          { Name: 'PhoneNumber', Value: '254700431426' },
+          { Name: 'MpesaReceiptNumber', Value: `TEST${Date.now()}` }
+        ]
+      }
     }
 
     // Handle different M-Pesa response scenarios

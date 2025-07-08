@@ -74,22 +74,47 @@ class AnalyticsService {
         .select('status')
         .eq('isp_company_id', ispCompanyId);
 
-      // Get payment statistics for current month
+      // Get confirmed payment statistics for current month
       const currentMonth = new Date().toISOString().slice(0, 7);
       const { data: paymentStats } = await supabase
         .from('payments')
-        .select('amount')
+        .select('amount, notes')
         .eq('isp_company_id', ispCompanyId)
         .gte('payment_date', `${currentMonth}-01`)
         .lt('payment_date', `${currentMonth}-32`);
+
+      // Get all confirmed payments for total revenue
+      const { data: allPayments } = await supabase
+        .from('payments')
+        .select('amount, notes')
+        .eq('isp_company_id', ispCompanyId);
+
+      // Filter confirmed payments only
+      const confirmedMonthlyPayments = paymentStats?.filter(payment => {
+        try {
+          const notes = JSON.parse(payment.notes || '{}');
+          return notes.status === 'confirmed';
+        } catch {
+          return false;
+        }
+      }) || [];
+
+      const confirmedAllPayments = allPayments?.filter(payment => {
+        try {
+          const notes = JSON.parse(payment.notes || '{}');
+          return notes.status === 'confirmed';
+        } catch {
+          return false;
+        }
+      }) || [];
 
       // Calculate statistics
       const totalClients = clientStats?.length || 0;
       const activeClients = clientStats?.filter(c => c.status === 'active').length || 0;
       const suspendedClients = clientStats?.filter(c => c.status === 'suspended').length || 0;
       
-      const totalRevenue = clientStats?.reduce((sum, client) => sum + (client.monthly_rate || 0), 0) || 0;
-      const monthlyRevenue = paymentStats?.reduce((sum, payment) => sum + payment.amount, 0) || 0;
+      const totalRevenue = confirmedAllPayments.reduce((sum, payment) => sum + payment.amount, 0);
+      const monthlyRevenue = confirmedMonthlyPayments.reduce((sum, payment) => sum + payment.amount, 0);
       
       const openTickets = ticketStats?.filter(t => t.status === 'open').length || 0;
       const inProgressTickets = ticketStats?.filter(t => t.status === 'in_progress').length || 0;
@@ -155,7 +180,7 @@ class AnalyticsService {
 
       const { data: payments } = await supabase
         .from('payments')
-        .select('amount, payment_date')
+        .select('amount, payment_date, notes')
         .eq('isp_company_id', ispCompanyId)
         .gte('payment_date', startDate.toISOString())
         .order('payment_date', { ascending: true });
@@ -166,10 +191,20 @@ class AnalyticsService {
         .eq('isp_company_id', ispCompanyId)
         .gte('created_at', startDate.toISOString());
 
+      // Filter confirmed payments only
+      const confirmedPayments = payments?.filter(payment => {
+        try {
+          const notes = JSON.parse(payment.notes || '{}');
+          return notes.status === 'confirmed';
+        } catch {
+          return false;
+        }
+      }) || [];
+
       // Group data by month
       const revenueByMonth: { [key: string]: { revenue: number; clients: number } } = {};
 
-      payments?.forEach(payment => {
+      confirmedPayments.forEach(payment => {
         const month = new Date(payment.payment_date || '').toISOString().slice(0, 7);
         if (!revenueByMonth[month]) {
           revenueByMonth[month] = { revenue: 0, clients: 0 };
