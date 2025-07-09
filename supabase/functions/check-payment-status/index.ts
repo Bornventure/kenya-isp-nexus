@@ -181,6 +181,17 @@ serve(async (req) => {
         phoneNumber = mpesaStatus.PhoneNumber
       }
 
+      // If no phone number from M-Pesa response, get it from the payment record
+      if (!phoneNumber && existingPayment?.notes) {
+        try {
+          const paymentNotes = JSON.parse(existingPayment.notes);
+          phoneNumber = paymentNotes.phone_number || '';
+          console.log('Using phone number from payment record:', phoneNumber);
+        } catch (e) {
+          console.error('Error parsing payment notes:', e);
+        }
+      }
+
       console.log('Processing payment with details:', {
         amount,
         phoneNumber,
