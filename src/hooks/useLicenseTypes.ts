@@ -1,4 +1,3 @@
-
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
@@ -32,7 +31,11 @@ export const useLicenseTypes = () => {
         throw error;
       }
 
-      return data || [];
+      // Transform the data to ensure features is always an array
+      return (data || []).map(item => ({
+        ...item,
+        features: Array.isArray(item.features) ? item.features : []
+      })) as LicenseType[];
     },
   });
 };
@@ -51,7 +54,11 @@ export const useAllLicenseTypes = () => {
         throw error;
       }
 
-      return data || [];
+      // Transform the data to ensure features is always an array
+      return (data || []).map(item => ({
+        ...item,
+        features: Array.isArray(item.features) ? item.features : []
+      })) as LicenseType[];
     },
   });
 };

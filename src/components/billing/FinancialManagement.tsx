@@ -35,13 +35,13 @@ const FinancialManagement: React.FC = () => {
 
   const isLoading = paymentsLoading || invoicesLoading;
 
-  // Calculate financial metrics
+  // Calculate financial metrics from real data
   const totalRevenue = payments.reduce((sum, payment) => sum + payment.amount, 0);
   const totalInvoiced = invoices.reduce((sum, invoice) => sum + invoice.total_amount, 0);
   const totalPaid = invoices.filter(inv => inv.status === 'paid').reduce((sum, invoice) => sum + invoice.total_amount, 0);
   const totalOutstanding = invoices.filter(inv => inv.status !== 'paid').reduce((sum, invoice) => sum + invoice.total_amount, 0);
 
-  // Monthly revenue data
+  // Monthly revenue data from real payments
   const monthlyRevenue = payments.reduce((acc: any, payment) => {
     const month = new Date(payment.payment_date).toLocaleDateString('en-US', { month: 'short' });
     acc[month] = (acc[month] || 0) + payment.amount;
@@ -53,7 +53,7 @@ const FinancialManagement: React.FC = () => {
     revenue: revenue as number
   }));
 
-  // Payment method distribution
+  // Payment method distribution from real data
   const paymentMethods = payments.reduce((acc: any, payment) => {
     acc[payment.payment_method] = (acc[payment.payment_method] || 0) + 1;
     return acc;
@@ -184,15 +184,21 @@ const FinancialManagement: React.FC = () => {
               <CardTitle>Monthly Revenue</CardTitle>
             </CardHeader>
             <CardContent>
-              <ResponsiveContainer width="100%" height={300}>
-                <BarChart data={revenueData}>
-                  <CartesianGrid strokeDasharray="3 3" />
-                  <XAxis dataKey="month" />
-                  <YAxis />
-                  <Tooltip formatter={(value) => formatKenyanCurrency(value as number)} />
-                  <Bar dataKey="revenue" fill="#3b82f6" />
-                </BarChart>
-              </ResponsiveContainer>
+              {revenueData.length > 0 ? (
+                <ResponsiveContainer width="100%" height={300}>
+                  <BarChart data={revenueData}>
+                    <CartesianGrid strokeDasharray="3 3" />
+                    <XAxis dataKey="month" />
+                    <YAxis />
+                    <Tooltip formatter={(value) => formatKenyanCurrency(value as number)} />
+                    <Bar dataKey="revenue" fill="#3b82f6" />
+                  </BarChart>
+                </ResponsiveContainer>
+              ) : (
+                <div className="flex items-center justify-center h-[300px] text-muted-foreground">
+                  No revenue data available
+                </div>
+              )}
             </CardContent>
           </Card>
         </TabsContent>
@@ -203,24 +209,30 @@ const FinancialManagement: React.FC = () => {
               <CardTitle>Payment Method Distribution</CardTitle>
             </CardHeader>
             <CardContent>
-              <ResponsiveContainer width="100%" height={300}>
-                <PieChart>
-                  <Pie
-                    data={paymentMethodData}
-                    cx="50%"
-                    cy="50%"
-                    outerRadius={80}
-                    fill="#8884d8"
-                    dataKey="value"
-                    label={({ name, value }) => `${name}: ${value}`}
-                  >
-                    {paymentMethodData.map((entry, index) => (
-                      <Cell key={`cell-${index}`} fill={entry.color} />
-                    ))}
-                  </Pie>
-                  <Tooltip />
-                </PieChart>
-              </ResponsiveContainer>
+              {paymentMethodData.length > 0 ? (
+                <ResponsiveContainer width="100%" height={300}>
+                  <PieChart>
+                    <Pie
+                      data={paymentMethodData}
+                      cx="50%"
+                      cy="50%"
+                      outerRadius={80}
+                      fill="#8884d8"
+                      dataKey="value"
+                      label={({ name, value }) => `${name}: ${value}`}
+                    >
+                      {paymentMethodData.map((entry, index) => (
+                        <Cell key={`cell-${index}`} fill={entry.color} />
+                      ))}
+                    </Pie>
+                    <Tooltip />
+                  </PieChart>
+                </ResponsiveContainer>
+              ) : (
+                <div className="flex items-center justify-center h-[300px] text-muted-foreground">
+                  No payment data available
+                </div>
+              )}
             </CardContent>
           </Card>
         </TabsContent>

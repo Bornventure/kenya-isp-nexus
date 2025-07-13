@@ -4,88 +4,46 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import InvoiceActions from './InvoiceActions';
-import { Invoice } from '@/hooks/useInvoices';
-import { Plus, Search } from 'lucide-react';
+import { useInvoices } from '@/hooks/useInvoices';
+import { Plus, Search, RefreshCw } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { useToast } from '@/hooks/use-toast';
+import { formatKenyanCurrency } from '@/utils/kenyanValidation';
 
 const InvoiceList = () => {
+  const { invoices, isLoading, updateInvoice } = useInvoices();
   const { toast } = useToast();
   const [searchTerm, setSearchTerm] = useState('');
 
-  // Mock data for demonstration with all required Invoice properties
-  const [invoices] = useState<Invoice[]>([
-    {
-      id: '1',
-      invoice_number: 'INV-001',
-      client_id: 'client1',
-      amount: 2500,
-      vat_amount: 400,
-      total_amount: 2900,
-      status: 'paid',
-      due_date: new Date('2024-01-15').toISOString(),
-      service_period_start: new Date('2024-01-01').toISOString(),
-      service_period_end: new Date('2024-01-31').toISOString(),
-      notes: null,
-      isp_company_id: 'company1',
-      created_at: new Date('2024-01-01').toISOString(),
-      updated_at: new Date('2024-01-01').toISOString(),
-      clients: {
-        name: 'John Doe',
-        email: 'john@example.com'
-      }
-    },
-    {
-      id: '2',
-      invoice_number: 'INV-002',
-      client_id: 'client2',
-      amount: 1500,
-      vat_amount: 240,
-      total_amount: 1740,
-      status: 'pending',
-      due_date: new Date('2024-02-15').toISOString(),
-      service_period_start: new Date('2024-02-01').toISOString(),
-      service_period_end: new Date('2024-02-28').toISOString(),
-      notes: null,
-      isp_company_id: 'company1',
-      created_at: new Date('2024-02-01').toISOString(),
-      updated_at: new Date('2024-02-01').toISOString(),
-      clients: {
-        name: 'Jane Smith',
-        email: 'jane@example.com'
-      }
-    },
-  ]);
-
-  const handleView = (invoice: Invoice) => {
+  const handleView = (invoice: any) => {
     toast({
       title: "View Invoice",
       description: `Opening invoice ${invoice.invoice_number}`,
     });
   };
 
-  const handleDownload = (invoice: Invoice) => {
+  const handleDownload = (invoice: any) => {
     toast({
       title: "Download Invoice",
       description: `Downloading invoice ${invoice.invoice_number}`,
     });
   };
 
-  const handleSendEmail = (invoice: Invoice) => {
+  const handleSendEmail = (invoice: any) => {
     toast({
       title: "Email Sent",
       description: `Invoice ${invoice.invoice_number} has been emailed to the client`,
     });
   };
 
-  const handleMarkPaid = (invoice: Invoice) => {
-    toast({
-      title: "Invoice Updated",
-      description: `Invoice ${invoice.invoice_number} has been marked as paid`,
+  const handleMarkPaid = (invoice: any) => {
+    updateInvoice({
+      id: invoice.id,
+      updates: { status: 'paid' }
     });
   };
 
-  const handleInitiatePayment = (invoice: Invoice) => {
+  const handleInitiatePayment = (invoice: any) => {
     toast({
       title: "Payment Initiated",
       description: `Payment process started for invoice ${invoice.invoice_number}`,
@@ -93,8 +51,29 @@ const InvoiceList = () => {
   };
 
   const filteredInvoices = invoices.filter(invoice => 
-    invoice.invoice_number.toLowerCase().includes(searchTerm.toLowerCase())
+    invoice.invoice_number.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    invoice.clients?.name?.toLowerCase().includes(searchTerm.toLowerCase())
   );
+
+  const getStatusBadge = (status: string) => {
+    const colors = {
+      paid: 'bg-green-100 text-green-800',
+      pending: 'bg-yellow-100 text-yellow-800',
+      overdue: 'bg-red-100 text-red-800',
+      draft: 'bg-gray-100 text-gray-800'
+    };
+    
+    return colors[status as keyof typeof colors] || 'bg-gray-100 text-gray-800';
+  };
+
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center p-8">
+        <RefreshCw className="h-6 w-6 animate-spin mr-2" />
+        <span>Loading invoices...</span>
+      </div>
+    );
+  }
 
   return (
     <Card>
@@ -132,32 +111,35 @@ const InvoiceList = () => {
             {filteredInvoices.map((invoice) => (
               <TableRow key={invoice.id}>
                 <TableCell className="font-medium">{invoice.invoice_number}</TableCell>
-                <TableCell>{invoice.clients?.name || invoice.client_id}</TableCell>
-                <TableCell>KES {invoice.total_amount.toLocaleString()}</TableCell>
+                <TableCell>{invoice.clients?.name || 'N/A'}</TableCell>
+                <TableCell>{formatKenyanCurrency(invoice.total_amount)}</TableCell>
                 <TableCell>{new Date(invoice.due_date).toLocaleDateString()}</TableCell>
                 <TableCell>
-                  <span className={`px-2 py-1 rounded-full text-xs ${
-                    invoice.status === 'paid' 
-                      ? 'bg-green-100 text-green-800' 
-                      : 'bg-yellow-100 text-yellow-800'
-                  }`}>
+                  <span className={`px-2 py-1 rounded-full text-xs ${getStatusBadge(invoice.status)}`}>
                     {invoice.status}
                   </span>
                 </TableCell>
                 <TableCell>
                   <InvoiceActions
                     invoice={invoice}
-                    onView={() => toast({ title: "View Invoice", description: `Opening invoice ${invoice.invoice_number}` })}
-                    onDownload={() => toast({ title: "Download Invoice", description: `Downloading invoice ${invoice.invoice_number}` })}
-                    onSendEmail={() => toast({ title: "Email Sent", description: `Invoice ${invoice.invoice_number} has been emailed` })}
-                    onMarkPaid={() => toast({ title: "Invoice Updated", description: `Invoice ${invoice.invoice_number} marked as paid` })}
-                    onInitiatePayment={() => toast({ title: "Payment Initiated", description: `Payment process started for ${invoice.invoice_number}` })}
+                    onView={() => handleView(invoice)}
+                    onDownload={() => handleDownload(invoice)}
+                    onSendEmail={() => handleSendEmail(invoice)}
+                    onMarkPaid={() => handleMarkPaid(invoice)}
+                    onInitiatePayment={() => handleInitiatePayment(invoice)}
                   />
                 </TableCell>
               </TableRow>
             ))}
           </TableBody>
         </Table>
+        
+        {filteredInvoices.length === 0 && (
+          <div className="text-center py-8 text-gray-500">
+            <p>No invoices found</p>
+            <p className="text-sm">Create your first invoice to get started</p>
+          </div>
+        )}
       </CardContent>
     </Card>
   );

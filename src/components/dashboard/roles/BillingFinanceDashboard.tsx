@@ -20,11 +20,13 @@ const BillingFinanceDashboard = () => {
   const { payments } = usePayments();
   const { invoices } = useInvoices();
 
+  // Calculate today's payments and revenue
   const todaysPayments = payments.filter(p => 
     new Date(p.payment_date).toDateString() === new Date().toDateString()
   );
   const todaysRevenue = todaysPayments.reduce((sum, p) => sum + p.amount, 0);
 
+  // Calculate invoice statistics
   const pendingInvoices = invoices.filter(inv => inv.status === 'pending');
   const overdueInvoices = invoices.filter(inv => 
     inv.status === 'pending' && new Date(inv.due_date) < new Date()
@@ -118,6 +120,11 @@ const BillingFinanceDashboard = () => {
                 </div>
               </div>
             ))}
+            {payments.length === 0 && (
+              <div className="text-center py-4 text-muted-foreground">
+                No payments recorded yet
+              </div>
+            )}
           </div>
         </CardContent>
       </Card>
@@ -152,6 +159,11 @@ const BillingFinanceDashboard = () => {
                   </div>
                 </div>
               ))}
+              {pendingInvoices.length === 0 && (
+                <div className="text-center py-4 text-muted-foreground">
+                  No pending invoices
+                </div>
+              )}
             </div>
           </CardContent>
         </Card>
@@ -184,6 +196,11 @@ const BillingFinanceDashboard = () => {
                   </div>
                 </div>
               ))}
+              {overdueInvoices.length === 0 && (
+                <div className="text-center py-4 text-muted-foreground">
+                  No overdue invoices
+                </div>
+              )}
             </div>
           </CardContent>
         </Card>
