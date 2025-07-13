@@ -19,7 +19,8 @@ import {
   Box,
   FileText,
   Code,
-  LogOut
+  LogOut,
+  Shield
 } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { cn } from '@/lib/utils';
@@ -67,6 +68,7 @@ const Sidebar = () => {
   };
 
   const adminItems = [
+    { icon: Shield, label: 'License Management', path: '/license-management' },
     { icon: Settings, label: 'Settings', path: '/settings' },
     { icon: Globe, label: 'API Settings', path: '/api-settings' },
   ];

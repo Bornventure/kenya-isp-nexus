@@ -17,6 +17,13 @@ export interface LicenseInfo {
   };
 }
 
+// Default client limits for each license type
+export const DEFAULT_CLIENT_LIMITS = {
+  starter: 50,
+  professional: 200,
+  enterprise: 1000,
+} as const;
+
 export const useLicenseManagement = () => {
   const { profile } = useAuth();
 
@@ -52,7 +59,7 @@ export const useLicenseManagement = () => {
 
       return {
         license_type: company.license_type as 'starter' | 'professional' | 'enterprise',
-        client_limit: company.client_limit || 0,
+        client_limit: company.client_limit || DEFAULT_CLIENT_LIMITS[company.license_type as keyof typeof DEFAULT_CLIENT_LIMITS] || 100,
         current_client_count: clientCount || 0,
         is_active: company.is_active || false,
         subscription_end_date: company.subscription_end_date,

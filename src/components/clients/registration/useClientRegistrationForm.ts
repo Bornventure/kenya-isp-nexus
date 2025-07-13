@@ -3,6 +3,7 @@ import { useServicePackages } from '@/hooks/useServicePackages';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
+import { useLicenseLimitCheck } from './useLicenseLimitCheck';
 import type { Client } from '@/types/client';
 
 interface UseClientRegistrationFormProps {
@@ -14,6 +15,7 @@ export const useClientRegistrationForm = ({ onClose, onSave }: UseClientRegistra
   const { profile } = useAuth();
   const { toast } = useToast();
   const { servicePackages, isLoading: packagesLoading } = useServicePackages();
+  const { checkCanAddClient } = useLicenseLimitCheck();
 
   const [formData, setFormData] = useState({
     // Personal Information
@@ -94,6 +96,11 @@ export const useClientRegistrationForm = ({ onClose, onSave }: UseClientRegistra
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    
+    // Check license limits first
+    if (!checkCanAddClient()) {
+      return;
+    }
     
     if (!validateForm()) return;
 
