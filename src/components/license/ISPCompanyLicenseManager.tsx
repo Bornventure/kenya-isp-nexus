@@ -9,6 +9,7 @@ import { Badge } from '@/components/ui/badge';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
 import { useSuperAdminCompanies } from '@/hooks/useSuperAdminCompanies';
+import { DEFAULT_CLIENT_LIMITS } from '@/hooks/useLicenseManagement';
 import { 
   Building2, 
   Users, 
@@ -29,6 +30,14 @@ const ISPCompanyLicenseManager = () => {
   const handleUpdateLicense = async (companyId: string, updates: any) => {
     setIsUpdating(companyId);
     try {
+      // If license type is being updated, also update the client limit to match the new default
+      if (updates.license_type) {
+        const newLicenseType = updates.license_type as keyof typeof DEFAULT_CLIENT_LIMITS;
+        updates.client_limit = DEFAULT_CLIENT_LIMITS[newLicenseType];
+      }
+
+      console.log('Updating company with:', { companyId, updates });
+
       const { error } = await supabase
         .from('isp_companies')
         .update({
@@ -37,11 +46,16 @@ const ISPCompanyLicenseManager = () => {
         })
         .eq('id', companyId);
 
-      if (error) throw error;
+      if (error) {
+        console.error('Update error:', error);
+        throw error;
+      }
 
       toast({
         title: "License Updated",
-        description: "Company license has been updated successfully.",
+        description: updates.license_type 
+          ? `License type updated to ${updates.license_type} with ${updates.client_limit} client limit`
+          : "Company license has been updated successfully.",
       });
 
       refetch();
@@ -54,6 +68,13 @@ const ISPCompanyLicenseManager = () => {
       });
     } finally {
       setIsUpdating(null);
+    }
+  };
+
+  const handleClientLimitChange = async (companyId: string, newLimit: string) => {
+    const parsedLimit = parseInt(newLimit);
+    if (!isNaN(parsedLimit) && parsedLimit > 0) {
+      await handleUpdateLicense(companyId, { client_limit: parsedLimit });
     }
   };
 
@@ -230,9 +251,9 @@ const ISPCompanyLicenseManager = () => {
                           <SelectValue />
                         </SelectTrigger>
                         <SelectContent>
-                          <SelectItem value="starter">Starter</SelectItem>
-                          <SelectItem value="professional">Professional</SelectItem>
-                          <SelectItem value="enterprise">Enterprise</SelectItem>
+                          <SelectItem value="starter">Starter ({DEFAULT_CLIENT_LIMITS.starter} clients)</SelectItem>
+                          <SelectItem value="professional">Professional ({DEFAULT_CLIENT_LIMITS.professional} clients)</SelectItem>
+                          <SelectItem value="enterprise">Enterprise ({DEFAULT_CLIENT_LIMITS.enterprise} clients)</SelectItem>
                         </SelectContent>
                       </Select>
                     </div>
@@ -241,13 +262,9 @@ const ISPCompanyLicenseManager = () => {
                       <Input
                         type="number"
                         value={company.client_limit}
-                        onChange={(e) => {
-                          const newLimit = parseInt(e.target.value);
-                          if (!isNaN(newLimit) && newLimit > 0) {
-                            handleUpdateLicense(company.id, { client_limit: newLimit });
-                          }
-                        }}
+                        onChange={(e) => handleClientLimitChange(company.id, e.target.value)}
                         disabled={isUpdating === company.id}
+                        min="1"
                       />
                     </div>
                     <div className="flex items-end">
@@ -280,6 +297,14 @@ const ISPCompanyLicenseManager = () => {
           );
         })}
       </div>
+
+      {filteredCompanies.length === 0 && (
+        <Card>
+          <CardContent className="p-6 text-center">
+            <p className="text-gray-500">No companies found matching your criteria.</p>
+          </CardContent>
+        </Card>
+      )}
     </div>
   );
 };
