@@ -21,6 +21,7 @@ export const useRealtimeUpdates = (clientId?: string) => {
   useEffect(() => {
     // Clean up existing channel if it exists
     if (channelRef.current) {
+      console.log('Cleaning up existing realtime channel');
       supabase.removeChannel(channelRef.current);
       channelRef.current = null;
     }
@@ -29,8 +30,11 @@ export const useRealtimeUpdates = (clientId?: string) => {
 
     console.log('Setting up real-time subscriptions for client:', clientId);
 
+    // Create a unique channel name to avoid conflicts
+    const channelName = `client-updates-${clientId}-${Date.now()}`;
+    
     const channel = supabase
-      .channel(`client-updates-${clientId}`)
+      .channel(channelName)
       .on('postgres_changes', {
         event: '*',
         schema: 'public',
@@ -68,12 +72,13 @@ export const useRealtimeUpdates = (clientId?: string) => {
         invalidateQueries();
       });
 
-    // Subscribe and store reference
+    // Store reference before subscribing
+    channelRef.current = channel;
+
+    // Subscribe and handle status
     channel.subscribe((status) => {
       console.log('Client realtime subscription status:', status);
     });
-    
-    channelRef.current = channel;
 
     return () => {
       console.log('Cleaning up real-time subscriptions');

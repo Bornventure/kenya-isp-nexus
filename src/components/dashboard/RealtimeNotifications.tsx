@@ -1,5 +1,5 @@
 
-import React, { useEffect } from 'react';
+import React, { useEffect, useRef } from 'react';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
@@ -7,15 +7,26 @@ import { useAuth } from '@/contexts/AuthContext';
 const RealtimeNotifications: React.FC = () => {
   const { toast } = useToast();
   const { profile } = useAuth();
+  const channelRef = useRef<any>(null);
 
   useEffect(() => {
     if (!profile?.isp_company_id) return;
 
     console.log('Setting up realtime notifications for company:', profile.isp_company_id);
 
+    // Clean up existing channel if it exists
+    if (channelRef.current) {
+      console.log('Cleaning up existing channel');
+      supabase.removeChannel(channelRef.current);
+      channelRef.current = null;
+    }
+
+    // Create a unique channel name to avoid conflicts
+    const channelName = `notifications-${profile.isp_company_id}-${Date.now()}`;
+    
     // Create a single channel for all notifications
     const notificationsChannel = supabase
-      .channel(`notifications-${profile.isp_company_id}`)
+      .channel(channelName)
       .on(
         'postgres_changes',
         {
@@ -114,6 +125,9 @@ const RealtimeNotifications: React.FC = () => {
         }
       );
 
+    // Store reference before subscribing
+    channelRef.current = notificationsChannel;
+
     // Subscribe to the channel
     notificationsChannel.subscribe((status) => {
       console.log('Realtime subscription status:', status);
@@ -121,7 +135,10 @@ const RealtimeNotifications: React.FC = () => {
 
     return () => {
       console.log('Cleaning up realtime notifications');
-      supabase.removeChannel(notificationsChannel);
+      if (channelRef.current) {
+        supabase.removeChannel(channelRef.current);
+        channelRef.current = null;
+      }
     };
   }, [profile?.isp_company_id, toast]);
 

@@ -1,5 +1,5 @@
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { useRealtimeUpdates } from '@/hooks/useRealtimeUpdates';
@@ -26,6 +26,7 @@ export const useClientDashboard = (clientEmail: string) => {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const { toast } = useToast();
+  const channelRef = useRef<any>(null);
 
   const fetchDashboardData = useCallback(async (email: string) => {
     if (!email) return;
@@ -108,12 +109,22 @@ export const useClientDashboard = (clientEmail: string) => {
 
   // Real-time subscription effect
   useEffect(() => {
-    if (!data?.client?.id) return;
+    if (!data?.client?.id || !clientEmail) return;
+
+    // Clean up existing channel
+    if (channelRef.current) {
+      console.log('Cleaning up existing dashboard subscription');
+      supabase.removeChannel(channelRef.current);
+      channelRef.current = null;
+    }
 
     console.log('Setting up realtime subscription for dashboard updates');
     
+    // Create unique channel name
+    const channelName = `dashboard-updates-${data.client.id}-${Date.now()}`;
+    
     const channel = supabase
-      .channel('dashboard-updates')
+      .channel(channelName)
       .on('postgres_changes', {
         event: '*',
         schema: 'public',
@@ -149,12 +160,21 @@ export const useClientDashboard = (clientEmail: string) => {
       }, () => {
         console.log('Client update detected, refreshing dashboard data');
         fetchDashboardData(clientEmail);
-      })
-      .subscribe();
+      });
+
+    // Store reference before subscribing
+    channelRef.current = channel;
+    
+    channel.subscribe((status) => {
+      console.log('Dashboard subscription status:', status);
+    });
 
     return () => {
-      console.log('Cleaning up realtime subscription');
-      supabase.removeChannel(channel);
+      console.log('Cleaning up dashboard realtime subscription');
+      if (channelRef.current) {
+        supabase.removeChannel(channelRef.current);
+        channelRef.current = null;
+      }
     };
   }, [data?.client?.id, clientEmail, fetchDashboardData]);
 
