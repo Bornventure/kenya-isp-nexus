@@ -10,7 +10,7 @@ const corsHeaders = {
 interface STKPushRequest {
   phone: string;
   amount: number;
-  account_reference: string;
+  account_reference?: string;
   transaction_description: string;
   metadata?: {
     client_email?: string;
@@ -131,7 +131,8 @@ const handler = async (req: Request): Promise<Response> => {
     const requestBody: STKPushRequest = await req.json();
     console.log('STK Push request:', requestBody);
 
-    const { phone, amount, account_reference, transaction_description, metadata } = requestBody;
+    const { phone, amount, transaction_description, metadata } = requestBody;
+    let { account_reference } = requestBody;
 
     // Validate required fields
     if (!phone) {
@@ -140,8 +141,17 @@ const handler = async (req: Request): Promise<Response> => {
     if (!amount || amount <= 0) {
       throw new Error('Valid amount is required');
     }
+
+    // Generate account reference if not provided (for wallet top-ups)
     if (!account_reference) {
-      throw new Error('Account reference is required');
+      if (metadata?.client_id) {
+        account_reference = `WALLET-${metadata.client_id}`;
+      } else if (metadata?.client_email) {
+        account_reference = `WALLET-${metadata.client_email.split('@')[0]}`;
+      } else {
+        account_reference = `WALLET-${Date.now()}`;
+      }
+      console.log('Generated account reference:', account_reference);
     }
 
     // Get M-Pesa configuration
