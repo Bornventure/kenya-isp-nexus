@@ -12,6 +12,17 @@ import {
   CheckCircle
 } from 'lucide-react';
 
+interface LicenseDistributionData {
+  count: number;
+  totalClients: number;
+  revenue: number;
+  avgUsage: number;
+}
+
+interface LicenseDistribution {
+  [key: string]: LicenseDistributionData;
+}
+
 const SuperAdminLicenseOverview = () => {
   const { data: licenseData, isLoading } = useSuperAdminLicenseData();
 
@@ -40,6 +51,9 @@ const SuperAdminLicenseOverview = () => {
     companiesNearLimit,
     revenueMetrics
   } = licenseData;
+
+  // Type assertion to properly type the license distribution
+  const typedLicenseDistribution = licenseDistribution as LicenseDistribution;
 
   return (
     <div className="space-y-6">
@@ -129,7 +143,7 @@ const SuperAdminLicenseOverview = () => {
         </CardHeader>
         <CardContent>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            {Object.entries(licenseDistribution).map(([type, data]) => (
+            {Object.entries(typedLicenseDistribution).map(([type, data]) => (
               <div key={type} className="p-4 border rounded-lg">
                 <div className="flex items-center justify-between mb-2">
                   <span className="font-medium capitalize">{type}</span>
