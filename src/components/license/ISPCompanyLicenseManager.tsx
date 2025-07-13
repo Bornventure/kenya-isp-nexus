@@ -81,12 +81,12 @@ const ISPCompanyLicenseManager = () => {
 
       if (companyError) throw companyError;
 
-      // Create user account and send credentials
-      const response = await fetch(`${supabase.supabaseUrl}/functions/v1/create-isp-account`, {
+      // Create user account and send credentials using the correct URL
+      const response = await fetch(`https://ddljuawonxdnesrnclsx.supabase.co/functions/v1/create-isp-account`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${supabase.supabaseKey}`
+          'Authorization': `Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImRkbGp1YXdvbnhkbmVzcm5jbHN4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDkzOTk0NDksImV4cCI6MjA2NDk3NTQ0OX0.HcMHBQ0dD0rHz2s935PncmiJgaG8C1fJw39XdfGlzeg`
         },
         body: JSON.stringify({
           companyData: {
