@@ -1,3 +1,4 @@
+
 import React from 'react';
 import { NavLink, useLocation } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
@@ -92,22 +93,37 @@ const Sidebar = ({ isOpen, onClose, onToggle }: SidebarProps) => {
       `}>
         {/* Header */}
         <div className="flex items-center justify-between h-16 px-4 border-b border-gray-200 dark:border-gray-700 flex-shrink-0">
-          <div className={`font-bold text-xl text-gray-900 dark:text-gray-100 transition-all duration-200 ${!isOpen && 'lg:opacity-0 lg:w-0 lg:overflow-hidden'}`}>
-            ISP Manager
-          </div>
+          {/* Title - only show when expanded */}
+          {isOpen && (
+            <div className="font-bold text-xl text-gray-900 dark:text-gray-100 truncate lg:block">
+              ISP Manager
+            </div>
+          )}
           
-          {/* Desktop toggle button */}
-          <button
-            onClick={onToggle}
-            className="hidden lg:flex p-1 rounded-md text-gray-400 hover:text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
-          >
-            {isOpen ? <ChevronLeft className="h-5 w-5" /> : <ChevronRight className="h-5 w-5" />}
-          </button>
+          {/* Desktop toggle button - only when collapsed */}
+          {!isOpen && (
+            <button
+              onClick={onToggle}
+              className="hidden lg:flex p-1 rounded-md text-gray-400 hover:text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors mx-auto"
+            >
+              <ChevronRight className="h-5 w-5" />
+            </button>
+          )}
+          
+          {/* Desktop collapse button - only when expanded */}
+          {isOpen && (
+            <button
+              onClick={onToggle}
+              className="hidden lg:flex p-1 rounded-md text-gray-400 hover:text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
+            >
+              <ChevronLeft className="h-5 w-5" />
+            </button>
+          )}
           
           {/* Mobile close button */}
           <button
             onClick={onClose}
-            className="lg:hidden p-1 rounded-md text-gray-400 hover:text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-700"
+            className="lg:hidden p-1 rounded-md text-gray-400 hover:text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-700 ml-auto"
           >
             <X className="h-5 w-5" />
           </button>
