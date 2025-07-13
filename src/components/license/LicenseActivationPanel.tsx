@@ -70,6 +70,8 @@ const LicenseActivationPanel = () => {
       const subscriptionEndDate = new Date();
       subscriptionEndDate.setMonth(subscriptionEndDate.getMonth() + formData.subscription_months);
 
+      console.log('Creating company with expiry date:', subscriptionEndDate.toISOString());
+
       const { data, error } = await supabase
         .from('isp_companies')
         .insert({
@@ -90,11 +92,14 @@ const LicenseActivationPanel = () => {
         .select()
         .single();
 
-      if (error) throw error;
+      if (error) {
+        console.error('Company creation error:', error);
+        throw error;
+      }
 
       toast({
-        title: "Company Created",
-        description: `${formData.name} has been successfully registered with license key: ${licenseKey}`,
+        title: "Company Created Successfully",
+        description: `${formData.name} has been registered with license key: ${licenseKey}. License expires on ${subscriptionEndDate.toLocaleDateString()}.`,
       });
 
       // Reset form

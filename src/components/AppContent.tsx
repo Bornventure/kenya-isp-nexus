@@ -26,6 +26,7 @@ import AccessDenied from "./AccessDenied";
 import NotFound from "@/pages/NotFound";
 import NetworkStatus from "@/pages/NetworkStatus";
 import SuperAdminLicenseManagement from "@/pages/SuperAdminLicenseManagement";
+import LicenseGuard from "@/components/license/LicenseGuard";
 
 const AppContent = () => {
   const { user, profile, isLoading } = useAuth();
@@ -48,28 +49,124 @@ const AppContent = () => {
   return (
     <DashboardLayout>
       <Routes>
-        <Route path="/" element={canAccessDashboard ? <Dashboard /> : <Navigate to="/access-denied" />} />
-        <Route path="/clients" element={canAccessDashboard ? <Clients /> : <Navigate to="/access-denied" />} />
-        <Route path="/equipment" element={canAccessDashboard ? <Equipment /> : <Navigate to="/access-denied" />} />
-        <Route path="/billing" element={canAccessDashboard ? <Billing /> : <Navigate to="/access-denied" />} />
-        <Route path="/support" element={canAccessDashboard ? <Support /> : <Navigate to="/access-denied" />} />
-        <Route path="/network" element={canAccessDashboard ? <NetworkManagement /> : <Navigate to="/access-denied" />} />
-        <Route path="/network-map" element={canAccessDashboard ? <NetworkMap /> : <Navigate to="/access-denied" />} />
-        <Route path="/network-status" element={canAccessDashboard ? <NetworkStatus /> : <Navigate to="/access-denied" />} />
-        <Route path="/hotspots" element={canAccessDashboard ? <HotspotManagement /> : <Navigate to="/access-denied" />} />
-        <Route path="/inventory" element={canAccessDashboard ? <Inventory /> : <Navigate to="/access-denied" />} />
-        <Route path="/messages" element={canAccessDashboard ? <Messages /> : <Navigate to="/access-denied" />} />
-        <Route path="/analytics" element={canAccessDashboard ? <Analytics /> : <Navigate to="/access-denied" />} />
-        <Route path="/packages" element={isAdmin ? <PackageManagement /> : <Navigate to="/access-denied" />} />
-        <Route path="/developer-portal" element={isAdmin ? <DeveloperPortal /> : <Navigate to="/access-denied" />} />
-        <Route path="/api-documentation" element={isAdmin ? <ApiDocumentation /> : <Navigate to="/access-denied" />} />
-        <Route path="/license-management" element={isAdmin ? <LicenseManagement /> : <Navigate to="/access-denied" />} />
-        {/* Super Admin only route - hidden from navigation */}
+        <Route path="/" element={canAccessDashboard ? (
+          <LicenseGuard feature="dashboard" allowReadOnly={true}>
+            <Dashboard />
+          </LicenseGuard>
+        ) : <Navigate to="/access-denied" />} />
+        
+        <Route path="/clients" element={canAccessDashboard ? (
+          <LicenseGuard feature="client management">
+            <Clients />
+          </LicenseGuard>
+        ) : <Navigate to="/access-denied" />} />
+        
+        <Route path="/equipment" element={canAccessDashboard ? (
+          <LicenseGuard feature="equipment management">
+            <Equipment />
+          </LicenseGuard>
+        ) : <Navigate to="/access-denied" />} />
+        
+        <Route path="/billing" element={canAccessDashboard ? (
+          <LicenseGuard feature="billing management">
+            <Billing />
+          </LicenseGuard>
+        ) : <Navigate to="/access-denied" />} />
+        
+        <Route path="/support" element={canAccessDashboard ? (
+          <LicenseGuard feature="support system" allowReadOnly={true}>
+            <Support />
+          </LicenseGuard>
+        ) : <Navigate to="/access-denied" />} />
+        
+        <Route path="/network" element={canAccessDashboard ? (
+          <LicenseGuard feature="network management">
+            <NetworkManagement />
+          </LicenseGuard>
+        ) : <Navigate to="/access-denied" />} />
+        
+        <Route path="/network-map" element={canAccessDashboard ? (
+          <LicenseGuard feature="network mapping" allowReadOnly={true}>
+            <NetworkMap />
+          </LicenseGuard>
+        ) : <Navigate to="/access-denied" />} />
+        
+        <Route path="/network-status" element={canAccessDashboard ? (
+          <LicenseGuard feature="network status monitoring" allowReadOnly={true}>
+            <NetworkStatus />
+          </LicenseGuard>
+        ) : <Navigate to="/access-denied" />} />
+        
+        <Route path="/hotspots" element={canAccessDashboard ? (
+          <LicenseGuard feature="hotspot management">
+            <HotspotManagement />
+          </LicenseGuard>
+        ) : <Navigate to="/access-denied" />} />
+        
+        <Route path="/inventory" element={canAccessDashboard ? (
+          <LicenseGuard feature="inventory management">
+            <Inventory />
+          </LicenseGuard>
+        ) : <Navigate to="/access-denied" />} />
+        
+        <Route path="/messages" element={canAccessDashboard ? (
+          <LicenseGuard feature="messaging system" allowReadOnly={true}>
+            <Messages />
+          </LicenseGuard>
+        ) : <Navigate to="/access-denied" />} />
+        
+        <Route path="/analytics" element={canAccessDashboard ? (
+          <LicenseGuard feature="analytics dashboard" allowReadOnly={true}>
+            <Analytics />
+          </LicenseGuard>
+        ) : <Navigate to="/access-denied" />} />
+        
+        <Route path="/packages" element={isAdmin ? (
+          <LicenseGuard feature="package management">
+            <PackageManagement />
+          </LicenseGuard>
+        ) : <Navigate to="/access-denied" />} />
+        
+        <Route path="/developer-portal" element={isAdmin ? (
+          <LicenseGuard feature="developer portal" allowReadOnly={true}>
+            <DeveloperPortal />
+          </LicenseGuard>
+        ) : <Navigate to="/access-denied" />} />
+        
+        <Route path="/api-documentation" element={isAdmin ? (
+          <LicenseGuard feature="API documentation" allowReadOnly={true}>
+            <ApiDocumentation />
+          </LicenseGuard>
+        ) : <Navigate to="/access-denied" />} />
+        
+        <Route path="/license-management" element={isAdmin ? (
+          <LicenseGuard feature="license management" allowReadOnly={true}>
+            <LicenseManagement />
+          </LicenseGuard>
+        ) : <Navigate to="/access-denied" />} />
+        
+        {/* Super Admin only route - NO LICENSE GUARD - always accessible */}
         <Route path="/system-license-admin" element={profile.role === 'super_admin' ? <SuperAdminLicenseManagement /> : <Navigate to="/access-denied" />} />
+        
         <Route path="/profile" element={<Profile />} />
-        <Route path="/settings" element={isAdmin ? <Settings /> : <Navigate to="/access-denied" />} />
-        <Route path="/api-settings" element={isAdmin ? <ApiSettings /> : <Navigate to="/access-denied" />} />
-        <Route path="/invoices" element={canAccessDashboard ? <Invoices /> : <Navigate to="/access-denied" />} />
+        <Route path="/settings" element={isAdmin ? (
+          <LicenseGuard feature="system settings">
+            <Settings />
+          </LicenseGuard>
+        ) : <Navigate to="/access-denied" />} />
+        
+        <Route path="/api-settings" element={isAdmin ? (
+          <LicenseGuard feature="API settings">
+            <ApiSettings />
+          </LicenseGuard>
+        ) : <Navigate to="/access-denied" />} />
+        
+        <Route path="/invoices" element={canAccessDashboard ? (
+          <LicenseGuard feature="invoice management" allowReadOnly={true}>
+            <Invoices />
+          </LicenseGuard>
+        ) : <Navigate to="/access-denied" />} />
+        
         <Route path="/customer-portal" element={<CustomerPortal />} />
         <Route path="/access-denied" element={<AccessDenied />} />
         <Route path="*" element={<NotFound />} />
