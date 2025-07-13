@@ -7,22 +7,6 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 }
 
-interface MpesaCallbackData {
-  TransactionType: string;
-  TransID: string;
-  TransTime: string;
-  TransAmount: string;
-  BusinessShortCode: string;
-  BillRefNumber: string;
-  InvoiceNumber?: string;
-  OrgAccountBalance: string;
-  ThirdPartyTransID?: string;
-  MSISDN: string;
-  FirstName: string;
-  MiddleName?: string;
-  LastName: string;
-}
-
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response('ok', { headers: corsHeaders })
@@ -35,303 +19,293 @@ serve(async (req) => {
     const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
     const supabase = createClient(supabaseUrl, supabaseServiceKey)
 
-    const callbackData: MpesaCallbackData = await req.json()
-    console.log('M-Pesa callback data:', JSON.stringify(callbackData, null, 2))
+    // Get the raw callback data
+    const callbackData = await req.json()
+    console.log('Raw M-Pesa callback data:', JSON.stringify(callbackData, null, 2))
 
-    const {
-      TransID,
-      TransAmount,
-      MSISDN,
-      FirstName,
-      LastName,
-      BillRefNumber,
-      BusinessShortCode,
-    } = callbackData
+    // Handle different callback structures
+    let stkCallbackData = null
+    let resultCode = null
+    let resultDesc = null
+    let callbackMetadata = null
 
-    const amount = parseFloat(TransAmount)
-    const phoneNumber = MSISDN
-    const mpesaReceiptNumber = TransID
-    const accountReference = BillRefNumber
-    const paybillNumber = BusinessShortCode
+    // Check for STK Push callback structure
+    if (callbackData.Body?.stkCallback) {
+      stkCallbackData = callbackData.Body.stkCallback
+      resultCode = stkCallbackData.ResultCode
+      resultDesc = stkCallbackData.ResultDesc
+      callbackMetadata = stkCallbackData.CallbackMetadata
+      console.log('STK Push callback detected:', {
+        resultCode,
+        resultDesc,
+        hasMetadata: !!callbackMetadata
+      })
+    } else if (callbackData.stkCallback) {
+      stkCallbackData = callbackData.stkCallback
+      resultCode = stkCallbackData.ResultCode
+      resultDesc = stkCallbackData.ResultDesc
+      callbackMetadata = stkCallbackData.CallbackMetadata
+    } else {
+      console.log('Unknown callback structure, logging raw data for analysis')
+      return new Response(JSON.stringify({
+        success: false,
+        error: 'Unknown callback structure',
+        rawData: callbackData
+      }), {
+        status: 400,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+      })
+    }
 
-    console.log(`M-Pesa payment received:`, {
-      amount,
-      phoneNumber,
-      accountReference,
-      paybillNumber,
-      mpesaReceiptNumber
+    // Handle failed transactions
+    if (resultCode !== 0) {
+      console.log('Transaction failed:', resultDesc)
+      return new Response(JSON.stringify({
+        success: false,
+        error: 'Transaction failed',
+        resultCode,
+        resultDesc
+      }), {
+        status: 200,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+      })
+    }
+
+    // Extract payment details from successful transaction
+    if (!callbackMetadata || !callbackMetadata.Item) {
+      console.error('No callback metadata found')
+      return new Response(JSON.stringify({
+        success: false,
+        error: 'No transaction metadata found'
+      }), {
+        status: 400,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+      })
+    }
+
+    // Parse metadata items
+    const metadata = {}
+    callbackMetadata.Item.forEach(item => {
+      if (item.Name && item.Value !== undefined) {
+        metadata[item.Name] = item.Value
+      }
     })
 
-    // Step 1: Check if this is a wallet top-up transaction by looking for existing pending payment
-    let client = null
+    const amount = metadata['Amount'] || 0
+    const mpesaReceiptNumber = metadata['MpesaReceiptNumber'] || ''
+    const phoneNumber = metadata['PhoneNumber'] || ''
+    const transactionDate = metadata['TransactionDate'] || ''
+
+    console.log('Extracted payment details:', {
+      amount,
+      mpesaReceiptNumber,
+      phoneNumber,
+      transactionDate
+    })
+
+    if (!amount || !mpesaReceiptNumber || !phoneNumber) {
+      console.error('Missing required payment details')
+      return new Response(JSON.stringify({
+        success: false,
+        error: 'Missing required payment details',
+        metadata
+      }), {
+        status: 400,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+      })
+    }
+
+    // Find the pending payment record by phone number or checkout request ID
+    console.log('Looking for pending payment record...')
     
-    // First, try to find a pending payment record with matching checkout request ID or account reference
-    const { data: pendingPayments } = await supabase
+    // Clean phone number for search
+    let cleanPhone = phoneNumber.toString()
+    if (cleanPhone.startsWith('254')) {
+      cleanPhone = '0' + cleanPhone.substring(3)
+    }
+
+    const { data: pendingPayments, error: searchError } = await supabase
       .from('payments')
       .select(`
         *,
         clients!inner (*)
       `)
-      .or(`reference_number.eq.${mpesaReceiptNumber},reference_number.eq.${accountReference}`)
       .eq('payment_method', 'mpesa')
-      .contains('notes', 'PENDING CONFIRMATION')
+      .ilike('notes', '%PENDING%')
+      .or(`reference_number.ilike.%${cleanPhone}%,clients.phone.eq.${cleanPhone},clients.mpesa_number.eq.${phoneNumber}`)
+
+    if (searchError) {
+      console.error('Error searching for pending payments:', searchError)
+    }
+
+    console.log('Found pending payments:', pendingPayments?.length || 0)
+
+    let client = null
+    let paymentRecord = null
 
     if (pendingPayments && pendingPayments.length > 0) {
-      const payment = pendingPayments[0]
-      client = payment.clients
-      console.log('Found pending payment for client:', client.name)
+      // Find the best matching payment record
+      paymentRecord = pendingPayments.find(p => 
+        Math.abs(parseFloat(p.amount) - parseFloat(amount)) < 0.01
+      ) || pendingPayments[0]
       
-      // Process this as a wallet top-up confirmation
-      const { data: processResult, error: processError } = await supabase.functions.invoke('process-payment', {
-        body: {
-          checkoutRequestId: mpesaReceiptNumber,
-          clientId: client.id,
-          amount: amount,
-          paymentMethod: 'mpesa',
-          mpesaReceiptNumber: mpesaReceiptNumber,
-          phoneNumber: phoneNumber
-        }
-      })
-
-      if (processError) {
-        console.error('Error processing wallet top-up confirmation:', processError)
-        return new Response(
-          JSON.stringify({
-            success: false,
-            error: 'Failed to process wallet top-up confirmation',
-            details: processError
-          }),
-          { 
-            status: 500, 
-            headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
-          }
-        )
-      }
-
-      console.log('Wallet top-up confirmed successfully:', processResult)
-
-      return new Response(
-        JSON.stringify({
-          success: true,
-          message: 'Wallet top-up confirmed successfully',
-          data: {
-            ...processResult,
-            client_name: client.name,
-            payment_type: 'wallet_topup'
-          }
-        }),
-        { 
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
-        }
-      )
-    }
-
-    // Step 2: If no pending payment found, try to find client by various methods for paybill payments
-    
-    // Find the ISP company that owns this paybill number
-    const { data: ispCompany, error: ispError } = await supabase
-      .from('mpesa_settings')
-      .select(`
-        isp_company_id,
-        paybill_number,
-        isp_companies!inner (
-          id,
-          name,
-          is_active
-        )
-      `)
-      .eq('paybill_number', paybillNumber)
-      .eq('is_active', true)
-      .single()
-
-    if (ispError || !ispCompany) {
-      console.error('ISP company not found for paybill:', paybillNumber, ispError)
-      return new Response(
-        JSON.stringify({
-          success: false,
-          error: 'Paybill number not registered',
-          paybill: paybillNumber
-        }),
-        { 
-          status: 404, 
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
-        }
-      )
-    }
-
-    console.log('Found ISP company:', ispCompany.isp_companies.name, 'for paybill:', paybillNumber)
-
-    // Try to find client by phone number (account reference) within this ISP company
-    if (accountReference) {
-      console.log('Searching for client with account reference:', accountReference)
+      client = paymentRecord.clients
+      console.log('Found matching payment record:', paymentRecord.id, 'for client:', client?.name)
+    } else {
+      // Try to find client by phone number directly
+      console.log('No pending payment found, searching for client by phone...')
       
-      // Clean and format phone number variations
-      let cleanAccountRef = accountReference.replace(/[^0-9]/g, '')
-      const phoneVariations = []
-      
-      if (cleanAccountRef.startsWith('254')) {
-        phoneVariations.push(cleanAccountRef) // 254700431426
-        phoneVariations.push(cleanAccountRef.substring(3)) // 700431426
-        phoneVariations.push('+' + cleanAccountRef) // +254700431426
-        phoneVariations.push('0' + cleanAccountRef.substring(3)) // 0700431426
-      } else if (cleanAccountRef.startsWith('0')) {
-        phoneVariations.push(cleanAccountRef) // 0700431426
-        phoneVariations.push(cleanAccountRef.substring(1)) // 700431426
-        phoneVariations.push('254' + cleanAccountRef.substring(1)) // 254700431426
-        phoneVariations.push('+254' + cleanAccountRef.substring(1)) // +254700431426
-      } else if (cleanAccountRef.length === 9) {
-        phoneVariations.push(cleanAccountRef) // 700431426
-        phoneVariations.push('0' + cleanAccountRef) // 0700431426
-        phoneVariations.push('254' + cleanAccountRef) // 254700431426
-        phoneVariations.push('+254' + cleanAccountRef) // +254700431426
-      }
-      
-      console.log('Trying phone variations:', phoneVariations)
-      
-      for (const phoneVar of phoneVariations) {
+      const phoneVariations = [
+        phoneNumber.toString(),
+        cleanPhone,
+        phoneNumber.toString().startsWith('254') ? '0' + phoneNumber.toString().substring(3) : '254' + phoneNumber.toString().substring(1)
+      ]
+
+      for (const phone of phoneVariations) {
         const { data: clients } = await supabase
           .from('clients')
           .select('*')
-          .eq('isp_company_id', ispCompany.isp_company_id)
-          .or(`phone.eq.${phoneVar},mpesa_number.eq.${phoneVar},id_number.eq.${phoneVar}`)
-        
-        if (clients && clients.length > 0) {
-          client = clients[0]
-          console.log('Client found by variation:', phoneVar, 'Client:', client.name)
-          break
-        }
-      }
-    }
+          .or(`phone.eq.${phone},mpesa_number.eq.${phone}`)
+          .limit(1)
 
-    // Fallback: search by the M-Pesa sender phone number within ISP company
-    if (!client && phoneNumber) {
-      console.log('Fallback: searching by sender phone number:', phoneNumber)
-      
-      let cleanPhone = phoneNumber.replace(/[^0-9]/g, '')
-      const senderPhoneVariations = []
-      
-      if (cleanPhone.startsWith('254')) {
-        senderPhoneVariations.push(cleanPhone)
-        senderPhoneVariations.push(cleanPhone.substring(3))
-        senderPhoneVariations.push('+' + cleanPhone)
-        senderPhoneVariations.push('0' + cleanPhone.substring(3))
-      } else if (cleanPhone.startsWith('0')) {
-        senderPhoneVariations.push(cleanPhone)
-        senderPhoneVariations.push(cleanPhone.substring(1))
-        senderPhoneVariations.push('254' + cleanPhone.substring(1))
-        senderPhoneVariations.push('+254' + cleanPhone.substring(1))
-      }
-      
-      for (const phoneVar of senderPhoneVariations) {
-        const { data: clients } = await supabase
-          .from('clients')
-          .select('*')
-          .eq('isp_company_id', ispCompany.isp_company_id)
-          .or(`phone.eq.${phoneVar},mpesa_number.eq.${phoneVar}`)
-        
         if (clients && clients.length > 0) {
           client = clients[0]
-          console.log('Client found by sender phone:', phoneVar, 'Client:', client.name)
+          console.log('Found client by phone:', client.name)
           break
         }
       }
     }
 
     if (!client) {
-      console.error('Client not found for account reference:', accountReference, 'or phone:', phoneNumber, 'in ISP:', ispCompany.isp_companies.name)
-      
-      // Log the payment attempt for manual processing
-      await supabase
-        .from('wallet_transactions')
-        .insert({
-          client_id: null,
-          transaction_type: 'credit_pending',
-          amount: amount,
-          description: `Unmatched payment - Account: ${accountReference}, Phone: ${phoneNumber}, Name: ${FirstName} ${LastName}`,
-          reference_number: mpesaReceiptNumber,
+      console.log('No client found for phone:', phoneNumber)
+      return new Response(JSON.stringify({
+        success: false,
+        error: 'Client not found',
+        phoneNumber,
+        amount
+      }), {
+        status: 404,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+      })
+    }
+
+    // Process the payment confirmation
+    console.log('Processing payment confirmation for client:', client.name)
+
+    if (paymentRecord) {
+      // Update existing payment record
+      const { error: updateError } = await supabase
+        .from('payments')
+        .update({
           mpesa_receipt_number: mpesaReceiptNumber,
-          isp_company_id: ispCompany.isp_company_id
+          notes: `Payment confirmed via M-Pesa - Receipt: ${mpesaReceiptNumber}`,
+          payment_date: new Date().toISOString()
         })
-      
-      return new Response(
-        JSON.stringify({
-          success: false,
-          error: 'Client not found',
-          message: 'Payment logged for manual processing',
-          details: { 
-            accountReference, 
-            phoneNumber, 
-            customerName: `${FirstName} ${LastName}`,
-            ispCompany: ispCompany.isp_companies.name,
-            amount
-          }
-        }),
-        { 
-          status: 404, 
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
-        }
-      )
+        .eq('id', paymentRecord.id)
+
+      if (updateError) {
+        console.error('Error updating payment record:', updateError)
+      } else {
+        console.log('Payment record updated successfully')
+      }
+    } else {
+      // Create new payment record
+      const { data: newPayment, error: paymentError } = await supabase
+        .from('payments')
+        .insert({
+          client_id: client.id,
+          amount: parseFloat(amount),
+          payment_method: 'mpesa',
+          payment_date: new Date().toISOString(),
+          reference_number: phoneNumber.toString(),
+          mpesa_receipt_number: mpesaReceiptNumber,
+          notes: `Wallet top-up via M-Pesa - Receipt: ${mpesaReceiptNumber}`,
+          isp_company_id: client.isp_company_id
+        })
+        .select()
+        .single()
+
+      if (paymentError) {
+        console.error('Error creating payment record:', paymentError)
+      } else {
+        paymentRecord = newPayment
+        console.log('New payment record created:', paymentRecord.id)
+      }
     }
 
-    console.log('Processing payment for client:', client.name, 'in ISP:', ispCompany.isp_companies.name)
+    // Update client's wallet balance
+    const currentBalance = parseFloat(client.wallet_balance || 0)
+    const newBalance = currentBalance + parseFloat(amount)
+    
+    console.log('Updating wallet balance from', currentBalance, 'to', newBalance)
 
-    // Process the payment using the enhanced payment processor
-    const { data: processResult, error: processError } = await supabase.functions.invoke('process-payment', {
-      body: {
-        checkoutRequestId: mpesaReceiptNumber,
-        clientId: client.id,
-        amount: amount,
-        paymentMethod: 'mpesa',
-        mpesaReceiptNumber: mpesaReceiptNumber,
-        phoneNumber: phoneNumber,
-        ispCompanyId: ispCompany.isp_company_id
+    const { error: balanceUpdateError } = await supabase
+      .from('clients')
+      .update({ 
+        wallet_balance: newBalance,
+        balance: newBalance // Also update the balance field for consistency
+      })
+      .eq('id', client.id)
+
+    if (balanceUpdateError) {
+      console.error('Error updating client balance:', balanceUpdateError)
+      return new Response(JSON.stringify({
+        success: false,
+        error: 'Failed to update wallet balance',
+        details: balanceUpdateError
+      }), {
+        status: 500,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+      })
+    }
+
+    console.log('Client balance updated successfully to:', newBalance)
+
+    // Record wallet transaction
+    const { data: walletTransaction, error: walletError } = await supabase
+      .from('wallet_transactions')
+      .insert({
+        client_id: client.id,
+        transaction_type: 'credit',
+        amount: parseFloat(amount),
+        description: `M-Pesa payment received - Receipt: ${mpesaReceiptNumber}`,
+        reference_number: mpesaReceiptNumber,
+        mpesa_receipt_number: mpesaReceiptNumber,
+        isp_company_id: client.isp_company_id
+      })
+      .select()
+      .single()
+
+    if (walletError) {
+      console.error('Error recording wallet transaction:', walletError)
+    } else {
+      console.log('Wallet transaction recorded:', walletTransaction.id)
+    }
+
+    console.log('M-Pesa callback processed successfully')
+
+    return new Response(JSON.stringify({
+      success: true,
+      message: 'Payment processed successfully',
+      data: {
+        client_name: client.name,
+        amount: parseFloat(amount),
+        new_balance: newBalance,
+        mpesa_receipt: mpesaReceiptNumber
       }
+    }), {
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' }
     })
-
-    if (processError) {
-      console.error('Error processing M-Pesa payment:', processError)
-      return new Response(
-        JSON.stringify({
-          success: false,
-          error: 'Failed to process payment',
-          details: processError
-        }),
-        { 
-          status: 500, 
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
-        }
-      )
-    }
-
-    console.log('M-Pesa payment processed successfully:', processResult)
-
-    return new Response(
-      JSON.stringify({
-        success: true,
-        message: 'Payment processed successfully',
-        data: {
-          ...processResult,
-          isp_company: ispCompany.isp_companies.name,
-          client_name: client.name
-        }
-      }),
-      { 
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
-      }
-    )
 
   } catch (error) {
     console.error('M-Pesa callback processing error:', error)
-    return new Response(
-      JSON.stringify({
-        success: false,
-        error: 'Callback processing failed',
-        details: error.message
-      }),
-      { 
-        status: 500, 
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
-      }
-    )
+    return new Response(JSON.stringify({
+      success: false,
+      error: 'Callback processing failed',
+      details: error.message
+    }), {
+      status: 500,
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+    })
   }
 })
