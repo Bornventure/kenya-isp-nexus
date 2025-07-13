@@ -6,6 +6,7 @@ import SuperAdminLicenseOverview from '@/components/license/SuperAdminLicenseOve
 import ISPCompanyLicenseManager from '@/components/license/ISPCompanyLicenseManager';
 import LicenseActivationPanel from '@/components/license/LicenseActivationPanel';
 import CompanyRegistrationManager from '@/components/admin/CompanyRegistrationManager';
+import SuperAdminInvoiceManager from '@/components/admin/SuperAdminInvoiceManager';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 
 const SuperAdminLicenseManagement = () => {
@@ -28,9 +29,10 @@ const SuperAdminLicenseManagement = () => {
       </div>
 
       <Tabs defaultValue="overview" className="space-y-6">
-        <TabsList className="grid w-full grid-cols-4">
+        <TabsList className="grid w-full grid-cols-5">
           <TabsTrigger value="overview">License Overview</TabsTrigger>
           <TabsTrigger value="requests">Registration Requests</TabsTrigger>
+          <TabsTrigger value="invoices">Invoices & Payments</TabsTrigger>
           <TabsTrigger value="companies">Company Management</TabsTrigger>
           <TabsTrigger value="activation">License Activation</TabsTrigger>
         </TabsList>
@@ -41,6 +43,10 @@ const SuperAdminLicenseManagement = () => {
 
         <TabsContent value="requests">
           <CompanyRegistrationManager />
+        </TabsContent>
+
+        <TabsContent value="invoices">
+          <SuperAdminInvoiceManager />
         </TabsContent>
 
         <TabsContent value="companies">

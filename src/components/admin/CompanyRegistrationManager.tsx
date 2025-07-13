@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -9,6 +8,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { useCompanyRegistrationRequests } from '@/hooks/useCompanyRegistrationRequests';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
+import { formatKenyanCurrency } from '@/utils/kenyanValidation';
 import { 
   Building2, 
   Eye, 
@@ -26,11 +26,53 @@ const CompanyRegistrationManager = () => {
   const [selectedRequest, setSelectedRequest] = useState<any>(null);
   const [notes, setNotes] = useState('');
   const [isProcessing, setIsProcessing] = useState(false);
+  const [invoiceAmount, setInvoiceAmount] = useState('');
   const { toast } = useToast();
 
+  const getLicensePrice = (licenseType: string) => {
+    const prices = {
+      starter: 15000,
+      professional: 35000,
+      enterprise: 75000
+    };
+    return prices[licenseType as keyof typeof prices] || 15000;
+  };
+
   const handleApprove = async (requestId: string) => {
+    const amount = parseFloat(invoiceAmount) || getLicensePrice(selectedRequest?.requested_license_type);
+    const vatAmount = amount * 0.16; // 16% VAT
+    const totalAmount = amount + vatAmount;
+
     setIsProcessing(true);
     try {
+      // Generate invoice number
+      const { data: invoiceNumberData, error: invoiceNumberError } = await supabase
+        .rpc('generate_invoice_number');
+
+      if (invoiceNumberError) throw invoiceNumberError;
+
+      // Create invoice
+      const dueDate = new Date();
+      dueDate.setDate(dueDate.getDate() + 30); // 30 days from now
+
+      const { error: invoiceError } = await supabase
+        .from('super_admin_invoices')
+        .insert({
+          invoice_number: invoiceNumberData,
+          registration_request_id: requestId,
+          company_name: selectedRequest.company_name,
+          contact_email: selectedRequest.email,
+          amount: amount,
+          vat_amount: vatAmount,
+          total_amount: totalAmount,
+          due_date: dueDate.toISOString().split('T')[0],
+          notes: notes,
+          created_by: (await supabase.auth.getUser()).data.user?.id
+        });
+
+      if (invoiceError) throw invoiceError;
+
+      // Update request status to approved
       const { error } = await supabase
         .from('company_registration_requests')
         .update({
@@ -45,17 +87,18 @@ const CompanyRegistrationManager = () => {
 
       toast({
         title: "Request Approved",
-        description: "Company registration request has been approved. You can now create the company from the Company Management tab.",
+        description: `Invoice ${invoiceNumberData} generated for ${formatKenyanCurrency(totalAmount)}. Company can be created after payment.`,
       });
 
       setSelectedRequest(null);
       setNotes('');
+      setInvoiceAmount('');
       refetch();
     } catch (error: any) {
       console.error('Error approving request:', error);
       toast({
         title: "Error",
-        description: "Failed to approve request",
+        description: "Failed to approve request and generate invoice",
         variant: "destructive"
       });
     } finally {
@@ -212,6 +255,7 @@ const CompanyRegistrationManager = () => {
                           onClick={() => {
                             setSelectedRequest(request);
                             setNotes(request.notes || '');
+                            setInvoiceAmount(getLicensePrice(request.requested_license_type).toString());
                           }}
                         >
                           <Eye className="h-4 w-4" />
@@ -270,7 +314,12 @@ const CompanyRegistrationManager = () => {
                           
                           <div>
                             <label className="text-sm font-medium">Requested License Type</label>
-                            <Badge className="ml-2">{request.requested_license_type}</Badge>
+                            <div className="flex items-center gap-2">
+                              <Badge className="ml-2">{request.requested_license_type}</Badge>
+                              <span className="text-sm text-gray-500">
+                                (Default: {formatKenyanCurrency(getLicensePrice(request.requested_license_type))})
+                              </span>
+                            </div>
                           </div>
                           
                           {request.business_description && (
@@ -280,35 +329,50 @@ const CompanyRegistrationManager = () => {
                             </div>
                           )}
                           
-                          <div>
-                            <label className="text-sm font-medium">Notes</label>
-                            <Textarea
-                              value={notes}
-                              onChange={(e) => setNotes(e.target.value)}
-                              placeholder="Add processing notes..."
-                              rows={3}
-                            />
-                          </div>
-                          
                           {request.status === 'pending' && (
-                            <div className="flex gap-3">
-                              <Button
-                                variant="outline"
-                                onClick={() => handleReject(request.id)}
-                                disabled={isProcessing}
-                                className="flex-1"
-                              >
-                                <XCircle className="h-4 w-4 mr-2" />
-                                Reject
-                              </Button>
-                              <Button
-                                onClick={() => handleApprove(request.id)}
-                                disabled={isProcessing}
-                                className="flex-1"
-                              >
-                                <CheckCircle className="h-4 w-4 mr-2" />
-                                Approve
-                              </Button>
+                            <div className="space-y-4">
+                              <div>
+                                <label className="text-sm font-medium">Invoice Amount (KES)</label>
+                                <Input
+                                  type="number"
+                                  value={invoiceAmount}
+                                  onChange={(e) => setInvoiceAmount(e.target.value)}
+                                  placeholder="Enter invoice amount"
+                                />
+                                <p className="text-xs text-gray-500 mt-1">
+                                  Total with VAT: {formatKenyanCurrency((parseFloat(invoiceAmount) || 0) * 1.16)}
+                                </p>
+                              </div>
+                              
+                              <div>
+                                <label className="text-sm font-medium">Processing Notes</label>
+                                <Textarea
+                                  value={notes}
+                                  onChange={(e) => setNotes(e.target.value)}
+                                  placeholder="Add processing notes..."
+                                  rows={3}
+                                />
+                              </div>
+                              
+                              <div className="flex gap-3">
+                                <Button
+                                  variant="outline"
+                                  onClick={() => handleReject(request.id)}
+                                  disabled={isProcessing}
+                                  className="flex-1"
+                                >
+                                  <XCircle className="h-4 w-4 mr-2" />
+                                  Reject
+                                </Button>
+                                <Button
+                                  onClick={() => handleApprove(request.id)}
+                                  disabled={isProcessing || !invoiceAmount}
+                                  className="flex-1"
+                                >
+                                  <CheckCircle className="h-4 w-4 mr-2" />
+                                  Approve & Generate Invoice
+                                </Button>
+                              </div>
                             </div>
                           )}
                         </div>
