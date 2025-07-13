@@ -21,8 +21,11 @@ import {
   BookOpen,
   Code,
   Receipt,
-  X
+  X,
+  ChevronRight,
+  ChevronLeft
 } from 'lucide-react';
+import { ScrollArea } from '@/components/ui/scroll-area';
 
 interface SidebarProps {
   isOpen: boolean;
@@ -30,7 +33,7 @@ interface SidebarProps {
   onToggle: () => void;
 }
 
-const Sidebar = ({ isOpen, onClose }: SidebarProps) => {
+const Sidebar = ({ isOpen, onClose, onToggle }: SidebarProps) => {
   const { profile } = useAuth();
   const location = useLocation();
 
@@ -84,14 +87,25 @@ const Sidebar = ({ isOpen, onClose }: SidebarProps) => {
       {/* Sidebar */}
       <div className={`
         fixed top-0 left-0 z-50 h-full bg-white dark:bg-gray-800 shadow-lg transform transition-all duration-300 ease-in-out
-        ${isOpen ? 'translate-x-0 w-64' : '-translate-x-full lg:translate-x-0 lg:w-16'}
-        border-r border-gray-200 dark:border-gray-700
+        ${isOpen ? 'w-64' : 'w-16 lg:w-16'}
+        ${isOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'}
+        border-r border-gray-200 dark:border-gray-700 flex flex-col
       `}>
         {/* Header */}
-        <div className="flex items-center justify-between h-16 px-4 border-b border-gray-200 dark:border-gray-700">
-          <div className={`font-bold text-xl text-gray-900 dark:text-gray-100 transition-opacity duration-200 ${!isOpen && 'lg:opacity-0'}`}>
+        <div className="flex items-center justify-between h-16 px-4 border-b border-gray-200 dark:border-gray-700 flex-shrink-0">
+          <div className={`font-bold text-xl text-gray-900 dark:text-gray-100 transition-opacity duration-200 ${!isOpen && 'lg:opacity-0 lg:hidden'}`}>
             ISP Manager
           </div>
+          
+          {/* Desktop toggle button */}
+          <button
+            onClick={onToggle}
+            className="hidden lg:flex p-1 rounded-md text-gray-400 hover:text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
+          >
+            {isOpen ? <ChevronLeft className="h-5 w-5" /> : <ChevronRight className="h-5 w-5" />}
+          </button>
+          
+          {/* Mobile close button */}
           <button
             onClick={onClose}
             className="lg:hidden p-1 rounded-md text-gray-400 hover:text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-700"
@@ -100,45 +114,48 @@ const Sidebar = ({ isOpen, onClose }: SidebarProps) => {
           </button>
         </div>
         
-        {/* Navigation */}
-        <nav className="mt-8 px-2 flex-1 overflow-y-auto">
-          <div className="space-y-1">
-            {navigation.filter(item => item.show).map((item) => {
-              const isActive = location.pathname === item.href;
-              return (
-                <NavLink
-                  key={item.name}
-                  to={item.href}
-                  onClick={() => {
-                    // Close sidebar on mobile when navigating
-                    if (window.innerWidth < 1024) {
-                      onClose();
-                    }
-                  }}
-                  className={`
-                    group flex items-center px-2 py-2 text-sm font-medium rounded-md transition-all duration-200
-                    ${isActive 
-                      ? 'bg-blue-100 text-blue-900 dark:bg-blue-900 dark:text-blue-100' 
-                      : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900 dark:text-gray-300 dark:hover:bg-gray-700 dark:hover:text-gray-100'
-                    }
-                    ${!isOpen && 'lg:justify-center'}
-                  `}
-                >
-                  <item.icon className={`
-                    flex-shrink-0 h-5 w-5 transition-colors duration-200
-                    ${isActive ? 'text-blue-500' : 'text-gray-400 group-hover:text-gray-500'}
-                  `} />
-                  <span className={`ml-3 transition-opacity duration-200 ${!isOpen && 'lg:opacity-0 lg:w-0'}`}>
-                    {item.name}
-                  </span>
-                </NavLink>
-              );
-            })}
-          </div>
-        </nav>
+        {/* Navigation with ScrollArea */}
+        <ScrollArea className="flex-1 px-2">
+          <nav className="py-4">
+            <div className="space-y-1">
+              {navigation.filter(item => item.show).map((item) => {
+                const isActive = location.pathname === item.href;
+                return (
+                  <NavLink
+                    key={item.name}
+                    to={item.href}
+                    onClick={() => {
+                      // Close sidebar on mobile when navigating
+                      if (window.innerWidth < 1024) {
+                        onClose();
+                      }
+                    }}
+                    className={`
+                      group flex items-center px-2 py-2 text-sm font-medium rounded-md transition-all duration-200
+                      ${isActive 
+                        ? 'bg-blue-100 text-blue-900 dark:bg-blue-900 dark:text-blue-100' 
+                        : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900 dark:text-gray-300 dark:hover:bg-gray-700 dark:hover:text-gray-100'
+                      }
+                      ${!isOpen && 'lg:justify-center lg:px-3'}
+                    `}
+                    title={!isOpen ? item.name : undefined}
+                  >
+                    <item.icon className={`
+                      flex-shrink-0 h-5 w-5 transition-colors duration-200
+                      ${isActive ? 'text-blue-500' : 'text-gray-400 group-hover:text-gray-500'}
+                    `} />
+                    <span className={`ml-3 transition-all duration-200 ${!isOpen && 'lg:opacity-0 lg:w-0 lg:ml-0 lg:hidden'}`}>
+                      {item.name}
+                    </span>
+                  </NavLink>
+                );
+              })}
+            </div>
+          </nav>
+        </ScrollArea>
         
         {/* Profile section */}
-        <div className="absolute bottom-0 w-full p-4 border-t border-gray-200 dark:border-gray-700">
+        <div className="border-t border-gray-200 dark:border-gray-700 p-4 flex-shrink-0">
           <NavLink
             to="/profile"
             onClick={() => {
@@ -153,14 +170,15 @@ const Sidebar = ({ isOpen, onClose }: SidebarProps) => {
                 ? 'bg-blue-100 text-blue-900 dark:bg-blue-900 dark:text-blue-100'
                 : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900 dark:text-gray-300 dark:hover:bg-gray-700 dark:hover:text-gray-100'
               }
-              ${!isOpen && 'lg:justify-center'}
+              ${!isOpen && 'lg:justify-center lg:px-3'}
             `}
+            title={!isOpen ? 'Profile' : undefined}
           >
             <User className={`
               flex-shrink-0 h-5 w-5 transition-colors duration-200
               ${location.pathname === '/profile' ? 'text-blue-500' : 'text-gray-400 group-hover:text-gray-500'}
             `} />
-            <span className={`ml-3 transition-opacity duration-200 ${!isOpen && 'lg:opacity-0 lg:w-0'}`}>
+            <span className={`ml-3 transition-all duration-200 ${!isOpen && 'lg:opacity-0 lg:w-0 lg:ml-0 lg:hidden'}`}>
               Profile
             </span>
           </NavLink>
