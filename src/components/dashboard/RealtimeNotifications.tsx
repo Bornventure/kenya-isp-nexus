@@ -3,7 +3,6 @@ import React, { useEffect } from 'react';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
-import { Bell, CheckCircle, AlertCircle, DollarSign } from 'lucide-react';
 
 const RealtimeNotifications: React.FC = () => {
   const { toast } = useToast();
@@ -12,9 +11,11 @@ const RealtimeNotifications: React.FC = () => {
   useEffect(() => {
     if (!profile?.isp_company_id) return;
 
-    // Listen for payment notifications
-    const paymentsChannel = supabase
-      .channel('payments-notifications')
+    console.log('Setting up realtime notifications for company:', profile.isp_company_id);
+
+    // Create a single channel for all notifications
+    const notificationsChannel = supabase
+      .channel(`notifications-${profile.isp_company_id}`)
       .on(
         'postgres_changes',
         {
@@ -26,25 +27,24 @@ const RealtimeNotifications: React.FC = () => {
         async (payload) => {
           console.log('New payment received:', payload);
           
-          // Get client details for the notification
-          const { data: client } = await supabase
-            .from('clients')
-            .select('name')
-            .eq('id', payload.new.client_id)
-            .single();
+          try {
+            // Get client details for the notification
+            const { data: client } = await supabase
+              .from('clients')
+              .select('name')
+              .eq('id', payload.new.client_id)
+              .single();
 
-          toast({
-            title: "💰 Payment Received!",
-            description: `KES ${payload.new.amount} received from ${client?.name || 'Client'}`,
-            duration: 5000,
-          });
+            toast({
+              title: "💰 Payment Received!",
+              description: `KES ${payload.new.amount} received from ${client?.name || 'Client'}`,
+              duration: 5000,
+            });
+          } catch (error) {
+            console.error('Error fetching client for payment notification:', error);
+          }
         }
       )
-      .subscribe();
-
-    // Listen for new client registrations
-    const clientsChannel = supabase
-      .channel('clients-notifications')
       .on(
         'postgres_changes',
         {
@@ -63,11 +63,6 @@ const RealtimeNotifications: React.FC = () => {
           });
         }
       )
-      .subscribe();
-
-    // Listen for subscription renewals (client status changes to active)
-    const renewalsChannel = supabase
-      .channel('renewals-notifications')
       .on(
         'postgres_changes',
         {
@@ -89,11 +84,6 @@ const RealtimeNotifications: React.FC = () => {
           }
         }
       )
-      .subscribe();
-
-    // Listen for new invoices
-    const invoicesChannel = supabase
-      .channel('invoices-notifications')
       .on(
         'postgres_changes',
         {
@@ -105,27 +95,33 @@ const RealtimeNotifications: React.FC = () => {
         async (payload) => {
           console.log('New invoice generated:', payload);
           
-          // Get client details
-          const { data: client } = await supabase
-            .from('clients')
-            .select('name')
-            .eq('id', payload.new.client_id)
-            .single();
+          try {
+            // Get client details
+            const { data: client } = await supabase
+              .from('clients')
+              .select('name')
+              .eq('id', payload.new.client_id)
+              .single();
 
-          toast({
-            title: "📄 Invoice Generated!",
-            description: `Invoice ${payload.new.invoice_number} for ${client?.name || 'Client'} (KES ${payload.new.total_amount})`,
-            duration: 5000,
-          });
+            toast({
+              title: "📄 Invoice Generated!",
+              description: `Invoice ${payload.new.invoice_number} for ${client?.name || 'Client'} (KES ${payload.new.total_amount})`,
+              duration: 5000,
+            });
+          } catch (error) {
+            console.error('Error fetching client for invoice notification:', error);
+          }
         }
-      )
-      .subscribe();
+      );
+
+    // Subscribe to the channel
+    notificationsChannel.subscribe((status) => {
+      console.log('Realtime subscription status:', status);
+    });
 
     return () => {
-      supabase.removeChannel(paymentsChannel);
-      supabase.removeChannel(clientsChannel);
-      supabase.removeChannel(renewalsChannel);
-      supabase.removeChannel(invoicesChannel);
+      console.log('Cleaning up realtime notifications');
+      supabase.removeChannel(notificationsChannel);
     };
   }, [profile?.isp_company_id, toast]);
 

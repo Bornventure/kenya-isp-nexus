@@ -1,10 +1,11 @@
 
-import { useEffect, useCallback } from 'react';
+import { useEffect, useCallback, useRef } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useQueryClient } from '@tanstack/react-query';
 
 export const useRealtimeUpdates = (clientId?: string) => {
   const queryClient = useQueryClient();
+  const channelRef = useRef<any>(null);
 
   const invalidateQueries = useCallback(() => {
     queryClient.invalidateQueries({ queryKey: ['payments'] });
@@ -18,12 +19,18 @@ export const useRealtimeUpdates = (clientId?: string) => {
   }, [queryClient, clientId]);
 
   useEffect(() => {
+    // Clean up existing channel if it exists
+    if (channelRef.current) {
+      supabase.removeChannel(channelRef.current);
+      channelRef.current = null;
+    }
+
     if (!clientId) return;
 
     console.log('Setting up real-time subscriptions for client:', clientId);
 
     const channel = supabase
-      .channel('payment-updates')
+      .channel(`client-updates-${clientId}`)
       .on('postgres_changes', {
         event: '*',
         schema: 'public',
@@ -59,12 +66,21 @@ export const useRealtimeUpdates = (clientId?: string) => {
       }, (payload) => {
         console.log('Client update detected:', payload);
         invalidateQueries();
-      })
-      .subscribe();
+      });
+
+    // Subscribe and store reference
+    channel.subscribe((status) => {
+      console.log('Client realtime subscription status:', status);
+    });
+    
+    channelRef.current = channel;
 
     return () => {
       console.log('Cleaning up real-time subscriptions');
-      supabase.removeChannel(channel);
+      if (channelRef.current) {
+        supabase.removeChannel(channelRef.current);
+        channelRef.current = null;
+      }
     };
   }, [clientId, invalidateQueries]);
 
