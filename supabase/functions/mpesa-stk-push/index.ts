@@ -89,8 +89,18 @@ serve(async (req) => {
     const tokenData = await tokenResponse.json()
     console.log('Access token obtained successfully')
 
-    // Generate timestamp and password
-    const timestamp = new Date().toISOString().replace(/[-:]/g, '').replace(/\.\d{3}Z/, '')
+    // Generate timestamp in the correct format: YYYYMMDDHHMMSS
+    const now = new Date()
+    const year = now.getFullYear()
+    const month = String(now.getMonth() + 1).padStart(2, '0')
+    const day = String(now.getDate()).padStart(2, '0')
+    const hours = String(now.getHours()).padStart(2, '0')
+    const minutes = String(now.getMinutes()).padStart(2, '0')
+    const seconds = String(now.getSeconds()).padStart(2, '0')
+    
+    const timestamp = `${year}${month}${day}${hours}${minutes}${seconds}`
+    console.log('Generated timestamp:', timestamp)
+    
     const password = btoa(`${shortcode}${passkey}${timestamp}`)
 
     // Format phone number for M-Pesa (254XXXXXXXXX)
@@ -109,6 +119,7 @@ serve(async (req) => {
 
     console.log('Original description:', transaction_description)
     console.log('Sanitized description:', sanitizedDescription)
+    console.log('Timestamp format:', timestamp)
 
     const stkPushPayload = {
       BusinessShortCode: shortcode,
