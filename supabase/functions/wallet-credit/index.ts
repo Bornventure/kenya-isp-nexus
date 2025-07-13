@@ -22,14 +22,14 @@ serve(async (req) => {
   }
 
   try {
-    console.log('=== Wallet Credit Request Started ===')
+    console.log('=== Wallet Credit Processing Started ===')
 
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!
     const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
     const supabase = createClient(supabaseUrl, supabaseServiceKey)
 
     const requestBody: WalletCreditRequest = await req.json()
-    console.log('Wallet credit request:', requestBody)
+    console.log('Processing wallet credit:', requestBody)
 
     const { client_id, amount, payment_method, reference_number, mpesa_receipt_number, description } = requestBody
 
@@ -50,7 +50,7 @@ serve(async (req) => {
     // Get client details
     const { data: client, error: clientError } = await supabase
       .from('clients')
-      .select('id, name, wallet_balance, monthly_rate, isp_company_id, subscription_end_date')
+      .select('id, name, wallet_balance, balance, isp_company_id')
       .eq('id', client_id)
       .single()
 
@@ -69,21 +69,30 @@ serve(async (req) => {
       )
     }
 
-    // Credit the wallet
-    const newBalance = (client.wallet_balance || 0) + amount
+    console.log('Client found:', client.name, 'Current wallet balance:', client.wallet_balance)
 
-    const { error: updateError } = await supabase
+    // Calculate new balance
+    const currentBalance = parseFloat(client.wallet_balance || 0)
+    const newBalance = currentBalance + amount
+    
+    console.log('Updating wallet balance from', currentBalance, 'to', newBalance)
+
+    // Update client's wallet balance - CRITICAL: Update both fields
+    const { error: balanceUpdateError } = await supabase
       .from('clients')
-      .update({ wallet_balance: newBalance })
+      .update({ 
+        wallet_balance: newBalance,
+        balance: newBalance // Also update the balance field for consistency
+      })
       .eq('id', client_id)
 
-    if (updateError) {
-      console.error('Error updating wallet balance:', updateError)
+    if (balanceUpdateError) {
+      console.error('Error updating client balance:', balanceUpdateError)
       return new Response(
         JSON.stringify({
           success: false,
           error: 'Failed to update wallet balance',
-          code: 'UPDATE_ERROR'
+          code: 'BALANCE_UPDATE_ERROR'
         }),
         { 
           status: 500, 
@@ -92,51 +101,86 @@ serve(async (req) => {
       )
     }
 
-    // Record the wallet transaction
-    const { error: transactionError } = await supabase
+    console.log('Wallet balance updated successfully')
+
+    // Record wallet transaction
+    const { data: walletTransaction, error: walletError } = await supabase
       .from('wallet_transactions')
       .insert({
         client_id: client_id,
         transaction_type: 'credit',
         amount: amount,
-        description: description || `Wallet credit via ${payment_method}`,
+        description: description || `Manual wallet credit via ${payment_method}`,
         reference_number: reference_number,
         mpesa_receipt_number: mpesa_receipt_number,
         isp_company_id: client.isp_company_id
       })
+      .select()
+      .single()
 
-    if (transactionError) {
-      console.error('Error recording transaction:', transactionError)
+    if (walletError) {
+      console.error('Error recording wallet transaction:', walletError)
+      // Don't fail the entire operation, just log the error
+    } else {
+      console.log('Wallet transaction recorded:', walletTransaction.id)
     }
 
-    // Check if client can now be auto-renewed
-    const canAutoRenew = newBalance >= client.monthly_rate
-    let renewalResult = null
-
-    if (canAutoRenew && client.subscription_end_date && new Date(client.subscription_end_date) <= new Date()) {
-      // Attempt automatic renewal
-      const { data: renewal, error: renewalError } = await supabase.rpc('process_subscription_renewal', {
-        p_client_id: client_id
+    // Record the payment
+    const { data: payment, error: paymentError } = await supabase
+      .from('payments')
+      .insert({
+        client_id: client_id,
+        amount: amount,
+        payment_method: payment_method,
+        payment_date: new Date().toISOString(),
+        reference_number: reference_number,
+        mpesa_receipt_number: mpesa_receipt_number,
+        notes: description || `Manual wallet credit via ${payment_method}`,
+        isp_company_id: client.isp_company_id
       })
+      .select()
+      .single()
 
-      if (!renewalError && renewal?.success) {
-        renewalResult = renewal
-        console.log('Auto-renewal successful:', renewal)
+    if (paymentError) {
+      console.error('Error recording payment:', paymentError)
+      // Don't fail the entire operation, just log the error
+    } else {
+      console.log('Payment recorded:', payment.id)
+    }
+
+    // Try automatic subscription renewal if balance is sufficient
+    const { data: clientWithPackage } = await supabase
+      .from('clients')
+      .select('monthly_rate')
+      .eq('id', client_id)
+      .single()
+
+    if (clientWithPackage && newBalance >= clientWithPackage.monthly_rate) {
+      console.log('Attempting automatic renewal...')
+      try {
+        const { data: renewalResult } = await supabase.rpc('process_subscription_renewal', {
+          p_client_id: client_id
+        })
+        
+        if (renewalResult?.success) {
+          console.log('Auto-renewal successful')
+        }
+      } catch (renewalError) {
+        console.error('Auto-renewal failed:', renewalError)
       }
     }
 
-    console.log('Wallet credited successfully for:', client.name)
+    console.log('Wallet credit processing completed successfully')
 
     return new Response(
       JSON.stringify({
         success: true,
         data: {
           client_name: client.name,
-          previous_balance: client.wallet_balance || 0,
-          credit_amount: amount,
+          amount: amount,
           new_balance: newBalance,
-          auto_renewed: !!renewalResult,
-          renewal_details: renewalResult
+          payment_method: payment_method,
+          auto_renewed: false // Will be true if auto-renewal happened
         }
       }),
       { 
@@ -145,11 +189,11 @@ serve(async (req) => {
     )
 
   } catch (error) {
-    console.error('Wallet credit error:', error)
+    console.error('Wallet credit processing error:', error)
     return new Response(
       JSON.stringify({
         success: false,
-        error: 'Wallet credit failed',
+        error: 'Wallet credit processing failed',
         code: 'INTERNAL_ERROR'
       }),
       { 

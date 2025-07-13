@@ -1,3 +1,4 @@
+
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 
@@ -7,10 +8,10 @@ const corsHeaders = {
 };
 
 interface STKPushRequest {
-  phoneNumber: string;
+  phone: string;
   amount: number;
-  accountReference: string;
-  transactionDesc: string;
+  account_reference: string;
+  transaction_description: string;
   metadata?: {
     client_email?: string;
     client_id?: string;
@@ -80,6 +81,41 @@ const generateInvoiceNumber = (): string => {
   return `INV-${timestamp}`;
 };
 
+const formatPhoneNumber = (phone: string): string => {
+  // Ensure phone is a string and handle undefined/null cases
+  if (!phone || typeof phone !== 'string') {
+    throw new Error('Invalid phone number provided');
+  }
+
+  console.log('Original phone number:', phone);
+
+  // Remove any spaces, dashes, or other non-numeric characters except +
+  let cleanPhone = phone.replace(/[^\d+]/g, '');
+  console.log('Cleaned phone number:', cleanPhone);
+
+  // Remove + if present
+  if (cleanPhone.startsWith('+')) {
+    cleanPhone = cleanPhone.substring(1);
+  }
+
+  // Handle different formats
+  if (cleanPhone.startsWith('0')) {
+    // Convert 07XXXXXXXX to 2547XXXXXXXX
+    cleanPhone = '254' + cleanPhone.substring(1);
+  } else if (!cleanPhone.startsWith('254')) {
+    // Add 254 prefix if not present
+    cleanPhone = '254' + cleanPhone;
+  }
+
+  // Validate final format
+  if (!cleanPhone.match(/^254[17]\d{8}$/)) {
+    throw new Error(`Invalid Kenyan phone number format: ${cleanPhone}`);
+  }
+
+  console.log('Formatted phone number:', cleanPhone);
+  return cleanPhone;
+};
+
 const handler = async (req: Request): Promise<Response> => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
@@ -95,7 +131,18 @@ const handler = async (req: Request): Promise<Response> => {
     const requestBody: STKPushRequest = await req.json();
     console.log('STK Push request:', requestBody);
 
-    const { phoneNumber, amount, accountReference, transactionDesc, metadata } = requestBody;
+    const { phone, amount, account_reference, transaction_description, metadata } = requestBody;
+
+    // Validate required fields
+    if (!phone) {
+      throw new Error('Phone number is required');
+    }
+    if (!amount || amount <= 0) {
+      throw new Error('Valid amount is required');
+    }
+    if (!account_reference) {
+      throw new Error('Account reference is required');
+    }
 
     // Get M-Pesa configuration
     const shortcode = Deno.env.get("MPESA_SHORTCODE");
@@ -112,14 +159,8 @@ const handler = async (req: Request): Promise<Response> => {
     const timestamp = generateTimestamp();
     const password = generatePassword(shortcode, passkey, timestamp);
 
-    // Format phone number (remove + and ensure it starts with 254)
-    let formattedPhone = phoneNumber.replace(/\+/g, '');
-    if (formattedPhone.startsWith('0')) {
-      formattedPhone = '254' + formattedPhone.substring(1);
-    }
-    if (!formattedPhone.startsWith('254')) {
-      formattedPhone = '254' + formattedPhone;
-    }
+    // Format phone number safely
+    const formattedPhone = formatPhoneNumber(phone);
 
     // Find client by ID number or email
     let client_record = null;
@@ -162,8 +203,8 @@ const handler = async (req: Request): Promise<Response> => {
       PartyB: shortcode,
       PhoneNumber: formattedPhone,
       CallBackURL: `${Deno.env.get('SUPABASE_URL')}/functions/v1/mpesa-callback`,
-      AccountReference: accountReference,
-      TransactionDesc: transactionDesc,
+      AccountReference: account_reference,
+      TransactionDesc: transaction_description,
     };
 
     console.log('Making STK Push request to M-Pesa...');
@@ -179,7 +220,9 @@ const handler = async (req: Request): Promise<Response> => {
     });
 
     if (!stkResponse.ok) {
-      throw new Error("STK Push request failed");
+      const errorText = await stkResponse.text();
+      console.error('STK Push request failed:', errorText);
+      throw new Error(`STK Push request failed: ${errorText}`);
     }
 
     const stkData: STKPushResponse = await stkResponse.json();
@@ -207,7 +250,7 @@ const handler = async (req: Request): Promise<Response> => {
           due_date: new Date().toISOString().split('T')[0], // Today
           service_period_start: new Date().toISOString().split('T')[0],
           service_period_end: new Date().toISOString().split('T')[0],
-          notes: `Wallet top-up via M-Pesa - ${transactionDesc} (PENDING CONFIRMATION)`,
+          notes: `Wallet top-up via M-Pesa - ${transaction_description} (PENDING CONFIRMATION)`,
           isp_company_id: client_record.isp_company_id
         })
         .select()
@@ -234,9 +277,9 @@ const handler = async (req: Request): Promise<Response> => {
           notes: JSON.stringify({
             checkout_request_id: stkData.CheckoutRequestID,
             merchant_request_id: stkData.MerchantRequestID,
-            account_reference: accountReference,
+            account_reference: account_reference,
             phone_number: formattedPhone,
-            transaction_desc: transactionDesc,
+            transaction_desc: transaction_description,
             status: 'pending', // CRITICAL: Mark as pending until confirmed
             payment_type: 'wallet_topup',
             metadata: metadata,
