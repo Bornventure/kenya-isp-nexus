@@ -5,15 +5,19 @@ import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { AlertCircle, Building2, Mail, Phone, MapPin, FileText, Send } from 'lucide-react';
+import { AlertCircle, Building2, Mail, Phone, MapPin, FileText, Send, DollarSign } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
+import { useLicenseTypes } from '@/hooks/useLicenseTypes';
+import { formatKenyanCurrency } from '@/utils/kenyanValidation';
 
 interface CompanyRegistrationFormProps {
   onClose: () => void;
 }
 
 const CompanyRegistrationForm = ({ onClose }: CompanyRegistrationFormProps) => {
+  const { data: licenseTypes, isLoading: licenseTypesLoading } = useLicenseTypes();
+  
   const [formData, setFormData] = useState({
     company_name: '',
     contact_person_name: '',
@@ -24,12 +28,14 @@ const CompanyRegistrationForm = ({ onClose }: CompanyRegistrationFormProps) => {
     sub_county: '',
     kra_pin: '',
     ca_license_number: '',
-    requested_license_type: 'starter',
+    requested_license_type: '',
     business_description: ''
   });
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const { toast } = useToast();
+
+  const selectedLicenseType = licenseTypes?.find(lt => lt.name === formData.requested_license_type);
 
   const handleInputChange = (field: string, value: string) => {
     setFormData(prev => ({ ...prev, [field]: value }));
@@ -189,19 +195,49 @@ const CompanyRegistrationForm = ({ onClose }: CompanyRegistrationFormProps) => {
               </div>
 
               <div className="space-y-2">
-                <label className="text-sm font-medium">Requested License Type</label>
-                <Select value={formData.requested_license_type} onValueChange={(value) => handleInputChange('requested_license_type', value)}>
+                <label className="text-sm font-medium">Requested License Type *</label>
+                <Select 
+                  value={formData.requested_license_type} 
+                  onValueChange={(value) => handleInputChange('requested_license_type', value)}
+                  disabled={licenseTypesLoading}
+                >
                   <SelectTrigger>
-                    <SelectValue />
+                    <SelectValue placeholder={licenseTypesLoading ? "Loading..." : "Select license type"} />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="starter">Starter (50 clients)</SelectItem>
-                    <SelectItem value="professional">Professional (200 clients)</SelectItem>
-                    <SelectItem value="enterprise">Enterprise (1000+ clients)</SelectItem>
+                    {licenseTypes?.map((licenseType) => (
+                      <SelectItem key={licenseType.id} value={licenseType.name}>
+                        <div className="flex flex-col">
+                          <span>{licenseType.display_name} ({licenseType.client_limit} clients)</span>
+                          <span className="text-sm text-gray-500 flex items-center gap-1">
+                            <DollarSign className="h-3 w-3" />
+                            {formatKenyanCurrency(licenseType.price)}
+                          </span>
+                        </div>
+                      </SelectItem>
+                    ))}
                   </SelectContent>
                 </Select>
               </div>
             </div>
+
+            {selectedLicenseType && (
+              <div className="bg-blue-50 p-4 rounded-lg border border-blue-200">
+                <div className="flex items-center gap-2 text-blue-800 mb-2">
+                  <DollarSign className="h-4 w-4" />
+                  <span className="font-medium">Selected Package Details</span>
+                </div>
+                <div className="text-sm text-blue-700 space-y-1">
+                  <p>• Package: {selectedLicenseType.display_name}</p>
+                  <p>• Client Limit: {selectedLicenseType.client_limit} clients</p>
+                  <p>• Price: {formatKenyanCurrency(selectedLicenseType.price)} (excluding VAT)</p>
+                  <p>• Total with VAT (16%): {formatKenyanCurrency(selectedLicenseType.price * 1.16)}</p>
+                  {selectedLicenseType.description && (
+                    <p>• {selectedLicenseType.description}</p>
+                  )}
+                </div>
+              </div>
+            )}
 
             <div className="space-y-2">
               <label className="text-sm font-medium flex items-center gap-2">
@@ -227,7 +263,7 @@ const CompanyRegistrationForm = ({ onClose }: CompanyRegistrationFormProps) => {
               </Button>
               <Button
                 type="submit"
-                disabled={loading}
+                disabled={loading || !formData.requested_license_type}
                 className="flex-1 flex items-center gap-2"
               >
                 <Send className="h-4 w-4" />

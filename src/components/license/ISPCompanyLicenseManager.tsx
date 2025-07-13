@@ -2,11 +2,13 @@ import React, { useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { useSuperAdminCompanies } from '@/hooks/useSuperAdminCompanies';
+import { useLicenseTypes } from '@/hooks/useLicenseTypes';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { 
@@ -28,6 +30,7 @@ import { formatKenyanCurrency } from '@/utils/kenyanValidation';
 const ISPCompanyLicenseManager = () => {
   const { data: companies, isLoading, refetch } = useSuperAdminCompanies();
   const { data: paidInvoices } = useSuperAdminInvoices();
+  const { data: licenseTypes } = useLicenseTypes();
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
   const [selectedInvoice, setSelectedInvoice] = useState<any>(null);
   const [isProcessing, setIsProcessing] = useState(false);
@@ -62,6 +65,10 @@ const ISPCompanyLicenseManager = () => {
       email: invoice.contact_email,
       // We'll need to get other details from the registration request
     }));
+  };
+
+  const getLicenseTypeByName = (name: string) => {
+    return licenseTypes?.find(lt => lt.name === name);
   };
 
   const handleCreateCompany = async () => {
@@ -175,11 +182,11 @@ const ISPCompanyLicenseManager = () => {
   };
 
   const handleLicenseTypeChange = (type: 'starter' | 'professional' | 'enterprise') => {
-    const limits = { starter: 50, professional: 200, enterprise: 1000 };
+    const licenseType = getLicenseTypeByName(type);
     setNewCompany(prev => ({
       ...prev,
       license_type: type,
-      client_limit: limits[type]
+      client_limit: licenseType?.client_limit || 50
     }));
   };
 
@@ -266,7 +273,7 @@ const ISPCompanyLicenseManager = () => {
 
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                       <div className="space-y-2">
-                        <label className="text-sm font-medium">Company Name *</label>
+                        <Label>Company Name *</Label>
                         <Input
                           value={newCompany.name}
                           onChange={(e) => setNewCompany(prev => ({...prev, name: e.target.value}))}
@@ -275,7 +282,7 @@ const ISPCompanyLicenseManager = () => {
                       </div>
                       
                       <div className="space-y-2">
-                        <label className="text-sm font-medium">Contact Person *</label>
+                        <Label>Contact Person *</Label>
                         <Input
                           value={newCompany.contact_person_name}
                           onChange={(e) => setNewCompany(prev => ({...prev, contact_person_name: e.target.value}))}
@@ -284,7 +291,7 @@ const ISPCompanyLicenseManager = () => {
                       </div>
                       
                       <div className="space-y-2">
-                        <label className="text-sm font-medium">Email Address *</label>
+                        <Label>Email Address *</Label>
                         <Input
                           type="email"
                           value={newCompany.email}
@@ -294,7 +301,7 @@ const ISPCompanyLicenseManager = () => {
                       </div>
                       
                       <div className="space-y-2">
-                        <label className="text-sm font-medium">Phone</label>
+                        <Label>Phone</Label>
                         <Input
                           value={newCompany.phone}
                           onChange={(e) => setNewCompany(prev => ({...prev, phone: e.target.value}))}
@@ -303,7 +310,7 @@ const ISPCompanyLicenseManager = () => {
                       </div>
                       
                       <div className="space-y-2 md:col-span-2">
-                        <label className="text-sm font-medium">Address</label>
+                        <Label>Address</Label>
                         <Input
                           value={newCompany.address}
                           onChange={(e) => setNewCompany(prev => ({...prev, address: e.target.value}))}
@@ -312,7 +319,7 @@ const ISPCompanyLicenseManager = () => {
                       </div>
                       
                       <div className="space-y-2">
-                        <label className="text-sm font-medium">County</label>
+                        <Label>County</Label>
                         <Input
                           value={newCompany.county}
                           onChange={(e) => setNewCompany(prev => ({...prev, county: e.target.value}))}
@@ -321,7 +328,7 @@ const ISPCompanyLicenseManager = () => {
                       </div>
                       
                       <div className="space-y-2">
-                        <label className="text-sm font-medium">Sub County</label>
+                        <Label>Sub County</Label>
                         <Input
                           value={newCompany.sub_county}
                           onChange={(e) => setNewCompany(prev => ({...prev, sub_county: e.target.value}))}
@@ -330,7 +337,7 @@ const ISPCompanyLicenseManager = () => {
                       </div>
                       
                       <div className="space-y-2">
-                        <label className="text-sm font-medium">KRA PIN</label>
+                        <Label>KRA PIN</Label>
                         <Input
                           value={newCompany.kra_pin}
                           onChange={(e) => setNewCompany(prev => ({...prev, kra_pin: e.target.value}))}
@@ -339,7 +346,7 @@ const ISPCompanyLicenseManager = () => {
                       </div>
                       
                       <div className="space-y-2">
-                        <label className="text-sm font-medium">CA License</label>
+                        <Label>CA License</Label>
                         <Input
                           value={newCompany.ca_license_number}
                           onChange={(e) => setNewCompany(prev => ({...prev, ca_license_number: e.target.value}))}
@@ -348,21 +355,23 @@ const ISPCompanyLicenseManager = () => {
                       </div>
                       
                       <div className="space-y-2">
-                        <label className="text-sm font-medium">License Type</label>
+                        <Label>License Type</Label>
                         <Select value={newCompany.license_type} onValueChange={handleLicenseTypeChange}>
                           <SelectTrigger>
                             <SelectValue />
                           </SelectTrigger>
                           <SelectContent>
-                            <SelectItem value="starter">Starter (50 clients)</SelectItem>
-                            <SelectItem value="professional">Professional (200 clients)</SelectItem>
-                            <SelectItem value="enterprise">Enterprise (1000 clients)</SelectItem>
+                            {licenseTypes?.map((licenseType) => (
+                              <SelectItem key={licenseType.id} value={licenseType.name}>
+                                {licenseType.display_name} ({licenseType.client_limit} clients)
+                              </SelectItem>
+                            ))}
                           </SelectContent>
                         </Select>
                       </div>
                       
                       <div className="space-y-2">
-                        <label className="text-sm font-medium">Client Limit</label>
+                        <Label>Client Limit</Label>
                         <Input
                           type="number"
                           value={newCompany.client_limit}
@@ -431,61 +440,64 @@ const ISPCompanyLicenseManager = () => {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {companies?.map((company) => (
-                  <TableRow key={company.id}>
-                    <TableCell>
-                      <div>
-                        <div className="font-medium">{company.name}</div>
-                        <div className="text-sm text-gray-500">{company.email}</div>
-                      </div>
-                    </TableCell>
-                    <TableCell>
-                      <Badge variant={
-                        company.license_type === 'enterprise' ? 'default' :
-                        company.license_type === 'professional' ? 'secondary' : 'outline'
-                      }>
-                        {company.license_type}
-                      </Badge>
-                    </TableCell>
-                    <TableCell>
-                      <div className="flex items-center gap-2">
-                        {company.is_active ? (
-                          <>
-                            <CheckCircle className="h-4 w-4 text-green-500" />
-                            <span className="text-green-600">Active</span>
-                          </>
-                        ) : (
-                          <>
-                            <AlertTriangle className="h-4 w-4 text-red-500" />
-                            <span className="text-red-600">Inactive</span>
-                          </>
-                        )}
-                      </div>
-                    </TableCell>
-                    <TableCell>
-                      <div className="flex items-center gap-2">
-                        <Users className="h-4 w-4" />
-                        <span>0 / {company.client_limit}</span>
-                      </div>
-                    </TableCell>
-                    <TableCell>
-                      <div className="flex items-center gap-2">
-                        <Calendar className="h-4 w-4" />
-                        <span className="text-sm">
-                          {company.subscription_end_date ? 
-                            new Date(company.subscription_end_date).toLocaleDateString() : 
-                            'No expiry'
-                          }
-                        </span>
-                      </div>
-                    </TableCell>
-                    <TableCell>
-                      <Button variant="outline" size="sm">
-                        <Edit className="h-4 w-4" />
-                      </Button>
-                    </TableCell>
-                  </TableRow>
-                ))}
+                {companies?.map((company) => {
+                  const licenseTypeDetails = getLicenseTypeByName(company.license_type);
+                  return (
+                    <TableRow key={company.id}>
+                      <TableCell>
+                        <div>
+                          <div className="font-medium">{company.name}</div>
+                          <div className="text-sm text-gray-500">{company.email}</div>
+                        </div>
+                      </TableCell>
+                      <TableCell>
+                        <Badge variant={
+                          company.license_type === 'enterprise' ? 'default' :
+                          company.license_type === 'professional' ? 'secondary' : 'outline'
+                        }>
+                          {licenseTypeDetails?.display_name || company.license_type}
+                        </Badge>
+                      </TableCell>
+                      <TableCell>
+                        <div className="flex items-center gap-2">
+                          {company.is_active ? (
+                            <>
+                              <CheckCircle className="h-4 w-4 text-green-500" />
+                              <span className="text-green-600">Active</span>
+                            </>
+                          ) : (
+                            <>
+                              <AlertTriangle className="h-4 w-4 text-red-500" />
+                              <span className="text-red-600">Inactive</span>
+                            </>
+                          )}
+                        </div>
+                      </TableCell>
+                      <TableCell>
+                        <div className="flex items-center gap-2">
+                          <Users className="h-4 w-4" />
+                          <span>0 / {company.client_limit}</span>
+                        </div>
+                      </TableCell>
+                      <TableCell>
+                        <div className="flex items-center gap-2">
+                          <Calendar className="h-4 w-4" />
+                          <span className="text-sm">
+                            {company.subscription_end_date ? 
+                              new Date(company.subscription_end_date).toLocaleDateString() : 
+                              'No expiry'
+                            }
+                          </span>
+                        </div>
+                      </TableCell>
+                      <TableCell>
+                        <Button variant="outline" size="sm">
+                          <Edit className="h-4 w-4" />
+                        </Button>
+                      </TableCell>
+                    </TableRow>
+                  );
+                })}
               </TableBody>
             </Table>
           </div>

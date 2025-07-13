@@ -1,11 +1,13 @@
 import React, { useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Textarea } from '@/components/ui/textarea';
 import { useCompanyRegistrationRequests } from '@/hooks/useCompanyRegistrationRequests';
+import { useLicenseTypes } from '@/hooks/useLicenseTypes';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { formatKenyanCurrency } from '@/utils/kenyanValidation';
@@ -23,23 +25,25 @@ import {
 
 const CompanyRegistrationManager = () => {
   const { data: requests, isLoading, refetch } = useCompanyRegistrationRequests();
+  const { data: licenseTypes } = useLicenseTypes();
   const [selectedRequest, setSelectedRequest] = useState<any>(null);
   const [notes, setNotes] = useState('');
   const [isProcessing, setIsProcessing] = useState(false);
   const [invoiceAmount, setInvoiceAmount] = useState('');
   const { toast } = useToast();
 
-  const getLicensePrice = (licenseType: string) => {
-    const prices = {
-      starter: 15000,
-      professional: 35000,
-      enterprise: 75000
-    };
-    return prices[licenseType as keyof typeof prices] || 15000;
+  const getLicenseTypePrice = (licenseTypeName: string) => {
+    const licenseType = licenseTypes?.find(lt => lt.name === licenseTypeName);
+    return licenseType?.price || 15000;
+  };
+
+  const getLicenseTypeDetails = (licenseTypeName: string) => {
+    return licenseTypes?.find(lt => lt.name === licenseTypeName);
   };
 
   const handleApprove = async (requestId: string) => {
-    const amount = parseFloat(invoiceAmount) || getLicensePrice(selectedRequest?.requested_license_type);
+    const licenseTypeDetails = getLicenseTypeDetails(selectedRequest?.requested_license_type);
+    const amount = parseFloat(invoiceAmount) || licenseTypeDetails?.price || 15000;
     const vatAmount = amount * 0.16; // 16% VAT
     const totalAmount = amount + vatAmount;
 
@@ -208,179 +212,190 @@ const CompanyRegistrationManager = () => {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {requests?.map((request) => (
-                <TableRow key={request.id}>
-                  <TableCell>
-                    <div className="font-medium">{request.company_name}</div>
-                    <div className="text-sm text-gray-500">{request.contact_person_name}</div>
-                  </TableCell>
-                  <TableCell>
-                    <div className="space-y-1">
-                      <div className="flex items-center gap-2 text-sm">
-                        <Mail className="h-3 w-3" />
-                        {request.email}
-                      </div>
-                      {request.phone && (
+              {requests?.map((request) => {
+                const licenseTypeDetails = getLicenseTypeDetails(request.requested_license_type);
+                return (
+                  <TableRow key={request.id}>
+                    <TableCell>
+                      <div className="font-medium">{request.company_name}</div>
+                      <div className="text-sm text-gray-500">{request.contact_person_name}</div>
+                    </TableCell>
+                    <TableCell>
+                      <div className="space-y-1">
                         <div className="flex items-center gap-2 text-sm">
-                          <Phone className="h-3 w-3" />
-                          {request.phone}
+                          <Mail className="h-3 w-3" />
+                          {request.email}
                         </div>
-                      )}
-                    </div>
-                  </TableCell>
-                  <TableCell>
-                    <Badge variant="outline">
-                      {request.requested_license_type}
-                    </Badge>
-                  </TableCell>
-                  <TableCell>
-                    <div className="flex items-center gap-2">
-                      {getStatusIcon(request.status)}
-                      <Badge className={getStatusColor(request.status)}>
-                        {request.status}
-                      </Badge>
-                    </div>
-                  </TableCell>
-                  <TableCell>
-                    <span className="text-sm">
-                      {new Date(request.created_at).toLocaleDateString()}
-                    </span>
-                  </TableCell>
-                  <TableCell>
-                    <Dialog>
-                      <DialogTrigger asChild>
-                        <Button 
-                          variant="outline" 
-                          size="sm"
-                          onClick={() => {
-                            setSelectedRequest(request);
-                            setNotes(request.notes || '');
-                            setInvoiceAmount(getLicensePrice(request.requested_license_type).toString());
-                          }}
-                        >
-                          <Eye className="h-4 w-4" />
-                        </Button>
-                      </DialogTrigger>
-                      <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
-                        <DialogHeader>
-                          <DialogTitle>Company Registration Request</DialogTitle>
-                          <DialogDescription>
-                            Review and process the registration request from {request.company_name}
-                          </DialogDescription>
-                        </DialogHeader>
-                        
-                        <div className="space-y-4">
-                          <div className="grid grid-cols-2 gap-4">
-                            <div>
-                              <label className="text-sm font-medium">Company Name</label>
-                              <p className="text-sm">{request.company_name}</p>
-                            </div>
-                            <div>
-                              <label className="text-sm font-medium">Contact Person</label>
-                              <p className="text-sm">{request.contact_person_name}</p>
-                            </div>
-                            <div>
-                              <label className="text-sm font-medium">Email</label>
-                              <p className="text-sm">{request.email}</p>
-                            </div>
-                            <div>
-                              <label className="text-sm font-medium">Phone</label>
-                              <p className="text-sm">{request.phone || 'Not provided'}</p>
-                            </div>
-                            <div>
-                              <label className="text-sm font-medium">County</label>
-                              <p className="text-sm">{request.county || 'Not provided'}</p>
-                            </div>
-                            <div>
-                              <label className="text-sm font-medium">Sub County</label>
-                              <p className="text-sm">{request.sub_county || 'Not provided'}</p>
-                            </div>
-                            <div>
-                              <label className="text-sm font-medium">KRA PIN</label>
-                              <p className="text-sm">{request.kra_pin || 'Not provided'}</p>
-                            </div>
-                            <div>
-                              <label className="text-sm font-medium">CA License</label>
-                              <p className="text-sm">{request.ca_license_number || 'Not provided'}</p>
-                            </div>
+                        {request.phone && (
+                          <div className="flex items-center gap-2 text-sm">
+                            <Phone className="h-3 w-3" />
+                            {request.phone}
                           </div>
-                          
-                          {request.address && (
-                            <div>
-                              <label className="text-sm font-medium">Address</label>
-                              <p className="text-sm">{request.address}</p>
-                            </div>
-                          )}
-                          
-                          <div>
-                            <label className="text-sm font-medium">Requested License Type</label>
-                            <div className="flex items-center gap-2">
-                              <Badge className="ml-2">{request.requested_license_type}</Badge>
-                              <span className="text-sm text-gray-500">
-                                (Default: {formatKenyanCurrency(getLicensePrice(request.requested_license_type))})
-                              </span>
-                            </div>
-                          </div>
-                          
-                          {request.business_description && (
-                            <div>
-                              <label className="text-sm font-medium">Business Description</label>
-                              <p className="text-sm">{request.business_description}</p>
-                            </div>
-                          )}
-                          
-                          {request.status === 'pending' && (
-                            <div className="space-y-4">
-                              <div>
-                                <label className="text-sm font-medium">Invoice Amount (KES)</label>
-                                <Input
-                                  type="number"
-                                  value={invoiceAmount}
-                                  onChange={(e) => setInvoiceAmount(e.target.value)}
-                                  placeholder="Enter invoice amount"
-                                />
-                                <p className="text-xs text-gray-500 mt-1">
-                                  Total with VAT: {formatKenyanCurrency((parseFloat(invoiceAmount) || 0) * 1.16)}
-                                </p>
-                              </div>
-                              
-                              <div>
-                                <label className="text-sm font-medium">Processing Notes</label>
-                                <Textarea
-                                  value={notes}
-                                  onChange={(e) => setNotes(e.target.value)}
-                                  placeholder="Add processing notes..."
-                                  rows={3}
-                                />
-                              </div>
-                              
-                              <div className="flex gap-3">
-                                <Button
-                                  variant="outline"
-                                  onClick={() => handleReject(request.id)}
-                                  disabled={isProcessing}
-                                  className="flex-1"
-                                >
-                                  <XCircle className="h-4 w-4 mr-2" />
-                                  Reject
-                                </Button>
-                                <Button
-                                  onClick={() => handleApprove(request.id)}
-                                  disabled={isProcessing || !invoiceAmount}
-                                  className="flex-1"
-                                >
-                                  <CheckCircle className="h-4 w-4 mr-2" />
-                                  Approve & Generate Invoice
-                                </Button>
-                              </div>
-                            </div>
-                          )}
+                        )}
+                      </div>
+                    </TableCell>
+                    <TableCell>
+                      <div className="space-y-1">
+                        <Badge variant="outline">
+                          {licenseTypeDetails?.display_name || request.requested_license_type}
+                        </Badge>
+                        <div className="text-xs text-gray-500">
+                          {formatKenyanCurrency(licenseTypeDetails?.price || 0)}
                         </div>
-                      </DialogContent>
-                    </Dialog>
-                  </TableCell>
-                </TableRow>
-              ))}
+                      </div>
+                    </TableCell>
+                    <TableCell>
+                      <div className="flex items-center gap-2">
+                        {getStatusIcon(request.status)}
+                        <Badge className={getStatusColor(request.status)}>
+                          {request.status}
+                        </Badge>
+                      </div>
+                    </TableCell>
+                    <TableCell>
+                      <span className="text-sm">
+                        {new Date(request.created_at).toLocaleDateString()}
+                      </span>
+                    </TableCell>
+                    <TableCell>
+                      <Dialog>
+                        <DialogTrigger asChild>
+                          <Button 
+                            variant="outline" 
+                            size="sm"
+                            onClick={() => {
+                              setSelectedRequest(request);
+                              setNotes(request.notes || '');
+                              const licenseType = getLicenseTypeDetails(request.requested_license_type);
+                              setInvoiceAmount(licenseType?.price?.toString() || '15000');
+                            }}
+                          >
+                            <Eye className="h-4 w-4" />
+                          </Button>
+                        </DialogTrigger>
+                        <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
+                          <DialogHeader>
+                            <DialogTitle>Company Registration Request</DialogTitle>
+                            <DialogDescription>
+                              Review and process the registration request from {request.company_name}
+                            </DialogDescription>
+                          </DialogHeader>
+                          
+                          <div className="space-y-4">
+                            <div className="grid grid-cols-2 gap-4">
+                              <div>
+                                <label className="text-sm font-medium">Company Name</label>
+                                <p className="text-sm">{request.company_name}</p>
+                              </div>
+                              <div>
+                                <label className="text-sm font-medium">Contact Person</label>
+                                <p className="text-sm">{request.contact_person_name}</p>
+                              </div>
+                              <div>
+                                <label className="text-sm font-medium">Email</label>
+                                <p className="text-sm">{request.email}</p>
+                              </div>
+                              <div>
+                                <label className="text-sm font-medium">Phone</label>
+                                <p className="text-sm">{request.phone || 'Not provided'}</p>
+                              </div>
+                              <div>
+                                <label className="text-sm font-medium">County</label>
+                                <p className="text-sm">{request.county || 'Not provided'}</p>
+                              </div>
+                              <div>
+                                <label className="text-sm font-medium">Sub County</label>
+                                <p className="text-sm">{request.sub_county || 'Not provided'}</p>
+                              </div>
+                              <div>
+                                <label className="text-sm font-medium">KRA PIN</label>
+                                <p className="text-sm">{request.kra_pin || 'Not provided'}</p>
+                              </div>
+                              <div>
+                                <label className="text-sm font-medium">CA License</label>
+                                <p className="text-sm">{request.ca_license_number || 'Not provided'}</p>
+                              </div>
+                            </div>
+                            
+                            {request.address && (
+                              <div>
+                                <label className="text-sm font-medium">Address</label>
+                                <p className="text-sm">{request.address}</p>
+                              </div>
+                            )}
+                            
+                            <div>
+                              <label className="text-sm font-medium">Requested License Type</label>
+                              <div className="flex items-center gap-2">
+                                <Badge className="ml-2">
+                                  {getLicenseTypeDetails(request.requested_license_type)?.display_name || request.requested_license_type}
+                                </Badge>
+                                <span className="text-sm text-gray-500">
+                                  (Price: {formatKenyanCurrency(getLicenseTypePrice(request.requested_license_type))})
+                                </span>
+                              </div>
+                            </div>
+                            
+                            {request.business_description && (
+                              <div>
+                                <label className="text-sm font-medium">Business Description</label>
+                                <p className="text-sm">{request.business_description}</p>
+                              </div>
+                            )}
+                            
+                            {request.status === 'pending' && (
+                              <div className="space-y-4">
+                                <div>
+                                  <label className="text-sm font-medium">Invoice Amount (KES)</label>
+                                  <Input
+                                    type="number"
+                                    value={invoiceAmount}
+                                    onChange={(e) => setInvoiceAmount(e.target.value)}
+                                    placeholder="Enter invoice amount"
+                                  />
+                                  <p className="text-xs text-gray-500 mt-1">
+                                    Total with VAT: {formatKenyanCurrency((parseFloat(invoiceAmount) || 0) * 1.16)}
+                                  </p>
+                                </div>
+                                
+                                <div>
+                                  <label className="text-sm font-medium">Processing Notes</label>
+                                  <Textarea
+                                    value={notes}
+                                    onChange={(e) => setNotes(e.target.value)}
+                                    placeholder="Add processing notes..."
+                                    rows={3}
+                                  />
+                                </div>
+                                
+                                <div className="flex gap-3">
+                                  <Button
+                                    variant="outline"
+                                    onClick={() => handleReject(request.id)}
+                                    disabled={isProcessing}
+                                    className="flex-1"
+                                  >
+                                    <XCircle className="h-4 w-4 mr-2" />
+                                    Reject
+                                  </Button>
+                                  <Button
+                                    onClick={() => handleApprove(request.id)}
+                                    disabled={isProcessing || !invoiceAmount}
+                                    className="flex-1"
+                                  >
+                                    <CheckCircle className="h-4 w-4 mr-2" />
+                                    Approve & Generate Invoice
+                                  </Button>
+                                </div>
+                              </div>
+                            )}
+                          </div>
+                        </DialogContent>
+                      </Dialog>
+                    </TableCell>
+                  </TableRow>
+                );
+              })}
             </TableBody>
           </Table>
         </div>
