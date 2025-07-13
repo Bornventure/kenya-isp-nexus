@@ -1,4 +1,3 @@
-
 import React from 'react';
 import { NavLink, useLocation } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
@@ -93,7 +92,7 @@ const Sidebar = ({ isOpen, onClose, onToggle }: SidebarProps) => {
       `}>
         {/* Header */}
         <div className="flex items-center justify-between h-16 px-4 border-b border-gray-200 dark:border-gray-700 flex-shrink-0">
-          <div className={`font-bold text-xl text-gray-900 dark:text-gray-100 transition-opacity duration-200 ${!isOpen && 'lg:opacity-0 lg:hidden'}`}>
+          <div className={`font-bold text-xl text-gray-900 dark:text-gray-100 transition-all duration-200 ${!isOpen && 'lg:opacity-0 lg:w-0 lg:overflow-hidden'}`}>
             ISP Manager
           </div>
           
@@ -144,7 +143,7 @@ const Sidebar = ({ isOpen, onClose, onToggle }: SidebarProps) => {
                       flex-shrink-0 h-5 w-5 transition-colors duration-200
                       ${isActive ? 'text-blue-500' : 'text-gray-400 group-hover:text-gray-500'}
                     `} />
-                    <span className={`ml-3 transition-all duration-200 ${!isOpen && 'lg:opacity-0 lg:w-0 lg:ml-0 lg:hidden'}`}>
+                    <span className={`ml-3 transition-all duration-200 ${!isOpen && 'lg:opacity-0 lg:w-0 lg:ml-0 lg:overflow-hidden'}`}>
                       {item.name}
                     </span>
                   </NavLink>
@@ -178,7 +177,7 @@ const Sidebar = ({ isOpen, onClose, onToggle }: SidebarProps) => {
               flex-shrink-0 h-5 w-5 transition-colors duration-200
               ${location.pathname === '/profile' ? 'text-blue-500' : 'text-gray-400 group-hover:text-gray-500'}
             `} />
-            <span className={`ml-3 transition-all duration-200 ${!isOpen && 'lg:opacity-0 lg:w-0 lg:ml-0 lg:hidden'}`}>
+            <span className={`ml-3 transition-all duration-200 ${!isOpen && 'lg:opacity-0 lg:w-0 lg:ml-0 lg:overflow-hidden'}`}>
               Profile
             </span>
           </NavLink>

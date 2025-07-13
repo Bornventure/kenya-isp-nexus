@@ -14,7 +14,7 @@ interface DashboardLayoutProps {
 }
 
 const DashboardLayout = ({ children }: DashboardLayoutProps) => {
-  const [sidebarOpen, setSidebarOpen] = useState(true); // Default to open on desktop
+  const [sidebarOpen, setSidebarOpen] = useState(false); // Default to closed on mobile
   const { user } = useAuth();
   const navigate = useNavigate();
 
@@ -23,12 +23,16 @@ const DashboardLayout = ({ children }: DashboardLayoutProps) => {
     navigate('/login');
   };
 
+  const toggleSidebar = () => {
+    setSidebarOpen(!sidebarOpen);
+  };
+
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
       <Sidebar 
         isOpen={sidebarOpen} 
         onClose={() => setSidebarOpen(false)}
-        onToggle={() => setSidebarOpen(!sidebarOpen)} 
+        onToggle={toggleSidebar} 
       />
       
       {/* Main content area */}
@@ -38,8 +42,9 @@ const DashboardLayout = ({ children }: DashboardLayoutProps) => {
           <div className="px-4 sm:px-6 lg:px-8">
             <div className="flex justify-between items-center h-16">
               <div className="flex items-center">
+                {/* Mobile menu button - always visible on mobile */}
                 <button
-                  onClick={() => setSidebarOpen(!sidebarOpen)}
+                  onClick={toggleSidebar}
                   className="lg:hidden p-2 rounded-md text-gray-400 hover:text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-500"
                 >
                   <Menu className="h-6 w-6" />
