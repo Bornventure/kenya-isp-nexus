@@ -12,6 +12,8 @@ interface STKPushRequest {
   amount: number;
   account_reference?: string;
   transaction_description: string;
+  client_id?: string;
+  email?: string;
   metadata?: {
     client_email?: string;
     client_id?: string;
@@ -131,7 +133,7 @@ const handler = async (req: Request): Promise<Response> => {
     const requestBody: STKPushRequest = await req.json();
     console.log('STK Push request:', requestBody);
 
-    const { phone, amount, transaction_description, metadata } = requestBody;
+    const { phone, amount, transaction_description, client_id, email, metadata } = requestBody;
     let { account_reference } = requestBody;
 
     // Validate required fields
@@ -142,12 +144,18 @@ const handler = async (req: Request): Promise<Response> => {
       throw new Error('Valid amount is required');
     }
 
+    // Extract client identification - try multiple sources
+    const clientIdNumber = client_id || metadata?.client_id;
+    const clientEmail = email || metadata?.client_email;
+
+    console.log('Client identification:', { clientIdNumber, clientEmail });
+
     // Generate account reference if not provided (for wallet top-ups)
     if (!account_reference) {
-      if (metadata?.client_id) {
-        account_reference = `WALLET-${metadata.client_id}`;
-      } else if (metadata?.client_email) {
-        account_reference = `WALLET-${metadata.client_email.split('@')[0]}`;
+      if (clientIdNumber) {
+        account_reference = `WALLET-${clientIdNumber}`;
+      } else if (clientEmail) {
+        account_reference = `WALLET-${clientEmail.split('@')[0]}`;
       } else {
         account_reference = `WALLET-${Date.now()}`;
       }
@@ -174,31 +182,34 @@ const handler = async (req: Request): Promise<Response> => {
 
     // Find client by ID number or email
     let client_record = null;
-    if (metadata?.client_id) {
+    if (clientIdNumber) {
       const { data: clientData } = await supabase
         .from('clients')
         .select('*')
-        .eq('id_number', metadata.client_id)
+        .eq('id_number', clientIdNumber)
         .single();
       
       if (clientData) {
         client_record = clientData;
+        console.log('Client found by ID number:', client_record.name);
       }
     }
 
-    if (!client_record && metadata?.client_email) {
+    if (!client_record && clientEmail) {
       const { data: clientData } = await supabase
         .from('clients')
         .select('*')
-        .eq('email', metadata.client_email)
+        .eq('email', clientEmail)
         .single();
       
       if (clientData) {
         client_record = clientData;
+        console.log('Client found by email:', client_record.name);
       }
     }
 
     if (!client_record) {
+      console.error('Client not found. ID:', clientIdNumber, 'Email:', clientEmail);
       throw new Error("Client not found for wallet top-up");
     }
 
@@ -292,7 +303,7 @@ const handler = async (req: Request): Promise<Response> => {
             transaction_desc: transaction_description,
             status: 'pending', // CRITICAL: Mark as pending until confirmed
             payment_type: 'wallet_topup',
-            metadata: metadata,
+            metadata: metadata || { client_id: clientIdNumber, client_email: clientEmail },
             stk_push_response: stkData,
             initiated_at: new Date().toISOString()
           }),
