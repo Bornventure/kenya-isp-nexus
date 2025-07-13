@@ -29,7 +29,7 @@ serve(async (req) => {
   }
 
   try {
-    console.log('=== M-Pesa Paybill Callback Received ===')
+    console.log('=== M-Pesa Callback Received ===')
 
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!
     const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
@@ -54,7 +54,7 @@ serve(async (req) => {
     const accountReference = BillRefNumber
     const paybillNumber = BusinessShortCode
 
-    console.log(`M-Pesa paybill payment received:`, {
+    console.log(`M-Pesa payment received:`, {
       amount,
       phoneNumber,
       accountReference,
@@ -62,7 +62,73 @@ serve(async (req) => {
       mpesaReceiptNumber
     })
 
-    // Step 1: Find the ISP company that owns this paybill number
+    // Step 1: Check if this is a wallet top-up transaction by looking for existing pending payment
+    let client = null
+    
+    // First, try to find a pending payment record with matching checkout request ID or account reference
+    const { data: pendingPayments } = await supabase
+      .from('payments')
+      .select(`
+        *,
+        clients!inner (*)
+      `)
+      .or(`reference_number.eq.${mpesaReceiptNumber},reference_number.eq.${accountReference}`)
+      .eq('payment_method', 'mpesa')
+      .contains('notes', 'PENDING CONFIRMATION')
+
+    if (pendingPayments && pendingPayments.length > 0) {
+      const payment = pendingPayments[0]
+      client = payment.clients
+      console.log('Found pending payment for client:', client.name)
+      
+      // Process this as a wallet top-up confirmation
+      const { data: processResult, error: processError } = await supabase.functions.invoke('process-payment', {
+        body: {
+          checkoutRequestId: mpesaReceiptNumber,
+          clientId: client.id,
+          amount: amount,
+          paymentMethod: 'mpesa',
+          mpesaReceiptNumber: mpesaReceiptNumber,
+          phoneNumber: phoneNumber
+        }
+      })
+
+      if (processError) {
+        console.error('Error processing wallet top-up confirmation:', processError)
+        return new Response(
+          JSON.stringify({
+            success: false,
+            error: 'Failed to process wallet top-up confirmation',
+            details: processError
+          }),
+          { 
+            status: 500, 
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
+          }
+        )
+      }
+
+      console.log('Wallet top-up confirmed successfully:', processResult)
+
+      return new Response(
+        JSON.stringify({
+          success: true,
+          message: 'Wallet top-up confirmed successfully',
+          data: {
+            ...processResult,
+            client_name: client.name,
+            payment_type: 'wallet_topup'
+          }
+        }),
+        { 
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
+        }
+      )
+    }
+
+    // Step 2: If no pending payment found, try to find client by various methods for paybill payments
+    
+    // Find the ISP company that owns this paybill number
     const { data: ispCompany, error: ispError } = await supabase
       .from('mpesa_settings')
       .select(`
@@ -95,10 +161,7 @@ serve(async (req) => {
 
     console.log('Found ISP company:', ispCompany.isp_companies.name, 'for paybill:', paybillNumber)
 
-    // Step 2: Find the client using account reference within this ISP company
-    let client = null
-    
-    // Try to find client by phone number (account reference) within the ISP company
+    // Try to find client by phone number (account reference) within this ISP company
     if (accountReference) {
       console.log('Searching for client with account reference:', accountReference)
       
@@ -184,7 +247,7 @@ serve(async (req) => {
           client_id: null,
           transaction_type: 'credit_pending',
           amount: amount,
-          description: `Unmatched paybill payment - Account: ${accountReference}, Phone: ${phoneNumber}, Name: ${FirstName} ${LastName}`,
+          description: `Unmatched payment - Account: ${accountReference}, Phone: ${phoneNumber}, Name: ${FirstName} ${LastName}`,
           reference_number: mpesaReceiptNumber,
           mpesa_receipt_number: mpesaReceiptNumber,
           isp_company_id: ispCompany.isp_company_id
@@ -212,7 +275,7 @@ serve(async (req) => {
 
     console.log('Processing payment for client:', client.name, 'in ISP:', ispCompany.isp_companies.name)
 
-    // Step 3: Process the payment using the enhanced payment processor
+    // Process the payment using the enhanced payment processor
     const { data: processResult, error: processError } = await supabase.functions.invoke('process-payment', {
       body: {
         checkoutRequestId: mpesaReceiptNumber,
@@ -240,12 +303,12 @@ serve(async (req) => {
       )
     }
 
-    console.log('M-Pesa paybill payment processed successfully:', processResult)
+    console.log('M-Pesa payment processed successfully:', processResult)
 
     return new Response(
       JSON.stringify({
         success: true,
-        message: 'Paybill payment processed successfully',
+        message: 'Payment processed successfully',
         data: {
           ...processResult,
           isp_company: ispCompany.isp_companies.name,
