@@ -1,3 +1,4 @@
+
 import { Routes, Route, Navigate } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
 import Login from "./Login";
@@ -22,6 +23,7 @@ import PackageManagement from "@/pages/PackageManagement";
 import DeveloperPortal from "@/pages/DeveloperPortal";
 import ApiDocumentation from "@/pages/ApiDocumentation";
 import LicenseManagement from "@/pages/LicenseManagement";
+import LicenseActivation from "@/pages/LicenseActivation";
 import AccessDenied from "./AccessDenied";
 import NotFound from "@/pages/NotFound";
 import NetworkStatus from "@/pages/NetworkStatus";
@@ -43,12 +45,19 @@ const AppContent = () => {
     return <Login />;
   }
 
+  // If user doesn't have a company and is not super admin, redirect to license activation
+  if (!profile.isp_company_id && profile.role !== 'super_admin') {
+    return <LicenseActivation />;
+  }
+
   const isAdmin = profile.role === 'super_admin' || profile.role === 'isp_admin';
   const canAccessDashboard = ['super_admin', 'isp_admin', 'billing_finance', 'customer_support', 'sales_account_manager', 'network_operations', 'infrastructure_asset', 'hotspot_admin'].includes(profile.role);
 
   return (
     <DashboardLayout>
       <Routes>
+        <Route path="/license-activation" element={<LicenseActivation />} />
+        
         <Route path="/" element={canAccessDashboard ? (
           <LicenseGuard feature="dashboard" allowReadOnly={true}>
             <Dashboard />

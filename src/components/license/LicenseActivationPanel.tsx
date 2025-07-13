@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -8,11 +7,14 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Textarea } from '@/components/ui/textarea';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
-import { Plus, Key, Building2 } from 'lucide-react';
+import { Plus, Key, Building2, Copy, Eye, EyeOff } from 'lucide-react';
+import { useSuperAdminCompanies } from '@/hooks/useSuperAdminCompanies';
 
 const LicenseActivationPanel = () => {
   const { toast } = useToast();
+  const { data: companies, refetch } = useSuperAdminCompanies();
   const [isCreating, setIsCreating] = useState(false);
+  const [showLicenseKeys, setShowLicenseKeys] = useState<{[key: string]: boolean}>({});
   const [formData, setFormData] = useState({
     name: '',
     email: '',
@@ -52,6 +54,29 @@ const LicenseActivationPanel = () => {
     const timestamp = Date.now().toString(36);
     const random = Math.random().toString(36).substr(2, 12);
     return `lic_${timestamp}_${random}`.toUpperCase();
+  };
+
+  const copyToClipboard = async (text: string, type: string) => {
+    try {
+      await navigator.clipboard.writeText(text);
+      toast({
+        title: "Copied",
+        description: `${type} copied to clipboard`,
+      });
+    } catch (error) {
+      toast({
+        title: "Copy Failed",
+        description: "Failed to copy to clipboard",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const toggleLicenseKeyVisibility = (companyId: string) => {
+    setShowLicenseKeys(prev => ({
+      ...prev,
+      [companyId]: !prev[companyId]
+    }));
   };
 
   const handleCreateCompany = async () => {
@@ -99,10 +124,10 @@ const LicenseActivationPanel = () => {
 
       toast({
         title: "Company Created Successfully",
-        description: `${formData.name} has been registered with license key: ${licenseKey}. License expires on ${subscriptionEndDate.toLocaleDateString()}.`,
+        description: `${formData.name} has been registered. Company ID: ${data.id}`,
       });
 
-      // Reset form
+      // Reset form and refresh companies list
       setFormData({
         name: '',
         email: '',
@@ -116,6 +141,9 @@ const LicenseActivationPanel = () => {
         client_limit: 50,
         subscription_months: 12
       });
+      
+      refetch();
+
     } catch (error) {
       console.error('Error creating company:', error);
       toast({
@@ -130,6 +158,117 @@ const LicenseActivationPanel = () => {
 
   return (
     <div className="space-y-6">
+      {/* Existing Companies List */}
+      {companies && companies.length > 0 && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Building2 className="h-5 w-5" />
+              Registered Companies
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-4">
+              {companies.map((company) => (
+                <div key={company.id} className="border rounded-lg p-4 space-y-3">
+                  <div className="flex items-center justify-between">
+                    <h3 className="font-semibold text-lg">{company.name}</h3>
+                    <div className="flex items-center gap-2">
+                      <span className={`px-2 py-1 rounded-full text-xs ${
+                        company.is_active ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'
+                      }`}>
+                        {company.is_active ? 'Active' : 'Inactive'}
+                      </span>
+                      <span className="px-2 py-1 rounded-full text-xs bg-blue-100 text-blue-700 capitalize">
+                        {company.license_type}
+                      </span>
+                    </div>
+                  </div>
+                  
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
+                    <div>
+                      <span className="font-medium text-gray-600">Company ID:</span>
+                      <div className="flex items-center gap-2 mt-1">
+                        <code className="bg-gray-100 px-2 py-1 rounded text-xs font-mono">
+                          {company.id}
+                        </code>
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          onClick={() => copyToClipboard(company.id, "Company ID")}
+                          className="h-6 w-6 p-0"
+                        >
+                          <Copy className="h-3 w-3" />
+                        </Button>
+                      </div>
+                    </div>
+                    
+                    <div>
+                      <span className="font-medium text-gray-600">License Key:</span>
+                      <div className="flex items-center gap-2 mt-1">
+                        <code className="bg-gray-100 px-2 py-1 rounded text-xs font-mono">
+                          {showLicenseKeys[company.id] 
+                            ? company.license_key 
+                            : '••••••••••••••••'
+                          }
+                        </code>
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          onClick={() => toggleLicenseKeyVisibility(company.id)}
+                          className="h-6 w-6 p-0"
+                        >
+                          {showLicenseKeys[company.id] ? (
+                            <EyeOff className="h-3 w-3" />
+                          ) : (
+                            <Eye className="h-3 w-3" />
+                          )}
+                        </Button>
+                        {showLicenseKeys[company.id] && (
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            onClick={() => copyToClipboard(company.license_key, "License Key")}
+                            className="h-6 w-6 p-0"
+                          >
+                            <Copy className="h-3 w-3" />
+                          </Button>
+                        )}
+                      </div>
+                    </div>
+                    
+                    <div>
+                      <span className="font-medium text-gray-600">Email:</span>
+                      <div className="text-gray-800">{company.email}</div>
+                    </div>
+                    
+                    <div>
+                      <span className="font-medium text-gray-600">Client Limit:</span>
+                      <div className="text-gray-800">
+                        {company.current_client_count || 0} / {company.client_limit}
+                      </div>
+                    </div>
+                  </div>
+                  
+                  {company.subscription_end_date && (
+                    <div className="text-sm">
+                      <span className="font-medium text-gray-600">License Expires:</span>
+                      <span className={`ml-2 ${
+                        new Date(company.subscription_end_date) < new Date() 
+                          ? 'text-red-600 font-medium' 
+                          : 'text-gray-800'
+                      }`}>
+                        {new Date(company.subscription_end_date).toLocaleDateString()}
+                      </span>
+                    </div>
+                  )}
+                </div>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
       {/* New Company Registration */}
       <Card>
         <CardHeader>
