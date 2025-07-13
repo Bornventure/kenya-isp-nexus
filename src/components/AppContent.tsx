@@ -1,4 +1,3 @@
-
 import { Routes, Route, Navigate } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
 import Login from "./Login";
@@ -26,6 +25,7 @@ import LicenseManagement from "@/pages/LicenseManagement";
 import AccessDenied from "./AccessDenied";
 import NotFound from "@/pages/NotFound";
 import NetworkStatus from "@/pages/NetworkStatus";
+import SuperAdminLicenseManagement from "@/pages/SuperAdminLicenseManagement";
 
 const AppContent = () => {
   const { user, profile, isLoading } = useAuth();
@@ -64,6 +64,8 @@ const AppContent = () => {
         <Route path="/developer-portal" element={isAdmin ? <DeveloperPortal /> : <Navigate to="/access-denied" />} />
         <Route path="/api-documentation" element={isAdmin ? <ApiDocumentation /> : <Navigate to="/access-denied" />} />
         <Route path="/license-management" element={isAdmin ? <LicenseManagement /> : <Navigate to="/access-denied" />} />
+        {/* Super Admin only route - hidden from navigation */}
+        <Route path="/system-license-admin" element={profile.role === 'super_admin' ? <SuperAdminLicenseManagement /> : <Navigate to="/access-denied" />} />
         <Route path="/profile" element={<Profile />} />
         <Route path="/settings" element={isAdmin ? <Settings /> : <Navigate to="/access-denied" />} />
         <Route path="/api-settings" element={isAdmin ? <ApiSettings /> : <Navigate to="/access-denied" />} />
