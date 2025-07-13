@@ -46,7 +46,8 @@ const getMpesaToken = async (): Promise<string> => {
 
   const auth = btoa(`${consumerKey}:${consumerSecret}`);
   
-  const response = await fetch("https://api.safaricom.co.ke/oauth/v1/generate?grant_type=client_credentials", {
+  // Use sandbox endpoint consistently - change this to production when ready
+  const response = await fetch("https://sandbox.safaricom.co.ke/oauth/v1/generate?grant_type=client_credentials", {
     method: "GET",
     headers: {
       "Authorization": `Basic ${auth}`,
@@ -54,7 +55,9 @@ const getMpesaToken = async (): Promise<string> => {
   });
 
   if (!response.ok) {
-    throw new Error("Failed to get M-Pesa token");
+    const errorText = await response.text();
+    console.error('M-Pesa token request failed:', errorText);
+    throw new Error(`Failed to get M-Pesa token: ${response.status} ${errorText}`);
   }
 
   const data: MpesaTokenResponse = await response.json();
@@ -171,7 +174,9 @@ const handler = async (req: Request): Promise<Response> => {
     }
 
     // Get access token
+    console.log('Getting M-Pesa access token...');
     const accessToken = await getMpesaToken();
+    console.log('M-Pesa access token received successfully');
 
     // Generate timestamp and password
     const timestamp = generateTimestamp();
@@ -230,8 +235,8 @@ const handler = async (req: Request): Promise<Response> => {
 
     console.log('Making STK Push request to M-Pesa...');
 
-    // Make STK Push request
-    const stkResponse = await fetch("https://api.safaricom.co.ke/mpesa/stkpush/v1/processrequest", {
+    // Use sandbox endpoint consistently - change this to production when ready
+    const stkResponse = await fetch("https://sandbox.safaricom.co.ke/mpesa/stkpush/v1/processrequest", {
       method: "POST",
       headers: {
         "Authorization": `Bearer ${accessToken}`,
