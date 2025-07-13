@@ -121,6 +121,26 @@ const formatPhoneNumber = (phone: string): string => {
   return cleanPhone;
 };
 
+const sanitizeTransactionDesc = (description: string): string => {
+  // M-Pesa allows only alphanumeric characters, spaces, and basic punctuation
+  // Remove special characters and limit length to 13 characters max
+  let sanitized = description
+    .replace(/[^a-zA-Z0-9\s\-_.]/g, '') // Remove special characters except basic ones
+    .replace(/\s+/g, ' ') // Replace multiple spaces with single space
+    .trim()
+    .substring(0, 13); // M-Pesa has a 13 character limit for TransactionDesc
+  
+  // If empty after sanitization, use default
+  if (!sanitized) {
+    sanitized = 'Wallet topup';
+  }
+  
+  console.log('Original description:', description);
+  console.log('Sanitized description:', sanitized);
+  
+  return sanitized;
+};
+
 const handler = async (req: Request): Promise<Response> => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
@@ -218,6 +238,9 @@ const handler = async (req: Request): Promise<Response> => {
       throw new Error("Client not found for wallet top-up");
     }
 
+    // Sanitize transaction description for M-Pesa requirements
+    const sanitizedTransactionDesc = sanitizeTransactionDesc(transaction_description || 'Wallet topup');
+
     // STK Push request payload
     const stkPushPayload = {
       BusinessShortCode: shortcode,
@@ -230,10 +253,11 @@ const handler = async (req: Request): Promise<Response> => {
       PhoneNumber: formattedPhone,
       CallBackURL: `${Deno.env.get('SUPABASE_URL')}/functions/v1/mpesa-callback`,
       AccountReference: account_reference,
-      TransactionDesc: transaction_description,
+      TransactionDesc: sanitizedTransactionDesc,
     };
 
     console.log('Making STK Push request to M-Pesa...');
+    console.log('STK Push payload:', stkPushPayload);
 
     // Use sandbox endpoint consistently - change this to production when ready
     const stkResponse = await fetch("https://sandbox.safaricom.co.ke/mpesa/stkpush/v1/processrequest", {
@@ -276,7 +300,7 @@ const handler = async (req: Request): Promise<Response> => {
           due_date: new Date().toISOString().split('T')[0], // Today
           service_period_start: new Date().toISOString().split('T')[0],
           service_period_end: new Date().toISOString().split('T')[0],
-          notes: `Wallet top-up via M-Pesa - ${transaction_description} (PENDING CONFIRMATION)`,
+          notes: `Wallet top-up via M-Pesa - ${sanitizedTransactionDesc} (PENDING CONFIRMATION)`,
           isp_company_id: client_record.isp_company_id
         })
         .select()
@@ -305,7 +329,7 @@ const handler = async (req: Request): Promise<Response> => {
             merchant_request_id: stkData.MerchantRequestID,
             account_reference: account_reference,
             phone_number: formattedPhone,
-            transaction_desc: transaction_description,
+            transaction_desc: sanitizedTransactionDesc,
             status: 'pending', // CRITICAL: Mark as pending until confirmed
             payment_type: 'wallet_topup',
             metadata: metadata || { client_id: clientIdNumber, client_email: clientEmail },
