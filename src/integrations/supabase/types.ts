@@ -418,6 +418,69 @@ export type Database = {
           },
         ]
       }
+      company_registration_requests: {
+        Row: {
+          address: string | null
+          business_description: string | null
+          ca_license_number: string | null
+          company_name: string
+          contact_person_name: string
+          county: string | null
+          created_at: string
+          email: string
+          id: string
+          kra_pin: string | null
+          notes: string | null
+          phone: string | null
+          processed_at: string | null
+          processed_by: string | null
+          requested_license_type: string
+          status: string
+          sub_county: string | null
+          updated_at: string
+        }
+        Insert: {
+          address?: string | null
+          business_description?: string | null
+          ca_license_number?: string | null
+          company_name: string
+          contact_person_name: string
+          county?: string | null
+          created_at?: string
+          email: string
+          id?: string
+          kra_pin?: string | null
+          notes?: string | null
+          phone?: string | null
+          processed_at?: string | null
+          processed_by?: string | null
+          requested_license_type?: string
+          status?: string
+          sub_county?: string | null
+          updated_at?: string
+        }
+        Update: {
+          address?: string | null
+          business_description?: string | null
+          ca_license_number?: string | null
+          company_name?: string
+          contact_person_name?: string
+          county?: string | null
+          created_at?: string
+          email?: string
+          id?: string
+          kra_pin?: string | null
+          notes?: string | null
+          phone?: string | null
+          processed_at?: string | null
+          processed_by?: string | null
+          requested_license_type?: string
+          status?: string
+          sub_county?: string | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
       departments: {
         Row: {
           created_at: string
@@ -1921,6 +1984,124 @@ export type Database = {
           },
         ]
       }
+      super_admin_invoices: {
+        Row: {
+          amount: number
+          company_name: string
+          contact_email: string
+          created_at: string
+          created_by: string | null
+          currency: string
+          due_date: string
+          id: string
+          invoice_number: string
+          notes: string | null
+          payment_date: string | null
+          payment_method: string | null
+          payment_reference: string | null
+          registration_request_id: string | null
+          status: string
+          total_amount: number
+          updated_at: string
+          vat_amount: number
+        }
+        Insert: {
+          amount: number
+          company_name: string
+          contact_email: string
+          created_at?: string
+          created_by?: string | null
+          currency?: string
+          due_date: string
+          id?: string
+          invoice_number: string
+          notes?: string | null
+          payment_date?: string | null
+          payment_method?: string | null
+          payment_reference?: string | null
+          registration_request_id?: string | null
+          status?: string
+          total_amount: number
+          updated_at?: string
+          vat_amount?: number
+        }
+        Update: {
+          amount?: number
+          company_name?: string
+          contact_email?: string
+          created_at?: string
+          created_by?: string | null
+          currency?: string
+          due_date?: string
+          id?: string
+          invoice_number?: string
+          notes?: string | null
+          payment_date?: string | null
+          payment_method?: string | null
+          payment_reference?: string | null
+          registration_request_id?: string | null
+          status?: string
+          total_amount?: number
+          updated_at?: string
+          vat_amount?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "super_admin_invoices_registration_request_id_fkey"
+            columns: ["registration_request_id"]
+            isOneToOne: false
+            referencedRelation: "company_registration_requests"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      super_admin_payments: {
+        Row: {
+          amount: number
+          created_at: string
+          created_by: string | null
+          id: string
+          invoice_id: string | null
+          mpesa_receipt_number: string | null
+          notes: string | null
+          payment_date: string
+          payment_method: string
+          payment_reference: string | null
+        }
+        Insert: {
+          amount: number
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          invoice_id?: string | null
+          mpesa_receipt_number?: string | null
+          notes?: string | null
+          payment_date?: string
+          payment_method: string
+          payment_reference?: string | null
+        }
+        Update: {
+          amount?: number
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          invoice_id?: string | null
+          mpesa_receipt_number?: string | null
+          notes?: string | null
+          payment_date?: string
+          payment_method?: string
+          payment_reference?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "super_admin_payments_invoice_id_fkey"
+            columns: ["invoice_id"]
+            isOneToOne: false
+            referencedRelation: "super_admin_invoices"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       support_tickets: {
         Row: {
           assigned_to: string | null
@@ -2225,6 +2406,10 @@ export type Database = {
       end_expired_sessions: {
         Args: Record<PropertyKey, never>
         Returns: undefined
+      }
+      generate_invoice_number: {
+        Args: Record<PropertyKey, never>
+        Returns: string
       }
       generate_voucher_code: {
         Args: Record<PropertyKey, never>
