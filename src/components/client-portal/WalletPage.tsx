@@ -1,5 +1,5 @@
 
-import React from 'react';
+import React, { useState } from 'react';
 import WalletOverview from './WalletOverview';
 import MpesaPaymentForm from './MpesaPaymentForm';
 import PaybillInstructions from './PaybillInstructions';
@@ -7,6 +7,12 @@ import TransactionHistory from './TransactionHistory';
 import PaymentHistoryExport from './PaymentHistoryExport';
 
 const WalletPage: React.FC = () => {
+  const [showCreditForm, setShowCreditForm] = useState(false);
+
+  const handleCreditClick = () => {
+    setShowCreditForm(true);
+  };
+
   return (
     <div className="space-y-6">
       <div>
@@ -16,7 +22,7 @@ const WalletPage: React.FC = () => {
         </p>
       </div>
 
-      <WalletOverview />
+      <WalletOverview onCreditClick={handleCreditClick} />
       
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         <MpesaPaymentForm />
