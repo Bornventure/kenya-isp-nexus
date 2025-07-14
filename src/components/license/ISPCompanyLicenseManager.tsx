@@ -119,30 +119,31 @@ const ISPCompanyLicenseManager = () => {
 
       if (companyError) throw companyError;
 
-      // Create user account and send credentials
-      const response = await fetch(`https://ddljuawonxdnesrnclsx.supabase.co/functions/v1/create-isp-account`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImRkbGp1YXdvbnhkbmVzcm5jbHN4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDkzOTk0NDksImV4cCI6MjA2NDk3NTQ0OX0.HcMHBQ0dD0rHz2s935PncmiJgaG8C1fJw39XdfGlzeg`
-        },
-        body: JSON.stringify({
+      // Create user account and send credentials using the edge function
+      const { data: functionData, error: functionError } = await supabase.functions.invoke('create-isp-account', {
+        body: {
           companyData: {
             id: company.id,
             name: company.name,
             contact_email: newCompany.email,
             contact_person_name: newCompany.contact_person_name
           },
-          licenseKey: licenseKey,
-          invoiceNumber: selectedInvoice.invoice_number
-        })
+          licenseKey: licenseKey
+        }
       });
 
-      if (!response.ok) {
-        console.error('Failed to create user account');
+      if (functionError) {
+        console.error('Edge function error:', functionError);
         toast({
           title: "Partial Success",
           description: "Company created but failed to create user account. Please create manually.",
+          variant: "destructive"
+        });
+      } else if (!functionData?.success) {
+        console.error('User creation failed:', functionData);
+        toast({
+          title: "Partial Success", 
+          description: functionData?.error || "Company created but failed to create user account.",
           variant: "destructive"
         });
       } else {
