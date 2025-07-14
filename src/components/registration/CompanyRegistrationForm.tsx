@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -86,7 +85,8 @@ const CompanyRegistrationForm = ({ onClose }: CompanyRegistrationFormProps) => {
     setError('');
 
     try {
-      console.log('Submitting registration request with data:', {
+      // Prepare the data with explicit null values for optional fields
+      const insertData = {
         company_name: formData.company_name.trim(),
         contact_person_name: formData.contact_person_name.trim(),
         email: formData.email.trim().toLowerCase(),
@@ -99,33 +99,21 @@ const CompanyRegistrationForm = ({ onClose }: CompanyRegistrationFormProps) => {
         requested_license_type: formData.requested_license_type,
         business_description: formData.business_description.trim() || null,
         status: 'pending'
-      });
+      };
 
-      const { data, error: submitError } = await supabase
+      console.log('Submitting registration request with data:', insertData);
+
+      // Use a direct insert without .select() to avoid potential RLS issues
+      const { error: submitError } = await supabase
         .from('company_registration_requests')
-        .insert([{
-          company_name: formData.company_name.trim(),
-          contact_person_name: formData.contact_person_name.trim(),
-          email: formData.email.trim().toLowerCase(),
-          phone: formData.phone.trim() || null,
-          address: formData.address.trim() || null,
-          county: formData.county.trim() || null,
-          sub_county: formData.sub_county.trim() || null,
-          kra_pin: formData.kra_pin.trim() || null,
-          ca_license_number: formData.ca_license_number.trim() || null,
-          requested_license_type: formData.requested_license_type,
-          business_description: formData.business_description.trim() || null,
-          status: 'pending'
-        }])
-        .select()
-        .single();
+        .insert([insertData]);
 
       if (submitError) {
         console.error('Supabase error:', submitError);
         throw new Error(submitError.message || 'Database error occurred');
       }
 
-      console.log('Registration request submitted successfully:', data);
+      console.log('Registration request submitted successfully');
 
       toast({
         title: "Registration Request Submitted",
@@ -139,8 +127,10 @@ const CompanyRegistrationForm = ({ onClose }: CompanyRegistrationFormProps) => {
       let errorMessage = 'Failed to submit registration request. Please try again.';
       
       // Provide more specific error messages
-      if (err.message?.includes('duplicate key')) {
+      if (err.message?.includes('duplicate key') || err.message?.includes('already exists')) {
         errorMessage = 'A registration request with this email already exists.';
+      } else if (err.message?.includes('row-level security')) {
+        errorMessage = 'Permission denied. Please contact support if this issue persists.';
       } else if (err.message?.includes('network')) {
         errorMessage = 'Network error. Please check your connection and try again.';
       } else if (err.message) {
