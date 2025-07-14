@@ -1,3 +1,4 @@
+
 import React, { useState } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -84,14 +85,7 @@ const CompanyRegistrationForm = ({ onClose }: CompanyRegistrationFormProps) => {
     setError('');
 
     try {
-      // Create a new supabase client without authentication to bypass RLS
-      const { createClient } = await import('@supabase/supabase-js');
-      const anonClient = createClient(
-        'https://ddljuawonxdnesrnclsx.supabase.co',
-        'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImRkbGp1YXdvbnhkbmVzcm5jbHN4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDkzOTk0NDksImV4cCI6MjA2NDk3NTQ0OX0.HcMHBQ0dD0rHz2s935PncmiJgaG8C1fJw39XdfGlzeg'
-      );
-
-      const { data, error: submitError } = await anonClient
+      const { data, error: submitError } = await supabase
         .from('company_registration_requests')
         .insert([{
           company_name: formData.company_name.trim(),
