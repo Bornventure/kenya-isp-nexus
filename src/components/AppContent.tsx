@@ -41,6 +41,12 @@ const AppContent = () => {
     );
   }
 
+  // Public routes that don't require authentication
+  const currentPath = window.location.pathname;
+  if (currentPath === '/customer-portal') {
+    return <CustomerPortal />;
+  }
+
   if (!user || !profile) {
     return <Login />;
   }
@@ -176,6 +182,7 @@ const AppContent = () => {
           </LicenseGuard>
         ) : <Navigate to="/access-denied" />} />
         
+        {/* Public route - already handled above */}
         <Route path="/customer-portal" element={<CustomerPortal />} />
         <Route path="/access-denied" element={<AccessDenied />} />
         <Route path="*" element={<NotFound />} />
