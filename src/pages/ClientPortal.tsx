@@ -5,6 +5,7 @@ import ClientLoginForm from '@/components/client-portal/ClientLoginForm';
 import ClientDashboardLayout from '@/components/client-portal/ClientDashboardLayout';
 import ClientDashboard from '@/components/client-portal/ClientDashboard';
 import WalletPage from '@/components/client-portal/WalletPage';
+import InvoicesPage from '@/components/client-portal/InvoicesPage';
 
 const ClientPortal = () => {
   const { client } = useClientAuth();
@@ -23,7 +24,7 @@ const ClientPortal = () => {
       case 'wallet':
         return <WalletPage />;
       case 'invoices':
-        return <div>Invoices component coming soon...</div>;
+        return <InvoicesPage />;
       case 'support':
         return <div>Support component coming soon...</div>;
       case 'profile':
