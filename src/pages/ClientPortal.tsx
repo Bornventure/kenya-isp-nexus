@@ -6,6 +6,8 @@ import ClientDashboardLayout from '@/components/client-portal/ClientDashboardLay
 import ClientDashboard from '@/components/client-portal/ClientDashboard';
 import WalletPage from '@/components/client-portal/WalletPage';
 import InvoicesPage from '@/components/client-portal/InvoicesPage';
+import SupportPage from '@/components/client-portal/SupportPage';
+import ProfilePage from '@/components/client-portal/ProfilePage';
 
 const ClientPortal = () => {
   const { client } = useClientAuth();
@@ -26,9 +28,9 @@ const ClientPortal = () => {
       case 'invoices':
         return <InvoicesPage />;
       case 'support':
-        return <div>Support component coming soon...</div>;
+        return <SupportPage />;
       case 'profile':
-        return <div>Profile component coming soon...</div>;
+        return <ProfilePage />;
       default:
         return <ClientDashboard onTabChange={setActiveTab} />;
     }
