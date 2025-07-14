@@ -18,7 +18,6 @@ import Profile from "@/pages/Profile";
 import Settings from "@/pages/Settings";
 import ApiSettings from "@/pages/ApiSettings";
 import Invoices from "@/pages/Invoices";
-import CustomerPortal from "@/pages/CustomerPortal";
 import PackageManagement from "@/pages/PackageManagement";
 import DeveloperPortal from "@/pages/DeveloperPortal";
 import ApiDocumentation from "@/pages/ApiDocumentation";
@@ -29,6 +28,7 @@ import NotFound from "@/pages/NotFound";
 import NetworkStatus from "@/pages/NetworkStatus";
 import SuperAdminLicenseManagement from "@/pages/SuperAdminLicenseManagement";
 import LicenseGuard from "@/components/license/LicenseGuard";
+import Index from "@/pages/Index";
 
 const AppContent = () => {
   const { user, profile, isLoading } = useAuth();
@@ -41,14 +41,14 @@ const AppContent = () => {
     );
   }
 
-  // Public routes that don't require authentication
-  const currentPath = window.location.pathname;
-  if (currentPath === '/customer-portal') {
-    return <CustomerPortal />;
-  }
-
+  // Show index page if no user is logged in
   if (!user || !profile) {
-    return <Login />;
+    return (
+      <Routes>
+        <Route path="/" element={<Index />} />
+        <Route path="*" element={<Login />} />
+      </Routes>
+    );
   }
 
   // If user doesn't have a company and is not super admin, redirect to license activation
@@ -182,8 +182,6 @@ const AppContent = () => {
           </LicenseGuard>
         ) : <Navigate to="/access-denied" />} />
         
-        {/* Public route - already handled above */}
-        <Route path="/customer-portal" element={<CustomerPortal />} />
         <Route path="/access-denied" element={<AccessDenied />} />
         <Route path="*" element={<NotFound />} />
       </Routes>
