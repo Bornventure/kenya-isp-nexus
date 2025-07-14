@@ -1,0 +1,50 @@
+
+{
+  "name": "ISP Client Portal",
+  "short_name": "ISP Portal",
+  "description": "Manage your internet service account",
+  "icons": [
+    {
+      "src": "/placeholder.svg",
+      "sizes": "192x192",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/placeholder.svg",
+      "sizes": "512x512",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ],
+  "start_url": "/client-portal",
+  "display": "standalone",
+  "theme_color": "#2563eb",
+  "background_color": "#ffffff",
+  "orientation": "portrait-primary",
+  "scope": "/",
+  "categories": ["utilities", "finance"],
+  "shortcuts": [
+    {
+      "name": "Dashboard",
+      "short_name": "Dashboard",
+      "description": "View account dashboard",
+      "url": "/client-portal",
+      "icons": [{ "src": "/placeholder.svg", "sizes": "96x96" }]
+    },
+    {
+      "name": "Top Up Wallet",
+      "short_name": "Top Up",
+      "description": "Add money to wallet",
+      "url": "/client-portal?tab=wallet",
+      "icons": [{ "src": "/placeholder.svg", "sizes": "96x96" }]
+    },
+    {
+      "name": "Support",
+      "short_name": "Support",
+      "description": "Get help and support",
+      "url": "/client-portal?tab=support",
+      "icons": [{ "src": "/placeholder.svg", "sizes": "96x96" }]
+    }
+  ]
+}

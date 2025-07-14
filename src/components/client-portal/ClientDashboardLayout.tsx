@@ -1,6 +1,7 @@
 
 import React from 'react';
 import { useClientAuth } from '@/contexts/ClientAuthContext';
+import { useClientRealtimeUpdates } from '@/hooks/useClientRealtimeUpdates';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { 
@@ -11,9 +12,11 @@ import {
   User, 
   LogOut,
   Wifi,
-  RefreshCw
+  RefreshCw,
+  Files
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import MobileOptimizations from './MobileOptimizations';
 
 interface ClientDashboardLayoutProps {
   children: React.ReactNode;
@@ -25,6 +28,7 @@ const navigationItems = [
   { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
   { id: 'wallet', label: 'Wallet', icon: Wallet },
   { id: 'invoices', label: 'Invoices', icon: FileText },
+  { id: 'documents', label: 'Documents', icon: Files },
   { id: 'support', label: 'Support', icon: Headphones },
   { id: 'profile', label: 'Profile', icon: User },
 ];
@@ -36,12 +40,15 @@ const ClientDashboardLayout: React.FC<ClientDashboardLayoutProps> = ({
 }) => {
   const { client, logout, refreshClientData } = useClientAuth();
 
+  // Enable real-time updates
+  useClientRealtimeUpdates();
+
   if (!client) return null;
 
   return (
     <div className="min-h-screen bg-gray-50">
       {/* Header */}
-      <header className="bg-white shadow-sm border-b">
+      <header className="bg-white shadow-sm border-b sticky top-0 z-40">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between items-center h-16">
             <div className="flex items-center gap-3">
@@ -50,7 +57,7 @@ const ClientDashboardLayout: React.FC<ClientDashboardLayoutProps> = ({
               </div>
               <div>
                 <h1 className="text-lg font-semibold text-gray-900">Client Portal</h1>
-                <p className="text-sm text-gray-500">Welcome, {client.name}</p>
+                <p className="text-sm text-gray-500 truncate max-w-[200px]">Welcome, {client.name}</p>
               </div>
             </div>
             
@@ -77,7 +84,7 @@ const ClientDashboardLayout: React.FC<ClientDashboardLayoutProps> = ({
         <div className="flex flex-col lg:flex-row gap-6">
           {/* Sidebar Navigation */}
           <div className="lg:w-64">
-            <Card>
+            <Card className="sticky top-24">
               <CardContent className="p-4">
                 <nav className="space-y-2">
                   {navigationItems.map((item) => {
@@ -114,17 +121,32 @@ const ClientDashboardLayout: React.FC<ClientDashboardLayoutProps> = ({
                     {client.status?.toUpperCase()}
                   </div>
                   <p className="text-sm text-gray-600">Account Status</p>
+                  
+                  {/* Quick Stats */}
+                  <div className="mt-4 space-y-2 text-sm">
+                    <div className="flex justify-between">
+                      <span>Wallet:</span>
+                      <span className="font-medium">KES {client.wallet_balance?.toFixed(2) || '0.00'}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span>Plan:</span>
+                      <span className="font-medium">KES {client.monthly_rate?.toFixed(2) || '0.00'}</span>
+                    </div>
+                  </div>
                 </div>
               </CardContent>
             </Card>
           </div>
 
           {/* Main Content */}
-          <div className="flex-1">
+          <div className="flex-1 min-w-0">
             {children}
           </div>
         </div>
       </div>
+
+      {/* Mobile Optimizations & PWA */}
+      <MobileOptimizations />
     </div>
   );
 };

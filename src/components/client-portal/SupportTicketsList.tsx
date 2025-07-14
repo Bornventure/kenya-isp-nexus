@@ -6,7 +6,7 @@ import { Button } from '@/components/ui/button';
 import { useClientAuth } from '@/contexts/ClientAuthContext';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
-import { Ticket, Clock, User, AlertTriangle, CheckCircle } from 'lucide-react';
+import { Ticket, Clock, User, AlertTriangle, CheckCircle, RefreshCw } from 'lucide-react';
 import { format } from 'date-fns';
 
 interface SupportTicket {
@@ -14,7 +14,7 @@ interface SupportTicket {
   title: string;
   description: string;
   status: 'open' | 'in_progress' | 'resolved' | 'closed';
-  priority: 'low' | 'medium' | 'high';
+  priority: 'low' | 'medium' | 'high' | 'urgent';
   ticket_type: string;
   created_at: string;
   updated_at: string;
@@ -29,6 +29,35 @@ const SupportTicketsList: React.FC = () => {
   useEffect(() => {
     if (client) {
       fetchTickets();
+      // Set up real-time subscription for support tickets
+      const channel = supabase
+        .channel('support_tickets_channel')
+        .on(
+          'postgres_changes',
+          {
+            event: '*',
+            schema: 'public',
+            table: 'support_tickets',
+            filter: `client_id=eq.${client.id}`
+          },
+          (payload) => {
+            console.log('Support ticket update:', payload);
+            fetchTickets(); // Refresh tickets on any change
+            
+            // Show notification for ticket updates
+            if (payload.eventType === 'UPDATE' && payload.new.status !== payload.old?.status) {
+              toast({
+                title: "Ticket Updated",
+                description: `Ticket #${payload.new.id.slice(0, 8)} status changed to ${payload.new.status.replace('_', ' ')}`,
+              });
+            }
+          }
+        )
+        .subscribe();
+
+      return () => {
+        supabase.removeChannel(channel);
+      };
     }
   }, [client]);
 
@@ -89,6 +118,8 @@ const SupportTicketsList: React.FC = () => {
 
   const getPriorityColor = (priority: string) => {
     switch (priority) {
+      case 'urgent':
+        return 'bg-red-600 text-white';
       case 'high':
         return 'bg-red-100 text-red-800';
       case 'medium':
@@ -104,7 +135,10 @@ const SupportTicketsList: React.FC = () => {
     return (
       <Card>
         <CardContent className="p-6">
-          <div className="text-center">Loading tickets...</div>
+          <div className="text-center">
+            <RefreshCw className="h-8 w-8 animate-spin mx-auto mb-4" />
+            Loading tickets...
+          </div>
         </CardContent>
       </Card>
     );
@@ -116,6 +150,14 @@ const SupportTicketsList: React.FC = () => {
         <CardTitle className="flex items-center gap-2">
           <Ticket className="h-5 w-5" />
           Your Support Tickets
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={fetchTickets}
+            className="ml-auto"
+          >
+            <RefreshCw className="h-4 w-4" />
+          </Button>
         </CardTitle>
       </CardHeader>
       <CardContent>
