@@ -101,12 +101,21 @@ const MobileOptimizations: React.FC = () => {
       document.head.appendChild(meta);
     }
 
-    // Add apple mobile web app capable
-    const appleMeta = document.querySelector('meta[name="apple-mobile-web-app-capable"]');
-    if (!appleMeta) {
+    // Add mobile web app capable (updated from deprecated apple-mobile-web-app-capable)
+    const mobileWebApp = document.querySelector('meta[name="mobile-web-app-capable"]');
+    if (!mobileWebApp) {
       const meta = document.createElement('meta');
-      meta.name = 'apple-mobile-web-app-capable';
+      meta.name = 'mobile-web-app-capable';
       meta.content = 'yes';
+      document.head.appendChild(meta);
+    }
+
+    // Add apple mobile web app status bar style
+    const appleStatusBar = document.querySelector('meta[name="apple-mobile-web-app-status-bar-style"]');
+    if (!appleStatusBar) {
+      const meta = document.createElement('meta');
+      meta.name = 'apple-mobile-web-app-status-bar-style';
+      meta.content = 'default';
       document.head.appendChild(meta);
     }
   }, []);

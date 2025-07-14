@@ -42,14 +42,17 @@ const ClientInvoiceList: React.FC<ClientInvoiceListProps> = ({ onViewInvoice }) 
     
     setLoading(true);
     try {
-      const { data, error } = await supabase.functions.invoke('get-invoice-details', {
-        body: {
-          client_email: client.email,
-          client_id_number: client.id_number,
-          page,
-          limit: 10
-        }
+      // Build query parameters for the edge function
+      const queryParams = new URLSearchParams({
+        client_email: client.email,
+        client_id_number: client.id_number,
+        page: page.toString(),
+        limit: '10'
       });
+
+      const { data, error } = await supabase.functions.invoke(
+        `get-invoice-details?${queryParams.toString()}`
+      );
 
       if (error) throw error;
 
@@ -57,6 +60,8 @@ const ClientInvoiceList: React.FC<ClientInvoiceListProps> = ({ onViewInvoice }) 
         setInvoices(data.invoices || []);
         setTotalPages(data.pagination?.totalPages || 1);
         setCurrentPage(page);
+      } else {
+        throw new Error(data?.error || 'Failed to fetch invoices');
       }
     } catch (error) {
       console.error('Error fetching invoices:', error);
