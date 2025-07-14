@@ -14,13 +14,13 @@ interface DashboardLayoutProps {
 }
 
 const DashboardLayout = ({ children }: DashboardLayoutProps) => {
-  const [sidebarOpen, setSidebarOpen] = useState(false); // Default to closed on mobile
-  const { user } = useAuth();
+  const [sidebarOpen, setSidebarOpen] = useState(false);
+  const { logout } = useAuth();
   const navigate = useNavigate();
 
   const handleSignOut = async () => {
-    // TODO: Implement sign out functionality
-    navigate('/login');
+    await logout();
+    // No need to navigate - the auth context will handle redirecting to login
   };
 
   const toggleSidebar = () => {
