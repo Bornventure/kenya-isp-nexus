@@ -4,6 +4,7 @@ import { useClientAuth } from '@/contexts/ClientAuthContext';
 import ClientLoginForm from '@/components/client-portal/ClientLoginForm';
 import ClientDashboardLayout from '@/components/client-portal/ClientDashboardLayout';
 import ClientDashboard from '@/components/client-portal/ClientDashboard';
+import WalletPage from '@/components/client-portal/WalletPage';
 
 const ClientPortal = () => {
   const { client } = useClientAuth();
@@ -20,7 +21,7 @@ const ClientPortal = () => {
       case 'dashboard':
         return <ClientDashboard onTabChange={setActiveTab} />;
       case 'wallet':
-        return <div>Wallet component coming soon...</div>;
+        return <WalletPage />;
       case 'invoices':
         return <div>Invoices component coming soon...</div>;
       case 'support':
