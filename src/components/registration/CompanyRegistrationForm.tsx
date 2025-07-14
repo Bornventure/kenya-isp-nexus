@@ -39,19 +39,79 @@ const CompanyRegistrationForm = ({ onClose }: CompanyRegistrationFormProps) => {
 
   const handleInputChange = (field: string, value: string) => {
     setFormData(prev => ({ ...prev, [field]: value }));
+    // Clear any existing errors when user starts typing
+    if (error) {
+      setError('');
+    }
+  };
+
+  const validateForm = () => {
+    // Check required fields
+    if (!formData.company_name.trim()) {
+      setError('Company name is required');
+      return false;
+    }
+    if (!formData.contact_person_name.trim()) {
+      setError('Contact person name is required');
+      return false;
+    }
+    if (!formData.email.trim()) {
+      setError('Email address is required');
+      return false;
+    }
+    if (!formData.requested_license_type) {
+      setError('Please select a license type');
+      return false;
+    }
+
+    // Validate email format
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(formData.email)) {
+      setError('Please enter a valid email address');
+      return false;
+    }
+
+    return true;
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    
+    if (!validateForm()) {
+      return;
+    }
+
     setLoading(true);
     setError('');
 
     try {
-      const { error: submitError } = await supabase
-        .from('company_registration_requests')
-        .insert([formData]);
+      console.log('Submitting company registration request:', formData);
 
-      if (submitError) throw submitError;
+      const { data, error: submitError } = await supabase
+        .from('company_registration_requests')
+        .insert([{
+          company_name: formData.company_name.trim(),
+          contact_person_name: formData.contact_person_name.trim(),
+          email: formData.email.trim().toLowerCase(),
+          phone: formData.phone.trim() || null,
+          address: formData.address.trim() || null,
+          county: formData.county.trim() || null,
+          sub_county: formData.sub_county.trim() || null,
+          kra_pin: formData.kra_pin.trim() || null,
+          ca_license_number: formData.ca_license_number.trim() || null,
+          requested_license_type: formData.requested_license_type,
+          business_description: formData.business_description.trim() || null,
+          status: 'pending'
+        }])
+        .select()
+        .single();
+
+      if (submitError) {
+        console.error('Supabase error:', submitError);
+        throw new Error(submitError.message || 'Database error occurred');
+      }
+
+      console.log('Registration request submitted successfully:', data);
 
       toast({
         title: "Registration Request Submitted",
@@ -60,8 +120,26 @@ const CompanyRegistrationForm = ({ onClose }: CompanyRegistrationFormProps) => {
 
       onClose();
     } catch (err: any) {
-      console.error('Registration error:', err);
-      setError('Failed to submit registration request. Please try again.');
+      console.error('Registration submission error:', err);
+      
+      let errorMessage = 'Failed to submit registration request. Please try again.';
+      
+      // Provide more specific error messages
+      if (err.message?.includes('duplicate key')) {
+        errorMessage = 'A registration request with this email already exists.';
+      } else if (err.message?.includes('network')) {
+        errorMessage = 'Network error. Please check your connection and try again.';
+      } else if (err.message) {
+        errorMessage = err.message;
+      }
+      
+      setError(errorMessage);
+      
+      toast({
+        title: "Submission Failed",
+        description: errorMessage,
+        variant: "destructive",
+      });
     } finally {
       setLoading(false);
     }
@@ -83,9 +161,9 @@ const CompanyRegistrationForm = ({ onClose }: CompanyRegistrationFormProps) => {
         <CardContent>
           <form onSubmit={handleSubmit} className="space-y-4">
             {error && (
-              <div className="flex items-center gap-2 text-red-600 text-sm bg-red-50 p-3 rounded-md">
-                <AlertCircle className="h-4 w-4" />
-                {error}
+              <div className="flex items-center gap-2 text-red-600 text-sm bg-red-50 p-3 rounded-md border border-red-200">
+                <AlertCircle className="h-4 w-4 flex-shrink-0" />
+                <span>{error}</span>
               </div>
             )}
 
@@ -100,6 +178,7 @@ const CompanyRegistrationForm = ({ onClose }: CompanyRegistrationFormProps) => {
                   onChange={(e) => handleInputChange('company_name', e.target.value)}
                   placeholder="Your ISP Company Name"
                   required
+                  disabled={loading}
                 />
               </div>
 
@@ -110,6 +189,7 @@ const CompanyRegistrationForm = ({ onClose }: CompanyRegistrationFormProps) => {
                   onChange={(e) => handleInputChange('contact_person_name', e.target.value)}
                   placeholder="Full Name"
                   required
+                  disabled={loading}
                 />
               </div>
             </div>
@@ -126,6 +206,7 @@ const CompanyRegistrationForm = ({ onClose }: CompanyRegistrationFormProps) => {
                   onChange={(e) => handleInputChange('email', e.target.value)}
                   placeholder="contact@yourcompany.com"
                   required
+                  disabled={loading}
                 />
               </div>
 
@@ -138,6 +219,7 @@ const CompanyRegistrationForm = ({ onClose }: CompanyRegistrationFormProps) => {
                   value={formData.phone}
                   onChange={(e) => handleInputChange('phone', e.target.value)}
                   placeholder="+254 xxx xxx xxx"
+                  disabled={loading}
                 />
               </div>
             </div>
@@ -152,6 +234,7 @@ const CompanyRegistrationForm = ({ onClose }: CompanyRegistrationFormProps) => {
                 onChange={(e) => handleInputChange('address', e.target.value)}
                 placeholder="Street address, building, etc."
                 rows={2}
+                disabled={loading}
               />
             </div>
 
@@ -162,6 +245,7 @@ const CompanyRegistrationForm = ({ onClose }: CompanyRegistrationFormProps) => {
                   value={formData.county}
                   onChange={(e) => handleInputChange('county', e.target.value)}
                   placeholder="County"
+                  disabled={loading}
                 />
               </div>
 
@@ -171,6 +255,7 @@ const CompanyRegistrationForm = ({ onClose }: CompanyRegistrationFormProps) => {
                   value={formData.sub_county}
                   onChange={(e) => handleInputChange('sub_county', e.target.value)}
                   placeholder="Sub-County"
+                  disabled={loading}
                 />
               </div>
 
@@ -180,6 +265,7 @@ const CompanyRegistrationForm = ({ onClose }: CompanyRegistrationFormProps) => {
                   value={formData.kra_pin}
                   onChange={(e) => handleInputChange('kra_pin', e.target.value)}
                   placeholder="P051234567X"
+                  disabled={loading}
                 />
               </div>
             </div>
@@ -191,6 +277,7 @@ const CompanyRegistrationForm = ({ onClose }: CompanyRegistrationFormProps) => {
                   value={formData.ca_license_number}
                   onChange={(e) => handleInputChange('ca_license_number', e.target.value)}
                   placeholder="Communications Authority License"
+                  disabled={loading}
                 />
               </div>
 
@@ -199,7 +286,7 @@ const CompanyRegistrationForm = ({ onClose }: CompanyRegistrationFormProps) => {
                 <Select 
                   value={formData.requested_license_type} 
                   onValueChange={(value) => handleInputChange('requested_license_type', value)}
-                  disabled={licenseTypesLoading}
+                  disabled={licenseTypesLoading || loading}
                 >
                   <SelectTrigger>
                     <SelectValue placeholder={licenseTypesLoading ? "Loading..." : "Select license type"} />
@@ -249,6 +336,7 @@ const CompanyRegistrationForm = ({ onClose }: CompanyRegistrationFormProps) => {
                 onChange={(e) => handleInputChange('business_description', e.target.value)}
                 placeholder="Brief description of your ISP services and coverage area..."
                 rows={3}
+                disabled={loading}
               />
             </div>
 
@@ -258,12 +346,13 @@ const CompanyRegistrationForm = ({ onClose }: CompanyRegistrationFormProps) => {
                 variant="outline"
                 onClick={onClose}
                 className="flex-1"
+                disabled={loading}
               >
                 Cancel
               </Button>
               <Button
                 type="submit"
-                disabled={loading || !formData.requested_license_type}
+                disabled={loading || !formData.requested_license_type || !formData.company_name || !formData.contact_person_name || !formData.email}
                 className="flex-1 flex items-center gap-2"
               >
                 <Send className="h-4 w-4" />
