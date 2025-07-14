@@ -27,6 +27,14 @@ interface ClientData {
     paybill_number: string;
     account_number: string;
   };
+  wallet_transactions?: Array<{
+    id: string;
+    transaction_type: 'credit' | 'debit';
+    amount: number;
+    description: string;
+    created_at: string;
+    mpesa_receipt_number?: string;
+  }>;
 }
 
 interface ClientAuthContextType {

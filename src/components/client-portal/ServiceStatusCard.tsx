@@ -11,24 +11,13 @@ import {
   Clock
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { useClientAuth } from '@/contexts/ClientAuthContext';
 
-interface ServiceStatusCardProps {
-  client: {
-    status: string;
-    monthly_rate: number;
-    subscription_type: string;
-    installation_date: string | null;
-    subscription_start_date: string | null;
-    location: {
-      address: string;
-      county: string;
-      sub_county: string;
-    };
-    service_package: any;
-  };
-}
+const ServiceStatusCard: React.FC = () => {
+  const { client } = useClientAuth();
 
-const ServiceStatusCard: React.FC<ServiceStatusCardProps> = ({ client }) => {
+  if (!client) return null;
+
   const formatCurrency = (amount: number) => {
     return new Intl.NumberFormat('en-KE', {
       style: 'currency',

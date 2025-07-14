@@ -3,11 +3,7 @@ import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Clock, AlertTriangle } from 'lucide-react';
 import { cn } from '@/lib/utils';
-
-interface ExpiryCountdownProps {
-  expiryDate: string | null;
-  status: string;
-}
+import { useClientAuth } from '@/contexts/ClientAuthContext';
 
 interface TimeRemaining {
   days: number;
@@ -16,19 +12,20 @@ interface TimeRemaining {
   seconds: number;
 }
 
-const ExpiryCountdown: React.FC<ExpiryCountdownProps> = ({ expiryDate, status }) => {
+const ExpiryCountdown: React.FC = () => {
+  const { client } = useClientAuth();
   const [timeRemaining, setTimeRemaining] = useState<TimeRemaining>({ days: 0, hours: 0, minutes: 0, seconds: 0 });
   const [isExpired, setIsExpired] = useState(false);
 
   useEffect(() => {
-    if (!expiryDate || status !== 'active') {
+    if (!client?.subscription_end_date || client.status !== 'active') {
       setIsExpired(true);
       return;
     }
 
     const calculateTimeRemaining = () => {
       const now = new Date().getTime();
-      const expiry = new Date(expiryDate).getTime();
+      const expiry = new Date(client.subscription_end_date!).getTime();
       const difference = expiry - now;
 
       if (difference <= 0) {
@@ -50,7 +47,9 @@ const ExpiryCountdown: React.FC<ExpiryCountdownProps> = ({ expiryDate, status })
     const interval = setInterval(calculateTimeRemaining, 1000);
 
     return () => clearInterval(interval);
-  }, [expiryDate, status]);
+  }, [client?.subscription_end_date, client?.status]);
+
+  if (!client) return null;
 
   const getUrgencyLevel = () => {
     if (isExpired) return 'expired';
@@ -79,7 +78,7 @@ const ExpiryCountdown: React.FC<ExpiryCountdownProps> = ({ expiryDate, status })
     }
   };
 
-  if (status !== 'active') {
+  if (client.status !== 'active') {
     return (
       <Card className="border-gray-400 bg-gray-50">
         <CardHeader className="pb-3">
@@ -90,8 +89,8 @@ const ExpiryCountdown: React.FC<ExpiryCountdownProps> = ({ expiryDate, status })
         </CardHeader>
         <CardContent>
           <p className="text-gray-600">
-            {status === 'suspended' ? 'Service is suspended. Please make a payment to reactivate.' :
-             status === 'pending' ? 'Service is pending activation. Please contact support.' :
+            {client.status === 'suspended' ? 'Service is suspended. Please make a payment to reactivate.' :
+             client.status === 'pending' ? 'Service is pending activation. Please contact support.' :
              'Service is not active.'}
           </p>
         </CardContent>
