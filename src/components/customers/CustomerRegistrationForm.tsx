@@ -11,6 +11,7 @@ import PersonalInfoSection from './registration/PersonalInfoSection';
 import LocationInfoSection from './registration/LocationInfoSection';
 import ServiceInfoSection from './registration/ServiceInfoSection';
 import FormHeader from './registration/FormHeader';
+import { ThemeToggle } from '@/components/ui/theme-toggle';
 
 interface CustomerRegistrationFormProps {
   onClose: () => void;
@@ -88,15 +89,20 @@ const CustomerRegistrationForm: React.FC<CustomerRegistrationFormProps> = ({ onC
   };
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-      <Card className="w-full max-w-4xl max-h-[90vh] overflow-y-auto">
-        <CardHeader className="flex flex-row items-center justify-between">
-          <CardTitle className="text-xl font-semibold">Register for Internet Service</CardTitle>
-          <Button variant="ghost" size="sm" onClick={onClose} disabled={isSubmitting}>
-            <X className="h-4 w-4" />
-          </Button>
+    <div className="fixed inset-0 bg-black/50 dark:bg-black/70 flex items-center justify-center z-50 p-4">
+      <Card className="w-full max-w-4xl max-h-[90vh] overflow-y-auto bg-white dark:bg-gray-900 border-gray-200 dark:border-gray-700">
+        <CardHeader className="flex flex-row items-center justify-between border-b border-gray-200 dark:border-gray-700">
+          <CardTitle className="text-xl font-semibold text-gray-900 dark:text-gray-100">
+            Register for Internet Service
+          </CardTitle>
+          <div className="flex items-center gap-2">
+            <ThemeToggle />
+            <Button variant="ghost" size="sm" onClick={onClose} disabled={isSubmitting}>
+              <X className="h-4 w-4" />
+            </Button>
+          </div>
         </CardHeader>
-        <CardContent>
+        <CardContent className="p-6">
           <FormHeader />
 
           <form onSubmit={handleSubmit} className="space-y-6">
@@ -120,11 +126,21 @@ const CustomerRegistrationForm: React.FC<CustomerRegistrationFormProps> = ({ onC
               updateFormData={updateFormData}
             />
 
-            <div className="flex justify-end gap-3 pt-4 border-t">
-              <Button type="button" variant="outline" onClick={onClose} disabled={isSubmitting}>
+            <div className="flex justify-end gap-3 pt-4 border-t border-gray-200 dark:border-gray-700">
+              <Button 
+                type="button" 
+                variant="outline" 
+                onClick={onClose} 
+                disabled={isSubmitting}
+                className="border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800"
+              >
                 Cancel
               </Button>
-              <Button type="submit" className="gap-2" disabled={isSubmitting}>
+              <Button 
+                type="submit" 
+                className="gap-2 bg-blue-600 hover:bg-blue-700 dark:bg-blue-600 dark:hover:bg-blue-700" 
+                disabled={isSubmitting}
+              >
                 {isSubmitting ? (
                   <Loader2 className="h-4 w-4 animate-spin" />
                 ) : (
