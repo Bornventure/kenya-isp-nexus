@@ -6,10 +6,16 @@ import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { AlertCircle, Building2, Mail, Phone, MapPin, FileText, Send, DollarSign } from 'lucide-react';
-import { supabase } from '@/integrations/supabase/client';
+import { createClient } from '@supabase/supabase-js';
 import { useToast } from '@/hooks/use-toast';
 import { useLicenseTypes } from '@/hooks/useLicenseTypes';
 import { formatKenyanCurrency } from '@/utils/kenyanValidation';
+
+// Create a fresh Supabase client instance for this form to ensure proper anon access
+const supabaseUrl = "https://ddljuawonxdnesrnclsx.supabase.co";
+const supabaseAnonKey = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImRkbGp1YXdvbnhkbmVzcm5jbHN4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDkzOTk0NDksImV4cCI6MjA2NDk3NTQ0OX0.HcMHBQ0dD0rHz2s935PncmiJgaG8C1fJw39XdfGlzeg";
+
+const supabaseAnon = createClient(supabaseUrl, supabaseAnonKey);
 
 interface CompanyRegistrationFormProps {
   onClose: () => void;
@@ -85,7 +91,22 @@ const CompanyRegistrationForm = ({ onClose }: CompanyRegistrationFormProps) => {
     setError('');
 
     try {
-      const { data, error: submitError } = await supabase
+      console.log('Submitting registration request with data:', {
+        company_name: formData.company_name.trim(),
+        contact_person_name: formData.contact_person_name.trim(),
+        email: formData.email.trim().toLowerCase(),
+        phone: formData.phone.trim() || null,
+        address: formData.address.trim() || null,
+        county: formData.county.trim() || null,
+        sub_county: formData.sub_county.trim() || null,
+        kra_pin: formData.kra_pin.trim() || null,
+        ca_license_number: formData.ca_license_number.trim() || null,
+        requested_license_type: formData.requested_license_type,
+        business_description: formData.business_description.trim() || null,
+        status: 'pending'
+      });
+
+      const { data, error: submitError } = await supabaseAnon
         .from('company_registration_requests')
         .insert([{
           company_name: formData.company_name.trim(),
