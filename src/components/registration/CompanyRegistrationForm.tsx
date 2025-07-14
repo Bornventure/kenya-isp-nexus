@@ -5,7 +5,8 @@ import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { AlertCircle, Building2, Mail, Phone, MapPin, FileText, Send, DollarSign } from 'lucide-react';
+import { AlertCircle, Building2, Mail, Phone, MapPin, FileText, Send, DollarSign, X } from 'lucide-react';
+import { ThemeToggle } from '@/components/ui/theme-toggle';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { useLicenseTypes } from '@/hooks/useLicenseTypes';
@@ -159,22 +160,35 @@ const CompanyRegistrationForm = ({ onClose }: CompanyRegistrationFormProps) => {
   };
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
-      <Card className="w-full max-w-2xl max-h-[90vh] overflow-y-auto">
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <Building2 className="h-5 w-5" />
-            Company Registration Request
-          </CardTitle>
-          <CardDescription>
+    <div className="fixed inset-0 bg-black/50 dark:bg-black/70 flex items-center justify-center p-4 z-50">
+      <Card className="w-full max-w-2xl max-h-[90vh] overflow-y-auto bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700">
+        <CardHeader className="bg-gray-50 dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <Building2 className="h-5 w-5 text-blue-600 dark:text-blue-400" />
+              <CardTitle className="text-gray-900 dark:text-gray-100">Company Registration Request</CardTitle>
+            </div>
+            <div className="flex items-center gap-2">
+              <ThemeToggle />
+              <Button 
+                variant="ghost" 
+                size="sm" 
+                onClick={onClose}
+                className="text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200"
+              >
+                <X className="h-4 w-4" />
+              </Button>
+            </div>
+          </div>
+          <CardDescription className="text-gray-600 dark:text-gray-300">
             Submit your ISP company details to request registration with DataDefender
           </CardDescription>
         </CardHeader>
         
-        <CardContent>
-          <form onSubmit={handleSubmit} className="space-y-4">
+        <CardContent className="p-6 bg-white dark:bg-gray-900">
+          <form onSubmit={handleSubmit} className="space-y-6">
             {error && (
-              <div className="flex items-center gap-2 text-red-600 text-sm bg-red-50 p-3 rounded-md border border-red-200">
+              <div className="flex items-center gap-2 text-red-600 dark:text-red-400 text-sm bg-red-50 dark:bg-red-900/20 p-3 rounded-md border border-red-200 dark:border-red-800">
                 <AlertCircle className="h-4 w-4 flex-shrink-0" />
                 <span>{error}</span>
               </div>
@@ -182,7 +196,7 @@ const CompanyRegistrationForm = ({ onClose }: CompanyRegistrationFormProps) => {
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div className="space-y-2">
-                <label className="text-sm font-medium flex items-center gap-2">
+                <label className="text-sm font-medium flex items-center gap-2 text-gray-700 dark:text-gray-300">
                   <Building2 className="h-4 w-4" />
                   Company Name *
                 </label>
@@ -192,24 +206,26 @@ const CompanyRegistrationForm = ({ onClose }: CompanyRegistrationFormProps) => {
                   placeholder="Your ISP Company Name"
                   required
                   disabled={loading}
+                  className="bg-white dark:bg-gray-800 border-gray-300 dark:border-gray-600 text-gray-900 dark:text-gray-100 placeholder:text-gray-500 dark:placeholder:text-gray-400"
                 />
               </div>
 
               <div className="space-y-2">
-                <label className="text-sm font-medium">Contact Person *</label>
+                <label className="text-sm font-medium text-gray-700 dark:text-gray-300">Contact Person *</label>
                 <Input
                   value={formData.contact_person_name}
                   onChange={(e) => handleInputChange('contact_person_name', e.target.value)}
                   placeholder="Full Name"
                   required
                   disabled={loading}
+                  className="bg-white dark:bg-gray-800 border-gray-300 dark:border-gray-600 text-gray-900 dark:text-gray-100 placeholder:text-gray-500 dark:placeholder:text-gray-400"
                 />
               </div>
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div className="space-y-2">
-                <label className="text-sm font-medium flex items-center gap-2">
+                <label className="text-sm font-medium flex items-center gap-2 text-gray-700 dark:text-gray-300">
                   <Mail className="h-4 w-4" />
                   Email Address *
                 </label>
@@ -220,11 +236,12 @@ const CompanyRegistrationForm = ({ onClose }: CompanyRegistrationFormProps) => {
                   placeholder="contact@yourcompany.com"
                   required
                   disabled={loading}
+                  className="bg-white dark:bg-gray-800 border-gray-300 dark:border-gray-600 text-gray-900 dark:text-gray-100 placeholder:text-gray-500 dark:placeholder:text-gray-400"
                 />
               </div>
 
               <div className="space-y-2">
-                <label className="text-sm font-medium flex items-center gap-2">
+                <label className="text-sm font-medium flex items-center gap-2 text-gray-700 dark:text-gray-300">
                   <Phone className="h-4 w-4" />
                   Phone Number
                 </label>
@@ -233,12 +250,13 @@ const CompanyRegistrationForm = ({ onClose }: CompanyRegistrationFormProps) => {
                   onChange={(e) => handleInputChange('phone', e.target.value)}
                   placeholder="+254 xxx xxx xxx"
                   disabled={loading}
+                  className="bg-white dark:bg-gray-800 border-gray-300 dark:border-gray-600 text-gray-900 dark:text-gray-100 placeholder:text-gray-500 dark:placeholder:text-gray-400"
                 />
               </div>
             </div>
 
             <div className="space-y-2">
-              <label className="text-sm font-medium flex items-center gap-2">
+              <label className="text-sm font-medium flex items-center gap-2 text-gray-700 dark:text-gray-300">
                 <MapPin className="h-4 w-4" />
                 Business Address
               </label>
@@ -248,68 +266,80 @@ const CompanyRegistrationForm = ({ onClose }: CompanyRegistrationFormProps) => {
                 placeholder="Street address, building, etc."
                 rows={2}
                 disabled={loading}
+                className="bg-white dark:bg-gray-800 border-gray-300 dark:border-gray-600 text-gray-900 dark:text-gray-100 placeholder:text-gray-500 dark:placeholder:text-gray-400"
               />
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
               <div className="space-y-2">
-                <label className="text-sm font-medium">County</label>
+                <label className="text-sm font-medium text-gray-700 dark:text-gray-300">County</label>
                 <Input
                   value={formData.county}
                   onChange={(e) => handleInputChange('county', e.target.value)}
                   placeholder="County"
                   disabled={loading}
+                  className="bg-white dark:bg-gray-800 border-gray-300 dark:border-gray-600 text-gray-900 dark:text-gray-100 placeholder:text-gray-500 dark:placeholder:text-gray-400"
                 />
               </div>
 
               <div className="space-y-2">
-                <label className="text-sm font-medium">Sub-County</label>
+                <label className="text-sm font-medium text-gray-700 dark:text-gray-300">Sub-County</label>
                 <Input
                   value={formData.sub_county}
                   onChange={(e) => handleInputChange('sub_county', e.target.value)}
                   placeholder="Sub-County"
                   disabled={loading}
+                  className="bg-white dark:bg-gray-800 border-gray-300 dark:border-gray-600 text-gray-900 dark:text-gray-100 placeholder:text-gray-500 dark:placeholder:text-gray-400"
                 />
               </div>
 
               <div className="space-y-2">
-                <label className="text-sm font-medium">KRA PIN</label>
+                <label className="text-sm font-medium text-gray-700 dark:text-gray-300">KRA PIN</label>
                 <Input
                   value={formData.kra_pin}
                   onChange={(e) => handleInputChange('kra_pin', e.target.value)}
                   placeholder="P051234567X"
                   disabled={loading}
+                  className="bg-white dark:bg-gray-800 border-gray-300 dark:border-gray-600 text-gray-900 dark:text-gray-100 placeholder:text-gray-500 dark:placeholder:text-gray-400"
                 />
               </div>
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div className="space-y-2">
-                <label className="text-sm font-medium">CA License Number</label>
+                <label className="text-sm font-medium text-gray-700 dark:text-gray-300">CA License Number</label>
                 <Input
                   value={formData.ca_license_number}
                   onChange={(e) => handleInputChange('ca_license_number', e.target.value)}
                   placeholder="Communications Authority License"
                   disabled={loading}
+                  className="bg-white dark:bg-gray-800 border-gray-300 dark:border-gray-600 text-gray-900 dark:text-gray-100 placeholder:text-gray-500 dark:placeholder:text-gray-400"
                 />
               </div>
 
               <div className="space-y-2">
-                <label className="text-sm font-medium">Requested License Type *</label>
+                <label className="text-sm font-medium text-gray-700 dark:text-gray-300">Requested License Type *</label>
                 <Select 
                   value={formData.requested_license_type} 
                   onValueChange={(value) => handleInputChange('requested_license_type', value)}
                   disabled={licenseTypesLoading || loading}
                 >
-                  <SelectTrigger>
-                    <SelectValue placeholder={licenseTypesLoading ? "Loading..." : "Select license type"} />
+                  <SelectTrigger className="bg-white dark:bg-gray-800 border-gray-300 dark:border-gray-600 text-gray-900 dark:text-gray-100">
+                    <SelectValue 
+                      placeholder={licenseTypesLoading ? "Loading..." : "Select license type"} 
+                      className="text-gray-500 dark:text-gray-400"
+                    />
                   </SelectTrigger>
-                  <SelectContent>
+                  <SelectContent className="bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700">
                     {licenseTypes?.map((licenseType) => (
-                      <SelectItem key={licenseType.id} value={licenseType.name}>
+                      <SelectItem 
+                        key={licenseType.id} 
+                        value={licenseType.name}
+                        className="text-gray-900 dark:text-gray-100 hover:bg-gray-100 dark:hover:bg-gray-700"
+                      >
                         <div className="flex flex-col">
                           <span>{licenseType.display_name} ({licenseType.client_limit} clients)</span>
-                          <span className="text-sm text-gray-500 flex items-center gap-1">
+                          <span className="text-sm text-gray-500 dark:text-gray-400 flex items-center gap-1">
                             <DollarSign className="h-3 w-3" />
                             {formatKenyanCurrency(licenseType.price)}
                           </span>
@@ -322,12 +352,12 @@ const CompanyRegistrationForm = ({ onClose }: CompanyRegistrationFormProps) => {
             </div>
 
             {selectedLicenseType && (
-              <div className="bg-blue-50 p-4 rounded-lg border border-blue-200">
-                <div className="flex items-center gap-2 text-blue-800 mb-2">
+              <div className="bg-blue-50 dark:bg-blue-900/20 p-4 rounded-lg border border-blue-200 dark:border-blue-800">
+                <div className="flex items-center gap-2 text-blue-800 dark:text-blue-300 mb-2">
                   <DollarSign className="h-4 w-4" />
                   <span className="font-medium">Selected Package Details</span>
                 </div>
-                <div className="text-sm text-blue-700 space-y-1">
+                <div className="text-sm text-blue-700 dark:text-blue-300 space-y-1">
                   <p>• Package: {selectedLicenseType.display_name}</p>
                   <p>• Client Limit: {selectedLicenseType.client_limit} clients</p>
                   <p>• Price: {formatKenyanCurrency(selectedLicenseType.price)} (excluding VAT)</p>
@@ -340,7 +370,7 @@ const CompanyRegistrationForm = ({ onClose }: CompanyRegistrationFormProps) => {
             )}
 
             <div className="space-y-2">
-              <label className="text-sm font-medium flex items-center gap-2">
+              <label className="text-sm font-medium flex items-center gap-2 text-gray-700 dark:text-gray-300">
                 <FileText className="h-4 w-4" />
                 Business Description
               </label>
@@ -350,15 +380,16 @@ const CompanyRegistrationForm = ({ onClose }: CompanyRegistrationFormProps) => {
                 placeholder="Brief description of your ISP services and coverage area..."
                 rows={3}
                 disabled={loading}
+                className="bg-white dark:bg-gray-800 border-gray-300 dark:border-gray-600 text-gray-900 dark:text-gray-100 placeholder:text-gray-500 dark:placeholder:text-gray-400"
               />
             </div>
 
-            <div className="flex gap-3 pt-4">
+            <div className="flex gap-3 pt-4 border-t border-gray-200 dark:border-gray-700">
               <Button
                 type="button"
                 variant="outline"
                 onClick={onClose}
-                className="flex-1"
+                className="flex-1 border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800"
                 disabled={loading}
               >
                 Cancel
@@ -366,7 +397,7 @@ const CompanyRegistrationForm = ({ onClose }: CompanyRegistrationFormProps) => {
               <Button
                 type="submit"
                 disabled={loading || !formData.requested_license_type || !formData.company_name || !formData.contact_person_name || !formData.email}
-                className="flex-1 flex items-center gap-2"
+                className="flex-1 flex items-center gap-2 bg-blue-600 hover:bg-blue-700 dark:bg-blue-500 dark:hover:bg-blue-600"
               >
                 <Send className="h-4 w-4" />
                 {loading ? 'Submitting...' : 'Submit Request'}
