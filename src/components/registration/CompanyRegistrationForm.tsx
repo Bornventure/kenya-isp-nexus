@@ -84,44 +84,27 @@ const CompanyRegistrationForm = ({ onClose }: CompanyRegistrationFormProps) => {
     setError('');
 
     try {
-      console.log('Submitting company registration request with data:', formData);
-      console.log('Current supabase client auth state:', await supabase.auth.getSession());
-
-      // Prepare the data for insertion
-      const insertData = {
-        company_name: formData.company_name.trim(),
-        contact_person_name: formData.contact_person_name.trim(),
-        email: formData.email.trim().toLowerCase(),
-        phone: formData.phone.trim() || null,
-        address: formData.address.trim() || null,
-        county: formData.county.trim() || null,
-        sub_county: formData.sub_county.trim() || null,
-        kra_pin: formData.kra_pin.trim() || null,
-        ca_license_number: formData.ca_license_number.trim() || null,
-        requested_license_type: formData.requested_license_type,
-        business_description: formData.business_description.trim() || null,
-        status: 'pending'
-      };
-
-      console.log('Prepared insert data:', insertData);
-
-      // Use the anon client explicitly to ensure we're making an unauthenticated request
       const { data, error: submitError } = await supabase
         .from('company_registration_requests')
-        .insert([insertData])
+        .insert([{
+          company_name: formData.company_name.trim(),
+          contact_person_name: formData.contact_person_name.trim(),
+          email: formData.email.trim().toLowerCase(),
+          phone: formData.phone.trim() || null,
+          address: formData.address.trim() || null,
+          county: formData.county.trim() || null,
+          sub_county: formData.sub_county.trim() || null,
+          kra_pin: formData.kra_pin.trim() || null,
+          ca_license_number: formData.ca_license_number.trim() || null,
+          requested_license_type: formData.requested_license_type,
+          business_description: formData.business_description.trim() || null,
+          status: 'pending'
+        }])
         .select()
         .single();
 
-      console.log('Supabase response data:', data);
-      console.log('Supabase response error:', submitError);
-
       if (submitError) {
-        console.error('Detailed Supabase error:', {
-          message: submitError.message,
-          details: submitError.details,
-          hint: submitError.hint,
-          code: submitError.code
-        });
+        console.error('Supabase error:', submitError);
         throw new Error(submitError.message || 'Database error occurred');
       }
 
@@ -139,10 +122,7 @@ const CompanyRegistrationForm = ({ onClose }: CompanyRegistrationFormProps) => {
       let errorMessage = 'Failed to submit registration request. Please try again.';
       
       // Provide more specific error messages
-      if (err.message?.includes('row-level security')) {
-        errorMessage = 'There was a security policy issue. Please contact support.';
-        console.error('RLS policy violation detected');
-      } else if (err.message?.includes('duplicate key')) {
+      if (err.message?.includes('duplicate key')) {
         errorMessage = 'A registration request with this email already exists.';
       } else if (err.message?.includes('network')) {
         errorMessage = 'Network error. Please check your connection and try again.';
