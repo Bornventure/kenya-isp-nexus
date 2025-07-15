@@ -1,264 +1,192 @@
 
-import { Routes, Route, Navigate } from "react-router-dom";
-import { useAuth } from "@/contexts/AuthContext";
-import Login from "./Login";
-import DashboardLayout from "./dashboard/DashboardLayout";
-import Dashboard from "@/pages/Dashboard";
-import Clients from "@/pages/Clients";
-import Equipment from "@/pages/Equipment";
-import Billing from "@/pages/Billing";
-import Support from "@/pages/Support";
-import NetworkManagement from "@/pages/NetworkManagement";
-import NetworkMap from "@/pages/NetworkMap";
-import HotspotManagement from "@/pages/HotspotManagement";
-import Inventory from "@/pages/Inventory";
-import Messages from "@/pages/Messages";
-import Analytics from "@/pages/Analytics";
-import Profile from "@/pages/Profile";
-import Settings from "@/pages/Settings";
-import ApiSettings from "@/pages/ApiSettings";
-import Invoices from "@/pages/Invoices";
-import PackageManagement from "@/pages/PackageManagement";
-import DeveloperPortal from "@/pages/DeveloperPortal";
-import ApiDocumentation from "@/pages/ApiDocumentation";
-import LicenseManagement from "@/pages/LicenseManagement";
-import LicenseActivation from "@/pages/LicenseActivation";
-import AccessDenied from "./AccessDenied";
-import NotFound from "@/pages/NotFound";
-import NetworkStatus from "@/pages/NetworkStatus";
-import SuperAdminLicenseManagement from "@/pages/SuperAdminLicenseManagement";
-import LicenseGuard from "@/components/license/LicenseGuard";
-import Index from "@/pages/Index";
-import { useMemo } from "react";
+import React, { useMemo } from 'react';
+import { Routes, Route, Navigate } from 'react-router-dom';
+import { useAuth } from '@/contexts/AuthContext';
+import Login from '@/components/Login';
+import Dashboard from '@/pages/Dashboard';
+import Clients from '@/pages/Clients';
+import Billing from '@/pages/Billing';
+import Equipment from '@/pages/Equipment';
+import NetworkManagement from '@/pages/NetworkManagement';
+import NetworkMap from '@/pages/NetworkMap';
+import Settings from '@/pages/Settings';
+import LicenseManagement from '@/pages/LicenseManagement';
+import LicenseActivation from '@/pages/LicenseActivation';
+import SuperAdminLicenseManagement from '@/pages/SuperAdminLicenseManagement';
+import Inventory from '@/pages/Inventory';
+import Messages from '@/pages/Messages';
+import Support from '@/pages/Support';
+import HotspotManagement from '@/pages/HotspotManagement';
+import PackageManagement from '@/pages/PackageManagement';
+import ClientPortal from '@/pages/ClientPortal';
+import Profile from '@/pages/Profile';
+import NotFound from '@/pages/NotFound';
+import AccessDenied from '@/components/AccessDenied';
+import DashboardLayout from '@/components/dashboard/DashboardLayout';
+import LicenseGuard from '@/components/license/LicenseGuard';
+import RealtimeNotifications from '@/components/dashboard/RealtimeNotifications';
 
-const AppContent = () => {
+const AppContent: React.FC = () => {
   const { user, profile, isLoading, profileError } = useAuth();
 
-  console.log('AppContent authState check:', { user: !!user, profile: !!profile, isLoading, profileError, role: profile?.role });
-  console.log('Full profile object:', profile);
-  console.log('User object exists:', !!user);
-
-  // Simplified authentication state logic - no auto-redirect to license activation
+  // Simplified authentication state logic
   const authState = useMemo(() => {
     if (isLoading) return 'loading';
-    
-    // User is not authenticated
     if (!user) return 'unauthenticated';
-    
-    // User exists but profile is still loading
-    if (!profile && !profileError) return 'authenticated_loading_profile';
-    
-    // User exists and profile loaded (or failed to load) - treat as authenticated
+    if (profileError) return 'profile_error';
+    if (!profile) return 'profile_loading';
     return 'authenticated';
   }, [user, profile, isLoading, profileError]);
 
-  const userRoles = useMemo(() => {
+  // User role calculations
+  const { isAdmin, canAccessDashboard, isSuperAdmin } = useMemo(() => {
     if (!profile) return { isAdmin: false, canAccessDashboard: false, isSuperAdmin: false };
     
-    const isAdmin = profile.role === 'super_admin' || profile.role === 'isp_admin';
+    const isAdmin = ['super_admin', 'isp_admin'].includes(profile.role);
     const isSuperAdmin = profile.role === 'super_admin';
     const canAccessDashboard = ['super_admin', 'isp_admin', 'billing_finance', 'customer_support', 'sales_account_manager', 'network_operations', 'infrastructure_asset', 'hotspot_admin'].includes(profile.role);
-    
-    console.log('User roles calculated:', { isAdmin, isSuperAdmin, canAccessDashboard, profileRole: profile.role });
     
     return { isAdmin, canAccessDashboard, isSuperAdmin };
   }, [profile]);
 
-  console.log('Auth state:', authState);
-  console.log('Profile error:', profileError);
-
   // Loading initial auth state
   if (authState === 'loading') {
     return (
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-gray-900"></div>
-      </div>
-    );
-  }
-
-  // User not authenticated - show public routes including license activation
-  if (authState === 'unauthenticated') {
-    return (
-      <Routes>
-        <Route path="/" element={<Index />} />
-        <Route path="/login" element={<Login />} />
-        <Route path="/license-activation" element={<LicenseActivation />} />
-        <Route path="*" element={<Navigate to="/" replace />} />
-      </Routes>
-    );
-  }
-
-  // User authenticated but profile still loading
-  if (authState === 'authenticated_loading_profile') {
-    return (
-      <div className="min-h-screen flex items-center justify-center">
+      <div className="min-h-screen bg-gray-50 dark:bg-gray-900 flex items-center justify-center">
         <div className="text-center space-y-4">
           <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-gray-900 mx-auto"></div>
-          <p className="text-gray-600">Loading your profile...</p>
-          {profileError && (
-            <p className="text-red-600 text-sm">Profile error: {profileError.message}</p>
-          )}
+          <p className="text-gray-600">Loading...</p>
         </div>
       </div>
     );
   }
 
-  // User is authenticated - show all routes including license activation (manual access only)
-  const { isAdmin, canAccessDashboard, isSuperAdmin } = userRoles;
+  // Not authenticated - show login
+  if (authState === 'unauthenticated') {
+    return <Login />;
+  }
 
+  // Profile error - show error message with login option
+  if (authState === 'profile_error') {
+    return (
+      <div className="min-h-screen bg-gray-50 dark:bg-gray-900 flex items-center justify-center">
+        <div className="text-center space-y-4 p-8">
+          <h2 className="text-2xl font-bold text-red-600">Profile Loading Error</h2>
+          <p className="text-gray-600">
+            Unable to load your profile: {profileError?.message}
+          </p>
+          <button 
+            onClick={() => window.location.reload()} 
+            className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700"
+          >
+            Retry
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  // Profile loading
+  if (authState === 'profile_loading') {
+    return (
+      <div className="min-h-screen bg-gray-50 dark:bg-gray-900 flex items-center justify-center">
+        <div className="text-center space-y-4">
+          <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-gray-900 mx-auto"></div>
+          <p className="text-gray-600">Loading your profile...</p>
+        </div>
+      </div>
+    );
+  }
+
+  // Authenticated routes
   return (
-    <DashboardLayout>
+    <>
+      <RealtimeNotifications />
       <Routes>
-        <Route path="/license-activation" element={<LicenseActivation />} />
+        {/* Client Portal Route */}
+        <Route path="/client-portal/*" element={<ClientPortal />} />
         
-        <Route path="/" element={<Navigate to="/dashboard" replace />} />
-        <Route path="/dashboard" element={canAccessDashboard ? (
-          <LicenseGuard feature="dashboard" allowReadOnly={true}>
-            <Dashboard />
-          </LicenseGuard>
-        ) : <Navigate to="/access-denied" />} />
-        
-        <Route path="/clients" element={canAccessDashboard ? (
-          <LicenseGuard feature="client management">
-            <Clients />
-          </LicenseGuard>
-        ) : <Navigate to="/access-denied" />} />
-        
-        <Route path="/equipment" element={canAccessDashboard ? (
-          <LicenseGuard feature="equipment management">
-            <Equipment />
-          </LicenseGuard>
-        ) : <Navigate to="/access-denied" />} />
-        
-        <Route path="/billing" element={canAccessDashboard ? (
-          <LicenseGuard feature="billing management">
-            <Billing />
-          </LicenseGuard>
-        ) : <Navigate to="/access-denied" />} />
-        
-        <Route path="/support" element={canAccessDashboard ? (
-          <LicenseGuard feature="support system" allowReadOnly={true}>
-            <Support />
-          </LicenseGuard>
-        ) : <Navigate to="/access-denied" />} />
-        
-        <Route path="/network" element={canAccessDashboard ? (
-          <LicenseGuard feature="network management">
-            <NetworkManagement />
-          </LicenseGuard>
-        ) : <Navigate to="/access-denied" />} />
-        
-        <Route path="/network-map" element={canAccessDashboard ? (
-          <LicenseGuard feature="network mapping" allowReadOnly={true}>
-            <NetworkMap />
-          </LicenseGuard>
-        ) : <Navigate to="/access-denied" />} />
-        
-        <Route path="/network-status" element={canAccessDashboard ? (
-          <LicenseGuard feature="network status monitoring" allowReadOnly={true}>
-            <NetworkStatus />
-          </LicenseGuard>
-        ) : <Navigate to="/access-denied" />} />
-        
-        <Route path="/hotspots" element={canAccessDashboard ? (
-          <LicenseGuard feature="hotspot management">
-            <HotspotManagement />
-          </LicenseGuard>
-        ) : <Navigate to="/access-denied" />} />
-        
-        <Route path="/inventory" element={canAccessDashboard ? (
-          <LicenseGuard feature="inventory management">
-            <Inventory />
-          </LicenseGuard>
-        ) : <Navigate to="/access-denied" />} />
-        
-        <Route path="/messages" element={canAccessDashboard ? (
-          <LicenseGuard feature="messaging system" allowReadOnly={true}>
-            <Messages />
-          </LicenseGuard>
-        ) : <Navigate to="/access-denied" />} />
-        
-        <Route path="/analytics" element={canAccessDashboard ? (
-          <LicenseGuard feature="analytics dashboard" allowReadOnly={true}>
-            <Analytics />
-          </LicenseGuard>
-        ) : <Navigate to="/access-denied" />} />
-        
-        <Route path="/packages" element={isAdmin ? (
-          <LicenseGuard feature="package management">
-            <PackageManagement />
-          </LicenseGuard>
-        ) : <Navigate to="/access-denied" />} />
-        
-        <Route path="/developer-portal" element={isAdmin ? (
-          <LicenseGuard feature="developer portal" allowReadOnly={true}>
-            <DeveloperPortal />
-          </LicenseGuard>
-        ) : <Navigate to="/access-denied" />} />
-        
-        <Route path="/api-documentation" element={isAdmin ? (
-          <LicenseGuard feature="API documentation" allowReadOnly={true}>
-            <ApiDocumentation />
-          </LicenseGuard>
-        ) : <Navigate to="/access-denied" />} />
-        
-        <Route path="/license-management" element={isAdmin ? (
-          <LicenseGuard feature="license management" allowReadOnly={true}>
-            <LicenseManagement />
-          </LicenseGuard>
-        ) : <Navigate to="/access-denied" />} />
-        
-        {/* Super Admin only route - NO LICENSE GUARD - always accessible for super admin */}
-        <Route 
-          path="/system-license-admin" 
+        {/* Protected Dashboard Routes */}
+        <Route
+          path="/*"
           element={
-            isSuperAdmin ? (
-              <SuperAdminLicenseManagement />
-            ) : (
-              <div className="container mx-auto px-4 py-8">
-                <div className="text-center">
-                  <h1 className="text-2xl font-bold mb-4">Access Denied</h1>
-                  <p>You need super admin privileges to access this page.</p>
-                  <p className="text-sm text-gray-600 mt-2">
-                    Current role: {profile?.role || 'Unknown'}
-                  </p>
-                  <p className="text-sm text-gray-500 mt-2">
-                    Debug info - isSuperAdmin: {isSuperAdmin.toString()}, profile exists: {!!profile}
-                  </p>
-                  {profileError && (
-                    <p className="text-sm text-red-600 mt-2">
-                      Profile error: {profileError.message}
-                    </p>
+            <LicenseGuard>
+              <DashboardLayout>
+                <Routes>
+                  <Route path="/" element={<Navigate to="/dashboard" replace />} />
+                  
+                  {/* Dashboard Routes accessible to authenticated users */}
+                  {canAccessDashboard && (
+                    <>
+                      <Route path="/dashboard" element={<Dashboard />} />
+                      <Route path="/profile" element={<Profile />} />
+                    </>
                   )}
-                </div>
-              </div>
-            )
-          } 
+                  
+                  {/* Admin Routes */}
+                  {isAdmin && (
+                    <>
+                      <Route path="/clients" element={<Clients />} />
+                      <Route path="/billing" element={<Billing />} />
+                      <Route path="/equipment" element={<Equipment />} />
+                      <Route path="/network" element={<NetworkManagement />} />
+                      <Route path="/network-map" element={<NetworkMap />} />
+                      <Route path="/inventory" element={<Inventory />} />
+                      <Route path="/messages" element={<Messages />} />
+                      <Route path="/support" element={<Support />} />
+                      <Route path="/hotspots" element={<HotspotManagement />} />
+                      <Route path="/packages" element={<PackageManagement />} />
+                      <Route path="/settings" element={<Settings />} />
+                      <Route path="/license-management" element={<LicenseManagement />} />
+                      <Route path="/license-activation" element={<LicenseActivation />} />
+                    </>
+                  )}
+                  
+                  {/* Super Admin Only Routes */}
+                  {isSuperAdmin && (
+                    <Route path="/system-license-admin" element={<SuperAdminLicenseManagement />} />
+                  )}
+                  
+                  {/* Access Denied for restricted routes */}
+                  <Route
+                    path="/system-license-admin"
+                    element={
+                      isSuperAdmin ? (
+                        <SuperAdminLicenseManagement />
+                      ) : (
+                        <div className="min-h-screen bg-gray-50 dark:bg-gray-900 flex items-center justify-center">
+                          <div className="text-center space-y-4 p-8">
+                            <h2 className="text-2xl font-bold text-red-600">Access Denied</h2>
+                            <p className="text-gray-600">
+                              You do not have permission to access this page. Super admin role required.
+                            </p>
+                            <p className="text-sm text-gray-600 mt-2">
+                              Current role: {profile?.role || 'Unknown'}
+                            </p>
+                          </div>
+                        </div>
+                      )
+                    }
+                  />
+                  
+                  {/* Catch all for other protected routes */}
+                  <Route
+                    path="*"
+                    element={
+                      !canAccessDashboard ? (
+                        <AccessDenied />
+                      ) : (
+                        <NotFound />
+                      )
+                    }
+                  />
+                </Routes>
+              </DashboardLayout>
+            </LicenseGuard>
+          }
         />
-        
-        <Route path="/profile" element={<Profile />} />
-        <Route path="/settings" element={isAdmin ? (
-          <LicenseGuard feature="system settings">
-            <Settings />
-          </LicenseGuard>
-        ) : <Navigate to="/access-denied" />} />
-        
-        <Route path="/api-settings" element={isAdmin ? (
-          <LicenseGuard feature="API settings">
-            <ApiSettings />
-          </LicenseGuard>
-        ) : <Navigate to="/access-denied" />} />
-        
-        <Route path="/invoices" element={canAccessDashboard ? (
-          <LicenseGuard feature="invoice management" allowReadOnly={true}>
-            <Invoices />
-          </LicenseGuard>
-        ) : <Navigate to="/access-denied" />} />
-        
-        <Route path="/access-denied" element={<AccessDenied />} />
-        <Route path="*" element={<NotFound />} />
       </Routes>
-    </DashboardLayout>
+    </>
   );
 };
 

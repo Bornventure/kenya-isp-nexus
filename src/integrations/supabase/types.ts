@@ -1423,6 +1423,8 @@ export type Database = {
           client_limit: number | null
           county: string | null
           created_at: string | null
+          deactivated_at: string | null
+          deactivation_reason: string | null
           email: string | null
           id: string
           is_active: boolean | null
@@ -1441,6 +1443,8 @@ export type Database = {
           client_limit?: number | null
           county?: string | null
           created_at?: string | null
+          deactivated_at?: string | null
+          deactivation_reason?: string | null
           email?: string | null
           id?: string
           is_active?: boolean | null
@@ -1459,6 +1463,8 @@ export type Database = {
           client_limit?: number | null
           county?: string | null
           created_at?: string | null
+          deactivated_at?: string | null
+          deactivation_reason?: string | null
           email?: string | null
           id?: string
           is_active?: boolean | null
