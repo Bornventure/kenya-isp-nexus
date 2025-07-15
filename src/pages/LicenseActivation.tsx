@@ -8,7 +8,7 @@ import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { Navigate } from 'react-router-dom';
-import { Key, Building2, CheckCircle, AlertCircle } from 'lucide-react';
+import { Key, Building2, CheckCircle, AlertCircle, User } from 'lucide-react';
 
 const LicenseActivation = () => {
   const { profile } = useAuth();
@@ -17,6 +17,7 @@ const LicenseActivation = () => {
   const [companyId, setCompanyId] = useState('');
   const [isActivating, setIsActivating] = useState(false);
   const [activationSuccess, setActivationSuccess] = useState(false);
+  const [createAdminUser, setCreateAdminUser] = useState(false);
 
   // Only allow access if user doesn't have an active company or is super admin
   if (profile?.isp_company_id && profile?.role !== 'super_admin') {
@@ -69,6 +70,40 @@ const LicenseActivation = () => {
           variant: "destructive",
         });
         return;
+      }
+
+      // If user wants to create admin user, do that first
+      if (createAdminUser && profile) {
+        try {
+          // Call edge function to create admin user for this company
+          const { error: createUserError } = await supabase.functions.invoke('create-isp-account', {
+            body: {
+              companyData: {
+                id: company.id,
+                name: company.name,
+                contact_email: company.email,
+                contact_person_name: `${profile.first_name || ''} ${profile.last_name || ''}`.trim() || 'Admin User'
+              },
+              licenseKey: company.license_key
+            }
+          });
+
+          if (createUserError) {
+            console.error('Failed to create admin user:', createUserError);
+            toast({
+              title: "Admin User Creation Failed",
+              description: "Failed to create admin user, but license activation will continue.",
+              variant: "destructive",
+            });
+          } else {
+            toast({
+              title: "Admin User Created",
+              description: "Admin user credentials have been sent to the company email.",
+            });
+          }
+        } catch (error) {
+          console.error('Error creating admin user:', error);
+        }
       }
 
       // Update user profile to link to the company
@@ -187,6 +222,27 @@ const LicenseActivation = () => {
                 Enter the license key provided by your administrator
               </p>
             </div>
+
+            <div className="flex items-center space-x-2">
+              <input
+                type="checkbox"
+                id="create-admin"
+                checked={createAdminUser}
+                onChange={(e) => setCreateAdminUser(e.target.checked)}
+                className="rounded border-gray-300"
+              />
+              <Label htmlFor="create-admin" className="text-sm flex items-center gap-2">
+                <User className="h-4 w-4" />
+                Create admin user for this company
+              </Label>
+            </div>
+            {createAdminUser && (
+              <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
+                <p className="text-xs text-blue-700">
+                  This will create an admin user and send login credentials to the company email address.
+                </p>
+              </div>
+            )}
           </div>
 
           <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">

@@ -4,7 +4,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { useAuth } from '@/contexts/AuthContext';
-import { AlertCircle, Mail, Shield, Building2, ArrowLeft } from 'lucide-react';
+import { AlertCircle, Mail, Shield, Building2, ArrowLeft, Key } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import CompanyRegistrationForm from '@/components/registration/CompanyRegistrationForm';
 
@@ -37,7 +37,7 @@ const Login = () => {
     <>
       <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 to-indigo-100">
         <div className="w-full max-w-md">
-          <div className="mb-4">
+          <div className="mb-4 flex items-center justify-between">
             <Button 
               variant="ghost" 
               onClick={handleBackToHome}
@@ -45,6 +45,16 @@ const Login = () => {
             >
               <ArrowLeft className="h-4 w-4" />
               Back to Home
+            </Button>
+            
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => navigate('/license-activation')}
+              className="text-xs text-blue-600 hover:text-blue-800 flex items-center gap-1"
+            >
+              <Key className="h-3 w-3" />
+              activate?
             </Button>
           </div>
           

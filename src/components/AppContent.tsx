@@ -1,3 +1,4 @@
+
 import { Routes, Route, Navigate } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
 import Login from "./Login";
@@ -45,11 +46,14 @@ const AppContent = () => {
     // User exists but profile is still loading - treat as authenticated but loading
     if (!profile && !profileError) return 'authenticated_loading_profile';
     
-    // User exists and profile loaded - check license requirements
-    if (profile && !profile.isp_company_id && profile.role !== 'super_admin') return 'needs_license';
+    // Super admin bypasses license requirements
+    if (profile && profile.role === 'super_admin') return 'authenticated';
     
-    // User exists and profile loaded with company or is super admin
-    if (profile) return 'authenticated';
+    // User exists and profile loaded - check license requirements
+    if (profile && !profile.isp_company_id) return 'needs_license';
+    
+    // User exists and profile loaded with company
+    if (profile && profile.isp_company_id) return 'authenticated';
     
     // User exists but profile failed to load - still treat as authenticated but with limited access
     if (profileError) return 'authenticated_profile_error';
@@ -109,7 +113,7 @@ const AppContent = () => {
     );
   }
 
-  // User needs license activation
+  // User needs license activation (not super admin and no company)
   if (authState === 'needs_license') {
     return (
       <Routes>
