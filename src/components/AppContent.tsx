@@ -36,28 +36,17 @@ const AppContent = () => {
 
   console.log('AppContent authState check:', { user: !!user, profile: !!profile, isLoading, profileError });
 
-  // Improved authentication state logic to prevent navigation loops
+  // Simplified authentication state logic - no auto-redirect to license activation
   const authState = useMemo(() => {
     if (isLoading) return 'loading';
     
-    // User is not authenticated - treat as unauthenticated
+    // User is not authenticated
     if (!user) return 'unauthenticated';
     
-    // User exists but profile is still loading - treat as authenticated but loading
+    // User exists but profile is still loading
     if (!profile && !profileError) return 'authenticated_loading_profile';
     
-    // Super admin bypasses license requirements
-    if (profile && profile.role === 'super_admin') return 'authenticated';
-    
-    // User exists and profile loaded - check license requirements
-    if (profile && !profile.isp_company_id) return 'needs_license';
-    
-    // User exists and profile loaded with company
-    if (profile && profile.isp_company_id) return 'authenticated';
-    
-    // User exists but profile failed to load - still treat as authenticated but with limited access
-    if (profileError) return 'authenticated_profile_error';
-    
+    // User exists and profile loaded (or failed to load) - treat as authenticated
     return 'authenticated';
   }, [user, profile, isLoading, profileError]);
 
@@ -103,27 +92,7 @@ const AppContent = () => {
     );
   }
 
-  // User authenticated but profile failed to load - allow license activation
-  if (authState === 'authenticated_profile_error') {
-    return (
-      <Routes>
-        <Route path="/license-activation" element={<LicenseActivation />} />
-        <Route path="*" element={<Navigate to="/license-activation" replace />} />
-      </Routes>
-    );
-  }
-
-  // User needs license activation (not super admin and no company)
-  if (authState === 'needs_license') {
-    return (
-      <Routes>
-        <Route path="/license-activation" element={<LicenseActivation />} />
-        <Route path="*" element={<Navigate to="/license-activation" replace />} />
-      </Routes>
-    );
-  }
-
-  // User is fully authenticated - show dashboard routes
+  // User is authenticated - show all routes including license activation (manual access only)
   const { isAdmin, canAccessDashboard } = userRoles;
 
   return (
@@ -229,7 +198,7 @@ const AppContent = () => {
         ) : <Navigate to="/access-denied" />} />
         
         {/* Super Admin only route - NO LICENSE GUARD - always accessible */}
-        <Route path="/system-license-admin" element={profile.role === 'super_admin' ? <SuperAdminLicenseManagement /> : <Navigate to="/access-denied" />} />
+        <Route path="/system-license-admin" element={profile?.role === 'super_admin' ? <SuperAdminLicenseManagement /> : <Navigate to="/access-denied" />} />
         
         <Route path="/profile" element={<Profile />} />
         <Route path="/settings" element={isAdmin ? (
