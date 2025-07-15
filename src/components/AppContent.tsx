@@ -30,12 +30,30 @@ import SuperAdminLicenseManagement from "@/pages/SuperAdminLicenseManagement";
 import LicenseGuard from "@/components/license/LicenseGuard";
 import Index from "@/pages/Index";
 import { useLocation } from "react-router-dom";
+import { useMemo } from "react";
 
 const AppContent = () => {
   const { user, profile, isLoading } = useAuth();
   const location = useLocation();
 
-  if (isLoading) {
+  // Memoize computed values to prevent unnecessary re-renders
+  const authState = useMemo(() => {
+    if (isLoading) return 'loading';
+    if (!user || !profile) return 'unauthenticated';
+    if (!profile.isp_company_id && profile.role !== 'super_admin') return 'needs_license';
+    return 'authenticated';
+  }, [user, profile, isLoading]);
+
+  const userRoles = useMemo(() => {
+    if (!profile) return { isAdmin: false, canAccessDashboard: false };
+    
+    const isAdmin = profile.role === 'super_admin' || profile.role === 'isp_admin';
+    const canAccessDashboard = ['super_admin', 'isp_admin', 'billing_finance', 'customer_support', 'sales_account_manager', 'network_operations', 'infrastructure_asset', 'hotspot_admin'].includes(profile.role);
+    
+    return { isAdmin, canAccessDashboard };
+  }, [profile]);
+
+  if (authState === 'loading') {
     return (
       <div className="min-h-screen flex items-center justify-center">
         <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-gray-900"></div>
@@ -43,8 +61,7 @@ const AppContent = () => {
     );
   }
 
-  // Show index page if no user is logged in
-  if (!user || !profile) {
+  if (authState === 'unauthenticated') {
     return (
       <Routes>
         <Route path="/" element={<Index />} />
@@ -54,17 +71,16 @@ const AppContent = () => {
     );
   }
 
-  // If user doesn't have a company and is not super admin, redirect to license activation
-  if (!profile.isp_company_id && profile.role !== 'super_admin') {
-    // Only redirect if not already on license activation page
-    if (location.pathname !== '/license-activation') {
-      return <Navigate to="/license-activation" replace />;
-    }
-    return <LicenseActivation />;
+  if (authState === 'needs_license') {
+    return (
+      <Routes>
+        <Route path="/license-activation" element={<LicenseActivation />} />
+        <Route path="*" element={<Navigate to="/license-activation" replace />} />
+      </Routes>
+    );
   }
 
-  const isAdmin = profile.role === 'super_admin' || profile.role === 'isp_admin';
-  const canAccessDashboard = ['super_admin', 'isp_admin', 'billing_finance', 'customer_support', 'sales_account_manager', 'network_operations', 'infrastructure_asset', 'hotspot_admin'].includes(profile.role);
+  const { isAdmin, canAccessDashboard } = userRoles;
 
   return (
     <DashboardLayout>
