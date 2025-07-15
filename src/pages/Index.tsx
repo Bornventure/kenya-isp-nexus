@@ -78,7 +78,7 @@ const Index = () => {
           </div>
           
           <div className="text-sm text-gray-500 dark:text-gray-400">
-            <p>© 2025 DataDefender Lakelink Ntworks. All rights reserved.</p>
+            <p>©2025 DataDefender | Lakelink Networks. All rights reserved.</p>
             <p>Professional ISP Management Solutions</p>
           </div>
         </div>
