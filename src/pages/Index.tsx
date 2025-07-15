@@ -1,13 +1,23 @@
 
 import { useAuth } from '@/contexts/AuthContext';
 import { Navigate } from 'react-router-dom';
+import { Button } from '@/components/ui/button';
+import { LogIn, UserPlus } from 'lucide-react';
+import { useState } from 'react';
+import Login from '@/components/Login';
 
 const Index = () => {
   const { user } = useAuth();
+  const [showLogin, setShowLogin] = useState(false);
 
   // Redirect authenticated users to dashboard
   if (user) {
     return <Navigate to="/dashboard" replace />;
+  }
+
+  // Show login form if requested
+  if (showLogin) {
+    return <Login />;
   }
 
   return (
@@ -45,8 +55,28 @@ const Index = () => {
           </div>
         </div>
         
-        <div className="space-y-4">
+        <div className="space-y-6">
           <p className="text-gray-600 dark:text-gray-300">Please log in to access the system</p>
+          
+          <div className="flex flex-col sm:flex-row gap-4 justify-center">
+            <Button 
+              onClick={() => setShowLogin(true)}
+              className="flex items-center gap-2 px-6 py-3 text-lg"
+            >
+              <LogIn className="h-5 w-5" />
+              Login to System
+            </Button>
+            
+            <Button 
+              variant="outline"
+              onClick={() => setShowLogin(true)}
+              className="flex items-center gap-2 px-6 py-3 text-lg"
+            >
+              <UserPlus className="h-5 w-5" />
+              New Company Registration
+            </Button>
+          </div>
+          
           <div className="text-sm text-gray-500 dark:text-gray-400">
             <p>© 2025 DataDefender Kenya Internet Services. All rights reserved.</p>
             <p>Professional ISP Management Solutions</p>

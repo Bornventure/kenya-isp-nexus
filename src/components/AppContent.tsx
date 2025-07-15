@@ -46,7 +46,8 @@ const AppContent = () => {
     return (
       <Routes>
         <Route path="/" element={<Index />} />
-        <Route path="*" element={<Login />} />
+        <Route path="/login" element={<Login />} />
+        <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
     );
   }
@@ -64,7 +65,8 @@ const AppContent = () => {
       <Routes>
         <Route path="/license-activation" element={<LicenseActivation />} />
         
-        <Route path="/" element={canAccessDashboard ? (
+        <Route path="/" element={<Navigate to="/dashboard" replace />} />
+        <Route path="/dashboard" element={canAccessDashboard ? (
           <LicenseGuard feature="dashboard" allowReadOnly={true}>
             <Dashboard />
           </LicenseGuard>
