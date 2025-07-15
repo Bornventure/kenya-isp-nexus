@@ -1,4 +1,3 @@
-
 import { useAuth } from '@/contexts/AuthContext';
 import { Navigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
@@ -7,11 +6,23 @@ import { useState } from 'react';
 import Login from '@/components/Login';
 
 const Index = () => {
-  const { user } = useAuth();
+  const { user, profile, isLoading } = useAuth();
   const [showLogin, setShowLogin] = useState(false);
 
-  // Redirect authenticated users to dashboard
-  if (user) {
+  console.log('Index component check:', { user: !!user, profile: !!profile, isLoading });
+
+  // Don't redirect if still loading initial auth state
+  if (isLoading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 to-purple-50 dark:from-gray-900 dark:to-gray-800">
+        <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-gray-900"></div>
+      </div>
+    );
+  }
+
+  // Only redirect if user is authenticated AND profile is loaded
+  // This prevents the navigation loop when profile is still loading
+  if (user && profile) {
     return <Navigate to="/dashboard" replace />;
   }
 

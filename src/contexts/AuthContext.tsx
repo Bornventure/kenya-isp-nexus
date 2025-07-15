@@ -1,4 +1,3 @@
-
 import React, { createContext, useContext, useEffect, useState, useRef } from 'react';
 import { User, Session } from '@supabase/supabase-js';
 import { supabase } from '@/integrations/supabase/client';
@@ -24,9 +23,19 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [isLoading, setIsLoading] = useState(true);
   const { toast } = useToast();
   const initializedRef = useRef(false);
+  const profileFetchingRef = useRef(false);
 
   const fetchUserProfile = async (userId: string) => {
+    // Prevent multiple simultaneous profile fetches
+    if (profileFetchingRef.current) {
+      console.log('Profile fetch already in progress, skipping...');
+      return;
+    }
+
     try {
+      profileFetchingRef.current = true;
+      console.log('Fetching profile for user:', userId);
+      
       const { data, error } = await supabase
         .from('profiles')
         .select(`
@@ -43,12 +52,18 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
       if (error) {
         console.error('Error fetching profile:', error);
+        // Don't throw error - just log it and leave profile as null
+        // This prevents the infinite loop when profile can't be loaded
         return;
       }
 
+      console.log('Profile fetched successfully:', data);
       setProfile(data);
     } catch (error) {
       console.error('Error in fetchUserProfile:', error);
+      // Don't throw error - handle gracefully
+    } finally {
+      profileFetchingRef.current = false;
     }
   };
 
@@ -56,6 +71,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     // Prevent double initialization
     if (initializedRef.current) return;
     initializedRef.current = true;
+
+    console.log('Initializing AuthProvider...');
 
     // Set up auth state listener
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
@@ -65,10 +82,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         setUser(session?.user ?? null);
         
         if (session?.user && event !== 'TOKEN_REFRESHED') {
+          // Clear existing profile first to ensure clean state
+          setProfile(null);
           // Defer profile fetch to avoid render loops
           setTimeout(() => {
             fetchUserProfile(session.user.id);
-          }, 0);
+          }, 100);
         } else if (!session) {
           setProfile(null);
         }
@@ -81,13 +100,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     supabase.auth.getSession().then(({ data: { session } }) => {
       if (!initializedRef.current) return; // Safety check
       
+      console.log('Initial session check:', session?.user?.email);
       setSession(session);
       setUser(session?.user ?? null);
       
       if (session?.user) {
         setTimeout(() => {
           fetchUserProfile(session.user.id);
-        }, 0);
+        }, 100);
       }
       setIsLoading(false);
     });
@@ -95,6 +115,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     return () => {
       subscription.unsubscribe();
       initializedRef.current = false;
+      profileFetchingRef.current = false;
     };
   }, []);
 

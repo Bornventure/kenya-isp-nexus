@@ -1,4 +1,3 @@
-
 import { Routes, Route, Navigate } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
 import Login from "./Login";
@@ -29,18 +28,26 @@ import NetworkStatus from "@/pages/NetworkStatus";
 import SuperAdminLicenseManagement from "@/pages/SuperAdminLicenseManagement";
 import LicenseGuard from "@/components/license/LicenseGuard";
 import Index from "@/pages/Index";
-import { useLocation } from "react-router-dom";
 import { useMemo } from "react";
 
 const AppContent = () => {
   const { user, profile, isLoading } = useAuth();
-  const location = useLocation();
 
-  // Memoize computed values to prevent unnecessary re-renders
+  // Improved authentication state logic to prevent navigation loops
   const authState = useMemo(() => {
+    console.log('AppContent authState check:', { user: !!user, profile: !!profile, isLoading });
+    
     if (isLoading) return 'loading';
-    if (!user || !profile) return 'unauthenticated';
+    
+    // User is authenticated if they exist, regardless of profile loading status
+    if (!user) return 'unauthenticated';
+    
+    // User exists but profile is still loading - treat as authenticated but loading
+    if (!profile) return 'authenticated_loading_profile';
+    
+    // User exists and profile loaded - check license requirements
     if (!profile.isp_company_id && profile.role !== 'super_admin') return 'needs_license';
+    
     return 'authenticated';
   }, [user, profile, isLoading]);
 
@@ -53,6 +60,7 @@ const AppContent = () => {
     return { isAdmin, canAccessDashboard };
   }, [profile]);
 
+  // Loading initial auth state
   if (authState === 'loading') {
     return (
       <div className="min-h-screen flex items-center justify-center">
@@ -61,6 +69,7 @@ const AppContent = () => {
     );
   }
 
+  // User not authenticated - show public routes
   if (authState === 'unauthenticated') {
     return (
       <Routes>
@@ -71,6 +80,19 @@ const AppContent = () => {
     );
   }
 
+  // User authenticated but profile still loading
+  if (authState === 'authenticated_loading_profile') {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="text-center space-y-4">
+          <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-gray-900 mx-auto"></div>
+          <p className="text-gray-600">Loading your profile...</p>
+        </div>
+      </div>
+    );
+  }
+
+  // User needs license activation
   if (authState === 'needs_license') {
     return (
       <Routes>
@@ -80,6 +102,7 @@ const AppContent = () => {
     );
   }
 
+  // User is fully authenticated - show dashboard routes
   const { isAdmin, canAccessDashboard } = userRoles;
 
   return (
