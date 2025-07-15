@@ -6,9 +6,11 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import LicenseActivationPanel from '@/components/license/LicenseActivationPanel';
 import SuperAdminLicenseOverview from '@/components/license/SuperAdminLicenseOverview';
 import LicenseDeactivationManager from '@/components/license/LicenseDeactivationManager';
+import { useSuperAdminCompanies } from '@/hooks/useSuperAdminCompanies';
 
 const SuperAdminLicenseManagement = () => {
   const { profile } = useAuth();
+  const { data: companies, isLoading, refetch } = useSuperAdminCompanies();
 
   if (profile?.role !== 'super_admin') {
     return <Navigate to="/access-denied" />;
@@ -48,7 +50,16 @@ const SuperAdminLicenseManagement = () => {
         </TabsContent>
 
         <TabsContent value="deactivation">
-          <LicenseDeactivationManager />
+          {isLoading ? (
+            <div className="text-center py-8">
+              <p className="text-gray-600">Loading companies...</p>
+            </div>
+          ) : (
+            <LicenseDeactivationManager 
+              companies={companies || []} 
+              onCompanyUpdate={() => refetch()} 
+            />
+          )}
         </TabsContent>
       </Tabs>
     </div>

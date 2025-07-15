@@ -16,8 +16,6 @@ interface ISPCompany {
   is_active: boolean;
   current_client_count: number;
   client_limit: number;
-  deactivation_reason?: string | null;
-  deactivated_at?: string | null;
 }
 
 interface LicenseDeactivationManagerProps {
@@ -52,9 +50,7 @@ export const LicenseDeactivationManager: React.FC<LicenseDeactivationManagerProp
       const { error } = await supabase
         .from('isp_companies')
         .update({
-          is_active: false,
-          deactivation_reason: deactivationReason.trim(),
-          deactivated_at: new Date().toISOString()
+          is_active: false
         })
         .eq('id', selectedCompany.id);
 
@@ -89,9 +85,7 @@ export const LicenseDeactivationManager: React.FC<LicenseDeactivationManagerProp
       const { error } = await supabase
         .from('isp_companies')
         .update({
-          is_active: true,
-          deactivation_reason: null,
-          deactivated_at: null
+          is_active: true
         })
         .eq('id', selectedCompany.id);
 
@@ -148,16 +142,6 @@ export const LicenseDeactivationManager: React.FC<LicenseDeactivationManagerProp
                   <div className="text-sm text-muted-foreground mt-1">
                     License: {company.license_type} | Clients: {company.current_client_count}/{company.client_limit}
                   </div>
-                  {!company.is_active && company.deactivation_reason && (
-                    <div className="text-sm text-red-600 mt-2">
-                      <strong>Reason:</strong> {company.deactivation_reason}
-                    </div>
-                  )}
-                  {!company.is_active && company.deactivated_at && (
-                    <div className="text-sm text-muted-foreground">
-                      Deactivated: {new Date(company.deactivated_at).toLocaleDateString()}
-                    </div>
-                  )}
                 </div>
                 <div className="flex gap-2">
                   {company.is_active ? (
