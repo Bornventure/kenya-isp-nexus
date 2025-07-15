@@ -3,11 +3,13 @@ import React from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
+import { useClientAuth } from '@/contexts/ClientAuthContext';
 import { useClientDashboard } from '@/hooks/useClientDashboard';
 import { Download, FileText, Eye, Printer } from 'lucide-react';
 
 const DocumentsPage = () => {
-  const { clientData, packageData } = useClientDashboard();
+  const { client } = useClientAuth();
+  const { data } = useClientDashboard(client?.email || '');
 
   const handleDownload = (content: string, filename: string) => {
     const blob = new Blob([content], { type: 'text/html' });
@@ -60,19 +62,19 @@ const DocumentsPage = () => {
           
           <div class="section">
             <h3>CUSTOMER INFORMATION</h3>
-            <p><strong>Name:</strong> ${clientData?.name || 'N/A'}</p>
-            <p><strong>Email:</strong> ${clientData?.email || 'N/A'}</p>
-            <p><strong>Phone:</strong> ${clientData?.phone || 'N/A'}</p>
-            <p><strong>Address:</strong> ${clientData?.address || 'N/A'}</p>
-            <p><strong>Connection Type:</strong> ${clientData?.connection_type || 'N/A'}</p>
+            <p><strong>Name:</strong> ${data?.client?.name || 'N/A'}</p>
+            <p><strong>Email:</strong> ${data?.client?.email || 'N/A'}</p>
+            <p><strong>Phone:</strong> ${data?.client?.phone || 'N/A'}</p>
+            <p><strong>Address:</strong> ${data?.client?.address || 'N/A'}</p>
+            <p><strong>Connection Type:</strong> ${data?.client?.connection_type || 'N/A'}</p>
           </div>
           
           <div class="section">
             <h3>SERVICE DETAILS</h3>
-            <p><strong>Package:</strong> ${packageData?.name || 'N/A'}</p>
-            <p><strong>Speed:</strong> ${packageData?.speed || 'N/A'}</p>
-            <p><strong>Monthly Rate:</strong> KES ${packageData?.monthly_rate || 'N/A'}</p>
-            <p><strong>Installation Date:</strong> ${formatDate(clientData?.installation_date)}</p>
+            <p><strong>Package:</strong> ${data?.client?.service_package?.name || 'N/A'}</p>
+            <p><strong>Speed:</strong> ${data?.client?.service_package?.speed || 'N/A'}</p>
+            <p><strong>Monthly Rate:</strong> KES ${data?.client?.monthly_rate || 'N/A'}</p>
+            <p><strong>Installation Date:</strong> ${formatDate(data?.client?.installation_date)}</p>
           </div>
           
           <div class="section">
@@ -92,7 +94,7 @@ const DocumentsPage = () => {
               <tr>
                 <td style="width: 50%; padding: 20px; border-top: 1px solid #ccc;">
                   <strong>Customer Signature</strong><br>
-                  Name: ${clientData?.name || 'N/A'}<br>
+                  Name: ${data?.client?.name || 'N/A'}<br>
                   Date: ________________
                 </td>
                 <td style="width: 50%; padding: 20px; border-top: 1px solid #ccc;">
@@ -140,10 +142,10 @@ const DocumentsPage = () => {
           
           <div class="bill-to">
             <h3>BILL TO:</h3>
-            <p>${clientData?.name || 'N/A'}</p>
-            <p>${clientData?.email || 'N/A'}</p>
-            <p>${clientData?.phone || 'N/A'}</p>
-            <p>${clientData?.address || 'N/A'}</p>
+            <p>${data?.client?.name || 'N/A'}</p>
+            <p>${data?.client?.email || 'N/A'}</p>
+            <p>${data?.client?.phone || 'N/A'}</p>
+            <p>${data?.client?.address || 'N/A'}</p>
           </div>
           
           <table class="items-table">
@@ -156,17 +158,17 @@ const DocumentsPage = () => {
             </thead>
             <tbody>
               <tr>
-                <td>Internet Service - ${packageData?.name || 'N/A'}</td>
+                <td>Internet Service - ${data?.client?.service_package?.name || 'N/A'}</td>
                 <td>Monthly</td>
-                <td>${packageData?.monthly_rate || 'N/A'}</td>
+                <td>${data?.client?.monthly_rate || 'N/A'}</td>
               </tr>
             </tbody>
           </table>
           
           <div class="totals">
-            <p><strong>Subtotal:</strong> KES ${packageData?.monthly_rate || 'N/A'}</p>
-            <p><strong>VAT (16%):</strong> KES ${((packageData?.monthly_rate || 0) * 0.16).toFixed(2)}</p>
-            <p><strong>Total:</strong> KES ${((packageData?.monthly_rate || 0) * 1.16).toFixed(2)}</p>
+            <p><strong>Subtotal:</strong> KES ${data?.client?.monthly_rate || 'N/A'}</p>
+            <p><strong>VAT (16%):</strong> KES ${((data?.client?.monthly_rate || 0) * 0.16).toFixed(2)}</p>
+            <p><strong>Total:</strong> KES ${((data?.client?.monthly_rate || 0) * 1.16).toFixed(2)}</p>
           </div>
           
           <div style="margin-top: 40px;">
@@ -202,7 +204,7 @@ const DocumentsPage = () => {
           
           <div class="certificate-body">
             <p>This is to certify that:</p>
-            <p style="text-align: center; font-size: 18px; margin: 20px 0;"><strong>${clientData?.name || 'N/A'}</strong></p>
+            <p style="text-align: center; font-size: 18px; margin: 20px 0;"><strong>${data?.client?.name || 'N/A'}</strong></p>
             <p>has been registered as a customer of DataDefender Internet Services and is in compliance with:</p>
             
             <ul style="margin: 20px 0;">
@@ -214,14 +216,14 @@ const DocumentsPage = () => {
             
             <div style="margin: 30px 0;">
               <p><strong>Customer Details:</strong></p>
-              <p>Customer Type: ${clientData?.client_type || 'N/A'}</p>
-              <p>Registration Date: ${formatDate(clientData?.installation_date)}</p>
-              <p>KRA PIN: ${clientData?.kra_pin_number || 'N/A'}</p>
+              <p>Customer Type: ${data?.client?.client_type || 'N/A'}</p>
+              <p>Registration Date: ${formatDate(data?.client?.installation_date)}</p>
+              <p>KRA PIN: ${data?.client?.kra_pin_number || 'N/A'}</p>
             </div>
             
             <p><strong>Service Details:</strong></p>
-            <p>Connection Type: ${clientData?.connection_type || 'N/A'}</p>
-            <p>Package: ${packageData?.name || 'N/A'}</p>
+            <p>Connection Type: ${data?.client?.connection_type || 'N/A'}</p>
+            <p>Package: ${data?.client?.service_package?.name || 'N/A'}</p>
             
             <p style="margin-top: 30px;">This certificate is issued in accordance with Kenyan law and regulations governing internet service provision.</p>
           </div>
@@ -259,14 +261,14 @@ const DocumentsPage = () => {
           </div>
           
           <div style="margin: 20px 0;">
-            <p><strong>Customer:</strong> ${clientData?.name || 'N/A'}</p>
-            <p><strong>Account:</strong> ${clientData?.phone || 'N/A'}</p>
+            <p><strong>Customer:</strong> ${data?.client?.name || 'N/A'}</p>
+            <p><strong>Account:</strong> ${data?.client?.phone || 'N/A'}</p>
             <p><strong>Statement Date:</strong> ${new Date().toLocaleDateString('en-KE')}</p>
           </div>
           
           <div class="balance-info">
-            <p><strong>Current Balance:</strong> KES ${clientData?.wallet_balance || 'N/A'}</p>
-            <p><strong>Account Balance:</strong> KES ${(clientData?.wallet_balance || 0) - (clientData?.balance || 0)}</p>
+            <p><strong>Current Balance:</strong> KES ${data?.client?.wallet_balance || 'N/A'}</p>
+            <p><strong>Account Balance:</strong> KES ${(data?.client?.wallet_balance || 0) - (data?.client?.balance || 0)}</p>
           </div>
           
           <table class="statement-table">

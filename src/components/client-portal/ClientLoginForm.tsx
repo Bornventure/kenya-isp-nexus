@@ -5,7 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { useClientAuth } from '@/contexts/ClientAuthContext';
-import { Eye, EyeOff, LogIn, Wifi } from 'lucide-react';
+import { Eye, EyeOff, LogIn } from 'lucide-react';
 
 const ClientLoginForm = () => {
   const [email, setEmail] = useState('');
@@ -28,12 +28,14 @@ const ClientLoginForm = () => {
       <div className="w-full max-w-md">
         <div className="text-center mb-8">
           <div className="flex justify-center mb-4">
-            <div className="bg-blue-600 p-3 rounded-full">
-              <Wifi className="h-8 w-8 text-white" />
-            </div>
+            <img 
+              src="/lovable-uploads/29dec1bf-11a7-44c4-b61f-4cdfe1cbdc5c.png" 
+              alt="DataDefender Logo" 
+              className="h-20 w-20 object-contain"
+            />
           </div>
           <h1 className="text-2xl font-bold text-gray-900 mb-2">
-            Client Portal
+            DataDefender Client Portal
           </h1>
           <p className="text-gray-600">
             Access your account to manage services and payments
