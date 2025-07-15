@@ -4,6 +4,7 @@ import { useClientAuth } from '@/contexts/ClientAuthContext';
 import { useClientRealtimeUpdates } from '@/hooks/useClientRealtimeUpdates';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
+import { ThemeToggle } from '@/components/ui/theme-toggle';
 import { 
   LayoutDashboard, 
   Wallet, 
@@ -62,6 +63,7 @@ const ClientDashboardLayout: React.FC<ClientDashboardLayoutProps> = ({
             </div>
             
             <div className="flex items-center gap-2">
+              <ThemeToggle />
               <Button
                 variant="outline"
                 size="sm"

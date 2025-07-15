@@ -2,15 +2,15 @@
 import React from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Wallet, TrendingUp, RefreshCw, Plus } from 'lucide-react';
+import { Wallet, TrendingUp, RefreshCw } from 'lucide-react';
 import { useClientAuth } from '@/contexts/ClientAuthContext';
 import { formatKenyanCurrency } from '@/utils/kenyanValidation';
 
 interface WalletOverviewProps {
-  onCreditClick: () => void;
+  onCreditClick?: () => void; // Make optional since we're removing the button
 }
 
-const WalletOverview: React.FC<WalletOverviewProps> = ({ onCreditClick }) => {
+const WalletOverview: React.FC<WalletOverviewProps> = () => {
   const { client, refreshClientData } = useClientAuth();
 
   if (!client) return null;
@@ -70,15 +70,10 @@ const WalletOverview: React.FC<WalletOverviewProps> = ({ onCreditClick }) => {
                 <span className="text-sm font-medium">Low Balance Warning</span>
               </div>
               <p className="text-sm text-yellow-700 mt-1">
-                Your balance is below your monthly rate. Consider topping up to avoid service interruption.
+                Your balance is below your monthly rate. Consider topping up using the M-Pesa payment form below.
               </p>
             </div>
           )}
-
-          <Button onClick={onCreditClick} className="w-full">
-            <Plus className="h-4 w-4 mr-2" />
-            Top Up Wallet
-          </Button>
         </div>
       </CardContent>
     </Card>
