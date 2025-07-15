@@ -25,15 +25,17 @@ import {
   Building2,
   Headphones,
   Key,
-  Activity
+  Activity,
+  LogOut
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useAuth } from '@/contexts/AuthContext';
+import { Button } from '@/components/ui/button';
 
 const Sidebar = () => {
   const [isOpen, setIsOpen] = useState(true);
   const location = useLocation();
-  const { profile } = useAuth();
+  const { profile, logout } = useAuth();
 
   const isActive = (path: string) => {
     return location.pathname === path;
@@ -41,6 +43,10 @@ const Sidebar = () => {
 
   const onToggle = () => setIsOpen(!isOpen);
   const onClose = () => setIsOpen(false);
+
+  const handleLogout = async () => {
+    await logout();
+  };
 
   const isAdmin = profile?.role === 'super_admin' || profile?.role === 'isp_admin';
   const canAccessDashboard = [
@@ -173,32 +179,33 @@ const Sidebar = () => {
       
       {/* Sidebar */}
       <div className={cn(
-        "fixed left-0 top-0 h-full bg-white dark:bg-gray-900 border-r border-gray-200 dark:border-gray-700 z-50 transition-all duration-300 ease-in-out",
+        "fixed left-0 top-0 h-full bg-white dark:bg-gray-900 border-r border-gray-200 dark:border-gray-700 z-50 transition-all duration-300 ease-in-out flex flex-col",
         isOpen ? "w-64" : "w-16",
-        "lg:relative lg:translate-x-0",
-        !isOpen && "lg:w-16"
+        "lg:relative lg:translate-x-0"
       )}>
         {/* Header */}
-        <div className="p-4 border-b border-gray-200 dark:border-gray-700 flex items-center justify-between">
+        <div className="p-4 border-b border-gray-200 dark:border-gray-700 flex items-center justify-between flex-shrink-0">
           <div className={cn(
-            "flex items-center gap-3 transition-opacity duration-200",
-            isOpen ? "opacity-100" : "opacity-0 lg:opacity-0"
+            "flex items-center gap-3 transition-opacity duration-200 overflow-hidden",
+            isOpen ? "opacity-100" : "opacity-0"
           )}>
             <img 
               src="/lovable-uploads/29dec1bf-11a7-44c4-b61f-4cdfe1cbdc5c.png" 
               alt="DataDefender Logo" 
-              className="h-8 w-8 object-contain"
+              className="h-8 w-8 object-contain flex-shrink-0"
             />
-            <div>
-              <h1 className="text-lg font-bold text-gray-900 dark:text-gray-100">DataDefender</h1>
-              <p className="text-xs text-blue-600 dark:text-blue-400 font-medium">ISP Management</p>
-            </div>
+            {isOpen && (
+              <div className="min-w-0">
+                <h1 className="text-lg font-bold text-gray-900 dark:text-gray-100 truncate">DataDefender</h1>
+                <p className="text-xs text-blue-600 dark:text-blue-400 font-medium truncate">ISP Management</p>
+              </div>
+            )}
           </div>
           
           {/* Toggle button - visible on desktop */}
           <button
             onClick={onToggle}
-            className="hidden lg:flex p-1 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
+            className="hidden lg:flex p-1 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors flex-shrink-0"
           >
             {isOpen ? (
               <ChevronLeft className="h-5 w-5 text-gray-500" />
@@ -210,7 +217,7 @@ const Sidebar = () => {
           {/* Close button - visible on mobile */}
           <button
             onClick={onClose}
-            className="lg:hidden p-1 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
+            className="lg:hidden p-1 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors flex-shrink-0"
           >
             <X className="h-5 w-5 text-gray-500" />
           </button>
@@ -226,46 +233,78 @@ const Sidebar = () => {
                 to={item.path}
                 onClick={onClose}
                 className={cn(
-                  "flex items-center gap-3 px-3 py-2 rounded-lg transition-colors text-sm font-medium",
+                  "flex items-center gap-3 px-3 py-2 rounded-lg transition-colors text-sm font-medium relative",
                   isActive(item.path) 
                     ? "bg-blue-600 text-white" 
                     : "text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800",
-                  !isOpen && "justify-center lg:justify-center"
+                  !isOpen && "justify-center"
                 )}
                 title={!isOpen ? item.name : undefined}
               >
                 <Icon className="h-5 w-5 flex-shrink-0" />
-                <span className={cn(
-                  "transition-opacity duration-200",
-                  isOpen ? "opacity-100" : "opacity-0 lg:opacity-0"
-                )}>
-                  {item.name}
-                </span>
+                {isOpen && (
+                  <span className="truncate">
+                    {item.name}
+                  </span>
+                )}
               </Link>
             );
           })}
         </nav>
 
-        {/* User Info */}
-        <div className="p-4 border-t border-gray-200 dark:border-gray-700">
-          <div className={cn(
-            "flex items-center gap-3 transition-opacity duration-200",
-            isOpen ? "opacity-100" : "opacity-0 lg:opacity-0"
-          )}>
-            <div className="w-8 h-8 bg-blue-600 rounded-full flex items-center justify-center">
-              <span className="text-white text-sm font-medium">
-                {profile?.first_name?.[0] || profile?.role?.[0]?.toUpperCase()}
-              </span>
+        {/* User Info and Logout */}
+        <div className="p-4 border-t border-gray-200 dark:border-gray-700 flex-shrink-0">
+          {isOpen ? (
+            <div className="space-y-3">
+              {/* User Info */}
+              <div className="flex items-center gap-3">
+                <div className="w-8 h-8 bg-blue-600 rounded-full flex items-center justify-center flex-shrink-0">
+                  <span className="text-white text-sm font-medium">
+                    {profile?.first_name?.[0] || profile?.role?.[0]?.toUpperCase()}
+                  </span>
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-medium text-gray-900 dark:text-gray-100 truncate">
+                    {profile?.first_name} {profile?.last_name}
+                  </p>
+                  <p className="text-xs text-gray-500 dark:text-gray-400 truncate">
+                    {profile?.role?.replace('_', ' ')}
+                  </p>
+                </div>
+              </div>
+              
+              {/* Logout Button */}
+              <Button
+                onClick={handleLogout}
+                variant="outline"
+                size="sm"
+                className="w-full justify-start gap-2"
+              >
+                <LogOut className="h-4 w-4" />
+                Logout
+              </Button>
             </div>
-            <div className="flex-1 min-w-0">
-              <p className="text-sm font-medium text-gray-900 dark:text-gray-100 truncate">
-                {profile?.first_name} {profile?.last_name}
-              </p>
-              <p className="text-xs text-gray-500 dark:text-gray-400 truncate">
-                {profile?.role?.replace('_', ' ')}
-              </p>
+          ) : (
+            <div className="flex flex-col items-center gap-2">
+              {/* User Avatar */}
+              <div className="w-8 h-8 bg-blue-600 rounded-full flex items-center justify-center">
+                <span className="text-white text-sm font-medium">
+                  {profile?.first_name?.[0] || profile?.role?.[0]?.toUpperCase()}
+                </span>
+              </div>
+              
+              {/* Logout Button - Icon only */}
+              <Button
+                onClick={handleLogout}
+                variant="outline"
+                size="sm"
+                className="w-8 h-8 p-0"
+                title="Logout"
+              >
+                <LogOut className="h-4 w-4" />
+              </Button>
             </div>
-          </div>
+          )}
         </div>
       </div>
     </>
