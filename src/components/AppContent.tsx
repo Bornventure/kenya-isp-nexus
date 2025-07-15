@@ -35,6 +35,8 @@ const AppContent = () => {
   const { user, profile, isLoading, profileError } = useAuth();
 
   console.log('AppContent authState check:', { user: !!user, profile: !!profile, isLoading, profileError, role: profile?.role });
+  console.log('Full profile object:', profile);
+  console.log('User object exists:', !!user);
 
   // Simplified authentication state logic - no auto-redirect to license activation
   const authState = useMemo(() => {
@@ -57,8 +59,13 @@ const AppContent = () => {
     const isSuperAdmin = profile.role === 'super_admin';
     const canAccessDashboard = ['super_admin', 'isp_admin', 'billing_finance', 'customer_support', 'sales_account_manager', 'network_operations', 'infrastructure_asset', 'hotspot_admin'].includes(profile.role);
     
+    console.log('User roles calculated:', { isAdmin, isSuperAdmin, canAccessDashboard, profileRole: profile.role });
+    
     return { isAdmin, canAccessDashboard, isSuperAdmin };
   }, [profile]);
+
+  console.log('Auth state:', authState);
+  console.log('Profile error:', profileError);
 
   // Loading initial auth state
   if (authState === 'loading') {
@@ -88,6 +95,9 @@ const AppContent = () => {
         <div className="text-center space-y-4">
           <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-gray-900 mx-auto"></div>
           <p className="text-gray-600">Loading your profile...</p>
+          {profileError && (
+            <p className="text-red-600 text-sm">Profile error: {profileError.message}</p>
+          )}
         </div>
       </div>
     );
@@ -212,6 +222,14 @@ const AppContent = () => {
                   <p className="text-sm text-gray-600 mt-2">
                     Current role: {profile?.role || 'Unknown'}
                   </p>
+                  <p className="text-sm text-gray-500 mt-2">
+                    Debug info - isSuperAdmin: {isSuperAdmin.toString()}, profile exists: {!!profile}
+                  </p>
+                  {profileError && (
+                    <p className="text-sm text-red-600 mt-2">
+                      Profile error: {profileError.message}
+                    </p>
+                  )}
                 </div>
               </div>
             )
