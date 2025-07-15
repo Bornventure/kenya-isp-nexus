@@ -34,7 +34,7 @@ import { useMemo } from "react";
 const AppContent = () => {
   const { user, profile, isLoading, profileError } = useAuth();
 
-  console.log('AppContent authState check:', { user: !!user, profile: !!profile, isLoading, profileError });
+  console.log('AppContent authState check:', { user: !!user, profile: !!profile, isLoading, profileError, role: profile?.role });
 
   // Simplified authentication state logic - no auto-redirect to license activation
   const authState = useMemo(() => {
@@ -51,12 +51,13 @@ const AppContent = () => {
   }, [user, profile, isLoading, profileError]);
 
   const userRoles = useMemo(() => {
-    if (!profile) return { isAdmin: false, canAccessDashboard: false };
+    if (!profile) return { isAdmin: false, canAccessDashboard: false, isSuperAdmin: false };
     
     const isAdmin = profile.role === 'super_admin' || profile.role === 'isp_admin';
+    const isSuperAdmin = profile.role === 'super_admin';
     const canAccessDashboard = ['super_admin', 'isp_admin', 'billing_finance', 'customer_support', 'sales_account_manager', 'network_operations', 'infrastructure_asset', 'hotspot_admin'].includes(profile.role);
     
-    return { isAdmin, canAccessDashboard };
+    return { isAdmin, canAccessDashboard, isSuperAdmin };
   }, [profile]);
 
   // Loading initial auth state
@@ -93,7 +94,7 @@ const AppContent = () => {
   }
 
   // User is authenticated - show all routes including license activation (manual access only)
-  const { isAdmin, canAccessDashboard } = userRoles;
+  const { isAdmin, canAccessDashboard, isSuperAdmin } = userRoles;
 
   return (
     <DashboardLayout>
@@ -197,8 +198,25 @@ const AppContent = () => {
           </LicenseGuard>
         ) : <Navigate to="/access-denied" />} />
         
-        {/* Super Admin only route - NO LICENSE GUARD - always accessible */}
-        <Route path="/system-license-admin" element={profile?.role === 'super_admin' ? <SuperAdminLicenseManagement /> : <Navigate to="/access-denied" />} />
+        {/* Super Admin only route - NO LICENSE GUARD - always accessible for super admin */}
+        <Route 
+          path="/system-license-admin" 
+          element={
+            isSuperAdmin ? (
+              <SuperAdminLicenseManagement />
+            ) : (
+              <div className="container mx-auto px-4 py-8">
+                <div className="text-center">
+                  <h1 className="text-2xl font-bold mb-4">Access Denied</h1>
+                  <p>You need super admin privileges to access this page.</p>
+                  <p className="text-sm text-gray-600 mt-2">
+                    Current role: {profile?.role || 'Unknown'}
+                  </p>
+                </div>
+              </div>
+            )
+          } 
+        />
         
         <Route path="/profile" element={<Profile />} />
         <Route path="/settings" element={isAdmin ? (
