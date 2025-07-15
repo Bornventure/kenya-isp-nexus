@@ -140,7 +140,7 @@ const RealtimeNotifications: React.FC = () => {
         channelRef.current = null;
       }
     };
-  }, [profile?.isp_company_id, toast]);
+  }, [profile?.isp_company_id]); // Fixed: removed toast from dependencies
 
   return null; // This component only handles notifications, doesn't render anything
 };
