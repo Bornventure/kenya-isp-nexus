@@ -1,134 +1,132 @@
 
-import { useState, useRef } from 'react';
+import { useState, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 
 interface PaymentStatusCallbacks {
-  onSuccess: (data: any) => void;
-  onFailure: (data: any) => void;
-  onTimeout: () => void;
+  onSuccess?: (data: any) => void;
+  onFailure?: (data: any) => void;
+  onTimeout?: () => void;
 }
 
 export const usePaymentStatus = () => {
   const [isMonitoring, setIsMonitoring] = useState(false);
-  const timeoutRef = useRef<NodeJS.Timeout>();
-  const intervalRef = useRef<NodeJS.Timeout>();
   const { toast } = useToast();
 
-  const startPaymentMonitoring = (
-    paymentId: string,
+  const startPaymentMonitoring = useCallback(async (
+    invoiceId: string,
     checkoutRequestId: string,
-    callbacks: PaymentStatusCallbacks,
-    timeoutMs: number = 300000 // 5 minutes timeout
+    callbacks: PaymentStatusCallbacks
   ) => {
-    console.log('Starting payment monitoring for:', { paymentId, checkoutRequestId });
+    console.log('Starting payment monitoring for:', { invoiceId, checkoutRequestId });
+    
     setIsMonitoring(true);
-
     let attempts = 0;
-    const maxAttempts = 60; // 5 minutes with 5-second intervals
-
-    const checkStatus = async () => {
+    const maxAttempts = 60; // 10 minutes maximum
+    
+    const checkPaymentStatus = async () => {
       attempts++;
       console.log(`Payment status check attempt ${attempts}/${maxAttempts}`);
-
+      
       try {
         const { data, error } = await supabase.functions.invoke('check-payment-status', {
-          body: {
+          body: { 
             checkout_request_id: checkoutRequestId,
-            paymentId: paymentId,
-            checkoutRequestId: checkoutRequestId,
-          },
+            invoice_id: invoiceId
+          }
         });
 
         if (error) {
           console.error('Payment status check error:', error);
-          // Don't return immediately, continue checking unless it's a fatal error
-          if (attempts >= maxAttempts) {
-            clearMonitoring();
-            setIsMonitoring(false);
-            callbacks.onTimeout();
-          }
           return;
         }
 
         console.log('Payment status response:', data);
 
-        if (data?.status === 'completed' && data?.success) {
-          // Payment successful
-          console.log('Payment confirmed successful!');
-          clearMonitoring();
-          setIsMonitoring(false);
-          
-          // Return success with the checkout request ID for processing
-          callbacks.onSuccess({
-            ...data,
-            checkoutRequestId: checkoutRequestId
-          });
-          return;
-        } else if (data?.status === 'failed') {
-          // Payment failed
-          console.log('Payment failed:', data?.message);
-          clearMonitoring();
-          setIsMonitoring(false);
-          callbacks.onFailure(data);
-          return;
-        } else if (data?.status === 'pending') {
-          // Payment still pending, continue monitoring
-          console.log('Payment still pending, continuing to monitor...');
-        } else {
-          // Unknown status, treat as pending for now but log it
-          console.log('Unknown payment status, treating as pending:', data);
+        if (data?.success) {
+          if (data.status === 'completed') {
+            console.log('Payment confirmed successful!');
+            setIsMonitoring(false);
+            
+            // Process the payment to update wallet and create records
+            await processPaymentSuccess(data.client_id, data.amount, checkoutRequestId, data.mpesa_receipt_number);
+            
+            if (callbacks.onSuccess) {
+              callbacks.onSuccess(data);
+            }
+            return;
+          } else if (data.status === 'failed') {
+            console.log('Payment failed:', data.message);
+            setIsMonitoring(false);
+            if (callbacks.onFailure) {
+              callbacks.onFailure(data);
+            }
+            return;
+          }
         }
 
-        // Continue monitoring if still pending or no definitive result
-        if (attempts >= maxAttempts) {
-          console.log('Payment monitoring timeout reached');
-          clearMonitoring();
+        console.log('Payment still pending, continuing to monitor...');
+        
+        if (attempts < maxAttempts) {
+          setTimeout(checkPaymentStatus, 10000); // Check every 10 seconds
+        } else {
+          console.log('Payment monitoring timeout');
           setIsMonitoring(false);
-          callbacks.onTimeout();
+          if (callbacks.onTimeout) {
+            callbacks.onTimeout();
+          }
         }
-      } catch (err) {
-        console.error('Payment status check error:', err);
-        if (attempts >= maxAttempts) {
-          clearMonitoring();
+      } catch (error) {
+        console.error('Payment status check error:', error);
+        if (attempts < maxAttempts) {
+          setTimeout(checkPaymentStatus, 10000);
+        } else {
           setIsMonitoring(false);
-          callbacks.onTimeout();
+          if (callbacks.onTimeout) {
+            callbacks.onTimeout();
+          }
         }
       }
     };
 
-    // Start checking after 3 seconds to allow M-Pesa to process, then every 5 seconds
-    setTimeout(() => {
-      checkStatus();
-      intervalRef.current = setInterval(checkStatus, 5000);
-    }, 3000);
+    // Start checking immediately
+    checkPaymentStatus();
+  }, [toast]);
 
-    // Set overall timeout
-    timeoutRef.current = setTimeout(() => {
-      console.log('Payment monitoring overall timeout');
-      clearMonitoring();
-      setIsMonitoring(false);
-      callbacks.onTimeout();
-    }, timeoutMs);
-  };
+  const processPaymentSuccess = async (
+    clientId: string,
+    amount: number,
+    checkoutRequestId: string,
+    mpesaReceiptNumber?: string
+  ) => {
+    try {
+      console.log('Processing payment success:', { clientId, amount, checkoutRequestId, mpesaReceiptNumber });
+      
+      const { data, error } = await supabase.functions.invoke('process-payment', {
+        body: {
+          checkoutRequestId,
+          clientId,
+          amount,
+          paymentMethod: 'mpesa',
+          mpesaReceiptNumber
+        }
+      });
 
-  const clearMonitoring = () => {
-    if (timeoutRef.current) {
-      clearTimeout(timeoutRef.current);
+      if (error) {
+        console.error('Payment processing error:', error);
+        throw error;
+      }
+
+      console.log('Payment processed successfully:', data);
+      return data;
+    } catch (error) {
+      console.error('Failed to process payment:', error);
+      throw error;
     }
-    if (intervalRef.current) {
-      clearInterval(intervalRef.current);
-    }
-  };
-
-  const stopMonitoring = () => {
-    clearMonitoring();
-    setIsMonitoring(false);
   };
 
   return {
     startPaymentMonitoring,
-    stopMonitoring,
-    isMonitoring,
+    isMonitoring
   };
 };

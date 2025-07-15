@@ -51,7 +51,7 @@ serve(async (req) => {
     // Get client details
     const { data: client, error: clientError } = await supabase
       .from('clients')
-      .select('id, name, wallet_balance, balance, monthly_rate, isp_company_id')
+      .select('id, name, wallet_balance, balance, monthly_rate, isp_company_id, email, phone, id_number')
       .eq('id', clientId)
       .single()
 
@@ -72,73 +72,60 @@ serve(async (req) => {
 
     console.log('Client found:', client.name, 'Current wallet balance:', client.wallet_balance)
 
-    // Check if there's a pending payment record to update
-    const { data: existingPayments } = await supabase
-      .from('payments')
-      .select('*')
-      .eq('client_id', clientId)
-      .or(`reference_number.eq.${checkoutRequestId},reference_number.eq.${mpesaReceiptNumber}`)
-      .contains('notes', 'PENDING CONFIRMATION')
+    // Generate invoice for the payment
+    const invoiceNumber = `INV-${Date.now()}-${client.id.substring(0, 8)}`
+    const dueDate = new Date()
+    const serviceStartDate = new Date()
+    const serviceEndDate = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000) // 30 days from now
 
-    let paymentRecord = null
+    const { data: invoice, error: invoiceError } = await supabase
+      .from('invoices')
+      .insert({
+        invoice_number: invoiceNumber,
+        client_id: clientId,
+        amount: amount,
+        vat_amount: 0,
+        total_amount: amount,
+        due_date: dueDate.toISOString(),
+        service_period_start: serviceStartDate.toISOString(),
+        service_period_end: serviceEndDate.toISOString(),
+        status: 'paid',
+        notes: `Wallet top-up payment via ${paymentMethod} - Receipt: ${mpesaReceiptNumber || checkoutRequestId}`,
+        isp_company_id: client.isp_company_id
+      })
+      .select()
+      .single()
 
-    if (existingPayments && existingPayments.length > 0) {
-      // Update existing pending payment
-      const existingPayment = existingPayments[0]
-      console.log('Updating existing pending payment:', existingPayment.id)
-
-      const { data: updatedPayment, error: updateError } = await supabase
-        .from('payments')
-        .update({
-          mpesa_receipt_number: mpesaReceiptNumber || checkoutRequestId,
-          notes: `Payment confirmed via ${paymentMethod} - Receipt: ${mpesaReceiptNumber || checkoutRequestId}`,
-          payment_date: new Date().toISOString()
-        })
-        .eq('id', existingPayment.id)
-        .select()
-        .single()
-
-      if (updateError) {
-        console.error('Error updating payment record:', updateError)
-      } else {
-        paymentRecord = updatedPayment
-        console.log('Payment record updated successfully:', paymentRecord.id)
-      }
-
-      // Also update the corresponding invoice status
-      if (existingPayment.invoice_id) {
-        await supabase
-          .from('invoices')
-          .update({ status: 'paid' })
-          .eq('id', existingPayment.invoice_id)
-        console.log('Invoice marked as paid:', existingPayment.invoice_id)
-      }
+    if (invoiceError) {
+      console.error('Error creating invoice:', invoiceError)
     } else {
-      // Create new payment record
-      const { data: newPayment, error: paymentError } = await supabase
-        .from('payments')
-        .insert({
-          client_id: clientId,
-          amount: amount,
-          payment_method: paymentMethod,
-          payment_date: new Date().toISOString(),
-          reference_number: checkoutRequestId,
-          mpesa_receipt_number: mpesaReceiptNumber,
-          notes: `Payment via ${paymentMethod} - Receipt: ${mpesaReceiptNumber || checkoutRequestId}`,
-          isp_company_id: client.isp_company_id
-        })
-        .select()
-        .single()
-
-      if (paymentError) {
-        console.error('Error creating payment record:', paymentError)
-      } else {
-        paymentRecord = newPayment
-        console.log('Payment record created successfully:', paymentRecord.id)
-      }
+      console.log('Invoice created successfully:', invoice.id)
     }
 
-    // Update client's wallet balance - CRITICAL: Update both wallet_balance and balance fields
+    // Create payment record
+    const { data: paymentRecord, error: paymentError } = await supabase
+      .from('payments')
+      .insert({
+        client_id: clientId,
+        invoice_id: invoice?.id,
+        amount: amount,
+        payment_method: paymentMethod,
+        payment_date: new Date().toISOString(),
+        reference_number: checkoutRequestId,
+        mpesa_receipt_number: mpesaReceiptNumber,
+        notes: `Payment via ${paymentMethod} - Receipt: ${mpesaReceiptNumber || checkoutRequestId}`,
+        isp_company_id: client.isp_company_id
+      })
+      .select()
+      .single()
+
+    if (paymentError) {
+      console.error('Error creating payment record:', paymentError)
+    } else {
+      console.log('Payment record created successfully:', paymentRecord.id)
+    }
+
+    // Update client's wallet balance
     const currentBalance = parseFloat(client.wallet_balance || 0)
     const newBalance = currentBalance + amount
     
@@ -148,7 +135,7 @@ serve(async (req) => {
       .from('clients')
       .update({ 
         wallet_balance: newBalance,
-        balance: newBalance // Also update the balance field for consistency
+        balance: newBalance
       })
       .eq('id', clientId)
 
@@ -186,7 +173,6 @@ serve(async (req) => {
 
     if (walletError) {
       console.error('Error recording wallet transaction:', walletError)
-      // Don't fail the entire operation, just log the error
     } else {
       console.log('Wallet transaction recorded:', walletTransaction.id)
     }
@@ -214,11 +200,13 @@ serve(async (req) => {
         success: true,
         data: {
           payment_id: paymentRecord?.id,
+          invoice_id: invoice?.id,
           client_name: client.name,
           amount: amount,
           new_balance: newBalance,
           payment_method: paymentMethod,
-          auto_renewed: false // Will be updated if auto-renewal happens
+          wallet_transaction_id: walletTransaction?.id,
+          auto_renewed: false
         }
       }),
       { 
