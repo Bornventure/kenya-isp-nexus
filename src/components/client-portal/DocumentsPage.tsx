@@ -1,420 +1,404 @@
 
-import React, { useState } from 'react';
-import { useClientAuth } from '@/contexts/ClientAuthContext';
+import React from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { 
-  Download, 
-  Eye, 
-  FileText, 
-  Receipt, 
-  Shield, 
-  User,
-  Printer
-} from 'lucide-react';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
+import { Badge } from '@/components/ui/badge';
+import { useClientDashboard } from '@/hooks/useClientDashboard';
+import { Download, FileText, Eye, Printer } from 'lucide-react';
 
 const DocumentsPage = () => {
-  const { client } = useClientAuth();
-  const [selectedDocument, setSelectedDocument] = useState<string | null>(null);
+  const { clientData, packageData } = useClientDashboard();
 
-  if (!client) return null;
-
-  const documents = [
-    {
-      id: 'service-agreement',
-      title: 'Service Agreement',
-      type: 'PDF',
-      date: client.created_at ? new Date(client.created_at).toLocaleDateString() : new Date().toLocaleDateString(),
-      icon: FileText,
-      description: 'Terms and conditions for internet services'
-    },
-    {
-      id: 'installation-certificate',
-      title: 'Installation Certificate',
-      type: 'PDF',
-      date: client.installation_date ? new Date(client.installation_date).toLocaleDateString() : new Date().toLocaleDateString(),
-      icon: Shield,
-      description: 'Certificate of service installation'
-    },
-    {
-      id: 'client-profile',
-      title: 'Client Profile Summary',
-      type: 'PDF',
-      date: new Date().toLocaleDateString(),
-      icon: User,
-      description: 'Your account information and service details'
-    },
-    {
-      id: 'payment-history',
-      title: 'Payment History Report',
-      type: 'PDF',
-      date: new Date().toLocaleDateString(),
-      icon: Receipt,
-      description: 'Complete payment and transaction history'
-    }
-  ];
-
-  const generateServiceAgreement = () => {
-    const content = `
-      <div style="font-family: Arial, sans-serif; line-height: 1.6; color: #333; max-width: 800px; margin: 0 auto; padding: 20px;">
-        <div style="text-align: center; margin-bottom: 30px;">
-          <h1 style="color: #2563eb; margin-bottom: 10px;">DATADEFENDER LAKELINK NETWORKS</h1>
-          <p style="margin: 0; font-size: 14px;">Professional ISP Management Solutions</p>
-          <p style="margin: 5px 0; font-size: 14px;">Kenya Internet Services</p>
-        </div>
-        
-        <h2 style="color: #1e40af; border-bottom: 2px solid #2563eb; padding-bottom: 10px;">INTERNET SERVICE AGREEMENT</h2>
-        
-        <div style="margin: 20px 0;">
-          <h3 style="color: #1e40af;">Client Information</h3>
-          <p><strong>Name:</strong> ${client.name}</p>
-          <p><strong>Email:</strong> ${client.email || 'N/A'}</p>
-          <p><strong>Phone:</strong> ${client.phone}</p>
-          <p><strong>ID Number:</strong> ${client.id_number}</p>
-          <p><strong>Location:</strong> ${client.location || 'N/A'}</p>
-          <p><strong>Service Type:</strong> ${client.connection_type}</p>
-          <p><strong>Monthly Rate:</strong> KES ${client.monthly_rate?.toFixed(2) || '0.00'}</p>
-        </div>
-
-        <div style="margin: 20px 0;">
-          <h3 style="color: #1e40af;">Terms and Conditions</h3>
-          <ol style="padding-left: 20px;">
-            <li><strong>Service Provision:</strong> DataDefender Lakelink Networks agrees to provide internet services as specified in this agreement.</li>
-            <li><strong>Payment Terms:</strong> Payment is due monthly in advance. Late payments may result in service suspension.</li>
-            <li><strong>Fair Usage Policy:</strong> Service is subject to fair usage policies to ensure quality for all users.</li>
-            <li><strong>Equipment:</strong> Customer premises equipment remains property of DataDefender until fully paid.</li>
-            <li><strong>Service Level:</strong> We strive to maintain 99% uptime excluding scheduled maintenance.</li>
-            <li><strong>Termination:</strong> Either party may terminate with 30 days written notice.</li>
-            <li><strong>Compliance:</strong> This agreement is governed by the laws of Kenya and Communications Authority regulations.</li>
-          </ol>
-        </div>
-
-        <div style="margin: 30px 0;">
-          <h3 style="color: #1e40af;">Service Specifications</h3>
-          <p><strong>Connection Type:</strong> ${client.connection_type}</p>
-          <p><strong>Installation Date:</strong> ${client.installation_date ? new Date(client.installation_date).toLocaleDateString() : 'Pending'}</p>
-          <p><strong>Service Status:</strong> ${client.status}</p>
-        </div>
-
-        <div style="margin: 30px 0; padding: 20px; background: #f8fafc; border-left: 4px solid #2563eb;">
-          <h4 style="color: #1e40af; margin-top: 0;">Customer Support</h4>
-          <p>For technical support or billing inquiries:</p>
-          <p><strong>Email:</strong> support@datadefender.co.ke</p>
-          <p><strong>Phone:</strong> +254 700 000 000</p>
-        </div>
-
-        <div style="margin: 30px 0; text-align: center; font-size: 12px; color: #666;">
-          <p>Agreement Date: ${new Date().toLocaleDateString()}</p>
-          <p>This is a system-generated document from DataDefender Lakelink Networks</p>
-        </div>
-      </div>
-    `;
-    return content;
-  };
-
-  const generateInstallationCertificate = () => {
-    const content = `
-      <div style="font-family: Arial, sans-serif; line-height: 1.6; color: #333; max-width: 800px; margin: 0 auto; padding: 20px;">
-        <div style="text-align: center; margin-bottom: 30px;">
-          <h1 style="color: #2563eb; margin-bottom: 10px;">DATADEFENDER LAKELINK NETWORKS</h1>
-          <p style="margin: 0; font-size: 14px;">Professional ISP Management Solutions</p>
-          <p style="margin: 5px 0; font-size: 14px;">Kenya Internet Services</p>
-        </div>
-        
-        <div style="border: 3px solid #2563eb; padding: 30px; margin: 20px 0; text-align: center;">
-          <h2 style="color: #1e40af; margin-bottom: 20px;">INSTALLATION CERTIFICATE</h2>
-          
-          <p style="font-size: 18px; margin: 20px 0;">This certifies that internet services have been successfully installed for:</p>
-          
-          <div style="margin: 30px 0; padding: 20px; background: #f8fafc;">
-            <h3 style="color: #1e40af; margin-top: 0;">${client.name}</h3>
-            <p><strong>Client ID:</strong> ${client.id}</p>
-            <p><strong>Installation Date:</strong> ${client.installation_date ? new Date(client.installation_date).toLocaleDateString() : new Date().toLocaleDateString()}</p>
-            <p><strong>Service Type:</strong> ${client.connection_type}</p>
-            <p><strong>Location:</strong> ${client.location || 'N/A'}</p>
-          </div>
-        </div>
-
-        <div style="margin: 20px 0;">
-          <h3 style="color: #1e40af;">Installation Details</h3>
-          <ul style="padding-left: 20px;">
-            <li>Service successfully configured and tested</li>
-            <li>Equipment installed and operational</li>
-            <li>Network connectivity verified</li>
-            <li>Customer orientation completed</li>
-            <li>Service agreement signed and filed</li>
-          </ul>
-        </div>
-
-        <div style="margin: 30px 0; text-align: center;">
-          <p style="margin: 40px 0;">_________________________</p>
-          <p><strong>Technical Team</strong></p>
-          <p>DataDefender Lakelink Networks</p>
-          <p style="font-size: 12px; color: #666;">Certified by Communications Authority of Kenya</p>
-        </div>
-
-        <div style="margin: 30px 0; text-align: center; font-size: 12px; color: #666;">
-          <p>Certificate Generated: ${new Date().toLocaleDateString()}</p>
-          <p>This is an official document from DataDefender Lakelink Networks</p>
-        </div>
-      </div>
-    `;
-    return content;
-  };
-
-  const generateClientProfile = () => {
-    const content = `
-      <div style="font-family: Arial, sans-serif; line-height: 1.6; color: #333; max-width: 800px; margin: 0 auto; padding: 20px;">
-        <div style="text-align: center; margin-bottom: 30px;">
-          <h1 style="color: #2563eb; margin-bottom: 10px;">DATADEFENDER LAKELINK NETWORKS</h1>
-          <p style="margin: 0; font-size: 14px;">Professional ISP Management Solutions</p>
-          <p style="margin: 5px 0; font-size: 14px;">Kenya Internet Services</p>
-        </div>
-        
-        <h2 style="color: #1e40af; border-bottom: 2px solid #2563eb; padding-bottom: 10px;">CLIENT PROFILE SUMMARY</h2>
-        
-        <div style="margin: 20px 0;">
-          <h3 style="color: #1e40af;">Personal Information</h3>
-          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px;">
-            <div>
-              <p><strong>Full Name:</strong> ${client.name}</p>
-              <p><strong>Email:</strong> ${client.email || 'N/A'}</p>
-              <p><strong>Phone:</strong> ${client.phone}</p>
-              <p><strong>ID Number:</strong> ${client.id_number}</p>
-            </div>
-            <div>
-              <p><strong>Client Type:</strong> ${client.client_type}</p>
-              <p><strong>Account Status:</strong> ${client.status}</p>
-              <p><strong>Registration Date:</strong> ${client.created_at ? new Date(client.created_at).toLocaleDateString() : 'N/A'}</p>
-              <p><strong>KRA PIN:</strong> ${client.kra_pin_number || 'N/A'}</p>
-            </div>
-          </div>
-        </div>
-
-        <div style="margin: 20px 0;">
-          <h3 style="color: #1e40af;">Service Information</h3>
-          <p><strong>Connection Type:</strong> ${client.connection_type}</p>
-          <p><strong>Monthly Rate:</strong> KES ${client.monthly_rate?.toFixed(2) || '0.00'}</p>
-          <p><strong>Subscription Type:</strong> ${client.subscription_type}</p>
-          <p><strong>Installation Date:</strong> ${client.installation_date ? new Date(client.installation_date).toLocaleDateString() : 'Pending'}</p>
-        </div>
-
-        <div style="margin: 20px 0;">
-          <h3 style="color: #1e40af;">Account Status</h3>
-          <div style="background: #f8fafc; padding: 15px; border-radius: 8px;">
-            <p><strong>Current Status:</strong> <span style="color: ${client.status === 'active' ? '#059669' : '#dc2626'}">${client.status?.toUpperCase()}</span></p>
-            <p><strong>Wallet Balance:</strong> KES ${client.wallet_balance?.toFixed(2) || '0.00'}</p>
-            <p><strong>Account Balance:</strong> KES ${client.balance?.toFixed(2) || '0.00'}</p>
-          </div>
-        </div>
-
-        <div style="margin: 30px 0; text-align: center; font-size: 12px; color: #666;">
-          <p>Profile Generated: ${new Date().toLocaleDateString()}</p>
-          <p>This is a confidential document from DataDefender Lakelink Networks</p>
-        </div>
-      </div>
-    `;
-    return content;
-  };
-
-  const generatePaymentHistory = () => {
-    const content = `
-      <div style="font-family: Arial, sans-serif; line-height: 1.6; color: #333; max-width: 800px; margin: 0 auto; padding: 20px;">
-        <div style="text-align: center; margin-bottom: 30px;">
-          <h1 style="color: #2563eb; margin-bottom: 10px;">DATADEFENDER LAKELINK NETWORKS</h1>
-          <p style="margin: 0; font-size: 14px;">Professional ISP Management Solutions</p>
-          <p style="margin: 5px 0; font-size: 14px;">Kenya Internet Services</p>
-        </div>
-        
-        <h2 style="color: #1e40af; border-bottom: 2px solid #2563eb; padding-bottom: 10px;">PAYMENT HISTORY REPORT</h2>
-        
-        <div style="margin: 20px 0;">
-          <h3 style="color: #1e40af;">Account Information</h3>
-          <p><strong>Client Name:</strong> ${client.name}</p>
-          <p><strong>Account ID:</strong> ${client.id}</p>
-          <p><strong>Report Date:</strong> ${new Date().toLocaleDateString()}</p>
-          <p><strong>Current Balance:</strong> KES ${client.wallet_balance?.toFixed(2) || '0.00'}</p>
-        </div>
-
-        <div style="margin: 20px 0;">
-          <h3 style="color: #1e40af;">Payment Summary</h3>
-          <div style="background: #f8fafc; padding: 15px; border-radius: 8px;">
-            <p><strong>Monthly Service Rate:</strong> KES ${client.monthly_rate?.toFixed(2) || '0.00'}</p>
-            <p><strong>Payment Method:</strong> M-Pesa</p>
-            <p><strong>M-Pesa Number:</strong> ${client.mpesa_number || client.phone}</p>
-          </div>
-        </div>
-
-        <div style="margin: 20px 0;">
-          <h3 style="color: #1e40af;">Transaction History</h3>
-          <div style="background: #f8fafc; padding: 15px; border-radius: 8px;">
-            <p><em>Transaction history is dynamically loaded from your payment records.</em></p>
-            <p><em>For detailed transaction history, please check the wallet section in your client portal.</em></p>
-          </div>
-        </div>
-
-        <div style="margin: 30px 0; padding: 20px; background: #f8fafc; border-left: 4px solid #2563eb;">
-          <h4 style="color: #1e40af; margin-top: 0;">Payment Instructions</h4>
-          <p><strong>M-Pesa Paybill:</strong> 123456 (Example)</p>
-          <p><strong>Account Number:</strong> Your phone number</p>
-          <p><strong>Amount:</strong> KES ${client.monthly_rate?.toFixed(2) || '0.00'}</p>
-        </div>
-
-        <div style="margin: 30px 0; text-align: center; font-size: 12px; color: #666;">
-          <p>Report Generated: ${new Date().toLocaleDateString()}</p>
-          <p>This is a confidential document from DataDefender Lakelink Networks</p>
-        </div>
-      </div>
-    `;
-    return content;
-  };
-
-  const getDocumentContent = (documentId: string) => {
-    switch (documentId) {
-      case 'service-agreement':
-        return generateServiceAgreement();
-      case 'installation-certificate':
-        return generateInstallationCertificate();
-      case 'client-profile':
-        return generateClientProfile();
-      case 'payment-history':
-        return generatePaymentHistory();
-      default:
-        return '<p>Document not found</p>';
-    }
-  };
-
-  const handleDownload = (documentId: string, title: string) => {
-    const content = getDocumentContent(documentId);
+  const handleDownload = (content: string, filename: string) => {
     const blob = new Blob([content], { type: 'text/html' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = `${title.replace(/\s+/g, '_')}.html`;
+    a.download = filename;
     a.click();
     URL.revokeObjectURL(url);
   };
 
-  const handlePrint = (documentId: string) => {
-    const content = getDocumentContent(documentId);
+  const handlePrint = (content: string) => {
     const printWindow = window.open('', '_blank');
     if (printWindow) {
-      printWindow.document.write(`
-        <!DOCTYPE html>
-        <html>
-        <head>
-          <title>Print Document</title>
-          <style>
-            body { margin: 0; padding: 20px; }
-            @media print {
-              body { margin: 0; }
-              .no-print { display: none; }
-            }
-          </style>
-        </head>
-        <body>
-          ${content}
-        </body>
-        </html>
-      `);
+      printWindow.document.write(content);
       printWindow.document.close();
       printWindow.print();
     }
   };
 
+  const formatDate = (dateString: string | null) => {
+    if (!dateString) return 'N/A';
+    return new Date(dateString).toLocaleDateString('en-KE', {
+      year: 'numeric',
+      month: 'long',
+      day: 'numeric'
+    });
+  };
+
+  const generateServiceAgreement = () => {
+    return `
+      <!DOCTYPE html>
+      <html>
+        <head>
+          <title>Service Agreement - DataDefender</title>
+          <style>
+            body { font-family: Arial, sans-serif; margin: 20px; line-height: 1.6; }
+            .header { text-align: center; margin-bottom: 30px; }
+            .logo { color: #1e40af; font-size: 24px; font-weight: bold; }
+            .section { margin: 20px 0; }
+            .signature-section { margin-top: 50px; }
+            .terms { margin-left: 20px; }
+          </style>
+        </head>
+        <body>
+          <div class="header">
+            <div class="logo">DataDefender</div>
+            <h2>INTERNET SERVICE AGREEMENT</h2>
+          </div>
+          
+          <div class="section">
+            <h3>CUSTOMER INFORMATION</h3>
+            <p><strong>Name:</strong> ${clientData?.name || 'N/A'}</p>
+            <p><strong>Email:</strong> ${clientData?.email || 'N/A'}</p>
+            <p><strong>Phone:</strong> ${clientData?.phone || 'N/A'}</p>
+            <p><strong>Address:</strong> ${clientData?.address || 'N/A'}</p>
+            <p><strong>Connection Type:</strong> ${clientData?.connection_type || 'N/A'}</p>
+          </div>
+          
+          <div class="section">
+            <h3>SERVICE DETAILS</h3>
+            <p><strong>Package:</strong> ${packageData?.name || 'N/A'}</p>
+            <p><strong>Speed:</strong> ${packageData?.speed || 'N/A'}</p>
+            <p><strong>Monthly Rate:</strong> KES ${packageData?.monthly_rate || 'N/A'}</p>
+            <p><strong>Installation Date:</strong> ${formatDate(clientData?.installation_date)}</p>
+          </div>
+          
+          <div class="section">
+            <h3>TERMS AND CONDITIONS</h3>
+            <div class="terms">
+              <p>1. <strong>Service Provision:</strong> DataDefender agrees to provide internet services as specified in the selected package.</p>
+              <p>2. <strong>Payment Terms:</strong> Payment is due monthly in advance. Late payments may result in service suspension.</p>
+              <p>3. <strong>Fair Usage Policy:</strong> Customer agrees to use the service in accordance with acceptable use policies.</p>
+              <p>4. <strong>Equipment:</strong> Any equipment provided remains property of DataDefender and must be returned upon termination.</p>
+              <p>5. <strong>Termination:</strong> Either party may terminate this agreement with 30 days written notice.</p>
+              <p>6. <strong>Governing Law:</strong> This agreement is governed by the laws of Kenya.</p>
+            </div>
+          </div>
+          
+          <div class="signature-section">
+            <table style="width: 100%; border-collapse: collapse;">
+              <tr>
+                <td style="width: 50%; padding: 20px; border-top: 1px solid #ccc;">
+                  <strong>Customer Signature</strong><br>
+                  Name: ${clientData?.name || 'N/A'}<br>
+                  Date: ________________
+                </td>
+                <td style="width: 50%; padding: 20px; border-top: 1px solid #ccc;">
+                  <strong>DataDefender Representative</strong><br>
+                  Name: ________________<br>
+                  Date: ________________
+                </td>
+              </tr>
+            </table>
+          </div>
+        </body>
+      </html>
+    `;
+  };
+
+  const generateInvoiceTemplate = () => {
+    return `
+      <!DOCTYPE html>
+      <html>
+        <head>
+          <title>Invoice - DataDefender</title>
+          <style>
+            body { font-family: Arial, sans-serif; margin: 20px; line-height: 1.6; }
+            .header { text-align: center; margin-bottom: 30px; }
+            .logo { color: #1e40af; font-size: 24px; font-weight: bold; }
+            .invoice-details { margin: 20px 0; }
+            .bill-to { margin: 20px 0; }
+            .items-table { width: 100%; border-collapse: collapse; margin: 20px 0; }
+            .items-table th, .items-table td { border: 1px solid #ddd; padding: 8px; text-align: left; }
+            .items-table th { background-color: #f2f2f2; }
+            .totals { margin-top: 20px; text-align: right; }
+          </style>
+        </head>
+        <body>
+          <div class="header">
+            <div class="logo">DataDefender</div>
+            <h2>INVOICE</h2>
+          </div>
+          
+          <div class="invoice-details">
+            <p><strong>Invoice Number:</strong> INV-${Date.now()}</p>
+            <p><strong>Date:</strong> ${new Date().toLocaleDateString('en-KE')}</p>
+            <p><strong>Due Date:</strong> ${new Date(Date.now() + 30*24*60*60*1000).toLocaleDateString('en-KE')}</p>
+          </div>
+          
+          <div class="bill-to">
+            <h3>BILL TO:</h3>
+            <p>${clientData?.name || 'N/A'}</p>
+            <p>${clientData?.email || 'N/A'}</p>
+            <p>${clientData?.phone || 'N/A'}</p>
+            <p>${clientData?.address || 'N/A'}</p>
+          </div>
+          
+          <table class="items-table">
+            <thead>
+              <tr>
+                <th>Description</th>
+                <th>Period</th>
+                <th>Amount (KES)</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td>Internet Service - ${packageData?.name || 'N/A'}</td>
+                <td>Monthly</td>
+                <td>${packageData?.monthly_rate || 'N/A'}</td>
+              </tr>
+            </tbody>
+          </table>
+          
+          <div class="totals">
+            <p><strong>Subtotal:</strong> KES ${packageData?.monthly_rate || 'N/A'}</p>
+            <p><strong>VAT (16%):</strong> KES ${((packageData?.monthly_rate || 0) * 0.16).toFixed(2)}</p>
+            <p><strong>Total:</strong> KES ${((packageData?.monthly_rate || 0) * 1.16).toFixed(2)}</p>
+          </div>
+          
+          <div style="margin-top: 40px;">
+            <p><strong>Payment Instructions:</strong></p>
+            <p>Please pay via M-Pesa to Paybill: 123456</p>
+            <p>Account Number: Your phone number</p>
+            <p>Or use the payment options in your customer portal.</p>
+          </div>
+        </body>
+      </html>
+    `;
+  };
+
+  const generateComplianceCertificate = () => {
+    return `
+      <!DOCTYPE html>
+      <html>
+        <head>
+          <title>Compliance Certificate - DataDefender</title>
+          <style>
+            body { font-family: Arial, sans-serif; margin: 20px; line-height: 1.6; }
+            .header { text-align: center; margin-bottom: 30px; }
+            .logo { color: #1e40af; font-size: 24px; font-weight: bold; }
+            .certificate-body { margin: 20px 0; }
+            .footer { margin-top: 50px; text-align: center; }
+          </style>
+        </head>
+        <body>
+          <div class="header">
+            <div class="logo">DataDefender</div>
+            <h2>COMPLIANCE CERTIFICATE</h2>
+          </div>
+          
+          <div class="certificate-body">
+            <p>This is to certify that:</p>
+            <p style="text-align: center; font-size: 18px; margin: 20px 0;"><strong>${clientData?.name || 'N/A'}</strong></p>
+            <p>has been registered as a customer of DataDefender Internet Services and is in compliance with:</p>
+            
+            <ul style="margin: 20px 0;">
+              <li>Kenya Information and Communications Act (Cap 411A)</li>
+              <li>Communications Authority of Kenya regulations</li>
+              <li>Data Protection Act, 2019</li>
+              <li>Computer Misuse and Cybercrimes Act, 2018</li>
+            </ul>
+            
+            <div style="margin: 30px 0;">
+              <p><strong>Customer Details:</strong></p>
+              <p>Customer Type: ${clientData?.client_type || 'N/A'}</p>
+              <p>Registration Date: ${formatDate(clientData?.installation_date)}</p>
+              <p>KRA PIN: ${clientData?.kra_pin_number || 'N/A'}</p>
+            </div>
+            
+            <p><strong>Service Details:</strong></p>
+            <p>Connection Type: ${clientData?.connection_type || 'N/A'}</p>
+            <p>Package: ${packageData?.name || 'N/A'}</p>
+            
+            <p style="margin-top: 30px;">This certificate is issued in accordance with Kenyan law and regulations governing internet service provision.</p>
+          </div>
+          
+          <div class="footer">
+            <p>_______________________</p>
+            <p><strong>DataDefender Compliance Officer</strong></p>
+            <p>Date: ${new Date().toLocaleDateString('en-KE')}</p>
+          </div>
+        </body>
+      </html>
+    `;
+  };
+
+  const generateWalletStatement = () => {
+    return `
+      <!DOCTYPE html>
+      <html>
+        <head>
+          <title>Wallet Statement - DataDefender</title>
+          <style>
+            body { font-family: Arial, sans-serif; margin: 20px; line-height: 1.6; }
+            .header { text-align: center; margin-bottom: 30px; }
+            .logo { color: #1e40af; font-size: 24px; font-weight: bold; }
+            .statement-table { width: 100%; border-collapse: collapse; margin: 20px 0; }
+            .statement-table th, .statement-table td { border: 1px solid #ddd; padding: 8px; text-align: left; }
+            .statement-table th { background-color: #f2f2f2; }
+            .balance-info { margin: 20px 0; padding: 15px; background-color: #f9f9f9; }
+          </style>
+        </head>
+        <body>
+          <div class="header">
+            <div class="logo">DataDefender</div>
+            <h2>WALLET STATEMENT</h2>
+          </div>
+          
+          <div style="margin: 20px 0;">
+            <p><strong>Customer:</strong> ${clientData?.name || 'N/A'}</p>
+            <p><strong>Account:</strong> ${clientData?.phone || 'N/A'}</p>
+            <p><strong>Statement Date:</strong> ${new Date().toLocaleDateString('en-KE')}</p>
+          </div>
+          
+          <div class="balance-info">
+            <p><strong>Current Balance:</strong> KES ${clientData?.wallet_balance || 'N/A'}</p>
+            <p><strong>Account Balance:</strong> KES ${(clientData?.wallet_balance || 0) - (clientData?.balance || 0)}</p>
+          </div>
+          
+          <table class="statement-table">
+            <thead>
+              <tr>
+                <th>Date</th>
+                <th>Description</th>
+                <th>Debit</th>
+                <th>Credit</th>
+                <th>Balance</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td colspan="5" style="text-align: center; padding: 20px;">
+                  Transaction history will appear here as you make payments and renewals
+                </td>
+              </tr>
+            </tbody>
+          </table>
+          
+          <div style="margin-top: 30px;">
+            <p><strong>Notice:</strong> This statement is generated automatically and is valid for official purposes.</p>
+            <p><strong>For inquiries:</strong> Contact DataDefender customer support</p>
+          </div>
+        </body>
+      </html>
+    `;
+  };
+
+  const documents = [
+    {
+      id: 1,
+      title: 'Service Agreement',
+      description: 'Your internet service contract and terms',
+      icon: FileText,
+      content: generateServiceAgreement(),
+      filename: 'service-agreement.html'
+    },
+    {
+      id: 2,
+      title: 'Invoice Template',
+      description: 'Monthly billing invoice template',
+      icon: FileText,
+      content: generateInvoiceTemplate(),
+      filename: 'invoice-template.html'
+    },
+    {
+      id: 3,
+      title: 'Compliance Certificate',
+      description: 'Compliance with Kenyan regulations',
+      icon: FileText,
+      content: generateComplianceCertificate(),
+      filename: 'compliance-certificate.html'
+    },
+    {
+      id: 4,
+      title: 'Wallet Statement',
+      description: 'Your wallet transaction history',
+      icon: FileText,
+      content: generateWalletStatement(),
+      filename: 'wallet-statement.html'
+    }
+  ];
+
   return (
     <div className="space-y-6">
       <div>
-        <h2 className="text-2xl font-bold text-gray-900 dark:text-gray-100 mb-2">
-          Documents & Certificates
-        </h2>
+        <h1 className="text-2xl font-bold mb-2">Documents</h1>
         <p className="text-gray-600 dark:text-gray-300">
-          Access your service documents, certificates, and reports
+          Access your service documents and certificates
         </p>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-        {documents.map((doc) => {
-          const IconComponent = doc.icon;
-          return (
-            <Card key={doc.id} className="hover:shadow-lg transition-shadow">
-              <CardHeader className="pb-3">
-                <div className="flex items-center gap-3">
-                  <div className="p-2 bg-blue-100 dark:bg-blue-900 rounded-lg">
-                    <IconComponent className="h-5 w-5 text-blue-600 dark:text-blue-400" />
-                  </div>
-                  <div>
-                    <CardTitle className="text-lg">{doc.title}</CardTitle>
-                    <p className="text-sm text-gray-500 dark:text-gray-400">
-                      {doc.type} • {doc.date}
-                    </p>
-                  </div>
+        {documents.map((doc) => (
+          <Card key={doc.id} className="hover:shadow-lg transition-shadow">
+            <CardHeader className="pb-3">
+              <div className="flex items-center space-x-3">
+                <div className="p-2 bg-blue-100 dark:bg-blue-900/20 rounded-lg">
+                  <doc.icon className="h-5 w-5 text-blue-600 dark:text-blue-400" />
                 </div>
-              </CardHeader>
-              <CardContent>
-                <p className="text-sm text-gray-600 dark:text-gray-300 mb-4">
-                  {doc.description}
-                </p>
-                <div className="flex gap-2">
-                  <Dialog>
-                    <DialogTrigger asChild>
-                      <Button variant="outline" size="sm" className="flex items-center gap-2">
-                        <Eye className="h-4 w-4" />
-                        View
-                      </Button>
-                    </DialogTrigger>
-                    <DialogContent className="max-w-4xl max-h-[80vh] overflow-y-auto">
-                      <DialogHeader>
-                        <DialogTitle>{doc.title}</DialogTitle>
-                      </DialogHeader>
-                      <div 
-                        className="prose prose-sm max-w-none"
-                        dangerouslySetInnerHTML={{ __html: getDocumentContent(doc.id) }}
-                      />
-                    </DialogContent>
-                  </Dialog>
-                  
-                  <Button 
-                    variant="outline" 
-                    size="sm" 
-                    className="flex items-center gap-2"
-                    onClick={() => handleDownload(doc.id, doc.title)}
-                  >
-                    <Download className="h-4 w-4" />
-                    Download
-                  </Button>
-                  
-                  <Button 
-                    variant="outline" 
-                    size="sm" 
-                    className="flex items-center gap-2"
-                    onClick={() => handlePrint(doc.id)}
-                  >
-                    <Printer className="h-4 w-4" />
-                    Print
-                  </Button>
+                <div>
+                  <CardTitle className="text-lg">{doc.title}</CardTitle>
+                  <p className="text-sm text-gray-600 dark:text-gray-300">
+                    {doc.description}
+                  </p>
                 </div>
-              </CardContent>
-            </Card>
-          );
-        })}
+              </div>
+            </CardHeader>
+            <CardContent>
+              <div className="flex space-x-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => handlePrint(doc.content)}
+                  className="flex-1"
+                >
+                  <Eye className="h-4 w-4 mr-2" />
+                  View
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => handleDownload(doc.content, doc.filename)}
+                  className="flex-1"
+                >
+                  <Download className="h-4 w-4 mr-2" />
+                  Download
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => handlePrint(doc.content)}
+                >
+                  <Printer className="h-4 w-4" />
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+        ))}
       </div>
 
-      <Card>
-        <CardHeader>
-          <CardTitle>Document Information</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="space-y-2 text-sm text-gray-600 dark:text-gray-300">
-            <p>• All documents are generated in real-time with your current account information</p>
-            <p>• Documents can be downloaded as HTML files for offline viewing</p>
-            <p>• Print functionality is available for physical copies</p>
-            <p>• All documents comply with Kenyan legal requirements and CA regulations</p>
-            <p>• For official stamped documents, please contact our support team</p>
-          </div>
-        </CardContent>
-      </Card>
+      <div className="mt-8 p-4 bg-blue-50 dark:bg-blue-900/20 rounded-lg">
+        <h3 className="font-semibold mb-2">Document Information</h3>
+        <ul className="text-sm space-y-1 text-gray-600 dark:text-gray-300">
+          <li>• All documents are generated in real-time with your current information</li>
+          <li>• Documents comply with Kenyan legal requirements</li>
+          <li>• You can download documents as HTML files for printing or saving</li>
+          <li>• For official copies, contact customer support</li>
+        </ul>
+      </div>
     </div>
   );
 };
