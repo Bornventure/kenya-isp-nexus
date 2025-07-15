@@ -1,236 +1,256 @@
 
 import React, { useState } from 'react';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Badge } from '@/components/ui/badge';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { AlertTriangle, CheckCircle, XCircle } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
-import { AlertTriangle, Shield, ShieldOff, ShieldCheck } from 'lucide-react';
-import { useSuperAdminCompanies } from '@/hooks/useSuperAdminCompanies';
-import { Alert, AlertDescription } from '@/components/ui/alert';
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 
-const LicenseDeactivationManager: React.FC = () => {
-  const { toast } = useToast();
-  const { data: companies, refetch } = useSuperAdminCompanies();
-  const [selectedCompanyId, setSelectedCompanyId] = useState('');
+interface ISPCompany {
+  id: string;
+  name: string;
+  license_type: string;
+  is_active: boolean;
+  current_client_count: number;
+  client_limit: number;
+  deactivation_reason?: string | null;
+  deactivated_at?: string | null;
+}
+
+interface LicenseDeactivationManagerProps {
+  companies: ISPCompany[];
+  onCompanyUpdate: () => void;
+}
+
+export const LicenseDeactivationManager: React.FC<LicenseDeactivationManagerProps> = ({
+  companies,
+  onCompanyUpdate
+}) => {
+  const [selectedCompany, setSelectedCompany] = useState<ISPCompany | null>(null);
   const [deactivationReason, setDeactivationReason] = useState('');
-  const [isProcessing, setIsProcessing] = useState(false);
+  const [isDeactivating, setIsDeactivating] = useState(false);
+  const [isReactivating, setIsReactivating] = useState(false);
+  const [showDeactivateDialog, setShowDeactivateDialog] = useState(false);
+  const [showReactivateDialog, setShowReactivateDialog] = useState(false);
+  const { toast } = useToast();
 
-  const deactivationReasons = [
-    'Payment overdue',
-    'License violation',
-    'Maintenance',
-    'Account suspension',
-    'Contract termination',
-    'Technical issues',
-    'Other'
-  ];
-
-  const handleDeactivateLicense = async () => {
-    if (!selectedCompanyId || !deactivationReason) {
+  const handleDeactivate = async () => {
+    if (!selectedCompany || !deactivationReason.trim()) {
       toast({
-        title: "Validation Error",
-        description: "Please select a company and provide a deactivation reason.",
-        variant: "destructive",
+        title: "Error",
+        description: "Please provide a reason for deactivation",
+        variant: "destructive"
       });
       return;
     }
 
-    setIsProcessing(true);
+    setIsDeactivating(true);
     try {
       const { error } = await supabase
         .from('isp_companies')
         .update({
           is_active: false,
-          deactivation_reason: deactivationReason,
+          deactivation_reason: deactivationReason.trim(),
           deactivated_at: new Date().toISOString()
         })
-        .eq('id', selectedCompanyId);
+        .eq('id', selectedCompany.id);
 
       if (error) throw error;
 
       toast({
         title: "License Deactivated",
-        description: "The license has been successfully deactivated.",
+        description: `${selectedCompany.name} has been deactivated successfully.`
       });
 
-      setSelectedCompanyId('');
+      setShowDeactivateDialog(false);
       setDeactivationReason('');
-      refetch();
+      setSelectedCompany(null);
+      onCompanyUpdate();
     } catch (error) {
       console.error('Error deactivating license:', error);
       toast({
-        title: "Deactivation Failed",
-        description: "Failed to deactivate the license. Please try again.",
-        variant: "destructive",
+        title: "Error",
+        description: "Failed to deactivate license. Please try again.",
+        variant: "destructive"
       });
     } finally {
-      setIsProcessing(false);
+      setIsDeactivating(false);
     }
   };
 
-  const handleReactivateLicense = async (companyId: string) => {
-    setIsProcessing(true);
+  const handleReactivate = async () => {
+    if (!selectedCompany) return;
+
+    setIsReactivating(true);
     try {
       const { error } = await supabase
         .from('isp_companies')
         .update({
           is_active: true,
           deactivation_reason: null,
-          deactivated_at: null,
-          reactivated_at: new Date().toISOString()
+          deactivated_at: null
         })
-        .eq('id', companyId);
+        .eq('id', selectedCompany.id);
 
       if (error) throw error;
 
       toast({
         title: "License Reactivated",
-        description: "The license has been successfully reactivated.",
+        description: `${selectedCompany.name} has been reactivated successfully.`
       });
 
-      refetch();
+      setShowReactivateDialog(false);
+      setSelectedCompany(null);
+      onCompanyUpdate();
     } catch (error) {
       console.error('Error reactivating license:', error);
       toast({
-        title: "Reactivation Failed",
-        description: "Failed to reactivate the license. Please try again.",
-        variant: "destructive",
+        title: "Error",
+        description: "Failed to reactivate license. Please try again.",
+        variant: "destructive"
       });
     } finally {
-      setIsProcessing(false);
+      setIsReactivating(false);
     }
   };
 
-  const activeCompanies = companies?.filter(company => company.is_active) || [];
-  const inactiveCompanies = companies?.filter(company => !company.is_active) || [];
-
   return (
-    <div className="space-y-6">
-      {/* Deactivation Section */}
+    <>
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
-            <ShieldOff className="h-5 w-5 text-red-600" />
-            Deactivate License
+            <AlertTriangle className="h-5 w-5" />
+            License Deactivation Management
           </CardTitle>
+          <CardDescription>
+            Manage license activation status for ISP companies
+          </CardDescription>
         </CardHeader>
-        <CardContent className="space-y-4">
-          <Alert>
-            <AlertTriangle className="h-4 w-4" />
-            <AlertDescription>
-              Deactivating a license will immediately suspend all services for the selected company.
-              Users will see a deactivation banner and lose access to most features.
-            </AlertDescription>
-          </Alert>
-
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div>
-              <Label htmlFor="company-select">Select Company</Label>
-              <Select value={selectedCompanyId} onValueChange={setSelectedCompanyId}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Choose a company to deactivate" />
-                </SelectTrigger>
-                <SelectContent>
-                  {activeCompanies.map((company) => (
-                    <SelectItem key={company.id} value={company.id}>
-                      {company.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-
-            <div>
-              <Label htmlFor="reason-select">Deactivation Reason</Label>
-              <Select value={deactivationReason} onValueChange={setDeactivationReason}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Select reason" />
-                </SelectTrigger>
-                <SelectContent>
-                  {deactivationReasons.map((reason) => (
-                    <SelectItem key={reason} value={reason}>
-                      {reason}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
+        <CardContent>
+          <div className="space-y-4">
+            {companies.map((company) => (
+              <div key={company.id} className="flex items-center justify-between p-4 border rounded-lg">
+                <div className="flex-1">
+                  <div className="flex items-center gap-3">
+                    <h3 className="font-semibold">{company.name}</h3>
+                    <Badge variant={company.is_active ? "default" : "destructive"}>
+                      {company.is_active ? (
+                        <CheckCircle className="h-3 w-3 mr-1" />
+                      ) : (
+                        <XCircle className="h-3 w-3 mr-1" />
+                      )}
+                      {company.is_active ? 'Active' : 'Deactivated'}
+                    </Badge>
+                  </div>
+                  <div className="text-sm text-muted-foreground mt-1">
+                    License: {company.license_type} | Clients: {company.current_client_count}/{company.client_limit}
+                  </div>
+                  {!company.is_active && company.deactivation_reason && (
+                    <div className="text-sm text-red-600 mt-2">
+                      <strong>Reason:</strong> {company.deactivation_reason}
+                    </div>
+                  )}
+                  {!company.is_active && company.deactivated_at && (
+                    <div className="text-sm text-muted-foreground">
+                      Deactivated: {new Date(company.deactivated_at).toLocaleDateString()}
+                    </div>
+                  )}
+                </div>
+                <div className="flex gap-2">
+                  {company.is_active ? (
+                    <Button
+                      variant="destructive"
+                      size="sm"
+                      onClick={() => {
+                        setSelectedCompany(company);
+                        setShowDeactivateDialog(true);
+                      }}
+                    >
+                      Deactivate
+                    </Button>
+                  ) : (
+                    <Button
+                      variant="default"
+                      size="sm"
+                      onClick={() => {
+                        setSelectedCompany(company);
+                        setShowReactivateDialog(true);
+                      }}
+                    >
+                      Reactivate
+                    </Button>
+                  )}
+                </div>
+              </div>
+            ))}
           </div>
-
-          {deactivationReason === 'Other' && (
-            <div>
-              <Label htmlFor="custom-reason">Custom Reason</Label>
-              <Textarea
-                id="custom-reason"
-                placeholder="Provide specific details for the deactivation..."
-                value={deactivationReason === 'Other' ? '' : deactivationReason}
-                onChange={(e) => setDeactivationReason(e.target.value)}
-              />
-            </div>
-          )}
-
-          <Button
-            onClick={handleDeactivateLicense}
-            disabled={isProcessing || !selectedCompanyId || !deactivationReason}
-            variant="destructive"
-            className="w-full"
-          >
-            <ShieldOff className="h-4 w-4 mr-2" />
-            {isProcessing ? 'Deactivating...' : 'Deactivate License'}
-          </Button>
         </CardContent>
       </Card>
 
-      {/* Reactivation Section */}
-      {inactiveCompanies.length > 0 && (
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <ShieldCheck className="h-5 w-5 text-green-600" />
-              Reactivate Licenses
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-4">
-              {inactiveCompanies.map((company) => (
-                <div key={company.id} className="flex items-center justify-between p-4 border rounded-lg bg-red-50">
-                  <div className="flex-1">
-                    <div className="flex items-center gap-2 mb-2">
-                      <h3 className="font-semibold">{company.name}</h3>
-                      <Badge variant="destructive">Deactivated</Badge>
-                    </div>
-                    <p className="text-sm text-gray-600 mb-1">
-                      <span className="font-medium">Reason:</span> {company.deactivation_reason || 'No reason provided'}
-                    </p>
-                    <p className="text-sm text-gray-600">
-                      <span className="font-medium">Deactivated:</span> {
-                        company.deactivated_at 
-                          ? new Date(company.deactivated_at).toLocaleDateString()
-                          : 'Unknown'
-                      }
-                    </p>
-                  </div>
-                  <Button
-                    onClick={() => handleReactivateLicense(company.id)}
-                    disabled={isProcessing}
-                    variant="outline"
-                    className="ml-4"
-                  >
-                    <Shield className="h-4 w-4 mr-2" />
-                    Reactivate
-                  </Button>
-                </div>
-              ))}
+      {/* Deactivation Dialog */}
+      <Dialog open={showDeactivateDialog} onOpenChange={setShowDeactivateDialog}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Deactivate License</DialogTitle>
+            <DialogDescription>
+              You are about to deactivate the license for {selectedCompany?.name}. 
+              This will prevent them from accessing the system.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div>
+              <label className="text-sm font-medium">Reason for deactivation *</label>
+              <Textarea
+                value={deactivationReason}
+                onChange={(e) => setDeactivationReason(e.target.value)}
+                placeholder="Please provide a detailed reason for deactivating this license..."
+                className="mt-1"
+                rows={3}
+              />
             </div>
-          </CardContent>
-        </Card>
-      )}
-    </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowDeactivateDialog(false)}>
+              Cancel
+            </Button>
+            <Button
+              variant="destructive"
+              onClick={handleDeactivate}
+              disabled={isDeactivating || !deactivationReason.trim()}
+            >
+              {isDeactivating ? 'Deactivating...' : 'Deactivate License'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Reactivation Dialog */}
+      <Dialog open={showReactivateDialog} onOpenChange={setShowReactivateDialog}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Reactivate License</DialogTitle>
+            <DialogDescription>
+              You are about to reactivate the license for {selectedCompany?.name}. 
+              This will restore their access to the system.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowReactivateDialog(false)}>
+              Cancel
+            </Button>
+            <Button
+              onClick={handleReactivate}
+              disabled={isReactivating}
+            >
+              {isReactivating ? 'Reactivating...' : 'Reactivate License'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    </>
   );
 };
 

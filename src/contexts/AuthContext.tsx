@@ -1,3 +1,4 @@
+
 import React, { createContext, useContext, useEffect, useState, useRef } from 'react';
 import { User, Session } from '@supabase/supabase-js';
 import { supabase } from '@/integrations/supabase/client';
@@ -8,6 +9,7 @@ interface AuthContextType {
   session: Session | null;
   profile: any | null;
   isLoading: boolean;
+  profileError: Error | null;
   login: (email: string, password: string) => Promise<boolean>;
   signup: (email: string, password: string, userData: any) => Promise<boolean>;
   logout: () => Promise<void>;
@@ -21,6 +23,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [session, setSession] = useState<Session | null>(null);
   const [profile, setProfile] = useState<any | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [profileError, setProfileError] = useState<Error | null>(null);
   const { toast } = useToast();
   const initializedRef = useRef(false);
   const profileFetchingRef = useRef(false);
@@ -34,6 +37,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
     try {
       profileFetchingRef.current = true;
+      setProfileError(null);
       console.log('Fetching profile for user:', userId);
       
       const { data, error } = await supabase
@@ -44,7 +48,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             id,
             name,
             license_type,
-            client_limit
+            client_limit,
+            is_active,
+            deactivation_reason,
+            deactivated_at
           )
         `)
         .eq('id', userId)
@@ -52,8 +59,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
       if (error) {
         console.error('Error fetching profile:', error);
-        // Don't throw error - just log it and leave profile as null
-        // This prevents the infinite loop when profile can't be loaded
+        setProfileError(new Error(error.message));
         return;
       }
 
@@ -61,7 +67,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       setProfile(data);
     } catch (error) {
       console.error('Error in fetchUserProfile:', error);
-      // Don't throw error - handle gracefully
+      setProfileError(error instanceof Error ? error : new Error('Unknown error'));
     } finally {
       profileFetchingRef.current = false;
     }
@@ -231,6 +237,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     session,
     profile,
     isLoading,
+    profileError,
     login,
     signup,
     logout,
