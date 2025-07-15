@@ -29,9 +29,11 @@ import NetworkStatus from "@/pages/NetworkStatus";
 import SuperAdminLicenseManagement from "@/pages/SuperAdminLicenseManagement";
 import LicenseGuard from "@/components/license/LicenseGuard";
 import Index from "@/pages/Index";
+import { useLocation } from "react-router-dom";
 
 const AppContent = () => {
   const { user, profile, isLoading } = useAuth();
+  const location = useLocation();
 
   if (isLoading) {
     return (
@@ -54,6 +56,10 @@ const AppContent = () => {
 
   // If user doesn't have a company and is not super admin, redirect to license activation
   if (!profile.isp_company_id && profile.role !== 'super_admin') {
+    // Only redirect if not already on license activation page
+    if (location.pathname !== '/license-activation') {
+      return <Navigate to="/license-activation" replace />;
+    }
     return <LicenseActivation />;
   }
 

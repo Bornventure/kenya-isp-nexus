@@ -14,20 +14,56 @@ self.addEventListener('install', (event) => {
     caches.open(CACHE_NAME)
       .then((cache) => {
         console.log('Opened cache');
-        return cache.addAll(urlsToCache);
+        return cache.addAll(urlsToCache).catch((error) => {
+          console.warn('Failed to cache some resources:', error);
+          // Don't fail installation if some resources can't be cached
+        });
       })
   );
 });
 
 // Fetch event - serve from cache when offline
 self.addEventListener('fetch', (event) => {
+  // Skip non-GET requests and chrome-extension requests
+  if (event.request.method !== 'GET' || event.request.url.startsWith('chrome-extension://')) {
+    return;
+  }
+
   event.respondWith(
     caches.match(event.request)
       .then((response) => {
-        // Return cached version or fetch from network
-        return response || fetch(event.request);
-      }
-    )
+        // Return cached version if available
+        if (response) {
+          return response;
+        }
+        
+        // Try to fetch from network
+        return fetch(event.request).catch((error) => {
+          console.warn('Fetch failed for:', event.request.url, error);
+          
+          // For navigation requests, return a basic offline page
+          if (event.request.mode === 'navigate') {
+            return new Response(`
+              <!DOCTYPE html>
+              <html>
+                <head>
+                  <title>Offline</title>
+                  <meta charset="utf-8">
+                </head>
+                <body>
+                  <h1>You are offline</h1>
+                  <p>Please check your internet connection and try again.</p>
+                </body>
+              </html>
+            `, {
+              headers: { 'Content-Type': 'text/html' }
+            });
+          }
+          
+          // For other requests, just throw the error
+          throw error;
+        });
+      })
   );
 });
 

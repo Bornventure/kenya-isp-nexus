@@ -1,5 +1,4 @@
-
-import React, { createContext, useContext, useEffect, useState } from 'react';
+import React, { createContext, useContext, useEffect, useState, useRef } from 'react';
 import { User, Session } from '@supabase/supabase-js';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
@@ -23,8 +22,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [profile, setProfile] = useState<any | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const { toast } = useToast();
+  const initializedRef = useRef(false);
 
   useEffect(() => {
+    // Prevent double initialization
+    if (initializedRef.current) return;
+    initializedRef.current = true;
+
     // Set up auth state listener
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       async (event, session) => {
@@ -32,12 +36,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         setSession(session);
         setUser(session?.user ?? null);
         
-        if (session?.user) {
-          // Fetch user profile
-          setTimeout(async () => {
-            await fetchUserProfile(session.user.id);
+        if (session?.user && event !== 'TOKEN_REFRESHED') {
+          // Defer profile fetch to avoid render loops
+          setTimeout(() => {
+            fetchUserProfile(session.user.id);
           }, 0);
-        } else {
+        } else if (!session) {
           setProfile(null);
         }
         
@@ -47,16 +51,23 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
     // Check for existing session
     supabase.auth.getSession().then(({ data: { session } }) => {
+      if (!initializedRef.current) return; // Safety check
+      
       setSession(session);
       setUser(session?.user ?? null);
       
       if (session?.user) {
-        fetchUserProfile(session.user.id);
+        setTimeout(() => {
+          fetchUserProfile(session.user.id);
+        }, 0);
       }
       setIsLoading(false);
     });
 
-    return () => subscription.unsubscribe();
+    return () => {
+      subscription.unsubscribe();
+      initializedRef.current = false;
+    };
   }, []);
 
   const fetchUserProfile = async (userId: string) => {
