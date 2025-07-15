@@ -31,25 +31,31 @@ import Index from "@/pages/Index";
 import { useMemo } from "react";
 
 const AppContent = () => {
-  const { user, profile, isLoading } = useAuth();
+  const { user, profile, isLoading, profileError } = useAuth();
+
+  console.log('AppContent authState check:', { user: !!user, profile: !!profile, isLoading, profileError });
 
   // Improved authentication state logic to prevent navigation loops
   const authState = useMemo(() => {
-    console.log('AppContent authState check:', { user: !!user, profile: !!profile, isLoading });
-    
     if (isLoading) return 'loading';
     
-    // User is authenticated if they exist, regardless of profile loading status
+    // User is not authenticated - treat as unauthenticated
     if (!user) return 'unauthenticated';
     
     // User exists but profile is still loading - treat as authenticated but loading
-    if (!profile) return 'authenticated_loading_profile';
+    if (!profile && !profileError) return 'authenticated_loading_profile';
     
     // User exists and profile loaded - check license requirements
-    if (!profile.isp_company_id && profile.role !== 'super_admin') return 'needs_license';
+    if (profile && !profile.isp_company_id && profile.role !== 'super_admin') return 'needs_license';
+    
+    // User exists and profile loaded with company or is super admin
+    if (profile) return 'authenticated';
+    
+    // User exists but profile failed to load - still treat as authenticated but with limited access
+    if (profileError) return 'authenticated_profile_error';
     
     return 'authenticated';
-  }, [user, profile, isLoading]);
+  }, [user, profile, isLoading, profileError]);
 
   const userRoles = useMemo(() => {
     if (!profile) return { isAdmin: false, canAccessDashboard: false };
@@ -69,12 +75,13 @@ const AppContent = () => {
     );
   }
 
-  // User not authenticated - show public routes
+  // User not authenticated - show public routes including license activation
   if (authState === 'unauthenticated') {
     return (
       <Routes>
         <Route path="/" element={<Index />} />
         <Route path="/login" element={<Login />} />
+        <Route path="/license-activation" element={<LicenseActivation />} />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
     );
@@ -89,6 +96,16 @@ const AppContent = () => {
           <p className="text-gray-600">Loading your profile...</p>
         </div>
       </div>
+    );
+  }
+
+  // User authenticated but profile failed to load - allow license activation
+  if (authState === 'authenticated_profile_error') {
+    return (
+      <Routes>
+        <Route path="/license-activation" element={<LicenseActivation />} />
+        <Route path="*" element={<Navigate to="/license-activation" replace />} />
+      </Routes>
     );
   }
 
