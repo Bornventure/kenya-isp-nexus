@@ -7,7 +7,9 @@ import LicenseStatusCard from '@/components/license/LicenseStatusCard';
 const LicenseManagementPage = () => {
   const { profile } = useAuth();
 
-  const isAdmin = profile?.role === 'super_admin' || profile?.role === 'isp_admin';
+  // Super admin always has access, ISP admin needs a company
+  const isAdmin = profile?.role === 'super_admin' || 
+                  (profile?.role === 'isp_admin' && profile?.isp_company_id);
 
   if (!isAdmin) {
     return (
@@ -15,6 +17,11 @@ const LicenseManagementPage = () => {
         <div className="text-center">
           <h1 className="text-2xl font-bold mb-4">Access Denied</h1>
           <p>You don't have permission to access this page.</p>
+          {profile?.role === 'isp_admin' && !profile?.isp_company_id && (
+            <p className="text-sm text-gray-600 mt-2">
+              Your account needs to be associated with a company to access license management.
+            </p>
+          )}
         </div>
       </div>
     );
