@@ -58,7 +58,12 @@ export const usePaymentStatus = () => {
           console.log('Payment confirmed successful!');
           clearMonitoring();
           setIsMonitoring(false);
-          callbacks.onSuccess(data);
+          
+          // Return success with the checkout request ID for processing
+          callbacks.onSuccess({
+            ...data,
+            checkoutRequestId: checkoutRequestId
+          });
           return;
         } else if (data?.status === 'failed') {
           // Payment failed
@@ -71,8 +76,8 @@ export const usePaymentStatus = () => {
           // Payment still pending, continue monitoring
           console.log('Payment still pending, continuing to monitor...');
         } else {
-          // Unknown status
-          console.log('Unknown payment status:', data);
+          // Unknown status, treat as pending for now but log it
+          console.log('Unknown payment status, treating as pending:', data);
         }
 
         // Continue monitoring if still pending or no definitive result

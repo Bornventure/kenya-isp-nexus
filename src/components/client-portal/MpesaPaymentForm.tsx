@@ -10,6 +10,7 @@ import { useMpesa } from '@/hooks/useMpesa';
 import { usePaymentStatus } from '@/hooks/usePaymentStatus';
 import { validateMpesaNumber, formatMpesaNumber, formatKenyanCurrency } from '@/utils/kenyanValidation';
 import { useToast } from '@/hooks/use-toast';
+import { supabase } from '@/integrations/supabase/client';
 
 const MpesaPaymentForm: React.FC = () => {
   const { client, refreshClientData } = useClientAuth();
@@ -44,33 +45,77 @@ const MpesaPaymentForm: React.FC = () => {
     return Object.keys(newErrors).length === 0;
   };
 
+  const processPaymentSuccess = async (checkoutRequestId: string, amount: number) => {
+    try {
+      console.log('Processing payment success for checkout request:', checkoutRequestId);
+      
+      // Call the process-payment function to update wallet balance
+      const { data, error } = await supabase.functions.invoke('process-payment', {
+        body: {
+          checkoutRequestId: checkoutRequestId,
+          clientId: client.id,
+          amount: amount,
+          paymentMethod: 'mpesa',
+          phoneNumber: formData.phoneNumber
+        }
+      });
+
+      if (error) {
+        console.error('Error processing payment:', error);
+        throw error;
+      }
+
+      console.log('Payment processed successfully:', data);
+
+      // Refresh client data to show updated wallet balance
+      await refreshClientData();
+
+      toast({
+        title: "Payment Successful",
+        description: `Your wallet has been credited with ${formatKenyanCurrency(amount)}`,
+      });
+
+      // Reset form
+      setFormData({ ...formData, amount: '' });
+
+    } catch (error) {
+      console.error('Error in payment processing:', error);
+      toast({
+        title: "Payment Processing Error",
+        description: "Payment was successful but there was an issue updating your wallet. Please contact support.",
+        variant: "destructive",
+      });
+    }
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
     if (!validateForm()) return;
 
+    const amount = parseFloat(formData.amount);
     const response = await initiateSTKPush({
       phoneNumber: formData.phoneNumber,
-      amount: parseFloat(formData.amount),
+      amount: amount,
       accountReference: client.id_number,
       transactionDesc: 'Wallet Top Up',
     });
 
-    if (response) {
+    if (response && response.CheckoutRequestID) {
+      console.log('STK Push successful, starting payment monitoring for:', response.CheckoutRequestID);
+      
       // Start monitoring payment status
       startPaymentMonitoring(
         'payment-' + Date.now(),
         response.CheckoutRequestID,
         {
-          onSuccess: (data) => {
-            toast({
-              title: "Payment Successful",
-              description: `Your wallet has been credited with ${formatKenyanCurrency(parseFloat(formData.amount))}`,
-            });
-            refreshClientData();
-            setFormData({ ...formData, amount: '' });
+          onSuccess: async (data) => {
+            console.log('Payment monitoring detected success:', data);
+            // Process the payment to update wallet balance
+            await processPaymentSuccess(response.CheckoutRequestID, amount);
           },
           onFailure: (data) => {
+            console.log('Payment monitoring detected failure:', data);
             toast({
               title: "Payment Failed",
               description: data?.message || "Payment could not be processed",
@@ -78,9 +123,10 @@ const MpesaPaymentForm: React.FC = () => {
             });
           },
           onTimeout: () => {
+            console.log('Payment monitoring timeout');
             toast({
               title: "Payment Timeout",
-              description: "Payment is taking longer than expected. Please check your M-Pesa messages.",
+              description: "Payment is taking longer than expected. Please check your M-Pesa messages and contact support if payment was successful.",
               variant: "destructive",
             });
           },
