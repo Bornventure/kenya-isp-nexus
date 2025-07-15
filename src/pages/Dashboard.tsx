@@ -1,30 +1,25 @@
 
 import React from 'react';
+import { RoleBasedDashboard } from '@/components/dashboard/RoleBasedDashboard';
 import { useAuth } from '@/contexts/AuthContext';
-import RoleBasedDashboard from '@/components/dashboard/RoleBasedDashboard';
-import RealtimeNotifications from '@/components/dashboard/RealtimeNotifications';
 
 const Dashboard = () => {
-  const { isLoading } = useAuth();
+  const { profile } = useAuth();
 
-  if (isLoading) {
+  if (!profile) {
     return (
-      <div className="p-6">
-        <div className="animate-pulse">
-          <div className="h-8 bg-gray-200 rounded w-1/4 mb-4"></div>
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-            {[...Array(4)].map((_, i) => (
-              <div key={i} className="h-32 bg-gray-200 rounded"></div>
-            ))}
-          </div>
-        </div>
+      <div className="flex items-center justify-center h-full">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
       </div>
     );
   }
 
   return (
-    <div>
-      <RealtimeNotifications />
+    <div className="space-y-6">
+      <div className="flex items-center justify-between">
+        <h1 className="text-3xl font-bold text-foreground">Dashboard</h1>
+      </div>
+      
       <RoleBasedDashboard />
     </div>
   );
