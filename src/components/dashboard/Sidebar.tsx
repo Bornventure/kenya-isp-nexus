@@ -30,19 +30,17 @@ import {
 import { cn } from '@/lib/utils';
 import { useAuth } from '@/contexts/AuthContext';
 
-interface SidebarProps {
-  isOpen: boolean;
-  onClose: () => void;
-  onToggle: () => void;
-}
-
-const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose, onToggle }) => {
+const Sidebar = () => {
+  const [isOpen, setIsOpen] = useState(true);
   const location = useLocation();
   const { profile } = useAuth();
 
   const isActive = (path: string) => {
     return location.pathname === path;
   };
+
+  const onToggle = () => setIsOpen(!isOpen);
+  const onClose = () => setIsOpen(false);
 
   const isAdmin = profile?.role === 'super_admin' || profile?.role === 'isp_admin';
   const canAccessDashboard = [

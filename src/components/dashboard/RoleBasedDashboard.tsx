@@ -1,13 +1,13 @@
 
 import React from 'react';
 import { useAuth } from '@/contexts/AuthContext';
-import { SuperAdminDashboard } from './roles/SuperAdminDashboard';
-import { BillingFinanceDashboard } from './roles/BillingFinanceDashboard';
-import { CustomerSupportDashboard } from './roles/CustomerSupportDashboard';
-import { SalesAccountManagerDashboard } from './roles/SalesAccountManagerDashboard';
-import { NetworkOperationsDashboard } from './roles/NetworkOperationsDashboard';
-import { InfrastructureAssetDashboard } from './roles/InfrastructureAssetDashboard';
-import { HotspotAdminDashboard } from './roles/HotspotAdminDashboard';
+import SuperAdminDashboard from './roles/SuperAdminDashboard';
+import BillingFinanceDashboard from './roles/BillingFinanceDashboard';
+import CustomerSupportDashboard from './roles/CustomerSupportDashboard';
+import SalesAccountManagerDashboard from './roles/SalesAccountManagerDashboard';
+import NetworkOperationsDashboard from './roles/NetworkOperationsDashboard';
+import InfrastructureAssetDashboard from './roles/InfrastructureAssetDashboard';
+import HotspotAdminDashboard from './roles/HotspotAdminDashboard';
 
 export const RoleBasedDashboard = () => {
   const { profile } = useAuth();

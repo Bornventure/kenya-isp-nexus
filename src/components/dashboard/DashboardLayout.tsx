@@ -1,9 +1,9 @@
 
 import React from 'react';
-import { Sidebar } from './Sidebar';
-import { ThemeToggle } from './ThemeToggle';
-import { GlobalSearch } from './GlobalSearch';
-import { RealtimeNotifications } from './RealtimeNotifications';
+import Sidebar from './Sidebar';
+import ThemeToggle from './ThemeToggle';
+import GlobalSearch from './GlobalSearch';
+import RealtimeNotifications from './RealtimeNotifications';
 import { useAuth } from '@/contexts/AuthContext';
 
 interface DashboardLayoutProps {
