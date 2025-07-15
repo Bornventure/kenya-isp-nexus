@@ -12,7 +12,6 @@ import {
   Headphones, 
   User, 
   LogOut,
-  Wifi,
   RefreshCw,
   Files
 } from 'lucide-react';
@@ -53,12 +52,16 @@ const ClientDashboardLayout: React.FC<ClientDashboardLayoutProps> = ({
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between items-center h-16">
             <div className="flex items-center gap-3">
-              <div className="bg-blue-600 p-2 rounded-lg">
-                <Wifi className="h-6 w-6 text-white" />
-              </div>
-              <div>
-                <h1 className="text-lg font-semibold text-gray-900">Client Portal</h1>
-                <p className="text-sm text-gray-500 truncate max-w-[200px]">Welcome, {client.name}</p>
+              <div className="flex items-center gap-2">
+                <img 
+                  src="/lovable-uploads/29dec1bf-11a7-44c4-b61f-4cdfe1cbdc5c.png" 
+                  alt="DataDefender Logo" 
+                  className="h-8 w-8 object-contain"
+                />
+                <div>
+                  <h1 className="text-lg font-semibold text-gray-900">DataDefender</h1>
+                  <p className="text-xs text-blue-600 font-medium">Client Portal</p>
+                </div>
               </div>
             </div>
             
@@ -88,6 +91,10 @@ const ClientDashboardLayout: React.FC<ClientDashboardLayoutProps> = ({
           <div className="lg:w-64">
             <Card className="sticky top-24">
               <CardContent className="p-4">
+                <div className="mb-4 text-center">
+                  <p className="text-sm text-gray-500 truncate">Welcome back,</p>
+                  <p className="font-medium text-gray-900 truncate">{client.name}</p>
+                </div>
                 <nav className="space-y-2">
                   {navigationItems.map((item) => {
                     const Icon = item.icon;

@@ -1,549 +1,420 @@
 
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
+import { useClientAuth } from '@/contexts/ClientAuthContext';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
-import { useClientAuth } from '@/contexts/ClientAuthContext';
-import { supabase } from '@/integrations/supabase/client';
-import { useToast } from '@/hooks/use-toast';
 import { 
-  FileText, 
   Download, 
   Eye, 
-  Calendar,
-  Shield,
-  FileCheck,
-  AlertCircle,
+  FileText, 
+  Receipt, 
+  Shield, 
+  User,
   Printer
 } from 'lucide-react';
-import { format } from 'date-fns';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 
-interface Document {
-  id: string;
-  title: string;
-  type: 'contract' | 'invoice' | 'receipt' | 'agreement' | 'policy' | 'terms';
-  file_url: string;
-  created_at: string;
-  file_size: number;
-  status: 'active' | 'expired' | 'pending';
-  content?: string;
-}
-
-const DocumentsPage: React.FC = () => {
+const DocumentsPage = () => {
   const { client } = useClientAuth();
-  const { toast } = useToast();
-  const [documents, setDocuments] = useState<Document[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [viewingDocument, setViewingDocument] = useState<Document | null>(null);
+  const [selectedDocument, setSelectedDocument] = useState<string | null>(null);
 
-  useEffect(() => {
-    if (client) {
-      generateDocuments();
+  if (!client) return null;
+
+  const documents = [
+    {
+      id: 'service-agreement',
+      title: 'Service Agreement',
+      type: 'PDF',
+      date: client.created_at ? new Date(client.created_at).toLocaleDateString() : new Date().toLocaleDateString(),
+      icon: FileText,
+      description: 'Terms and conditions for internet services'
+    },
+    {
+      id: 'installation-certificate',
+      title: 'Installation Certificate',
+      type: 'PDF',
+      date: client.installation_date ? new Date(client.installation_date).toLocaleDateString() : new Date().toLocaleDateString(),
+      icon: Shield,
+      description: 'Certificate of service installation'
+    },
+    {
+      id: 'client-profile',
+      title: 'Client Profile Summary',
+      type: 'PDF',
+      date: new Date().toLocaleDateString(),
+      icon: User,
+      description: 'Your account information and service details'
+    },
+    {
+      id: 'payment-history',
+      title: 'Payment History Report',
+      type: 'PDF',
+      date: new Date().toLocaleDateString(),
+      icon: Receipt,
+      description: 'Complete payment and transaction history'
     }
-  }, [client]);
-
-  const generateDocuments = async () => {
-    if (!client) return;
-
-    try {
-      const currentDate = new Date();
-      const contractDate = client.subscription_start_date ? new Date(client.subscription_start_date) : currentDate;
-      
-      const documents: Document[] = [
-        {
-          id: '1',
-          title: 'Internet Service Agreement',
-          type: 'contract',
-          file_url: '#',
-          created_at: contractDate.toISOString(),
-          file_size: 245760,
-          status: 'active',
-          content: generateServiceAgreement()
-        },
-        {
-          id: '2',
-          title: 'Terms of Service',
-          type: 'terms',
-          file_url: '#',
-          created_at: currentDate.toISOString(),
-          file_size: 156432,
-          status: 'active',
-          content: generateTermsOfService()
-        },
-        {
-          id: '3',
-          title: 'Privacy Policy',
-          type: 'policy',
-          file_url: '#',
-          created_at: currentDate.toISOString(),
-          file_size: 98304,
-          status: 'active',
-          content: generatePrivacyPolicy()
-        },
-        {
-          id: '4',
-          title: 'Data Protection Notice',
-          type: 'policy',
-          file_url: '#',
-          created_at: currentDate.toISOString(),
-          file_size: 87234,
-          status: 'active',
-          content: generateDataProtectionNotice()
-        }
-      ];
-
-      setDocuments(documents);
-    } catch (error: any) {
-      console.error('Error generating documents:', error);
-      toast({
-        title: "Error",
-        description: "Failed to load documents",
-        variant: "destructive",
-      });
-    } finally {
-      setLoading(false);
-    }
-  };
+  ];
 
   const generateServiceAgreement = () => {
-    const currentDate = format(new Date(), 'do MMMM yyyy');
-    const contractDate = client?.subscription_start_date 
-      ? format(new Date(client.subscription_start_date), 'do MMMM yyyy')
-      : currentDate;
-
-    return `
-INTERNET SERVICE AGREEMENT
-
-Date: ${contractDate}
-Agreement No: ISA-${client?.id?.substring(0, 8).toUpperCase()}
-
-PARTIES:
-1. Service Provider: [ISP Company Name]
-   Address: [ISP Address]
-   License No: [CA License Number]
-   
-2. Client: ${client?.name}
-   ID Number: ${client?.id_number}
-   Address: ${client?.address}, ${client?.sub_county}, ${client?.county}
-   Phone: ${client?.phone}
-   Email: ${client?.email}
-
-TERMS AND CONDITIONS:
-
-1. SERVICE DESCRIPTION
-   The Service Provider agrees to provide internet connectivity services to the Client as per the selected package:
-   - Package: ${client?.service_package?.name || 'Standard Package'}
-   - Speed: ${client?.service_package?.speed || 'As specified'}
-   - Monthly Rate: KES ${client?.monthly_rate?.toLocaleString()}
-
-2. DURATION
-   This agreement commences on ${contractDate} and shall continue on a ${client?.subscription_type || 'monthly'} basis until terminated by either party.
-
-3. PAYMENT TERMS
-   - Monthly fee: KES ${client?.monthly_rate?.toLocaleString()}
-   - Payment due date: ${client?.subscription_type === 'weekly' ? '7 days' : '30 days'} from activation date
-   - Late payment may result in service suspension
-
-4. SERVICE LEVEL AGREEMENT
-   The Service Provider undertakes to provide:
-   - 99.5% uptime guarantee
-   - 24/7 technical support
-   - Maintenance notifications in advance
-
-5. CLIENT OBLIGATIONS
-   - Timely payment of service fees
-   - Proper use of equipment
-   - Compliance with acceptable use policy
-
-6. TERMINATION
-   Either party may terminate this agreement with 30 days written notice.
-
-7. GOVERNING LAW
-   This agreement shall be governed by the laws of Kenya.
-
-8. DISPUTE RESOLUTION
-   Any disputes arising shall be resolved through mediation, failing which through arbitration in Kenya.
-
-IN WITNESS WHEREOF, the parties have executed this agreement on the date first written above.
-
-Service Provider: ________________    Client: ________________
-Date: ${contractDate}                Date: ${contractDate}
-
-This document is generated electronically and is valid without signature as per the Electronic Transactions Act of Kenya.
-    `.trim();
-  };
-
-  const generateTermsOfService = () => {
-    const currentDate = format(new Date(), 'do MMMM yyyy');
-    
-    return `
-TERMS OF SERVICE
-
-Effective Date: ${currentDate}
-Last Updated: ${currentDate}
-
-1. ACCEPTANCE OF TERMS
-By using our internet services, you agree to comply with these Terms of Service and all applicable laws of Kenya.
-
-2. SERVICE DESCRIPTION
-We provide internet connectivity services to residential and business customers in Kenya in accordance with Communications Authority of Kenya regulations.
-
-3. ACCEPTABLE USE POLICY
-You agree not to use our services for:
-- Illegal activities under Kenyan law
-- Harassment or threatening behavior
-- Spam or unsolicited communications
-- Copyright infringement
-- Network security breaches
-
-4. PAYMENT AND BILLING
-- Services are billed in advance
-- Late payments may result in service suspension
-- Reconnection fees may apply
-
-5. PRIVACY AND DATA PROTECTION
-We comply with the Data Protection Act 2019 of Kenya in handling your personal information.
-
-6. SERVICE AVAILABILITY
-While we strive for 99.5% uptime, service may be interrupted for maintenance or due to circumstances beyond our control.
-
-7. LIMITATION OF LIABILITY
-Our liability is limited to the monthly service fee paid by the customer.
-
-8. TERMINATION
-We may terminate services for breach of these terms or non-payment.
-
-9. GOVERNING LAW
-These terms are governed by Kenyan law and subject to Kenyan courts' jurisdiction.
-
-For support, contact: [Support Contact Information]
-
-© ${new Date().getFullYear()} [ISP Company Name]. All rights reserved.
-    `.trim();
-  };
-
-  const generatePrivacyPolicy = () => {
-    const currentDate = format(new Date(), 'do MMMM yyyy');
-    
-    return `
-PRIVACY POLICY
-
-Effective Date: ${currentDate}
-Last Updated: ${currentDate}
-
-This Privacy Policy complies with the Data Protection Act 2019 of Kenya.
-
-1. INFORMATION WE COLLECT
-Personal Information:
-- Name: ${client?.name}
-- ID Number: ${client?.id_number}
-- Contact Information: ${client?.phone}, ${client?.email}
-- Address: ${client?.address}
-
-Usage Information:
-- Connection logs
-- Bandwidth usage
-- Service performance data
-
-2. HOW WE USE YOUR INFORMATION
-- Provide internet services
-- Billing and account management
-- Technical support
-- Service improvements
-- Legal compliance
-
-3. DATA SHARING
-We do not sell your personal information. We may share data with:
-- Service providers for operational purposes
-- Authorities when legally required
-- With your consent
-
-4. DATA SECURITY
-We implement appropriate security measures to protect your information including:
-- Encryption of sensitive data
-- Access controls
-- Regular security audits
-
-5. YOUR RIGHTS
-Under the Data Protection Act 2019, you have the right to:
-- Access your personal data
-- Correct inaccurate information
-- Delete your data (subject to legal requirements)
-- Data portability
-
-6. DATA RETENTION
-We retain your data for as long as necessary to provide services and comply with legal obligations.
-
-7. COOKIES AND TRACKING
-We use cookies to improve our services. You can control cookie settings in your browser.
-
-8. CONTACT US
-For privacy-related queries, contact our Data Protection Officer at:
-[Contact Information]
-
-This policy may be updated periodically. Changes will be communicated to customers.
-    `.trim();
-  };
-
-  const generateDataProtectionNotice = () => {
-    const currentDate = format(new Date(), 'do MMMM yyyy');
-    
-    return `
-DATA PROTECTION NOTICE
-
-Date: ${currentDate}
-Client: ${client?.name}
-Reference: DPN-${client?.id?.substring(0, 8).toUpperCase()}
-
-In compliance with the Data Protection Act 2019 of Kenya:
-
-1. DATA CONTROLLER
-[ISP Company Name] is the data controller for your personal information.
-
-2. LAWFUL BASIS FOR PROCESSING
-We process your personal data based on:
-- Contract performance (service delivery)
-- Legal obligations (regulatory compliance)
-- Legitimate interests (service improvement)
-
-3. DATA PROCESSED
-- Identity: ${client?.name}, ID: ${client?.id_number}
-- Contact: ${client?.phone}, ${client?.email}
-- Location: ${client?.address}
-- Financial: Payment history, billing information
-- Technical: Usage logs, connection data
-
-4. DATA RECIPIENTS
-Your data may be shared with:
-- Payment processors
-- Technical support providers
-- Regulatory authorities (when required)
-
-5. DATA RETENTION PERIOD
-- Account data: Duration of service + 7 years
-- Financial records: 7 years (tax law requirement)
-- Technical logs: 12 months
-
-6. YOUR RIGHTS
-You have the right to:
-- Access your personal data
-- Rectify inaccurate data
-- Erase data (where legally permissible)
-- Restrict processing
-- Data portability
-- Object to processing
-- Lodge a complaint with the Data Protection Commissioner
-
-7. CONTACT INFORMATION
-Data Protection Officer: [Name]
-Email: [Email]
-Phone: [Phone]
-
-8. COMPLAINTS
-You may lodge complaints with:
-Office of the Data Protection Commissioner
-P.O. Box 28901-00100
-Nairobi, Kenya
-Email: info@odpc.go.ke
-
-By continuing to use our services, you acknowledge receipt of this notice.
-    `.trim();
-  };
-
-  const handleView = (document: Document) => {
-    setViewingDocument(document);
-  };
-
-  const handleDownload = (document: Document) => {
-    if (document.content) {
-      const blob = new Blob([document.content], { type: 'text/plain' });
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = `${document.title.replace(/\s+/g, '_')}.txt`;
-      document.body.appendChild(a);
-      a.click();
-      document.body.removeChild(a);
-      URL.revokeObjectURL(url);
-      
-      toast({
-        title: "Download Started",
-        description: `${document.title} has been downloaded`,
-      });
-    }
-  };
-
-  const handlePrint = (document: Document) => {
-    if (document.content) {
-      const printWindow = window.open('', '_blank');
-      if (printWindow) {
-        printWindow.document.write(`
-          <html>
-            <head>
-              <title>${document.title}</title>
-              <style>
-                body { font-family: Arial, sans-serif; margin: 20px; line-height: 1.6; }
-                h1 { color: #333; }
-                pre { white-space: pre-wrap; }
-              </style>
-            </head>
-            <body>
-              <h1>${document.title}</h1>
-              <pre>${document.content}</pre>
-            </body>
-          </html>
-        `);
-        printWindow.document.close();
-        printWindow.print();
-      }
-    }
-  };
-
-  const getDocumentIcon = (type: string) => {
-    switch (type) {
-      case 'contract':
-        return <FileCheck className="h-5 w-5 text-blue-500" />;
-      case 'terms':
-        return <Shield className="h-5 w-5 text-green-500" />;
-      case 'policy':
-        return <AlertCircle className="h-5 w-5 text-orange-500" />;
-      default:
-        return <FileText className="h-5 w-5 text-gray-500" />;
-    }
-  };
-
-  const getStatusColor = (status: string) => {
-    switch (status) {
-      case 'active':
-        return 'bg-green-100 text-green-800';
-      case 'expired':
-        return 'bg-red-100 text-red-800';
-      case 'pending':
-        return 'bg-yellow-100 text-yellow-800';
-      default:
-        return 'bg-gray-100 text-gray-800';
-    }
-  };
-
-  const formatFileSize = (bytes: number) => {
-    if (bytes === 0) return '0 Bytes';
-    const k = 1024;
-    const sizes = ['Bytes', 'KB', 'MB', 'GB'];
-    const i = Math.floor(Math.log(bytes) / Math.log(k));
-    return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
-  };
-
-  if (loading) {
-    return (
-      <div className="space-y-6">
-        <div>
-          <h2 className="text-2xl font-bold tracking-tight">Documents</h2>
-          <p className="text-muted-foreground">
-            Access your service agreements, policies, and important documents
-          </p>
+    const content = `
+      <div style="font-family: Arial, sans-serif; line-height: 1.6; color: #333; max-width: 800px; margin: 0 auto; padding: 20px;">
+        <div style="text-align: center; margin-bottom: 30px;">
+          <h1 style="color: #2563eb; margin-bottom: 10px;">DATADEFENDER LAKELINK NETWORKS</h1>
+          <p style="margin: 0; font-size: 14px;">Professional ISP Management Solutions</p>
+          <p style="margin: 5px 0; font-size: 14px;">Kenya Internet Services</p>
         </div>
-        <Card>
-          <CardContent className="p-6">
-            <div className="text-center">Loading documents...</div>
-          </CardContent>
-        </Card>
-      </div>
-    );
-  }
+        
+        <h2 style="color: #1e40af; border-bottom: 2px solid #2563eb; padding-bottom: 10px;">INTERNET SERVICE AGREEMENT</h2>
+        
+        <div style="margin: 20px 0;">
+          <h3 style="color: #1e40af;">Client Information</h3>
+          <p><strong>Name:</strong> ${client.name}</p>
+          <p><strong>Email:</strong> ${client.email || 'N/A'}</p>
+          <p><strong>Phone:</strong> ${client.phone}</p>
+          <p><strong>ID Number:</strong> ${client.id_number}</p>
+          <p><strong>Location:</strong> ${client.location || 'N/A'}</p>
+          <p><strong>Service Type:</strong> ${client.connection_type}</p>
+          <p><strong>Monthly Rate:</strong> KES ${client.monthly_rate?.toFixed(2) || '0.00'}</p>
+        </div>
 
-  if (viewingDocument) {
-    return (
-      <div className="space-y-6">
-        <div className="flex items-center justify-between">
-          <div>
-            <h2 className="text-2xl font-bold tracking-tight">{viewingDocument.title}</h2>
-            <p className="text-muted-foreground">
-              Generated on {format(new Date(viewingDocument.created_at), 'MMMM do, yyyy')}
-            </p>
-          </div>
-          <div className="flex gap-2">
-            <Button variant="outline" onClick={() => handlePrint(viewingDocument)}>
-              <Printer className="h-4 w-4 mr-2" />
-              Print
-            </Button>
-            <Button variant="outline" onClick={() => handleDownload(viewingDocument)}>
-              <Download className="h-4 w-4 mr-2" />
-              Download
-            </Button>
-            <Button onClick={() => setViewingDocument(null)}>
-              Back to Documents
-            </Button>
+        <div style="margin: 20px 0;">
+          <h3 style="color: #1e40af;">Terms and Conditions</h3>
+          <ol style="padding-left: 20px;">
+            <li><strong>Service Provision:</strong> DataDefender Lakelink Networks agrees to provide internet services as specified in this agreement.</li>
+            <li><strong>Payment Terms:</strong> Payment is due monthly in advance. Late payments may result in service suspension.</li>
+            <li><strong>Fair Usage Policy:</strong> Service is subject to fair usage policies to ensure quality for all users.</li>
+            <li><strong>Equipment:</strong> Customer premises equipment remains property of DataDefender until fully paid.</li>
+            <li><strong>Service Level:</strong> We strive to maintain 99% uptime excluding scheduled maintenance.</li>
+            <li><strong>Termination:</strong> Either party may terminate with 30 days written notice.</li>
+            <li><strong>Compliance:</strong> This agreement is governed by the laws of Kenya and Communications Authority regulations.</li>
+          </ol>
+        </div>
+
+        <div style="margin: 30px 0;">
+          <h3 style="color: #1e40af;">Service Specifications</h3>
+          <p><strong>Connection Type:</strong> ${client.connection_type}</p>
+          <p><strong>Installation Date:</strong> ${client.installation_date ? new Date(client.installation_date).toLocaleDateString() : 'Pending'}</p>
+          <p><strong>Service Status:</strong> ${client.status}</p>
+        </div>
+
+        <div style="margin: 30px 0; padding: 20px; background: #f8fafc; border-left: 4px solid #2563eb;">
+          <h4 style="color: #1e40af; margin-top: 0;">Customer Support</h4>
+          <p>For technical support or billing inquiries:</p>
+          <p><strong>Email:</strong> support@datadefender.co.ke</p>
+          <p><strong>Phone:</strong> +254 700 000 000</p>
+        </div>
+
+        <div style="margin: 30px 0; text-align: center; font-size: 12px; color: #666;">
+          <p>Agreement Date: ${new Date().toLocaleDateString()}</p>
+          <p>This is a system-generated document from DataDefender Lakelink Networks</p>
+        </div>
+      </div>
+    `;
+    return content;
+  };
+
+  const generateInstallationCertificate = () => {
+    const content = `
+      <div style="font-family: Arial, sans-serif; line-height: 1.6; color: #333; max-width: 800px; margin: 0 auto; padding: 20px;">
+        <div style="text-align: center; margin-bottom: 30px;">
+          <h1 style="color: #2563eb; margin-bottom: 10px;">DATADEFENDER LAKELINK NETWORKS</h1>
+          <p style="margin: 0; font-size: 14px;">Professional ISP Management Solutions</p>
+          <p style="margin: 5px 0; font-size: 14px;">Kenya Internet Services</p>
+        </div>
+        
+        <div style="border: 3px solid #2563eb; padding: 30px; margin: 20px 0; text-align: center;">
+          <h2 style="color: #1e40af; margin-bottom: 20px;">INSTALLATION CERTIFICATE</h2>
+          
+          <p style="font-size: 18px; margin: 20px 0;">This certifies that internet services have been successfully installed for:</p>
+          
+          <div style="margin: 30px 0; padding: 20px; background: #f8fafc;">
+            <h3 style="color: #1e40af; margin-top: 0;">${client.name}</h3>
+            <p><strong>Client ID:</strong> ${client.id}</p>
+            <p><strong>Installation Date:</strong> ${client.installation_date ? new Date(client.installation_date).toLocaleDateString() : new Date().toLocaleDateString()}</p>
+            <p><strong>Service Type:</strong> ${client.connection_type}</p>
+            <p><strong>Location:</strong> ${client.location || 'N/A'}</p>
           </div>
         </div>
 
-        <Card>
-          <CardContent className="p-6">
-            <pre className="whitespace-pre-wrap text-sm leading-relaxed">
-              {viewingDocument.content}
-            </pre>
-          </CardContent>
-        </Card>
+        <div style="margin: 20px 0;">
+          <h3 style="color: #1e40af;">Installation Details</h3>
+          <ul style="padding-left: 20px;">
+            <li>Service successfully configured and tested</li>
+            <li>Equipment installed and operational</li>
+            <li>Network connectivity verified</li>
+            <li>Customer orientation completed</li>
+            <li>Service agreement signed and filed</li>
+          </ul>
+        </div>
+
+        <div style="margin: 30px 0; text-align: center;">
+          <p style="margin: 40px 0;">_________________________</p>
+          <p><strong>Technical Team</strong></p>
+          <p>DataDefender Lakelink Networks</p>
+          <p style="font-size: 12px; color: #666;">Certified by Communications Authority of Kenya</p>
+        </div>
+
+        <div style="margin: 30px 0; text-align: center; font-size: 12px; color: #666;">
+          <p>Certificate Generated: ${new Date().toLocaleDateString()}</p>
+          <p>This is an official document from DataDefender Lakelink Networks</p>
+        </div>
       </div>
-    );
-  }
+    `;
+    return content;
+  };
+
+  const generateClientProfile = () => {
+    const content = `
+      <div style="font-family: Arial, sans-serif; line-height: 1.6; color: #333; max-width: 800px; margin: 0 auto; padding: 20px;">
+        <div style="text-align: center; margin-bottom: 30px;">
+          <h1 style="color: #2563eb; margin-bottom: 10px;">DATADEFENDER LAKELINK NETWORKS</h1>
+          <p style="margin: 0; font-size: 14px;">Professional ISP Management Solutions</p>
+          <p style="margin: 5px 0; font-size: 14px;">Kenya Internet Services</p>
+        </div>
+        
+        <h2 style="color: #1e40af; border-bottom: 2px solid #2563eb; padding-bottom: 10px;">CLIENT PROFILE SUMMARY</h2>
+        
+        <div style="margin: 20px 0;">
+          <h3 style="color: #1e40af;">Personal Information</h3>
+          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px;">
+            <div>
+              <p><strong>Full Name:</strong> ${client.name}</p>
+              <p><strong>Email:</strong> ${client.email || 'N/A'}</p>
+              <p><strong>Phone:</strong> ${client.phone}</p>
+              <p><strong>ID Number:</strong> ${client.id_number}</p>
+            </div>
+            <div>
+              <p><strong>Client Type:</strong> ${client.client_type}</p>
+              <p><strong>Account Status:</strong> ${client.status}</p>
+              <p><strong>Registration Date:</strong> ${client.created_at ? new Date(client.created_at).toLocaleDateString() : 'N/A'}</p>
+              <p><strong>KRA PIN:</strong> ${client.kra_pin_number || 'N/A'}</p>
+            </div>
+          </div>
+        </div>
+
+        <div style="margin: 20px 0;">
+          <h3 style="color: #1e40af;">Service Information</h3>
+          <p><strong>Connection Type:</strong> ${client.connection_type}</p>
+          <p><strong>Monthly Rate:</strong> KES ${client.monthly_rate?.toFixed(2) || '0.00'}</p>
+          <p><strong>Subscription Type:</strong> ${client.subscription_type}</p>
+          <p><strong>Installation Date:</strong> ${client.installation_date ? new Date(client.installation_date).toLocaleDateString() : 'Pending'}</p>
+        </div>
+
+        <div style="margin: 20px 0;">
+          <h3 style="color: #1e40af;">Account Status</h3>
+          <div style="background: #f8fafc; padding: 15px; border-radius: 8px;">
+            <p><strong>Current Status:</strong> <span style="color: ${client.status === 'active' ? '#059669' : '#dc2626'}">${client.status?.toUpperCase()}</span></p>
+            <p><strong>Wallet Balance:</strong> KES ${client.wallet_balance?.toFixed(2) || '0.00'}</p>
+            <p><strong>Account Balance:</strong> KES ${client.balance?.toFixed(2) || '0.00'}</p>
+          </div>
+        </div>
+
+        <div style="margin: 30px 0; text-align: center; font-size: 12px; color: #666;">
+          <p>Profile Generated: ${new Date().toLocaleDateString()}</p>
+          <p>This is a confidential document from DataDefender Lakelink Networks</p>
+        </div>
+      </div>
+    `;
+    return content;
+  };
+
+  const generatePaymentHistory = () => {
+    const content = `
+      <div style="font-family: Arial, sans-serif; line-height: 1.6; color: #333; max-width: 800px; margin: 0 auto; padding: 20px;">
+        <div style="text-align: center; margin-bottom: 30px;">
+          <h1 style="color: #2563eb; margin-bottom: 10px;">DATADEFENDER LAKELINK NETWORKS</h1>
+          <p style="margin: 0; font-size: 14px;">Professional ISP Management Solutions</p>
+          <p style="margin: 5px 0; font-size: 14px;">Kenya Internet Services</p>
+        </div>
+        
+        <h2 style="color: #1e40af; border-bottom: 2px solid #2563eb; padding-bottom: 10px;">PAYMENT HISTORY REPORT</h2>
+        
+        <div style="margin: 20px 0;">
+          <h3 style="color: #1e40af;">Account Information</h3>
+          <p><strong>Client Name:</strong> ${client.name}</p>
+          <p><strong>Account ID:</strong> ${client.id}</p>
+          <p><strong>Report Date:</strong> ${new Date().toLocaleDateString()}</p>
+          <p><strong>Current Balance:</strong> KES ${client.wallet_balance?.toFixed(2) || '0.00'}</p>
+        </div>
+
+        <div style="margin: 20px 0;">
+          <h3 style="color: #1e40af;">Payment Summary</h3>
+          <div style="background: #f8fafc; padding: 15px; border-radius: 8px;">
+            <p><strong>Monthly Service Rate:</strong> KES ${client.monthly_rate?.toFixed(2) || '0.00'}</p>
+            <p><strong>Payment Method:</strong> M-Pesa</p>
+            <p><strong>M-Pesa Number:</strong> ${client.mpesa_number || client.phone}</p>
+          </div>
+        </div>
+
+        <div style="margin: 20px 0;">
+          <h3 style="color: #1e40af;">Transaction History</h3>
+          <div style="background: #f8fafc; padding: 15px; border-radius: 8px;">
+            <p><em>Transaction history is dynamically loaded from your payment records.</em></p>
+            <p><em>For detailed transaction history, please check the wallet section in your client portal.</em></p>
+          </div>
+        </div>
+
+        <div style="margin: 30px 0; padding: 20px; background: #f8fafc; border-left: 4px solid #2563eb;">
+          <h4 style="color: #1e40af; margin-top: 0;">Payment Instructions</h4>
+          <p><strong>M-Pesa Paybill:</strong> 123456 (Example)</p>
+          <p><strong>Account Number:</strong> Your phone number</p>
+          <p><strong>Amount:</strong> KES ${client.monthly_rate?.toFixed(2) || '0.00'}</p>
+        </div>
+
+        <div style="margin: 30px 0; text-align: center; font-size: 12px; color: #666;">
+          <p>Report Generated: ${new Date().toLocaleDateString()}</p>
+          <p>This is a confidential document from DataDefender Lakelink Networks</p>
+        </div>
+      </div>
+    `;
+    return content;
+  };
+
+  const getDocumentContent = (documentId: string) => {
+    switch (documentId) {
+      case 'service-agreement':
+        return generateServiceAgreement();
+      case 'installation-certificate':
+        return generateInstallationCertificate();
+      case 'client-profile':
+        return generateClientProfile();
+      case 'payment-history':
+        return generatePaymentHistory();
+      default:
+        return '<p>Document not found</p>';
+    }
+  };
+
+  const handleDownload = (documentId: string, title: string) => {
+    const content = getDocumentContent(documentId);
+    const blob = new Blob([content], { type: 'text/html' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `${title.replace(/\s+/g, '_')}.html`;
+    a.click();
+    URL.revokeObjectURL(url);
+  };
+
+  const handlePrint = (documentId: string) => {
+    const content = getDocumentContent(documentId);
+    const printWindow = window.open('', '_blank');
+    if (printWindow) {
+      printWindow.document.write(`
+        <!DOCTYPE html>
+        <html>
+        <head>
+          <title>Print Document</title>
+          <style>
+            body { margin: 0; padding: 20px; }
+            @media print {
+              body { margin: 0; }
+              .no-print { display: none; }
+            }
+          </style>
+        </head>
+        <body>
+          ${content}
+        </body>
+        </html>
+      `);
+      printWindow.document.close();
+      printWindow.print();
+    }
+  };
 
   return (
     <div className="space-y-6">
       <div>
-        <h2 className="text-2xl font-bold tracking-tight">Documents</h2>
-        <p className="text-muted-foreground">
-          Access your service agreements, policies, and important documents
+        <h2 className="text-2xl font-bold text-gray-900 dark:text-gray-100 mb-2">
+          Documents & Certificates
+        </h2>
+        <p className="text-gray-600 dark:text-gray-300">
+          Access your service documents, certificates, and reports
         </p>
       </div>
 
-      <div className="grid gap-4">
-        {documents.map((document) => (
-          <Card key={document.id}>
-            <CardContent className="p-6">
-              <div className="flex items-start justify-between">
-                <div className="flex items-start gap-4">
-                  {getDocumentIcon(document.type)}
-                  <div className="flex-1">
-                    <h3 className="font-medium text-lg">{document.title}</h3>
-                    <div className="flex items-center gap-4 mt-2 text-sm text-muted-foreground">
-                      <div className="flex items-center gap-1">
-                        <Calendar className="h-4 w-4" />
-                        {format(new Date(document.created_at), 'MMM dd, yyyy')}
-                      </div>
-                      <span>{formatFileSize(document.file_size)}</span>
-                      <span className="capitalize">{document.type}</span>
-                    </div>
-                  </div>
-                </div>
-                
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+        {documents.map((doc) => {
+          const IconComponent = doc.icon;
+          return (
+            <Card key={doc.id} className="hover:shadow-lg transition-shadow">
+              <CardHeader className="pb-3">
                 <div className="flex items-center gap-3">
-                  <Badge className={getStatusColor(document.status)}>
-                    {document.status}
-                  </Badge>
-                  <div className="flex gap-2">
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => handleView(document)}
-                    >
-                      <Eye className="h-4 w-4 mr-2" />
-                      View
-                    </Button>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => handleDownload(document)}
-                    >
-                      <Download className="h-4 w-4 mr-2" />
-                      Download
-                    </Button>
+                  <div className="p-2 bg-blue-100 dark:bg-blue-900 rounded-lg">
+                    <IconComponent className="h-5 w-5 text-blue-600 dark:text-blue-400" />
+                  </div>
+                  <div>
+                    <CardTitle className="text-lg">{doc.title}</CardTitle>
+                    <p className="text-sm text-gray-500 dark:text-gray-400">
+                      {doc.type} • {doc.date}
+                    </p>
                   </div>
                 </div>
-              </div>
-            </CardContent>
-          </Card>
-        ))}
+              </CardHeader>
+              <CardContent>
+                <p className="text-sm text-gray-600 dark:text-gray-300 mb-4">
+                  {doc.description}
+                </p>
+                <div className="flex gap-2">
+                  <Dialog>
+                    <DialogTrigger asChild>
+                      <Button variant="outline" size="sm" className="flex items-center gap-2">
+                        <Eye className="h-4 w-4" />
+                        View
+                      </Button>
+                    </DialogTrigger>
+                    <DialogContent className="max-w-4xl max-h-[80vh] overflow-y-auto">
+                      <DialogHeader>
+                        <DialogTitle>{doc.title}</DialogTitle>
+                      </DialogHeader>
+                      <div 
+                        className="prose prose-sm max-w-none"
+                        dangerouslySetInnerHTML={{ __html: getDocumentContent(doc.id) }}
+                      />
+                    </DialogContent>
+                  </Dialog>
+                  
+                  <Button 
+                    variant="outline" 
+                    size="sm" 
+                    className="flex items-center gap-2"
+                    onClick={() => handleDownload(doc.id, doc.title)}
+                  >
+                    <Download className="h-4 w-4" />
+                    Download
+                  </Button>
+                  
+                  <Button 
+                    variant="outline" 
+                    size="sm" 
+                    className="flex items-center gap-2"
+                    onClick={() => handlePrint(doc.id)}
+                  >
+                    <Printer className="h-4 w-4" />
+                    Print
+                  </Button>
+                </div>
+              </CardContent>
+            </Card>
+          );
+        })}
       </div>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>Document Information</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="space-y-2 text-sm text-gray-600 dark:text-gray-300">
+            <p>• All documents are generated in real-time with your current account information</p>
+            <p>• Documents can be downloaded as HTML files for offline viewing</p>
+            <p>• Print functionality is available for physical copies</p>
+            <p>• All documents comply with Kenyan legal requirements and CA regulations</p>
+            <p>• For official stamped documents, please contact our support team</p>
+          </div>
+        </CardContent>
+      </Card>
     </div>
   );
 };

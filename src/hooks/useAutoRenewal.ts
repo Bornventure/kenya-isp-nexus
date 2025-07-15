@@ -1,5 +1,5 @@
 
-import { useEffect, useRef } from 'react';
+import { useEffect } from 'react';
 import { useClientAuth } from '@/contexts/ClientAuthContext';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
@@ -7,118 +7,78 @@ import { useToast } from '@/hooks/use-toast';
 export const useAutoRenewal = () => {
   const { client, refreshClientData } = useClientAuth();
   const { toast } = useToast();
-  const intervalRef = useRef<NodeJS.Timeout | null>(null);
-  const isCheckingRef = useRef(false);
 
-  const checkAndRenew = async () => {
-    if (!client || isCheckingRef.current) return;
-    
-    isCheckingRef.current = true;
-    
-    try {
-      console.log('Checking auto-renewal conditions for client:', client.name);
-      
-      const walletBalance = parseFloat(client.wallet_balance?.toString() || '0');
-      const monthlyRate = parseFloat(client.monthly_rate?.toString() || '0');
-      
-      console.log('Wallet balance:', walletBalance, 'Monthly rate:', monthlyRate);
-      
-      // Check if wallet has sufficient balance for renewal
-      if (walletBalance >= monthlyRate) {
-        // Check if subscription is about to expire or has expired
-        const now = new Date();
-        const subscriptionEnd = client.subscription_end_date ? new Date(client.subscription_end_date) : null;
-        
-        if (subscriptionEnd) {
-          const timeUntilExpiry = subscriptionEnd.getTime() - now.getTime();
-          const hoursUntilExpiry = timeUntilExpiry / (1000 * 60 * 60);
-          
-          console.log('Hours until expiry:', hoursUntilExpiry);
-          
-          // Auto-renew if less than 24 hours remaining or already expired
-          if (hoursUntilExpiry <= 24) {
-            console.log('Attempting auto-renewal...');
-            
-            const { data, error } = await supabase.rpc('process_subscription_renewal', {
-              p_client_id: client.id
-            });
-            
-            if (error) {
-              console.error('Auto-renewal failed:', error);
+  useEffect(() => {
+    if (!client) return;
+
+    const checkAndRenewSubscription = async () => {
+      try {
+        // Get current client data
+        const { data: currentClient, error } = await supabase
+          .from('clients')
+          .select('*')
+          .eq('id', client.id)
+          .single();
+
+        if (error || !currentClient) {
+          console.error('Error fetching client data:', error);
+          return;
+        }
+
+        // Check if client has sufficient balance for renewal
+        const monthlyRate = currentClient.monthly_rate || 0;
+        const walletBalance = currentClient.wallet_balance || 0;
+
+        if (walletBalance >= monthlyRate) {
+          // Calculate new subscription dates
+          const now = new Date();
+          const subscriptionEndDate = currentClient.subscription_type === 'weekly' 
+            ? new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000)
+            : new Date(now.getTime() + 29 * 24 * 60 * 60 * 1000);
+
+          // Check if renewal is needed (subscription ends within 1 day or has expired)
+          const currentEndDate = currentClient.subscription_end_date ? new Date(currentClient.subscription_end_date) : null;
+          const needsRenewal = !currentEndDate || currentEndDate <= new Date(now.getTime() + 24 * 60 * 60 * 1000);
+
+          if (needsRenewal) {
+            // Call the renewal function
+            const { data: renewalResult, error: renewalError } = await supabase
+              .rpc('process_subscription_renewal', {
+                p_client_id: client.id
+              });
+
+            if (renewalError) {
+              console.error('Renewal error:', renewalError);
               return;
             }
-            
-            if (data?.success) {
-              console.log('Auto-renewal successful:', data);
+
+            // Check if renewal was successful
+            if (renewalResult && typeof renewalResult === 'object' && 'success' in renewalResult) {
+              const result = renewalResult as { success: boolean; message?: string; remaining_balance?: number };
               
-              // Calculate new subscription end date
-              const renewalDate = new Date();
-              const newEndDate = new Date(renewalDate);
-              
-              if (client.subscription_type === 'weekly') {
-                newEndDate.setDate(renewalDate.getDate() + 7);
-              } else {
-                newEndDate.setDate(renewalDate.getDate() + 30); // Default to 30 days for monthly
-              }
-              
-              toast({
-                title: "Auto-Renewal Successful",
-                description: `Your ${client.subscription_type || 'monthly'} subscription has been automatically renewed until ${newEndDate.toLocaleDateString()}`,
-              });
-              
-              // Refresh client data to update UI
-              await refreshClientData();
-              
-              // Send notification about successful renewal
-              try {
-                await supabase.functions.invoke('send-notifications', {
-                  body: {
-                    client_id: client.id,
-                    type: 'subscription_renewed',
-                    data: {
-                      renewal_date: renewalDate.toISOString(),
-                      new_end_date: newEndDate.toISOString(),
-                      amount_deducted: monthlyRate,
-                      remaining_balance: walletBalance - monthlyRate
-                    }
-                  }
+              if (result.success) {
+                toast({
+                  title: "Subscription Renewed",
+                  description: `Your subscription has been automatically renewed. Remaining balance: KES ${result.remaining_balance?.toFixed(2) || '0.00'}`,
                 });
-              } catch (notificationError) {
-                console.error('Failed to send renewal notification:', notificationError);
+                
+                // Refresh client data to update UI
+                await refreshClientData();
               }
-            } else {
-              console.log('Auto-renewal conditions not met:', data);
             }
           }
         }
-      } else {
-        console.log('Insufficient balance for auto-renewal. Required:', monthlyRate, 'Available:', walletBalance);
-      }
-    } catch (error) {
-      console.error('Error in auto-renewal check:', error);
-    } finally {
-      isCheckingRef.current = false;
-    }
-  };
-
-  useEffect(() => {
-    if (client) {
-      console.log('Setting up auto-renewal monitoring for client:', client.name);
-      
-      // Initial check
-      checkAndRenew();
-      
-      // Set up interval to check every 2 minutes (120000ms)
-      intervalRef.current = setInterval(checkAndRenew, 120000);
-    }
-    
-    return () => {
-      if (intervalRef.current) {
-        clearInterval(intervalRef.current);
-        intervalRef.current = null;
+      } catch (error) {
+        console.error('Auto-renewal check error:', error);
       }
     };
-  }, [client?.id, client?.wallet_balance, client?.subscription_end_date]);
 
-  return { checkAndRenew };
+    // Check immediately
+    checkAndRenewSubscription();
+
+    // Set up interval to check every 2 minutes
+    const interval = setInterval(checkAndRenewSubscription, 2 * 60 * 1000);
+
+    return () => clearInterval(interval);
+  }, [client, refreshClientData, toast]);
 };

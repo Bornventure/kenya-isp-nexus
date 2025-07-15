@@ -4,189 +4,202 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Alert, AlertDescription } from '@/components/ui/alert';
-import { useClientAuth } from '@/contexts/ClientAuthContext';
+import { useToast } from '@/hooks/use-toast';
 import { useMpesa } from '@/hooks/useMpesa';
 import { usePaymentStatus } from '@/hooks/usePaymentStatus';
-import { formatKenyanCurrency } from '@/utils/kenyanValidation';
-import { Loader2, CreditCard, CheckCircle, XCircle } from 'lucide-react';
+import { Loader2, Smartphone, CreditCard } from 'lucide-react';
 
-const MpesaPaymentForm: React.FC = () => {
-  const { client, refreshClientData } = useClientAuth();
-  const { processPayment, isLoading } = useMpesa();
-  const { startPaymentMonitoring, isMonitoring } = usePaymentStatus();
-  const [amount, setAmount] = useState('');
-  const [mpesaNumber, setMpesaNumber] = useState('');
-  const [paymentStatus, setPaymentStatus] = useState<{
-    status: 'idle' | 'processing' | 'success' | 'failed';
-    message: string;
-  }>({ status: 'idle', message: '' });
+interface MpesaPaymentFormProps {
+  amount: number;
+  onSuccess?: () => void;
+  onCancel?: () => void;
+}
 
-  React.useEffect(() => {
-    if (client?.mpesa_number || client?.phone) {
-      setMpesaNumber(client.mpesa_number || client.phone);
+const MpesaPaymentForm: React.FC<MpesaPaymentFormProps> = ({ 
+  amount, 
+  onSuccess, 
+  onCancel 
+}) => {
+  const [phoneNumber, setPhoneNumber] = useState('');
+  const [isProcessing, setIsProcessing] = useState(false);
+  const { toast } = useToast();
+  const { initiateSTKPush, isLoading } = useMpesa();
+  const { checkPaymentStatus } = usePaymentStatus();
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    
+    if (!phoneNumber) {
+      toast({
+        title: "Error",
+        description: "Please enter your phone number",
+        variant: "destructive",
+      });
+      return;
     }
-  }, [client]);
 
-  const handlePayment = async () => {
-    if (!client || !amount || !mpesaNumber) return;
-
-    const paymentAmount = parseFloat(amount);
-    if (paymentAmount <= 0) return;
-
-    setPaymentStatus({ status: 'processing', message: 'Initiating payment...' });
+    // Format phone number to international format
+    const formattedPhone = phoneNumber.startsWith('254') 
+      ? phoneNumber 
+      : phoneNumber.startsWith('0') 
+        ? `254${phoneNumber.slice(1)}`
+        : `254${phoneNumber}`;
 
     try {
-      const response = await processPayment({
-        phoneNumber: mpesaNumber,
-        amount: paymentAmount,
-        accountReference: client.id_number,
-        transactionDesc: `Wallet topup for ${client.name}`
+      setIsProcessing(true);
+      
+      const response = await initiateSTKPush({
+        phoneNumber: formattedPhone,
+        amount: amount,
+        accountReference: formattedPhone,
+        transactionDesc: `Wallet top-up - KES ${amount}`,
       });
 
-      if (response?.success && response.data?.CheckoutRequestID) {
-        setPaymentStatus({ 
-          status: 'processing', 
-          message: 'Payment request sent. Please check your phone and complete the M-Pesa transaction.' 
+      if (response.success) {
+        toast({
+          title: "Payment Initiated",
+          description: "Please check your phone for the M-Pesa prompt",
         });
 
-        // Start monitoring payment status
-        startPaymentMonitoring(
-          response.data.CheckoutRequestID, // Use as invoice ID for now
-          response.data.CheckoutRequestID,
-          {
-            onSuccess: async (statusData) => {
-              setPaymentStatus({ 
-                status: 'success', 
-                message: 'Payment successful! Your wallet has been updated.' 
-              });
-              
-              // Refresh client data to show updated wallet balance
-              await refreshClientData();
-              
-              // Reset form
-              setAmount('');
-              
-              // Clear success message after 5 seconds
-              setTimeout(() => {
-                setPaymentStatus({ status: 'idle', message: '' });
-              }, 5000);
-            },
-            onFailure: (statusData) => {
-              setPaymentStatus({ 
-                status: 'failed', 
-                message: statusData.message || 'Payment failed. Please try again.' 
-              });
-            },
-            onTimeout: () => {
-              setPaymentStatus({ 
-                status: 'failed', 
-                message: 'Payment status could not be confirmed. Please check your account or contact support.' 
-              });
+        // Start checking payment status
+        const checkoutRequestId = response.checkoutRequestId;
+        if (checkoutRequestId) {
+          // Check payment status every 5 seconds for up to 2 minutes
+          const statusInterval = setInterval(async () => {
+            try {
+              const status = await checkPaymentStatus(checkoutRequestId);
+              if (status.success) {
+                clearInterval(statusInterval);
+                toast({
+                  title: "Payment Successful",
+                  description: "Your wallet has been topped up successfully",
+                });
+                onSuccess?.();
+              } else if (status.failed) {
+                clearInterval(statusInterval);
+                toast({
+                  title: "Payment Failed",
+                  description: status.message || "Payment was not completed",
+                  variant: "destructive",
+                });
+              }
+            } catch (error) {
+              console.error('Error checking payment status:', error);
             }
-          }
-        );
+          }, 5000);
+
+          // Clear interval after 2 minutes
+          setTimeout(() => {
+            clearInterval(statusInterval);
+          }, 120000);
+        }
       } else {
-        throw new Error(response?.error || 'Payment initiation failed');
+        throw new Error(response.message || 'Payment initiation failed');
       }
-    } catch (error: any) {
-      setPaymentStatus({ 
-        status: 'failed', 
-        message: error.message || 'Payment failed. Please try again.' 
+    } catch (error) {
+      console.error('Payment error:', error);
+      toast({
+        title: "Payment Error",
+        description: error instanceof Error ? error.message : "Failed to initiate payment",
+        variant: "destructive",
       });
-    }
-  };
-
-  const getStatusIcon = () => {
-    switch (paymentStatus.status) {
-      case 'processing':
-        return <Loader2 className="h-4 w-4 animate-spin" />;
-      case 'success':
-        return <CheckCircle className="h-4 w-4 text-green-600" />;
-      case 'failed':
-        return <XCircle className="h-4 w-4 text-red-600" />;
-      default:
-        return null;
-    }
-  };
-
-  const getStatusColor = () => {
-    switch (paymentStatus.status) {
-      case 'success':
-        return 'border-green-200 bg-green-50';
-      case 'failed':
-        return 'border-red-200 bg-red-50';
-      default:
-        return 'border-blue-200 bg-blue-50';
+    } finally {
+      setIsProcessing(false);
     }
   };
 
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle className="flex items-center gap-2">
-          <CreditCard className="h-5 w-5" />
+    <Card className="w-full max-w-md mx-auto">
+      <CardHeader className="text-center">
+        <div className="flex justify-center mb-4">
+          <div className="p-3 bg-green-100 dark:bg-green-900 rounded-full">
+            <Smartphone className="h-6 w-6 text-green-600 dark:text-green-400" />
+          </div>
+        </div>
+        <CardTitle className="text-xl font-bold text-gray-900 dark:text-gray-100">
           M-Pesa Payment
         </CardTitle>
+        <p className="text-gray-600 dark:text-gray-300">
+          Top up your wallet with KES {amount.toFixed(2)}
+        </p>
       </CardHeader>
-      <CardContent className="space-y-4">
-        <div className="space-y-2">
-          <Label htmlFor="amount">Amount (KES)</Label>
-          <Input
-            id="amount"
-            type="number"
-            placeholder="Enter amount"
-            value={amount}
-            onChange={(e) => setAmount(e.target.value)}
-            disabled={isLoading || isMonitoring}
-            min="1"
-            step="1"
-          />
-        </div>
+      
+      <CardContent>
+        <form onSubmit={handleSubmit} className="space-y-4">
+          <div>
+            <Label htmlFor="phone" className="text-sm font-medium">
+              M-Pesa Phone Number
+            </Label>
+            <Input
+              id="phone"
+              type="tel"
+              placeholder="0700000000"
+              value={phoneNumber}
+              onChange={(e) => setPhoneNumber(e.target.value)}
+              className="mt-1"
+              required
+            />
+            <p className="text-xs text-gray-500 mt-1">
+              Enter your Safaricom number registered with M-Pesa
+            </p>
+          </div>
 
-        <div className="space-y-2">
-          <Label htmlFor="mpesa-number">M-Pesa Number</Label>
-          <Input
-            id="mpesa-number"
-            type="tel"
-            placeholder="254700000000"
-            value={mpesaNumber}
-            onChange={(e) => setMpesaNumber(e.target.value)}
-            disabled={isLoading || isMonitoring}
-          />
-        </div>
-
-        {paymentStatus.status !== 'idle' && (
-          <Alert className={getStatusColor()}>
-            <div className="flex items-center gap-2">
-              {getStatusIcon()}
-              <AlertDescription>{paymentStatus.message}</AlertDescription>
+          <div className="bg-gray-50 dark:bg-gray-800 p-4 rounded-lg">
+            <div className="flex items-center gap-2 mb-2">
+              <CreditCard className="h-4 w-4 text-gray-600 dark:text-gray-400" />
+              <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                Payment Summary
+              </span>
             </div>
-          </Alert>
-        )}
+            <div className="space-y-1 text-sm">
+              <div className="flex justify-between">
+                <span className="text-gray-600 dark:text-gray-400">Amount:</span>
+                <span className="font-medium">KES {amount.toFixed(2)}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-gray-600 dark:text-gray-400">Payment Method:</span>
+                <span className="font-medium">M-Pesa</span>
+              </div>
+            </div>
+          </div>
 
-        <Button 
-          onClick={handlePayment} 
-          disabled={isLoading || isMonitoring || !amount || !mpesaNumber}
-          className="w-full"
-        >
-          {isLoading || isMonitoring ? (
-            <>
-              <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-              {isLoading ? 'Processing...' : 'Monitoring Payment...'}
-            </>
-          ) : (
-            <>
-              <CreditCard className="h-4 w-4 mr-2" />
-              Pay {amount ? formatKenyanCurrency(parseFloat(amount)) : 'Now'}
-            </>
-          )}
-        </Button>
+          <div className="flex gap-3">
+            <Button
+              type="submit"
+              disabled={isLoading || isProcessing}
+              className="flex-1 bg-green-600 hover:bg-green-700 text-white"
+            >
+              {isLoading || isProcessing ? (
+                <>
+                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                  Processing...
+                </>
+              ) : (
+                <>
+                  <Smartphone className="h-4 w-4 mr-2" />
+                  Pay Now
+                </>
+              )}
+            </Button>
+            
+            {onCancel && (
+              <Button
+                type="button"
+                variant="outline"
+                onClick={onCancel}
+                disabled={isLoading || isProcessing}
+              >
+                Cancel
+              </Button>
+            )}
+          </div>
+        </form>
 
-        <div className="text-xs text-gray-500 space-y-1">
-          <p>• You will receive an STK push notification on your phone</p>
-          <p>• Enter your M-Pesa PIN to complete the transaction</p>
-          <p>• Your wallet will be updated automatically after payment</p>
+        <div className="mt-6 p-4 bg-blue-50 dark:bg-blue-900/20 rounded-lg">
+          <p className="text-xs text-blue-800 dark:text-blue-200">
+            <strong>Instructions:</strong> After clicking "Pay Now", you'll receive an M-Pesa prompt on your phone. 
+            Enter your M-Pesa PIN to complete the payment. The transaction will be processed automatically.
+          </p>
         </div>
       </CardContent>
     </Card>
