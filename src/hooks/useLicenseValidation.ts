@@ -79,7 +79,9 @@ export const useLicenseValidation = () => {
       const expiryDate = company.subscription_end_date ? new Date(company.subscription_end_date) : null;
       const isExpired = expiryDate ? now > expiryDate : false;
       const isDeactivated = !company.is_active;
-      const isActive = company.is_active && !isExpired;
+      
+      // A license is considered valid if the company is active AND not expired
+      const isValid = company.is_active && !isExpired;
       
       let daysUntilExpiry = null;
       if (expiryDate) {
@@ -88,22 +90,24 @@ export const useLicenseValidation = () => {
       }
 
       let restrictionMessage = null;
+      
+      // Only show restriction messages for truly problematic states
       if (isDeactivated) {
         restrictionMessage = company.deactivation_reason || 'License is inactive. Contact support to reactivate.';
       } else if (isExpired) {
         restrictionMessage = `License expired on ${expiryDate?.toLocaleDateString()}. Please renew to continue using the system.`;
-      } else if (daysUntilExpiry !== null && daysUntilExpiry <= 7) {
+      } else if (daysUntilExpiry !== null && daysUntilExpiry <= 7 && daysUntilExpiry > 0) {
         restrictionMessage = `License expires in ${daysUntilExpiry} day${daysUntilExpiry !== 1 ? 's' : ''}. Please renew soon.`;
       }
 
       return {
-        isValid: isActive,
+        isValid,
         isExpired,
         isActive: company.is_active,
         isDeactivated,
         daysUntilExpiry,
         expiryDate: company.subscription_end_date,
-        canAccessFeatures: isActive,
+        canAccessFeatures: isValid,
         restrictionMessage,
         deactivationReason: company.deactivation_reason,
         deactivatedAt: company.deactivated_at

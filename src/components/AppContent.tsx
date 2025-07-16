@@ -132,74 +132,118 @@ const AppContent: React.FC = () => {
                   </>
                 )}
                 
-                {/* Admin Routes - wrapped in LicenseGuard but allow deactivated companies to see read-only */}
+                {/* Admin Routes - only wrap with LicenseGuard if license has issues */}
                 {isAdmin && (
                   <>
                     <Route path="/clients" element={
-                      <LicenseGuard allowReadOnly={validation.isDeactivated}>
+                      validation.isDeactivated || validation.isExpired ? (
+                        <LicenseGuard allowReadOnly={validation.isDeactivated}>
+                          <Clients />
+                        </LicenseGuard>
+                      ) : (
                         <Clients />
-                      </LicenseGuard>
+                      )
                     } />
                     <Route path="/billing" element={
-                      <LicenseGuard allowReadOnly={validation.isDeactivated}>
+                      validation.isDeactivated || validation.isExpired ? (
+                        <LicenseGuard allowReadOnly={validation.isDeactivated}>
+                          <Billing />
+                        </LicenseGuard>
+                      ) : (
                         <Billing />
-                      </LicenseGuard>
+                      )
                     } />
                     <Route path="/equipment" element={
-                      <LicenseGuard allowReadOnly={validation.isDeactivated}>
+                      validation.isDeactivated || validation.isExpired ? (
+                        <LicenseGuard allowReadOnly={validation.isDeactivated}>
+                          <Equipment />
+                        </LicenseGuard>
+                      ) : (
                         <Equipment />
-                      </LicenseGuard>
+                      )
                     } />
                     <Route path="/network" element={
-                      <LicenseGuard allowReadOnly={validation.isDeactivated}>
+                      validation.isDeactivated || validation.isExpired ? (
+                        <LicenseGuard allowReadOnly={validation.isDeactivated}>
+                          <NetworkManagement />
+                        </LicenseGuard>
+                      ) : (
                         <NetworkManagement />
-                      </LicenseGuard>
+                      )
                     } />
                     <Route path="/network-map" element={
-                      <LicenseGuard allowReadOnly={validation.isDeactivated}>
+                      validation.isDeactivated || validation.isExpired ? (
+                        <LicenseGuard allowReadOnly={validation.isDeactivated}>
+                          <NetworkMap />
+                        </LicenseGuard>
+                      ) : (
                         <NetworkMap />
-                      </LicenseGuard>
+                      )
                     } />
                     <Route path="/inventory" element={
-                      <LicenseGuard allowReadOnly={validation.isDeactivated}>
+                      validation.isDeactivated || validation.isExpired ? (
+                        <LicenseGuard allowReadOnly={validation.isDeactivated}>
+                          <Inventory />
+                        </LicenseGuard>
+                      ) : (
                         <Inventory />
-                      </LicenseGuard>
+                      )
                     } />
                     <Route path="/messages" element={
-                      <LicenseGuard allowReadOnly={validation.isDeactivated}>
+                      validation.isDeactivated || validation.isExpired ? (
+                        <LicenseGuard allowReadOnly={validation.isDeactivated}>
+                          <Messages />
+                        </LicenseGuard>
+                      ) : (
                         <Messages />
-                      </LicenseGuard>
+                      )
                     } />
                     <Route path="/support" element={
-                      <LicenseGuard allowReadOnly={validation.isDeactivated}>
+                      validation.isDeactivated || validation.isExpired ? (
+                        <LicenseGuard allowReadOnly={validation.isDeactivated}>
+                          <Support />
+                        </LicenseGuard>
+                      ) : (
                         <Support />
-                      </LicenseGuard>
+                      )
                     } />
                     <Route path="/hotspots" element={
-                      <LicenseGuard allowReadOnly={validation.isDeactivated}>
+                      validation.isDeactivated || validation.isExpired ? (
+                        <LicenseGuard allowReadOnly={validation.isDeactivated}>
+                          <HotspotManagement />
+                        </LicenseGuard>
+                      ) : (
                         <HotspotManagement />
-                      </LicenseGuard>
+                      )
                     } />
                     <Route path="/packages" element={
-                      <LicenseGuard allowReadOnly={validation.isDeactivated}>
+                      validation.isDeactivated || validation.isExpired ? (
+                        <LicenseGuard allowReadOnly={validation.isDeactivated}>
+                          <PackageManagement />
+                        </LicenseGuard>
+                      ) : (
                         <PackageManagement />
-                      </LicenseGuard>
+                      )
                     } />
                     <Route path="/settings" element={
-                      <LicenseGuard allowReadOnly={validation.isDeactivated}>
+                      validation.isDeactivated || validation.isExpired ? (
+                        <LicenseGuard allowReadOnly={validation.isDeactivated}>
+                          <Settings />
+                        </LicenseGuard>
+                      ) : (
                         <Settings />
-                      </LicenseGuard>
+                      )
                     } />
                     <Route path="/license-management" element={
-                      <LicenseGuard allowReadOnly={validation.isDeactivated}>
+                      validation.isDeactivated || validation.isExpired ? (
+                        <LicenseGuard allowReadOnly={validation.isDeactivated}>
+                          <LicenseManagement />
+                        </LicenseGuard>
+                      ) : (
                         <LicenseManagement />
-                      </LicenseGuard>
+                      )
                     } />
-                    <Route path="/license-activation" element={
-                      <LicenseGuard allowReadOnly={validation.isDeactivated}>
-                        <LicenseActivation />
-                      </LicenseGuard>
-                    } />
+                    <Route path="/license-activation" element={<LicenseActivation />} />
                   </>
                 )}
                 

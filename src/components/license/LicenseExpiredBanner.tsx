@@ -15,21 +15,33 @@ const LicenseExpiredBanner: React.FC = () => {
     return null;
   }
 
-  // Don't show if license is valid
-  if (validation.canAccessFeatures && !validation.restrictionMessage) {
+  // Only show banner for actual problems: deactivated or expired licenses
+  if (validation.isActive && !validation.isExpired && !validation.restrictionMessage) {
+    return null;
+  }
+
+  // Don't show if license is valid and active
+  if (validation.canAccessFeatures && validation.isActive && !validation.isExpired) {
     return null;
   }
 
   const getAlertVariant = () => {
-    if (validation.isExpired || !validation.isActive) return 'destructive';
+    if (validation.isDeactivated || validation.isExpired) return 'destructive';
     if (validation.daysUntilExpiry !== null && validation.daysUntilExpiry <= 3) return 'destructive';
     return 'default';
   };
 
   const getIcon = () => {
-    if (validation.isExpired || !validation.isActive) return AlertTriangle;
+    if (validation.isDeactivated) return Shield;
+    if (validation.isExpired) return AlertTriangle;
     if (validation.daysUntilExpiry !== null && validation.daysUntilExpiry <= 7) return Clock;
     return Shield;
+  };
+
+  const getTitle = () => {
+    if (validation.isDeactivated) return 'License Deactivated';
+    if (validation.isExpired) return 'License Expired';
+    return 'License Expiring Soon';
   };
 
   const Icon = getIcon();
@@ -37,17 +49,16 @@ const LicenseExpiredBanner: React.FC = () => {
   return (
     <Alert variant={getAlertVariant()} className="mb-6">
       <Icon className="h-4 w-4" />
-      <AlertTitle>
-        {validation.isExpired ? 'License Expired' : 
-         !validation.isActive ? 'License Inactive' : 
-         'License Expiring Soon'}
-      </AlertTitle>
+      <AlertTitle>{getTitle()}</AlertTitle>
       <AlertDescription className="mt-2">
         <p>{validation.restrictionMessage}</p>
-        {validation.isExpired && (
+        {(validation.isExpired || validation.isDeactivated) && (
           <div className="mt-3">
             <p className="text-sm mb-2">
-              Your access to most features has been restricted. Please contact your administrator to renew the license.
+              {validation.isDeactivated 
+                ? 'Your license has been deactivated. Please contact your administrator to reactivate.'
+                : 'Your access to most features has been restricted. Please contact your administrator to renew the license.'
+              }
             </p>
             <Button variant="outline" size="sm" onClick={() => window.location.reload()}>
               <Shield className="h-3 w-3 mr-1" />
