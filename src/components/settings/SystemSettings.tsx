@@ -1,39 +1,130 @@
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Textarea } from '@/components/ui/textarea';
-import { Settings, Database, Mail, Bell } from 'lucide-react';
+import { Settings, Database, Mail } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
+import { useAuth } from '@/contexts/AuthContext';
+import { supabase } from '@/integrations/supabase/client';
+
+interface SystemSettingsData {
+  company_name: string;
+  timezone: string;
+  date_format: string;
+  currency: string;
+  backup_enabled: boolean;
+  backup_frequency: string;
+  maintenance_mode: boolean;
+  smtp_host: string;
+  smtp_port: string;
+  smtp_username: string;
+  email_from_address: string;
+  notifications_enabled: boolean;
+}
 
 const SystemSettings = () => {
   const { toast } = useToast();
-  const [settings, setSettings] = useState({
-    companyName: 'DataDefender Kenya Internet Services',
+  const { profile } = useAuth();
+  const [loading, setLoading] = useState(false);
+  const [settings, setSettings] = useState<SystemSettingsData>({
+    company_name: 'DataDefender Kenya Internet Services',
     timezone: 'Africa/Nairobi',
-    dateFormat: 'DD/MM/YYYY',
+    date_format: 'DD/MM/YYYY',
     currency: 'KES',
-    backupEnabled: true,
-    backupFrequency: 'daily',
-    maintenanceMode: false,
-    debugMode: false,
-    logLevel: 'info',
-    smtpHost: '',
-    smtpPort: '587',
-    smtpUsername: '',
-    emailFromAddress: 'noreply@datadefender.com',
-    notificationsEnabled: true,
+    backup_enabled: true,
+    backup_frequency: 'daily',
+    maintenance_mode: false,
+    smtp_host: '',
+    smtp_port: '587',
+    smtp_username: '',
+    email_from_address: 'noreply@datadefender.com',
+    notifications_enabled: true,
   });
 
-  const handleSave = () => {
-    toast({
-      title: "System Settings Updated",
-      description: "Your system settings have been saved successfully.",
-    });
+  // Fetch existing settings
+  useEffect(() => {
+    if (profile?.isp_company_id) {
+      fetchSettings();
+    }
+  }, [profile?.isp_company_id]);
+
+  const fetchSettings = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('system_settings')
+        .select('*')
+        .eq('isp_company_id', profile?.isp_company_id)
+        .single();
+
+      if (error && error.code !== 'PGRST116') {
+        throw error;
+      }
+
+      if (data) {
+        setSettings({
+          company_name: data.company_name || settings.company_name,
+          timezone: data.timezone || settings.timezone,
+          date_format: data.date_format || settings.date_format,
+          currency: data.currency || settings.currency,
+          backup_enabled: data.backup_enabled ?? settings.backup_enabled,
+          backup_frequency: data.backup_frequency || settings.backup_frequency,
+          maintenance_mode: data.maintenance_mode ?? settings.maintenance_mode,
+          smtp_host: data.smtp_host || settings.smtp_host,
+          smtp_port: data.smtp_port || settings.smtp_port,
+          smtp_username: data.smtp_username || settings.smtp_username,
+          email_from_address: data.email_from_address || settings.email_from_address,
+          notifications_enabled: data.notifications_enabled ?? settings.notifications_enabled,
+        });
+      }
+    } catch (error) {
+      console.error('Error fetching settings:', error);
+      toast({
+        title: "Error",
+        description: "Failed to load system settings",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const handleSave = async () => {
+    if (!profile?.isp_company_id) {
+      toast({
+        title: "Error",
+        description: "Company ID not found",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setLoading(true);
+    try {
+      const { error } = await supabase
+        .from('system_settings')
+        .upsert({
+          isp_company_id: profile.isp_company_id,
+          ...settings,
+        }, { onConflict: 'isp_company_id' });
+
+      if (error) throw error;
+
+      toast({
+        title: "System Settings Updated",
+        description: "Your system settings have been saved successfully.",
+      });
+    } catch (error) {
+      console.error('Error saving settings:', error);
+      toast({
+        title: "Error",
+        description: "Failed to save system settings",
+        variant: "destructive",
+      });
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -52,8 +143,8 @@ const SystemSettings = () => {
               <Label htmlFor="companyName">Company Name</Label>
               <Input
                 id="companyName"
-                value={settings.companyName}
-                onChange={(e) => setSettings({...settings, companyName: e.target.value})}
+                value={settings.company_name}
+                onChange={(e) => setSettings({...settings, company_name: e.target.value})}
               />
             </div>
             <div>
@@ -75,8 +166,8 @@ const SystemSettings = () => {
             <div>
               <Label htmlFor="dateFormat">Date Format</Label>
               <Select
-                value={settings.dateFormat}
-                onValueChange={(value) => setSettings({...settings, dateFormat: value})}
+                value={settings.date_format}
+                onValueChange={(value) => setSettings({...settings, date_format: value})}
               >
                 <SelectTrigger>
                   <SelectValue />
@@ -126,16 +217,16 @@ const SystemSettings = () => {
             </div>
             <Switch
               id="backupEnabled"
-              checked={settings.backupEnabled}
-              onCheckedChange={(checked) => setSettings({...settings, backupEnabled: checked})}
+              checked={settings.backup_enabled}
+              onCheckedChange={(checked) => setSettings({...settings, backup_enabled: checked})}
             />
           </div>
 
           <div>
             <Label htmlFor="backupFrequency">Backup Frequency</Label>
             <Select
-              value={settings.backupFrequency}
-              onValueChange={(value) => setSettings({...settings, backupFrequency: value})}
+              value={settings.backup_frequency}
+              onValueChange={(value) => setSettings({...settings, backup_frequency: value})}
             >
               <SelectTrigger>
                 <SelectValue />
@@ -157,8 +248,8 @@ const SystemSettings = () => {
             </div>
             <Switch
               id="maintenanceMode"
-              checked={settings.maintenanceMode}
-              onCheckedChange={(checked) => setSettings({...settings, maintenanceMode: checked})}
+              checked={settings.maintenance_mode}
+              onCheckedChange={(checked) => setSettings({...settings, maintenance_mode: checked})}
             />
           </div>
         </CardContent>
@@ -178,8 +269,8 @@ const SystemSettings = () => {
               <Label htmlFor="smtpHost">SMTP Host</Label>
               <Input
                 id="smtpHost"
-                value={settings.smtpHost}
-                onChange={(e) => setSettings({...settings, smtpHost: e.target.value})}
+                value={settings.smtp_host}
+                onChange={(e) => setSettings({...settings, smtp_host: e.target.value})}
                 placeholder="smtp.gmail.com"
               />
             </div>
@@ -187,32 +278,48 @@ const SystemSettings = () => {
               <Label htmlFor="smtpPort">SMTP Port</Label>
               <Input
                 id="smtpPort"
-                value={settings.smtpPort}
-                onChange={(e) => setSettings({...settings, smtpPort: e.target.value})}
+                value={settings.smtp_port}
+                onChange={(e) => setSettings({...settings, smtp_port: e.target.value})}
               />
             </div>
             <div>
               <Label htmlFor="smtpUsername">SMTP Username</Label>
               <Input
                 id="smtpUsername"
-                value={settings.smtpUsername}
-                onChange={(e) => setSettings({...settings, smtpUsername: e.target.value})}
+                value={settings.smtp_username}
+                onChange={(e) => setSettings({...settings, smtp_username: e.target.value})}
               />
             </div>
             <div>
               <Label htmlFor="emailFromAddress">From Email Address</Label>
               <Input
                 id="emailFromAddress"
-                value={settings.emailFromAddress}
-                onChange={(e) => setSettings({...settings, emailFromAddress: e.target.value})}
+                value={settings.email_from_address}
+                onChange={(e) => setSettings({...settings, email_from_address: e.target.value})}
               />
             </div>
+          </div>
+
+          <div className="flex items-center justify-between">
+            <div>
+              <Label htmlFor="notificationsEnabled">Email Notifications</Label>
+              <p className="text-sm text-muted-foreground">
+                Enable email notifications
+              </p>
+            </div>
+            <Switch
+              id="notificationsEnabled"
+              checked={settings.notifications_enabled}
+              onCheckedChange={(checked) => setSettings({...settings, notifications_enabled: checked})}
+            />
           </div>
         </CardContent>
       </Card>
 
       <div className="flex justify-end">
-        <Button onClick={handleSave}>Save System Settings</Button>
+        <Button onClick={handleSave} disabled={loading}>
+          {loading ? 'Saving...' : 'Save System Settings'}
+        </Button>
       </div>
     </div>
   );
