@@ -2536,6 +2536,23 @@ export type Database = {
         Args: Record<PropertyKey, never>
         Returns: string
       }
+      get_system_settings: {
+        Args: { company_id: string }
+        Returns: {
+          company_name: string
+          timezone: string
+          date_format: string
+          currency: string
+          backup_enabled: boolean
+          backup_frequency: string
+          maintenance_mode: boolean
+          smtp_host: string
+          smtp_port: string
+          smtp_username: string
+          email_from_address: string
+          notifications_enabled: boolean
+        }[]
+      }
       handle_automatic_renewals: {
         Args: Record<PropertyKey, never>
         Returns: undefined
@@ -2555,6 +2572,10 @@ export type Database = {
       promote_inventory_to_equipment: {
         Args: { inventory_item_id: string; equipment_data: Json }
         Returns: string
+      }
+      upsert_system_settings: {
+        Args: { company_id: string; settings_data: Json }
+        Returns: undefined
       }
     }
     Enums: {

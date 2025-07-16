@@ -55,28 +55,30 @@ const SystemSettings = () => {
   const fetchSettings = async () => {
     try {
       const { data, error } = await supabase
-        .rpc('get_system_settings', { company_id: profile?.isp_company_id });
+        .from('system_settings')
+        .select('*')
+        .eq('isp_company_id', profile?.isp_company_id)
+        .maybeSingle();
 
       if (error && error.code !== 'PGRST116') {
         console.error('Error fetching settings:', error);
         return;
       }
 
-      if (data && data.length > 0) {
-        const settingsData = data[0];
+      if (data) {
         setSettings({
-          company_name: settingsData.company_name || settings.company_name,
-          timezone: settingsData.timezone || settings.timezone,
-          date_format: settingsData.date_format || settings.date_format,
-          currency: settingsData.currency || settings.currency,
-          backup_enabled: settingsData.backup_enabled ?? settings.backup_enabled,
-          backup_frequency: settingsData.backup_frequency || settings.backup_frequency,
-          maintenance_mode: settingsData.maintenance_mode ?? settings.maintenance_mode,
-          smtp_host: settingsData.smtp_host || settings.smtp_host,
-          smtp_port: settingsData.smtp_port || settings.smtp_port,
-          smtp_username: settingsData.smtp_username || settings.smtp_username,
-          email_from_address: settingsData.email_from_address || settings.email_from_address,
-          notifications_enabled: settingsData.notifications_enabled ?? settings.notifications_enabled,
+          company_name: data.company_name || settings.company_name,
+          timezone: data.timezone || settings.timezone,
+          date_format: data.date_format || settings.date_format,
+          currency: data.currency || settings.currency,
+          backup_enabled: data.backup_enabled ?? settings.backup_enabled,
+          backup_frequency: data.backup_frequency || settings.backup_frequency,
+          maintenance_mode: data.maintenance_mode ?? settings.maintenance_mode,
+          smtp_host: data.smtp_host || settings.smtp_host,
+          smtp_port: data.smtp_port || settings.smtp_port,
+          smtp_username: data.smtp_username || settings.smtp_username,
+          email_from_address: data.email_from_address || settings.email_from_address,
+          notifications_enabled: data.notifications_enabled ?? settings.notifications_enabled,
         });
       }
     } catch (error) {
@@ -102,9 +104,13 @@ const SystemSettings = () => {
     setLoading(true);
     try {
       const { error } = await supabase
-        .rpc('upsert_system_settings', {
-          company_id: profile.isp_company_id,
-          settings_data: settings
+        .from('system_settings')
+        .upsert({
+          isp_company_id: profile.isp_company_id,
+          ...settings,
+          updated_at: new Date().toISOString()
+        }, {
+          onConflict: 'isp_company_id'
         });
 
       if (error) throw error;
