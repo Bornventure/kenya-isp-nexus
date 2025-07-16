@@ -4,20 +4,21 @@ import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
 import { ShieldOff, AlertTriangle } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
+import { useLicenseValidation } from '@/hooks/useLicenseValidation';
 
 const LicenseDeactivatedBanner: React.FC = () => {
   const { profile } = useAuth();
+  const { validation } = useLicenseValidation();
 
-  // This would normally come from the company data
-  // For now, we'll check if the company is marked as inactive
-  const isDeactivated = false; // This should be fetched from company data
-
-  if (!isDeactivated || profile?.role === 'super_admin') {
+  // Don't show for super admin
+  if (profile?.role === 'super_admin') {
     return null;
   }
 
-  const deactivationReason = "Payment overdue"; // This should come from company data
-  const deactivatedDate = new Date().toLocaleDateString(); // This should come from company data
+  // Only show if license is deactivated
+  if (!validation.isDeactivated) {
+    return null;
+  }
 
   return (
     <Alert variant="destructive" className="mb-6 border-red-300 bg-red-50">
@@ -28,12 +29,17 @@ const LicenseDeactivatedBanner: React.FC = () => {
           <p>
             <strong>Your license has been deactivated.</strong>
           </p>
-          <p>
-            <span className="font-medium">Reason:</span> {deactivationReason}
-          </p>
-          <p>
-            <span className="font-medium">Deactivated on:</span> {deactivatedDate}
-          </p>
+          {validation.deactivationReason && (
+            <p>
+              <span className="font-medium">Reason:</span> {validation.deactivationReason}
+            </p>
+          )}
+          {validation.deactivatedAt && (
+            <p>
+              <span className="font-medium">Deactivated on:</span>{' '}
+              {new Date(validation.deactivatedAt).toLocaleDateString()}
+            </p>
+          )}
           <p className="text-sm">
             Most features are now restricted. Please contact your administrator or support team to resolve this issue and reactivate your license.
           </p>

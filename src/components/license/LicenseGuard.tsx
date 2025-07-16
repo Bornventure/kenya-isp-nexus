@@ -43,7 +43,59 @@ const LicenseGuard: React.FC<LicenseGuardProps> = ({
     return <>{children}</>;
   }
 
-  // If read-only is allowed and license is just expired (not inactive)
+  // If company is deactivated, show deactivation message but allow basic navigation
+  if (validation.isDeactivated) {
+    return (
+      <div className="space-y-4">
+        <Card className="border-red-200 bg-red-50">
+          <CardHeader>
+            <CardTitle className="flex items-center space-x-2 text-red-700">
+              <Shield className="h-5 w-5" />
+              <span>License Deactivated</span>
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="space-y-2">
+              <p className="text-red-700 font-medium">
+                Your license has been deactivated and most features are now restricted.
+              </p>
+              {validation.deactivationReason && (
+                <p className="text-sm text-red-600">
+                  <span className="font-medium">Reason:</span> {validation.deactivationReason}
+                </p>
+              )}
+              {validation.deactivatedAt && (
+                <p className="text-sm text-red-600">
+                  <span className="font-medium">Deactivated on:</span>{' '}
+                  {new Date(validation.deactivatedAt).toLocaleDateString()}
+                </p>
+              )}
+              <p className="text-sm text-red-600">
+                Please contact your administrator or support team to resolve this issue and reactivate your license.
+              </p>
+            </div>
+            <div className="flex space-x-2">
+              <Button 
+                variant="outline" 
+                size="sm"
+                onClick={() => window.location.reload()}
+              >
+                <RefreshCw className="h-3 w-3 mr-1" />
+                Refresh Status
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+        
+        {/* Show children in read-only mode for deactivated licenses */}
+        <div className="opacity-60 pointer-events-none">
+          {children}
+        </div>
+      </div>
+    );
+  }
+
+  // If read-only is allowed and license is just expired (not deactivated)
   if (allowReadOnly && validation.isActive && validation.isExpired) {
     return (
       <div className="space-y-4">
@@ -64,7 +116,7 @@ const LicenseGuard: React.FC<LicenseGuardProps> = ({
     );
   }
 
-  // Show license restriction message
+  // Show license restriction message for other cases
   return (
     <Card className="border-red-200">
       <CardHeader>

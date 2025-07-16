@@ -7,10 +7,13 @@ export interface LicenseValidationResult {
   isValid: boolean;
   isExpired: boolean;
   isActive: boolean;
+  isDeactivated: boolean;
   daysUntilExpiry: number | null;
   expiryDate: string | null;
   canAccessFeatures: boolean;
   restrictionMessage: string | null;
+  deactivationReason: string | null;
+  deactivatedAt: string | null;
 }
 
 export const useLicenseValidation = () => {
@@ -24,10 +27,13 @@ export const useLicenseValidation = () => {
           isValid: false,
           isExpired: true,
           isActive: false,
+          isDeactivated: false,
           daysUntilExpiry: null,
           expiryDate: null,
           canAccessFeatures: false,
-          restrictionMessage: 'No company license found'
+          restrictionMessage: 'No company license found',
+          deactivationReason: null,
+          deactivatedAt: null
         };
       }
 
@@ -37,16 +43,19 @@ export const useLicenseValidation = () => {
           isValid: true,
           isExpired: false,
           isActive: true,
+          isDeactivated: false,
           daysUntilExpiry: null,
           expiryDate: null,
           canAccessFeatures: true,
-          restrictionMessage: null
+          restrictionMessage: null,
+          deactivationReason: null,
+          deactivatedAt: null
         };
       }
 
       const { data: company, error: companyError } = await supabase
         .from('isp_companies')
-        .select('is_active, subscription_end_date, license_type')
+        .select('is_active, subscription_end_date, license_type, deactivation_reason, deactivated_at')
         .eq('id', profile.isp_company_id)
         .single();
 
@@ -56,16 +65,20 @@ export const useLicenseValidation = () => {
           isValid: false,
           isExpired: true,
           isActive: false,
+          isDeactivated: false,
           daysUntilExpiry: null,
           expiryDate: null,
           canAccessFeatures: false,
-          restrictionMessage: 'Unable to verify license'
+          restrictionMessage: 'Unable to verify license',
+          deactivationReason: null,
+          deactivatedAt: null
         };
       }
 
       const now = new Date();
       const expiryDate = company.subscription_end_date ? new Date(company.subscription_end_date) : null;
       const isExpired = expiryDate ? now > expiryDate : false;
+      const isDeactivated = !company.is_active;
       const isActive = company.is_active && !isExpired;
       
       let daysUntilExpiry = null;
@@ -75,8 +88,8 @@ export const useLicenseValidation = () => {
       }
 
       let restrictionMessage = null;
-      if (!company.is_active) {
-        restrictionMessage = 'License is inactive. Contact support to reactivate.';
+      if (isDeactivated) {
+        restrictionMessage = company.deactivation_reason || 'License is inactive. Contact support to reactivate.';
       } else if (isExpired) {
         restrictionMessage = `License expired on ${expiryDate?.toLocaleDateString()}. Please renew to continue using the system.`;
       } else if (daysUntilExpiry !== null && daysUntilExpiry <= 7) {
@@ -87,10 +100,13 @@ export const useLicenseValidation = () => {
         isValid: isActive,
         isExpired,
         isActive: company.is_active,
+        isDeactivated,
         daysUntilExpiry,
         expiryDate: company.subscription_end_date,
         canAccessFeatures: isActive,
-        restrictionMessage
+        restrictionMessage,
+        deactivationReason: company.deactivation_reason,
+        deactivatedAt: company.deactivated_at
       };
     },
     enabled: !!profile,
@@ -102,10 +118,13 @@ export const useLicenseValidation = () => {
       isValid: false,
       isExpired: true,
       isActive: false,
+      isDeactivated: false,
       daysUntilExpiry: null,
       expiryDate: null,
       canAccessFeatures: false,
-      restrictionMessage: 'Loading license information...'
+      restrictionMessage: 'Loading license information...',
+      deactivationReason: null,
+      deactivatedAt: null
     },
     isLoading,
     error

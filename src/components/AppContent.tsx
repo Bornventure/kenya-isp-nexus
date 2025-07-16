@@ -25,9 +25,11 @@ import AccessDenied from '@/components/AccessDenied';
 import DashboardLayout from '@/components/dashboard/DashboardLayout';
 import LicenseGuard from '@/components/license/LicenseGuard';
 import RealtimeNotifications from '@/components/dashboard/RealtimeNotifications';
+import { useLicenseValidation } from '@/hooks/useLicenseValidation';
 
 const AppContent: React.FC = () => {
   const { user, profile, isLoading, profileError } = useAuth();
+  const { validation } = useLicenseValidation();
 
   // Simplified authentication state logic
   const authState = useMemo(() => {
@@ -110,79 +112,137 @@ const AppContent: React.FC = () => {
         <Route
           path="/*"
           element={
-            <LicenseGuard>
-              <DashboardLayout>
-                <Routes>
-                  <Route path="/" element={<Navigate to="/dashboard" replace />} />
-                  
-                  {/* Dashboard Routes accessible to authenticated users */}
-                  {canAccessDashboard && (
-                    <>
-                      <Route path="/dashboard" element={<Dashboard />} />
-                      <Route path="/profile" element={<Profile />} />
-                    </>
-                  )}
-                  
-                  {/* Admin Routes */}
-                  {isAdmin && (
-                    <>
-                      <Route path="/clients" element={<Clients />} />
-                      <Route path="/billing" element={<Billing />} />
-                      <Route path="/equipment" element={<Equipment />} />
-                      <Route path="/network" element={<NetworkManagement />} />
-                      <Route path="/network-map" element={<NetworkMap />} />
-                      <Route path="/inventory" element={<Inventory />} />
-                      <Route path="/messages" element={<Messages />} />
-                      <Route path="/support" element={<Support />} />
-                      <Route path="/hotspots" element={<HotspotManagement />} />
-                      <Route path="/packages" element={<PackageManagement />} />
-                      <Route path="/settings" element={<Settings />} />
-                      <Route path="/license-management" element={<LicenseManagement />} />
-                      <Route path="/license-activation" element={<LicenseActivation />} />
-                    </>
-                  )}
-                  
-                  {/* Super Admin Only Routes */}
-                  {isSuperAdmin && (
-                    <Route path="/system-license-admin" element={<SuperAdminLicenseManagement />} />
-                  )}
-                  
-                  {/* Access Denied for restricted routes */}
-                  <Route
-                    path="/system-license-admin"
-                    element={
-                      isSuperAdmin ? (
-                        <SuperAdminLicenseManagement />
-                      ) : (
-                        <div className="min-h-screen bg-gray-50 dark:bg-gray-900 flex items-center justify-center">
-                          <div className="text-center space-y-4 p-8">
-                            <h2 className="text-2xl font-bold text-red-600">Access Denied</h2>
-                            <p className="text-gray-600">
-                              You do not have permission to access this page. Super admin role required.
-                            </p>
-                            <p className="text-sm text-gray-600 mt-2">
-                              Current role: {profile?.role || 'Unknown'}
-                            </p>
-                          </div>
+            <DashboardLayout>
+              <Routes>
+                <Route path="/" element={<Navigate to="/dashboard" replace />} />
+                
+                {/* Dashboard Routes accessible to authenticated users */}
+                {canAccessDashboard && (
+                  <>
+                    <Route path="/dashboard" element={
+                      <LicenseGuard allowReadOnly={validation.isDeactivated}>
+                        <Dashboard />
+                      </LicenseGuard>
+                    } />
+                    <Route path="/profile" element={
+                      <LicenseGuard allowReadOnly={validation.isDeactivated}>
+                        <Profile />
+                      </LicenseGuard>
+                    } />
+                  </>
+                )}
+                
+                {/* Admin Routes - wrapped in LicenseGuard but allow deactivated companies to see read-only */}
+                {isAdmin && (
+                  <>
+                    <Route path="/clients" element={
+                      <LicenseGuard allowReadOnly={validation.isDeactivated}>
+                        <Clients />
+                      </LicenseGuard>
+                    } />
+                    <Route path="/billing" element={
+                      <LicenseGuard allowReadOnly={validation.isDeactivated}>
+                        <Billing />
+                      </LicenseGuard>
+                    } />
+                    <Route path="/equipment" element={
+                      <LicenseGuard allowReadOnly={validation.isDeactivated}>
+                        <Equipment />
+                      </LicenseGuard>
+                    } />
+                    <Route path="/network" element={
+                      <LicenseGuard allowReadOnly={validation.isDeactivated}>
+                        <NetworkManagement />
+                      </LicenseGuard>
+                    } />
+                    <Route path="/network-map" element={
+                      <LicenseGuard allowReadOnly={validation.isDeactivated}>
+                        <NetworkMap />
+                      </LicenseGuard>
+                    } />
+                    <Route path="/inventory" element={
+                      <LicenseGuard allowReadOnly={validation.isDeactivated}>
+                        <Inventory />
+                      </LicenseGuard>
+                    } />
+                    <Route path="/messages" element={
+                      <LicenseGuard allowReadOnly={validation.isDeactivated}>
+                        <Messages />
+                      </LicenseGuard>
+                    } />
+                    <Route path="/support" element={
+                      <LicenseGuard allowReadOnly={validation.isDeactivated}>
+                        <Support />
+                      </LicenseGuard>
+                    } />
+                    <Route path="/hotspots" element={
+                      <LicenseGuard allowReadOnly={validation.isDeactivated}>
+                        <HotspotManagement />
+                      </LicenseGuard>
+                    } />
+                    <Route path="/packages" element={
+                      <LicenseGuard allowReadOnly={validation.isDeactivated}>
+                        <PackageManagement />
+                      </LicenseGuard>
+                    } />
+                    <Route path="/settings" element={
+                      <LicenseGuard allowReadOnly={validation.isDeactivated}>
+                        <Settings />
+                      </LicenseGuard>
+                    } />
+                    <Route path="/license-management" element={
+                      <LicenseGuard allowReadOnly={validation.isDeactivated}>
+                        <LicenseManagement />
+                      </LicenseGuard>
+                    } />
+                    <Route path="/license-activation" element={
+                      <LicenseGuard allowReadOnly={validation.isDeactivated}>
+                        <LicenseActivation />
+                      </LicenseGuard>
+                    } />
+                  </>
+                )}
+                
+                {/* Super Admin Only Routes - no license restrictions */}
+                {isSuperAdmin && (
+                  <Route path="/system-license-admin" element={<SuperAdminLicenseManagement />} />
+                )}
+                
+                {/* Access Denied for restricted routes */}
+                <Route
+                  path="/system-license-admin"
+                  element={
+                    isSuperAdmin ? (
+                      <SuperAdminLicenseManagement />
+                    ) : (
+                      <div className="min-h-screen bg-gray-50 dark:bg-gray-900 flex items-center justify-center">
+                        <div className="text-center space-y-4 p-8">
+                          <h2 className="text-2xl font-bold text-red-600">Access Denied</h2>
+                          <p className="text-gray-600">
+                            You do not have permission to access this page. Super admin role required.
+                          </p>
+                          <p className="text-sm text-gray-600 mt-2">
+                            Current role: {profile?.role || 'Unknown'}
+                          </p>
                         </div>
-                      )
-                    }
-                  />
-                  
-                  {/* Catch all for other protected routes */}
-                  <Route
-                    path="*"
-                    element={
-                      !canAccessDashboard ? (
-                        <AccessDenied />
-                      ) : (
-                        <NotFound />
-                      )
-                    }
-                  />
-                </Routes>
-              </DashboardLayout>
-            </LicenseGuard>
+                      </div>
+                    )
+                  }
+                />
+                
+                {/* Catch all for other protected routes */}
+                <Route
+                  path="*"
+                  element={
+                    !canAccessDashboard ? (
+                      <AccessDenied />
+                    ) : (
+                      <NotFound />
+                    )
+                  }
+                />
+              </Routes>
+            </DashboardLayout>
           }
         />
       </Routes>
