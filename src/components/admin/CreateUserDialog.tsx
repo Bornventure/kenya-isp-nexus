@@ -33,7 +33,7 @@ const CreateUserDialog: React.FC<CreateUserDialogProps> = ({
     last_name: '',
     phone: '',
     role: 'readonly',
-    isp_company_id: '',
+    isp_company_id: profile?.role === 'isp_admin' ? profile?.isp_company_id || '' : '',
   });
 
   const handleSubmit = (e: React.FormEvent) => {
@@ -46,7 +46,7 @@ const CreateUserDialog: React.FC<CreateUserDialogProps> = ({
       last_name: '',
       phone: '',
       role: 'readonly',
-      isp_company_id: '',
+      isp_company_id: profile?.role === 'isp_admin' ? profile?.isp_company_id || '' : '',
     });
   };
 
@@ -54,23 +54,34 @@ const CreateUserDialog: React.FC<CreateUserDialogProps> = ({
     setFormData(prev => ({ ...prev, [field]: value }));
   };
 
-  // Only super_admin can create users
-  if (profile?.role !== 'super_admin') {
+  // Both super_admin and isp_admin can create users
+  if (profile?.role !== 'super_admin' && profile?.role !== 'isp_admin') {
     return null;
   }
 
-  const availableRoles: { value: SystemUser['role']; label: string }[] = [
-    { value: 'readonly', label: 'Read Only' },
-    { value: 'technician', label: 'Technician' },
-    { value: 'customer_support', label: 'Customer Support' },
-    { value: 'sales_manager', label: 'Sales Manager' },
-    { value: 'billing_admin', label: 'Billing Admin' },
-    { value: 'network_engineer', label: 'Network Engineer' },
-    { value: 'infrastructure_manager', label: 'Infrastructure Manager' },
-    { value: 'hotspot_admin', label: 'Hotspot Admin' },
-    { value: 'isp_admin', label: 'ISP Admin' },
-    // Note: super_admin is not included in the list as it should be created carefully
-  ];
+  // Define available roles based on user type
+  const getAvailableRoles = (): { value: SystemUser['role']; label: string }[] => {
+    const baseRoles = [
+      { value: 'readonly', label: 'Read Only' },
+      { value: 'technician', label: 'Technician' },
+      { value: 'customer_support', label: 'Customer Support' },
+      { value: 'sales_manager', label: 'Sales Manager' },
+      { value: 'billing_admin', label: 'Billing Admin' },
+      { value: 'network_engineer', label: 'Network Engineer' },
+      { value: 'infrastructure_manager', label: 'Infrastructure Manager' },
+      { value: 'hotspot_admin', label: 'Hotspot Admin' },
+    ] as { value: SystemUser['role']; label: string }[];
+
+    // Only super_admin can create isp_admin and super_admin users
+    if (profile?.role === 'super_admin') {
+      baseRoles.push({ value: 'isp_admin', label: 'ISP Admin' });
+      // Note: super_admin creation should be done carefully, not included in regular UI
+    }
+
+    return baseRoles;
+  };
+
+  const availableRoles = getAvailableRoles();
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -150,21 +161,29 @@ const CreateUserDialog: React.FC<CreateUserDialogProps> = ({
             </Select>
           </div>
 
-          <div>
-            <Label htmlFor="company">Company</Label>
-            <Select value={formData.isp_company_id} onValueChange={(value) => handleInputChange('isp_company_id', value)}>
-              <SelectTrigger>
-                <SelectValue placeholder="Select a company" />
-              </SelectTrigger>
-              <SelectContent>
-                {companies?.map((company) => (
-                  <SelectItem key={company.id} value={company.id}>
-                    {company.name}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
+          {profile?.role === 'super_admin' && (
+            <div>
+              <Label htmlFor="company">Company</Label>
+              <Select value={formData.isp_company_id} onValueChange={(value) => handleInputChange('isp_company_id', value)}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Select a company" />
+                </SelectTrigger>
+                <SelectContent>
+                  {companies?.map((company) => (
+                    <SelectItem key={company.id} value={company.id}>
+                      {company.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          )}
+
+          {profile?.role === 'isp_admin' && (
+            <div className="text-sm text-gray-600">
+              Users will be created for your company: <strong>{profile?.isp_companies?.name || 'Your Company'}</strong>
+            </div>
+          )}
 
           <div className="flex justify-end space-x-2 pt-4">
             <Button

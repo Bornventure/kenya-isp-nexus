@@ -19,8 +19,8 @@ const UserManagementHeader: React.FC<UserManagementHeaderProps> = ({
   const { profile } = useAuth();
   const [showCreateDialog, setShowCreateDialog] = useState(false);
 
-  // Only super_admin can create users
-  const canCreateUsers = profile?.role === 'super_admin';
+  // Both super_admin and isp_admin can create users
+  const canCreateUsers = profile?.role === 'super_admin' || profile?.role === 'isp_admin';
 
   const handleCreateUser = (userData: CreateUserData) => {
     onCreateUser(userData);

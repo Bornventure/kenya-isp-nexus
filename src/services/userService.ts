@@ -59,13 +59,20 @@ export const userService = {
   },
 
   async createUser(userData: CreateUserData, userRole: string | undefined, userCompanyId: string | null) {
-    if (userRole !== 'super_admin') {
+    // Both super_admin and isp_admin can create users
+    if (userRole !== 'super_admin' && userRole !== 'isp_admin') {
       throw new Error('Insufficient permissions');
     }
 
     console.log('Creating complete user with auth and profile:', userData);
     
     try {
+      // For isp_admin, ensure they can only create users in their own company
+      let targetCompanyId = userData.isp_company_id;
+      if (userRole === 'isp_admin') {
+        targetCompanyId = userCompanyId; // Force to their own company
+      }
+
       // Call the edge function to create the user with admin privileges
       const { data, error } = await supabase.functions.invoke('create-user-account', {
         body: {
@@ -75,7 +82,8 @@ export const userService = {
           last_name: userData.last_name,
           phone: userData.phone,
           role: userData.role,
-          isp_company_id: userData.isp_company_id || userCompanyId,
+          isp_company_id: targetCompanyId,
+          created_by_role: userRole, // Pass the creator's role for validation
         },
       });
 
