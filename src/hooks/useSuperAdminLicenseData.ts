@@ -1,12 +1,13 @@
 
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
+import { formatKenyanCurrency } from '@/utils/currencyFormat';
 
 export const useSuperAdminLicenseData = () => {
   return useQuery({
     queryKey: ['super-admin-license-data'],
     queryFn: async () => {
-      // Get all ISP companies with their client counts
+      // Get all ISP companies with their client counts and license types
       const { data: companies, error: companiesError } = await supabase
         .from('isp_companies')
         .select(`
@@ -16,22 +17,31 @@ export const useSuperAdminLicenseData = () => {
 
       if (companiesError) throw companiesError;
 
+      // Get license types with pricing
+      const { data: licenseTypes, error: licenseTypesError } = await supabase
+        .from('license_types')
+        .select('name, price, client_limit');
+
+      if (licenseTypesError) throw licenseTypesError;
+
+      // Create pricing lookup
+      const licensePricing: Record<string, number> = {};
+      licenseTypes?.forEach(type => {
+        licensePricing[type.name] = type.price || 0;
+      });
+
       // Process the data
       const totalCompanies = companies?.length || 0;
       const activeCompanies = companies?.filter(c => c.is_active).length || 0;
       
       let totalClients = 0;
       let companiesNearLimit = 0;
+      let totalAnnualRevenue = 0;
+      
       const licenseDistribution: any = {
         starter: { count: 0, totalClients: 0, revenue: 0, avgUsage: 0 },
         professional: { count: 0, totalClients: 0, revenue: 0, avgUsage: 0 },
         enterprise: { count: 0, totalClients: 0, revenue: 0, avgUsage: 0 }
-      };
-
-      const licensePricing = {
-        starter: 29,
-        professional: 99,
-        enterprise: 299
       };
 
       companies?.forEach(company => {
@@ -50,10 +60,21 @@ export const useSuperAdminLicenseData = () => {
         }
 
         const licenseType = company.license_type as keyof typeof licenseDistribution;
+        const annualPrice = licensePricing[licenseType] || 0;
+        
+        // Only count revenue from active companies
+        if (company.is_active) {
+          totalAnnualRevenue += annualPrice;
+        }
+        
         if (licenseDistribution[licenseType]) {
           licenseDistribution[licenseType].count++;
           licenseDistribution[licenseType].totalClients += clientCount;
-          licenseDistribution[licenseType].revenue += licensePricing[licenseType];
+          
+          // Only add to revenue if company is active
+          if (company.is_active) {
+            licenseDistribution[licenseType].revenue += annualPrice;
+          }
         }
       });
 
@@ -78,8 +99,8 @@ export const useSuperAdminLicenseData = () => {
         }
       });
 
-      const monthlyRevenue = Object.values(licenseDistribution)
-        .reduce((sum: number, type: any) => sum + type.revenue, 0);
+      // Calculate monthly revenue (annual / 12)
+      const monthlyRevenue = totalAnnualRevenue / 12;
 
       return {
         totalCompanies,
@@ -89,6 +110,7 @@ export const useSuperAdminLicenseData = () => {
         licenseDistribution,
         revenueMetrics: {
           monthly: monthlyRevenue,
+          annual: totalAnnualRevenue,
           growth: 12 // This could be calculated based on historical data
         }
       };

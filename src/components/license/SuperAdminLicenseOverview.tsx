@@ -3,6 +3,7 @@ import React from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { useSuperAdminLicenseData } from '@/hooks/useSuperAdminLicenseData';
+import { formatKenyanCurrency } from '@/utils/currencyFormat';
 import { 
   Building2, 
   Users, 
@@ -121,7 +122,7 @@ const SuperAdminLicenseOverview = () => {
                   Monthly Revenue
                 </p>
                 <p className="text-3xl font-bold text-gray-900 dark:text-gray-100">
-                  ${revenueMetrics.monthly.toLocaleString()}
+                  {formatKenyanCurrency(revenueMetrics.monthly)}
                 </p>
               </div>
               <TrendingUp className="h-8 w-8 text-purple-500" />
@@ -154,7 +155,7 @@ const SuperAdminLicenseOverview = () => {
                 <div className="space-y-1 text-sm text-gray-600 dark:text-gray-400">
                   <div>Total Clients: {data.totalClients.toLocaleString()}</div>
                   <div>Avg Usage: {data.avgUsage}%</div>
-                  <div>Revenue: ${data.revenue.toLocaleString()}/mo</div>
+                  <div>Annual Revenue: {formatKenyanCurrency(data.revenue)}</div>
                 </div>
               </div>
             ))}

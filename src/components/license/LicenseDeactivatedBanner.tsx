@@ -2,53 +2,49 @@
 import React from 'react';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
-import { ShieldOff, AlertTriangle } from 'lucide-react';
-import { useAuth } from '@/contexts/AuthContext';
-import { useLicenseValidation } from '@/hooks/useLicenseValidation';
+import { AlertTriangle, ExternalLink } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
 
-const LicenseDeactivatedBanner: React.FC = () => {
-  const { profile } = useAuth();
-  const { validation } = useLicenseValidation();
+interface LicenseDeactivatedBannerProps {
+  deactivationReason?: string;
+  deactivatedAt?: string;
+}
 
-  // Don't show for super admin
-  if (profile?.role === 'super_admin') {
-    return null;
-  }
+const LicenseDeactivatedBanner = ({ deactivationReason, deactivatedAt }: LicenseDeactivatedBannerProps) => {
+  const navigate = useNavigate();
 
-  // Only show if license is deactivated
-  if (!validation.isDeactivated) {
-    return null;
-  }
+  const handleActivationRedirect = () => {
+    navigate('/license-activation');
+  };
 
   return (
-    <Alert variant="destructive" className="mb-6 border-red-300 bg-red-50">
-      <ShieldOff className="h-4 w-4" />
-      <AlertTitle className="text-red-800">License Deactivated</AlertTitle>
-      <AlertDescription className="mt-2 text-red-700">
-        <div className="space-y-2">
-          <p>
-            <strong>Your license has been deactivated.</strong>
+    <Alert variant="destructive" className="mb-6">
+      <AlertTriangle className="h-4 w-4" />
+      <AlertTitle>License Deactivated</AlertTitle>
+      <AlertDescription className="mt-2">
+        <p className="mb-2">
+          Your company license has been deactivated and access to system features is restricted.
+        </p>
+        {deactivationReason && (
+          <p className="mb-2">
+            <strong>Reason:</strong> {deactivationReason}
           </p>
-          {validation.deactivationReason && (
-            <p>
-              <span className="font-medium">Reason:</span> {validation.deactivationReason}
-            </p>
-          )}
-          {validation.deactivatedAt && (
-            <p>
-              <span className="font-medium">Deactivated on:</span>{' '}
-              {new Date(validation.deactivatedAt).toLocaleDateString()}
-            </p>
-          )}
-          <p className="text-sm">
-            Most features are now restricted. Please contact your administrator or support team to resolve this issue and reactivate your license.
+        )}
+        {deactivatedAt && (
+          <p className="mb-3">
+            <strong>Deactivated on:</strong> {new Date(deactivatedAt).toLocaleDateString()}
           </p>
-          <div className="flex items-center gap-2 mt-3">
-            <AlertTriangle className="h-4 w-4" />
-            <span className="text-sm font-medium">
-              Service will remain suspended until reactivation
-            </span>
-          </div>
+        )}
+        <div className="flex gap-2 mt-3">
+          <Button 
+            onClick={handleActivationRedirect}
+            size="sm" 
+            variant="outline"
+            className="bg-white text-red-700 border-red-300 hover:bg-red-50"
+          >
+            <ExternalLink className="h-3 w-3 mr-1" />
+            Reactivate License
+          </Button>
         </div>
       </AlertDescription>
     </Alert>
