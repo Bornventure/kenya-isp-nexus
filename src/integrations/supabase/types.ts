@@ -2258,6 +2258,71 @@ export type Database = {
           },
         ]
       }
+      system_settings: {
+        Row: {
+          backup_enabled: boolean | null
+          backup_frequency: string | null
+          company_name: string | null
+          created_at: string | null
+          currency: string | null
+          date_format: string | null
+          email_from_address: string | null
+          id: string
+          isp_company_id: string
+          maintenance_mode: boolean | null
+          notifications_enabled: boolean | null
+          smtp_host: string | null
+          smtp_port: string | null
+          smtp_username: string | null
+          timezone: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          backup_enabled?: boolean | null
+          backup_frequency?: string | null
+          company_name?: string | null
+          created_at?: string | null
+          currency?: string | null
+          date_format?: string | null
+          email_from_address?: string | null
+          id?: string
+          isp_company_id: string
+          maintenance_mode?: boolean | null
+          notifications_enabled?: boolean | null
+          smtp_host?: string | null
+          smtp_port?: string | null
+          smtp_username?: string | null
+          timezone?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          backup_enabled?: boolean | null
+          backup_frequency?: string | null
+          company_name?: string | null
+          created_at?: string | null
+          currency?: string | null
+          date_format?: string | null
+          email_from_address?: string | null
+          id?: string
+          isp_company_id?: string
+          maintenance_mode?: boolean | null
+          notifications_enabled?: boolean | null
+          smtp_host?: string | null
+          smtp_port?: string | null
+          smtp_username?: string | null
+          timezone?: string | null
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "system_settings_isp_company_id_fkey"
+            columns: ["isp_company_id"]
+            isOneToOne: true
+            referencedRelation: "isp_companies"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       ticket_assignments: {
         Row: {
           assigned_at: string
