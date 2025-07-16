@@ -38,7 +38,12 @@ export const useSuperAdminLicenseData = () => {
       let companiesNearLimit = 0;
       let totalAnnualRevenue = 0;
       
-      const licenseDistribution: any = {
+      const licenseDistribution: Record<string, {
+        count: number;
+        totalClients: number;
+        revenue: number;
+        avgUsage: number;
+      }> = {
         starter: { count: 0, totalClients: 0, revenue: 0, avgUsage: 0 },
         professional: { count: 0, totalClients: 0, revenue: 0, avgUsage: 0 },
         enterprise: { count: 0, totalClients: 0, revenue: 0, avgUsage: 0 }
@@ -59,7 +64,7 @@ export const useSuperAdminLicenseData = () => {
           companiesNearLimit++;
         }
 
-        const licenseType = company.license_type as keyof typeof licenseDistribution;
+        const licenseType = company.license_type as string;
         const annualPrice = licensePricing[licenseType] || 0;
         
         // Only count revenue from active companies
