@@ -21,7 +21,7 @@ interface PaymentMethodSetting {
   id: string;
   payment_method: string;
   is_enabled: boolean;
-  disabled_reason?: string;
+  disabled_reason?: string | null;
 }
 
 const PaymentMethodToggle: React.FC = () => {
@@ -51,7 +51,8 @@ const PaymentMethodToggle: React.FC = () => {
 
       if (error) throw error;
 
-      setSettings(data || []);
+      // Type assertion to ensure data matches our expected type
+      setSettings(data as PaymentMethodSetting[] || []);
     } catch (error) {
       console.error('Error fetching payment settings:', error);
       toast({
@@ -82,7 +83,7 @@ const PaymentMethodToggle: React.FC = () => {
       // Update local state
       setSettings(prev => prev.map(setting => 
         setting.payment_method === methodId 
-          ? { ...setting, is_enabled: enabled, disabled_reason: enabled ? undefined : reason }
+          ? { ...setting, is_enabled: enabled, disabled_reason: enabled ? null : reason }
           : setting
       ));
 
@@ -102,9 +103,17 @@ const PaymentMethodToggle: React.FC = () => {
     }
   };
 
-  const getSetting = (methodId: string) => {
-    return settings.find(s => s.payment_method === methodId) || 
-           { payment_method: methodId, is_enabled: true, disabled_reason: '' };
+  const getSetting = (methodId: string): PaymentMethodSetting => {
+    const setting = settings.find(s => s.payment_method === methodId);
+    if (setting) return setting;
+    
+    // Return a default setting if none exists
+    return { 
+      id: '', 
+      payment_method: methodId, 
+      is_enabled: true, 
+      disabled_reason: '' 
+    };
   };
 
   if (loading) {

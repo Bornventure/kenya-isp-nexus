@@ -15,6 +15,12 @@ export interface PaymentAvailabilityResult {
   error?: string;
 }
 
+interface PaymentMethodSetting {
+  payment_method: string;
+  is_enabled: boolean;
+  disabled_reason?: string | null;
+}
+
 class PaymentAvailabilityService {
   async checkAdminSettings(): Promise<Record<string, { enabled: boolean; reason?: string }>> {
     try {
@@ -25,10 +31,10 @@ class PaymentAvailabilityService {
       if (error) throw error;
 
       const settings: Record<string, { enabled: boolean; reason?: string }> = {};
-      data?.forEach(setting => {
+      (data as PaymentMethodSetting[])?.forEach(setting => {
         settings[setting.payment_method] = {
           enabled: setting.is_enabled,
-          reason: setting.disabled_reason
+          reason: setting.disabled_reason || undefined
         };
       });
 

@@ -1971,6 +1971,44 @@ export type Database = {
           },
         ]
       }
+      payment_method_settings: {
+        Row: {
+          created_at: string | null
+          disabled_reason: string | null
+          id: string
+          is_enabled: boolean
+          isp_company_id: string
+          payment_method: string
+          updated_at: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          disabled_reason?: string | null
+          id?: string
+          is_enabled?: boolean
+          isp_company_id: string
+          payment_method: string
+          updated_at?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          disabled_reason?: string | null
+          id?: string
+          is_enabled?: boolean
+          isp_company_id?: string
+          payment_method?: string
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "payment_method_settings_isp_company_id_fkey"
+            columns: ["isp_company_id"]
+            isOneToOne: false
+            referencedRelation: "isp_companies"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       payments: {
         Row: {
           amount: number
