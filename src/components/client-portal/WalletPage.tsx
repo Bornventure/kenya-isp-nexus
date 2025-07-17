@@ -2,25 +2,39 @@
 import React, { useState } from 'react';
 import WalletOverview from './WalletOverview';
 import TransactionHistory from './TransactionHistory';
-import MpesaPaymentForm from './MpesaPaymentForm';
+import PaymentMethodSelector from '@/components/customers/PaymentMethodSelector';
 import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
 import { Plus, ArrowLeft } from 'lucide-react';
+import { useClientAuth } from '@/contexts/ClientAuthContext';
 
 const WalletPage = () => {
   const [showTopUp, setShowTopUp] = useState(false);
-  const [topUpAmount, setTopUpAmount] = useState(100);
+  const [topUpAmount, setTopUpAmount] = useState('');
+  const { client } = useClientAuth();
 
   const handleTopUpClick = () => {
     setShowTopUp(true);
   };
 
-  const handleTopUpSuccess = () => {
+  const handleTopUpSuccess = (paymentData: any) => {
     setShowTopUp(false);
+    setTopUpAmount('');
     // The wallet balance will be updated via the payment success callback
   };
 
   const handleTopUpCancel = () => {
     setShowTopUp(false);
+    setTopUpAmount('');
+  };
+
+  const handleAmountChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const value = e.target.value;
+    // Only allow numbers and decimal points
+    if (value === '' || /^\d*\.?\d*$/.test(value)) {
+      setTopUpAmount(value);
+    }
   };
 
   if (showTopUp) {
@@ -39,11 +53,30 @@ const WalletPage = () => {
           <h1 className="text-2xl font-bold">Top Up Wallet</h1>
         </div>
         
-        <MpesaPaymentForm
-          amount={topUpAmount}
-          onSuccess={handleTopUpSuccess}
-          onCancel={handleTopUpCancel}
-        />
+        <div className="max-w-md mx-auto space-y-4">
+          <div className="space-y-2">
+            <Label htmlFor="topup-amount">Amount (KES)</Label>
+            <Input
+              id="topup-amount"
+              type="number"
+              value={topUpAmount}
+              onChange={handleAmountChange}
+              placeholder="Enter amount"
+              min="1"
+              step="0.01"
+              className="text-center text-lg"
+            />
+          </div>
+          
+          {topUpAmount && parseFloat(topUpAmount) > 0 && (
+            <PaymentMethodSelector
+              clientId={client?.id || ''}
+              amount={parseFloat(topUpAmount)}
+              accountReference="WALLET_TOPUP"
+              onPaymentComplete={handleTopUpSuccess}
+            />
+          )}
+        </div>
       </div>
     );
   }

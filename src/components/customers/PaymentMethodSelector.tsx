@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -85,6 +86,11 @@ const PaymentMethodSelector: React.FC<PaymentMethodSelectorProps> = ({
     }
   };
 
+  const handleDialogClose = () => {
+    setShowPaymentDialog(false);
+    setSelectedMethod('');
+  };
+
   if (loading) {
     return (
       <div className="flex items-center justify-center p-8">
@@ -140,7 +146,7 @@ const PaymentMethodSelector: React.FC<PaymentMethodSelectorProps> = ({
       </div>
 
       {/* Payment Dialog */}
-      <Dialog open={showPaymentDialog} onOpenChange={setShowPaymentDialog}>
+      <Dialog open={showPaymentDialog} onOpenChange={handleDialogClose}>
         <DialogContent className="max-w-md">
           <DialogHeader>
             <DialogTitle>

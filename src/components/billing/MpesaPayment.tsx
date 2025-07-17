@@ -49,7 +49,7 @@ const MpesaPayment: React.FC<MpesaPaymentProps> = ({
   const handlePayment = async () => {
     if (!validateForm()) return;
 
-    console.log('Initiating STK Push for invoice:', invoiceId);
+    console.log('Initiating M-Pesa STK Push:', { accountReference, amount, clientId });
 
     const stkResponse = await initiateSTKPush({
       phoneNumber,
@@ -64,8 +64,10 @@ const MpesaPayment: React.FC<MpesaPaymentProps> = ({
       setCheckoutRequestID(stkResponse.CheckoutRequestID);
       setPaymentStatus('pending');
       
-      // Start payment monitoring using the invoice ID and checkout request ID
-      const paymentId = invoiceId || `payment-${Date.now()}`;
+      // For wallet top-ups, use a different payment ID format
+      const paymentId = accountReference === 'WALLET_TOPUP' 
+        ? `wallet-topup-${Date.now()}` 
+        : invoiceId || `payment-${Date.now()}`;
       
       console.log('Starting payment monitoring for:', {
         paymentId,
@@ -145,116 +147,108 @@ const MpesaPayment: React.FC<MpesaPaymentProps> = ({
   };
 
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle className="flex items-center gap-2">
-          <Smartphone className="h-5 w-5 text-green-600" />
-          M-Pesa Payment
-        </CardTitle>
-      </CardHeader>
-      <CardContent className="space-y-4">
-        <div className="bg-green-50 p-4 rounded-lg">
-          <div className="flex justify-between items-center">
-            <span className="font-medium">Amount to Pay:</span>
-            <span className="text-xl font-bold text-green-600">
-              {formatKenyanCurrency(amount)}
-            </span>
+    <div className="space-y-4">
+      <div className="bg-green-50 p-4 rounded-lg">
+        <div className="flex justify-between items-center">
+          <span className="font-medium">Amount to Pay:</span>
+          <span className="text-xl font-bold text-green-600">
+            {formatKenyanCurrency(amount)}
+          </span>
+        </div>
+        <div className="flex justify-between items-center mt-2">
+          <span className="text-sm text-gray-600">Reference:</span>
+          <span className="text-sm font-medium">{accountReference}</span>
+        </div>
+        {invoiceId && (
+          <div className="flex justify-between items-center mt-1">
+            <span className="text-sm text-gray-600">Invoice ID:</span>
+            <span className="text-sm font-medium">{invoiceId}</span>
           </div>
-          <div className="flex justify-between items-center mt-2">
-            <span className="text-sm text-gray-600">Reference:</span>
-            <span className="text-sm font-medium">{accountReference}</span>
+        )}
+      </div>
+
+      {paymentStatus === 'idle' && (
+        <div className="space-y-4">
+          <div>
+            <Label htmlFor="mpesaNumber">M-Pesa Phone Number</Label>
+            <Input
+              id="mpesaNumber"
+              value={phoneNumber}
+              onChange={(e) => setPhoneNumber(formatMpesaNumber(e.target.value))}
+              placeholder="e.g., +254712345678"
+              disabled={isLoading}
+            />
+            {errors.phoneNumber && (
+              <p className="text-sm text-red-600 mt-1">{errors.phoneNumber}</p>
+            )}
           </div>
-          {invoiceId && (
-            <div className="flex justify-between items-center mt-1">
-              <span className="text-sm text-gray-600">Invoice ID:</span>
-              <span className="text-sm font-medium">{invoiceId}</span>
+
+          <Button 
+            onClick={handlePayment} 
+            disabled={isLoading || !phoneNumber}
+            className="w-full bg-green-600 hover:bg-green-700"
+          >
+            {isLoading ? 'Initiating Payment...' : 'Pay with M-Pesa'}
+          </Button>
+        </div>
+      )}
+
+      {paymentStatus !== 'idle' && (
+        <div className="space-y-4">
+          <div className="text-center">
+            <Badge variant={paymentStatus === 'success' ? 'default' : 'secondary'}>
+              {getStatusDisplay()}
+            </Badge>
+          </div>
+
+          {paymentStatus === 'pending' && (
+            <div className="text-center text-sm text-gray-600">
+              <p>Check your phone for the M-Pesa payment prompt.</p>
+              <p>Enter your M-Pesa PIN to complete the payment.</p>
+              <p className="text-xs mt-2 text-blue-600">
+                Payment processing may take a few seconds...
+              </p>
+            </div>
+          )}
+
+          {paymentStatus === 'success' && (
+            <div className="text-center">
+              <div className="text-sm text-green-600 mb-3">
+                <p>✅ Payment processed successfully!</p>
+                <p>Your account has been updated.</p>
+              </div>
+              <Button 
+                variant="outline" 
+                onClick={() => {
+                  setPaymentStatus('idle');
+                  setPhoneNumber('');
+                  setCheckoutRequestID('');
+                }}
+              >
+                Make Another Payment
+              </Button>
+            </div>
+          )}
+
+          {paymentStatus === 'failed' && (
+            <div className="text-center">
+              <div className="text-sm text-red-600 mb-3">
+                <p>Payment was not completed successfully.</p>
+                <p>Please try again or contact support.</p>
+              </div>
+              <Button 
+                variant="outline" 
+                onClick={() => {
+                  setPaymentStatus('idle');
+                }}
+              >
+                Try Again
+              </Button>
             </div>
           )}
         </div>
-
-        {paymentStatus === 'idle' && (
-          <div className="space-y-4">
-            <div>
-              <Label htmlFor="mpesaNumber">M-Pesa Phone Number</Label>
-              <Input
-                id="mpesaNumber"
-                value={phoneNumber}
-                onChange={(e) => setPhoneNumber(formatMpesaNumber(e.target.value))}
-                placeholder="e.g., +254712345678"
-                disabled={isLoading}
-              />
-              {errors.phoneNumber && (
-                <p className="text-sm text-red-600 mt-1">{errors.phoneNumber}</p>
-              )}
-            </div>
-
-            <Button 
-              onClick={handlePayment} 
-              disabled={isLoading || !phoneNumber}
-              className="w-full bg-green-600 hover:bg-green-700"
-            >
-              {isLoading ? 'Initiating Payment...' : 'Pay with M-Pesa'}
-            </Button>
-          </div>
-        )}
-
-        {paymentStatus !== 'idle' && (
-          <div className="space-y-4">
-            <div className="text-center">
-              <Badge variant={paymentStatus === 'success' ? 'default' : 'secondary'}>
-                {getStatusDisplay()}
-              </Badge>
-            </div>
-
-            {paymentStatus === 'pending' && (
-              <div className="text-center text-sm text-gray-600">
-                <p>Check your phone for the M-Pesa payment prompt.</p>
-                <p>Enter your M-Pesa PIN to complete the payment.</p>
-                <p className="text-xs mt-2 text-blue-600">
-                  Payment processing may take a few seconds...
-                </p>
-              </div>
-            )}
-
-            {paymentStatus === 'success' && (
-              <div className="text-center">
-                <div className="text-sm text-green-600 mb-3">
-                  <p>✅ Payment processed successfully!</p>
-                  <p>Your account has been updated.</p>
-                </div>
-                <Button 
-                  variant="outline" 
-                  onClick={() => {
-                    setPaymentStatus('idle');
-                    setPhoneNumber('');
-                    setCheckoutRequestID('');
-                  }}
-                >
-                  Make Another Payment
-                </Button>
-              </div>
-            )}
-
-            {paymentStatus === 'failed' && (
-              <div className="text-center">
-                <div className="text-sm text-red-600 mb-3">
-                  <p>Payment was not completed successfully.</p>
-                  <p>Please try again or contact support.</p>
-                </div>
-                <Button 
-                  variant="outline" 
-                  onClick={() => {
-                    setPaymentStatus('idle');
-                  }}
-                >
-                  Try Again
-                </Button>
-              </div>
-            )}
-          </div>
-        )}
-      </CardContent>
-    </Card>
+      )}
+    </div>
   );
 };
 
