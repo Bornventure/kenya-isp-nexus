@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -10,6 +9,7 @@ import {
 } from '@/utils/kenyanPayments';
 import { formatKenyanCurrency } from '@/utils/kenyanValidation';
 import MpesaPayment from './MpesaPayment';
+import FamilyBankPayment from './FamilyBankPayment';
 import { Smartphone, Building2, CreditCard } from 'lucide-react';
 
 interface PaymentProviderSelectorProps {
@@ -131,7 +131,19 @@ const PaymentProviderSelector: React.FC<PaymentProviderSelectorProps> = ({
         </div>
       )}
 
-      {selectedProvider && selectedProvider.id !== 'mpesa' && (
+      {selectedProvider && selectedProvider.id === 'family_bank' && (
+        <div className="border-t pt-6">
+          <FamilyBankPayment
+            clientId={clientId}
+            amount={amount + calculatePaymentFees(selectedProvider, amount)}
+            invoiceId={invoiceId}
+            accountReference={accountReference}
+            onPaymentComplete={onPaymentComplete}
+          />
+        </div>
+      )}
+
+      {selectedProvider && selectedProvider.id !== 'mpesa' && selectedProvider.id !== 'family_bank' && (
         <div className="border-t pt-6">
           <Card>
             <CardHeader>

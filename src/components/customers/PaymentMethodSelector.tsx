@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -7,6 +6,7 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } f
 import { Smartphone, CreditCard, Building2, AlertCircle, CheckCircle } from 'lucide-react';
 import { paymentAvailabilityService, PaymentMethodAvailability } from '@/services/paymentAvailabilityService';
 import MpesaPayment from '@/components/billing/MpesaPayment';
+import FamilyBankPayment from '@/components/billing/FamilyBankPayment';
 
 interface PaymentMethodSelectorProps {
   clientId: string;
@@ -49,6 +49,7 @@ const PaymentMethodSelector: React.FC<PaymentMethodSelectorProps> = ({
   const getMethodIcon = (method: string) => {
     switch (method) {
       case 'mpesa': return <Smartphone className="h-5 w-5 text-green-600" />;
+      case 'family_bank': return <Smartphone className="h-5 w-5 text-purple-600" />;
       case 'stripe': return <CreditCard className="h-5 w-5 text-blue-600" />;
       case 'paypal': return <CreditCard className="h-5 w-5 text-blue-800" />;
       case 'pesapal': return <Building2 className="h-5 w-5 text-orange-600" />;
@@ -59,6 +60,7 @@ const PaymentMethodSelector: React.FC<PaymentMethodSelectorProps> = ({
   const getMethodDisplayName = (method: string) => {
     switch (method) {
       case 'mpesa': return 'M-Pesa';
+      case 'family_bank': return 'Family Bank';
       case 'stripe': return 'Stripe';
       case 'paypal': return 'PayPal';
       case 'pesapal': return 'PesaPal';
@@ -70,7 +72,7 @@ const PaymentMethodSelector: React.FC<PaymentMethodSelectorProps> = ({
     if (!method.available) return;
     
     setSelectedMethod(method.method);
-    if (method.method === 'mpesa') {
+    if (method.method === 'mpesa' || method.method === 'family_bank') {
       setShowPaymentDialog(true);
     }
   };
@@ -137,23 +139,35 @@ const PaymentMethodSelector: React.FC<PaymentMethodSelectorProps> = ({
         </div>
       </div>
 
-      {/* M-Pesa Payment Dialog */}
+      {/* Payment Dialog */}
       <Dialog open={showPaymentDialog} onOpenChange={setShowPaymentDialog}>
         <DialogContent className="max-w-md">
           <DialogHeader>
-            <DialogTitle>M-Pesa Payment</DialogTitle>
+            <DialogTitle>
+              {selectedMethod === 'mpesa' ? 'M-Pesa Payment' : 'Family Bank Payment'}
+            </DialogTitle>
             <DialogDescription>
-              Complete your payment using M-Pesa mobile money service.
+              Complete your payment using {selectedMethod === 'mpesa' ? 'M-Pesa' : 'Family Bank'} mobile money service.
             </DialogDescription>
           </DialogHeader>
           
-          <MpesaPayment
-            clientId={clientId}
-            amount={amount}
-            invoiceId={invoiceId}
-            accountReference={accountReference}
-            onPaymentComplete={handlePaymentComplete}
-          />
+          {selectedMethod === 'mpesa' ? (
+            <MpesaPayment
+              clientId={clientId}
+              amount={amount}
+              invoiceId={invoiceId}
+              accountReference={accountReference}
+              onPaymentComplete={handlePaymentComplete}
+            />
+          ) : selectedMethod === 'family_bank' ? (
+            <FamilyBankPayment
+              clientId={clientId}
+              amount={amount}
+              invoiceId={invoiceId}
+              accountReference={accountReference}
+              onPaymentComplete={handlePaymentComplete}
+            />
+          ) : null}
         </DialogContent>
       </Dialog>
     </div>

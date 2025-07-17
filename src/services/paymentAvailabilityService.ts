@@ -1,4 +1,3 @@
-
 import { supabase } from '@/integrations/supabase/client';
 
 export interface PaymentMethodAvailability {
@@ -51,6 +50,44 @@ const checkMpesaAvailability = async (): Promise<PaymentMethodAvailability> => {
       available: true, // Function exists but has issues
       configured: false,
       error: `M-Pesa function error: ${error.message}`
+    };
+  }
+};
+
+const checkFamilyBankAvailability = async (): Promise<PaymentMethodAvailability> => {
+  try {
+    const { data, error } = await supabase.functions.invoke('family-bank-stk-push', {
+      body: {
+        phone: '+254700000000', // Test phone number
+        amount: 1, // Minimal test amount
+        accountRef: 'test',
+        clientId: 'test',
+        invoiceId: null,
+        ispCompanyId: 'test'
+      }
+    });
+
+    return {
+      method: 'family_bank',
+      available: true,
+      configured: error ? false : true,
+      error: error ? `Family Bank function exists but has configuration issues: ${error.message}` : undefined
+    };
+  } catch (error: any) {
+    if (error.message?.includes('404') || error.message?.includes('not found')) {
+      return {
+        method: 'family_bank',
+        available: false,
+        configured: false,
+        error: 'Family Bank edge function not found (404 error)'
+      };
+    }
+    
+    return {
+      method: 'family_bank',
+      available: true,
+      configured: false,
+      error: `Family Bank function error: ${error.message}`
     };
   }
 };
@@ -125,14 +162,15 @@ const checkAllPaymentMethods = async (): Promise<PaymentAvailabilityResult> => {
   try {
     console.log('Checking payment methods availability...');
     
-    const [mpesa, stripe, paypal, pesapal] = await Promise.all([
+    const [mpesa, familyBank, stripe, paypal, pesapal] = await Promise.all([
       checkMpesaAvailability(),
+      checkFamilyBankAvailability(),
       checkStripeAvailability(),
       checkPaypalAvailability(),
       checkPesapalAvailability()
     ]);
 
-    const methods = [mpesa, stripe, paypal, pesapal];
+    const methods = [mpesa, familyBank, stripe, paypal, pesapal];
     const availableCount = methods.filter(method => method.available).length;
 
     console.log('Payment methods availability:', {
@@ -159,6 +197,7 @@ const checkAllPaymentMethods = async (): Promise<PaymentAvailabilityResult> => {
 export const paymentAvailabilityService = {
   checkAllPaymentMethods,
   checkMpesaAvailability,
+  checkFamilyBankAvailability,
   checkStripeAvailability,
   checkPaypalAvailability,
   checkPesapalAvailability

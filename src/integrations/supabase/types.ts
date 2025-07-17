@@ -740,6 +740,156 @@ export type Database = {
           },
         ]
       }
+      family_bank_payments: {
+        Row: {
+          bill_ref_number: string | null
+          business_shortcode: string | null
+          callback_raw: Json | null
+          client_id: string | null
+          created_at: string | null
+          first_name: string | null
+          id: string
+          invoice_number: string | null
+          isp_company_id: string | null
+          kyc_info: string | null
+          last_name: string | null
+          middle_name: string | null
+          msisdn: string | null
+          org_account_balance: number | null
+          status: Database["public"]["Enums"]["payment_status"] | null
+          third_party_trans_id: string | null
+          trans_amount: number
+          trans_id: string
+          trans_time: string | null
+          transaction_type: string | null
+        }
+        Insert: {
+          bill_ref_number?: string | null
+          business_shortcode?: string | null
+          callback_raw?: Json | null
+          client_id?: string | null
+          created_at?: string | null
+          first_name?: string | null
+          id?: string
+          invoice_number?: string | null
+          isp_company_id?: string | null
+          kyc_info?: string | null
+          last_name?: string | null
+          middle_name?: string | null
+          msisdn?: string | null
+          org_account_balance?: number | null
+          status?: Database["public"]["Enums"]["payment_status"] | null
+          third_party_trans_id?: string | null
+          trans_amount: number
+          trans_id: string
+          trans_time?: string | null
+          transaction_type?: string | null
+        }
+        Update: {
+          bill_ref_number?: string | null
+          business_shortcode?: string | null
+          callback_raw?: Json | null
+          client_id?: string | null
+          created_at?: string | null
+          first_name?: string | null
+          id?: string
+          invoice_number?: string | null
+          isp_company_id?: string | null
+          kyc_info?: string | null
+          last_name?: string | null
+          middle_name?: string | null
+          msisdn?: string | null
+          org_account_balance?: number | null
+          status?: Database["public"]["Enums"]["payment_status"] | null
+          third_party_trans_id?: string | null
+          trans_amount?: number
+          trans_id?: string
+          trans_time?: string | null
+          transaction_type?: string | null
+        }
+        Relationships: []
+      }
+      family_bank_stk_callbacks: {
+        Row: {
+          callback_raw: Json
+          created_at: string | null
+          id: string
+          processed: boolean | null
+        }
+        Insert: {
+          callback_raw: Json
+          created_at?: string | null
+          id?: string
+          processed?: boolean | null
+        }
+        Update: {
+          callback_raw?: Json
+          created_at?: string | null
+          id?: string
+          processed?: boolean | null
+        }
+        Relationships: []
+      }
+      family_bank_stk_requests: {
+        Row: {
+          account_reference: string
+          amount: number
+          callback_raw: Json | null
+          checkout_request_id: string | null
+          client_id: string | null
+          created_at: string | null
+          customer_message: string | null
+          id: string
+          invoice_id: string | null
+          isp_company_id: string | null
+          merchant_request_id: string | null
+          phone_number: string
+          response_description: string | null
+          status: Database["public"]["Enums"]["stk_status"] | null
+          status_code: string | null
+          third_party_trans_id: string
+          transaction_desc: string | null
+        }
+        Insert: {
+          account_reference: string
+          amount: number
+          callback_raw?: Json | null
+          checkout_request_id?: string | null
+          client_id?: string | null
+          created_at?: string | null
+          customer_message?: string | null
+          id?: string
+          invoice_id?: string | null
+          isp_company_id?: string | null
+          merchant_request_id?: string | null
+          phone_number: string
+          response_description?: string | null
+          status?: Database["public"]["Enums"]["stk_status"] | null
+          status_code?: string | null
+          third_party_trans_id: string
+          transaction_desc?: string | null
+        }
+        Update: {
+          account_reference?: string
+          amount?: number
+          callback_raw?: Json | null
+          checkout_request_id?: string | null
+          client_id?: string | null
+          created_at?: string | null
+          customer_message?: string | null
+          id?: string
+          invoice_id?: string | null
+          isp_company_id?: string | null
+          merchant_request_id?: string | null
+          phone_number?: string
+          response_description?: string | null
+          status?: Database["public"]["Enums"]["stk_status"] | null
+          status_code?: string | null
+          third_party_trans_id?: string
+          transaction_desc?: string | null
+        }
+        Relationships: []
+      }
       hotspot_analytics: {
         Row: {
           avg_session_duration_minutes: number | null
@@ -2584,6 +2734,8 @@ export type Database = {
       connection_type: "fiber" | "wireless" | "satellite" | "dsl"
       license_type: "starter" | "professional" | "enterprise" | "unlimited"
       payment_method: "mpesa" | "bank" | "cash"
+      payment_status: "received" | "verified" | "reversed"
+      stk_status: "pending" | "success" | "failed" | "cancelled"
       ticket_priority: "low" | "medium" | "high" | "urgent"
       ticket_status: "open" | "in_progress" | "resolved" | "closed"
       ticket_type:
@@ -2739,6 +2891,8 @@ export const Constants = {
       connection_type: ["fiber", "wireless", "satellite", "dsl"],
       license_type: ["starter", "professional", "enterprise", "unlimited"],
       payment_method: ["mpesa", "bank", "cash"],
+      payment_status: ["received", "verified", "reversed"],
+      stk_status: ["pending", "success", "failed", "cancelled"],
       ticket_priority: ["low", "medium", "high", "urgent"],
       ticket_status: ["open", "in_progress", "resolved", "closed"],
       ticket_type: [

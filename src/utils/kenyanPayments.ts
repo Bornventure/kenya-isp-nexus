@@ -1,4 +1,3 @@
-
 export interface PaymentProvider {
   id: string;
   name: string;
@@ -45,6 +44,17 @@ export const kenyanPaymentProviders: PaymentProvider[] = [
     fees: {
       percentage: 0,
       fixed: 0,
+    }
+  },
+  {
+    id: 'family_bank',
+    name: 'Family Bank',
+    type: 'mobile_money',
+    supported_countries: ['KE'],
+    currencies: ['KES'],
+    fees: {
+      percentage: 0,
+      fixed: 0, // Customer pays fees
     }
   },
   {
@@ -141,6 +151,8 @@ export const formatPaymentReference = (provider: string, reference: string): str
       return `AM${reference}`;
     case 'tkash':
       return `TK${reference}`;
+    case 'family_bank':
+      return `FBL${reference}`;
     default:
       return reference;
   }
@@ -157,6 +169,9 @@ export const validatePaymentReference = (provider: string, reference: string): b
     case 'tkash':
       // T-Kash transaction ID format
       return /^[A-Z0-9]{8,12}$/.test(reference);
+    case 'family_bank':
+      // Family Bank transaction ID format
+      return /^[A-Z0-9]{8,15}$/.test(reference);
     default:
       return reference.length > 0;
   }
