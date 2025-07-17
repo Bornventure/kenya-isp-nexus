@@ -112,6 +112,9 @@ const AppContent: React.FC = () => {
         {/* Client Portal Route */}
         <Route path="/client-portal/*" element={<ClientPortal />} />
         
+        {/* Portal redirect route - redirects /portal to /client-portal */}
+        <Route path="/portal" element={<Navigate to="/client-portal" replace />} />
+        
         {/* Protected Dashboard Routes */}
         <Route
           path="/*"
