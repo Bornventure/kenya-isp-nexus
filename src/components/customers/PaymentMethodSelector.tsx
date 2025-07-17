@@ -4,7 +4,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
-import { Smartphone, CreditCard, Building2, AlertCircle, CheckCircle } from 'lucide-react';
+import { Smartphone, CreditCard, Building2, AlertCircle, CheckCircle, Shield } from 'lucide-react';
 import { paymentAvailabilityService, PaymentMethodAvailability } from '@/services/paymentAvailabilityService';
 import MpesaPayment from '@/components/billing/MpesaPayment';
 import FamilyBankPayment from '@/components/billing/FamilyBankPayment';
@@ -111,9 +111,9 @@ const PaymentMethodSelector: React.FC<PaymentMethodSelectorProps> = ({
           {paymentMethods.map((method) => (
             <Card 
               key={method.method}
-              className={`cursor-pointer transition-all ${
+              className={`transition-all ${
                 method.available 
-                  ? 'hover:shadow-md hover:border-blue-300' 
+                  ? 'hover:shadow-md hover:border-blue-300 cursor-pointer' 
                   : 'opacity-60 cursor-not-allowed'
               } ${selectedMethod === method.method ? 'ring-2 ring-blue-500 bg-blue-50' : ''}`}
               onClick={() => handleMethodSelect(method)}
@@ -129,6 +129,11 @@ const PaymentMethodSelector: React.FC<PaymentMethodSelectorProps> = ({
                       <CheckCircle className="h-3 w-3 mr-1" />
                       Available
                     </Badge>
+                  ) : method.adminDisabled ? (
+                    <Badge variant="secondary" className="bg-orange-100 text-orange-800">
+                      <Shield className="h-3 w-3 mr-1" />
+                      Disabled
+                    </Badge>
                   ) : (
                     <Badge variant="secondary" className="bg-red-100 text-red-800">
                       <AlertCircle className="h-3 w-3 mr-1" />
@@ -138,6 +143,15 @@ const PaymentMethodSelector: React.FC<PaymentMethodSelectorProps> = ({
                 </div>
                 {method.error && (
                   <p className="text-sm text-gray-500">{method.error}</p>
+                )}
+                {method.adminDisabled && method.disabledReason && (
+                  <div className="mt-2 p-2 bg-orange-50 border border-orange-200 rounded text-sm">
+                    <div className="flex items-center gap-1 text-orange-700 mb-1">
+                      <Shield className="h-3 w-3" />
+                      <span className="font-medium">Temporarily Unavailable</span>
+                    </div>
+                    <p className="text-orange-600">{method.disabledReason}</p>
+                  </div>
                 )}
               </CardContent>
             </Card>

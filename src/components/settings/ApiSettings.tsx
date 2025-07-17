@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -10,6 +9,7 @@ import { Badge } from '@/components/ui/badge';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
+import PaymentMethodToggle from './PaymentMethodToggle';
 import { 
   CreditCard, 
   MessageSquare, 
@@ -18,7 +18,8 @@ import {
   Shield,
   AlertCircle,
   CheckCircle,
-  Loader2
+  Loader2,
+  Settings
 } from 'lucide-react';
 
 interface MpesaSettings {
@@ -221,10 +222,14 @@ const ApiSettings: React.FC = () => {
       </div>
 
       <Tabs defaultValue="mpesa" className="space-y-6">
-        <TabsList className="grid w-full grid-cols-3">
+        <TabsList className="grid w-full grid-cols-4">
           <TabsTrigger value="mpesa" className="flex items-center gap-2">
             <CreditCard className="h-4 w-4" />
             M-Pesa
+          </TabsTrigger>
+          <TabsTrigger value="payments" className="flex items-center gap-2">
+            <Settings className="h-4 w-4" />
+            Payment Controls
           </TabsTrigger>
           <TabsTrigger value="notifications" className="flex items-center gap-2">
             <MessageSquare className="h-4 w-4" />
@@ -335,6 +340,11 @@ const ApiSettings: React.FC = () => {
               </div>
             </CardContent>
           </Card>
+        </TabsContent>
+
+        {/* Payment Method Controls */}
+        <TabsContent value="payments">
+          <PaymentMethodToggle />
         </TabsContent>
 
         {/* Notification Settings */}

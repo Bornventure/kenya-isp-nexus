@@ -5,6 +5,8 @@ export interface PaymentMethodAvailability {
   method: string;
   available: boolean;
   error?: string;
+  adminDisabled?: boolean;
+  disabledReason?: string;
 }
 
 export interface PaymentAvailabilityResult {
@@ -14,9 +16,43 @@ export interface PaymentAvailabilityResult {
 }
 
 class PaymentAvailabilityService {
-  async checkMpesaAvailability(): Promise<PaymentMethodAvailability> {
+  async checkAdminSettings(): Promise<Record<string, { enabled: boolean; reason?: string }>> {
     try {
-      // Check if M-Pesa is configured by testing with minimal parameters
+      const { data, error } = await supabase
+        .from('payment_method_settings')
+        .select('payment_method, is_enabled, disabled_reason');
+
+      if (error) throw error;
+
+      const settings: Record<string, { enabled: boolean; reason?: string }> = {};
+      data?.forEach(setting => {
+        settings[setting.payment_method] = {
+          enabled: setting.is_enabled,
+          reason: setting.disabled_reason
+        };
+      });
+
+      return settings;
+    } catch (error) {
+      console.error('Error fetching admin payment settings:', error);
+      return {};
+    }
+  }
+
+  async checkMpesaAvailability(): Promise<PaymentMethodAvailability> {
+    const adminSettings = await this.checkAdminSettings();
+    const mpesaSettings = adminSettings['mpesa'];
+
+    if (mpesaSettings && !mpesaSettings.enabled) {
+      return {
+        method: 'mpesa',
+        available: false,
+        adminDisabled: true,
+        disabledReason: mpesaSettings.reason || 'Payment method temporarily disabled'
+      };
+    }
+
+    try {
       const { data, error } = await supabase.functions.invoke('mpesa-stk-push', {
         body: {
           phone: '254700000000',
@@ -26,7 +62,6 @@ class PaymentAvailabilityService {
         }
       });
 
-      // If we get a structured response (even if it's an error), M-Pesa is available
       if (data || (error && error.message)) {
         return {
           method: 'mpesa',
@@ -49,8 +84,19 @@ class PaymentAvailabilityService {
   }
 
   async checkFamilyBankAvailability(): Promise<PaymentMethodAvailability> {
+    const adminSettings = await this.checkAdminSettings();
+    const familyBankSettings = adminSettings['family_bank'];
+
+    if (familyBankSettings && !familyBankSettings.enabled) {
+      return {
+        method: 'family_bank',
+        available: false,
+        adminDisabled: true,
+        disabledReason: familyBankSettings.reason || 'Payment method temporarily disabled'
+      };
+    }
+
     try {
-      // Check if Family Bank is configured by testing with minimal parameters
       const { data, error } = await supabase.functions.invoke('family-bank-stk-push', {
         body: {
           phone: '254700000000',
@@ -62,7 +108,6 @@ class PaymentAvailabilityService {
         }
       });
 
-      // If we get a structured response (even if it's an error), Family Bank is available
       if (data || (error && error.message)) {
         return {
           method: 'family_bank',
@@ -85,7 +130,6 @@ class PaymentAvailabilityService {
   }
 
   async checkStripeAvailability(): Promise<PaymentMethodAvailability> {
-    // Stripe is not implemented yet
     return {
       method: 'stripe',
       available: false,
@@ -94,7 +138,6 @@ class PaymentAvailabilityService {
   }
 
   async checkPayPalAvailability(): Promise<PaymentMethodAvailability> {
-    // PayPal is not implemented yet
     return {
       method: 'paypal',
       available: false,
@@ -103,7 +146,6 @@ class PaymentAvailabilityService {
   }
 
   async checkPesaPalAvailability(): Promise<PaymentMethodAvailability> {
-    // PesaPal is not implemented yet
     return {
       method: 'pesapal',
       available: false,
