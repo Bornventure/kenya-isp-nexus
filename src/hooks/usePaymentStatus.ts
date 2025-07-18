@@ -31,7 +31,7 @@ export const usePaymentStatus = () => {
       try {
         const { data, error } = await supabase.functions.invoke('check-payment-status', {
           body: { 
-            checkout_request_id: checkoutRequestId,
+            checkoutRequestId: checkoutRequestId, // Use camelCase to match the function expectation
             invoice_id: invoiceId
           }
         });
