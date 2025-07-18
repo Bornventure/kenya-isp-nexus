@@ -49,7 +49,10 @@ const PaymentMethodToggle: React.FC = () => {
         .select('*')
         .eq('isp_company_id', profile?.isp_company_id);
 
-      if (error) throw error;
+      if (error) {
+        console.error('Error fetching payment settings:', error);
+        throw error;
+      }
 
       // Type assertion to ensure data matches our expected type
       setSettings(data as PaymentMethodSetting[] || []);
@@ -68,24 +71,81 @@ const PaymentMethodToggle: React.FC = () => {
   const updatePaymentMethod = async (methodId: string, enabled: boolean, reason?: string) => {
     setSaving(true);
     try {
-      const { error } = await supabase
+      // First, try to update existing record
+      const { data: existingData, error: selectError } = await supabase
         .from('payment_method_settings')
-        .upsert({
-          isp_company_id: profile?.isp_company_id,
-          payment_method: methodId,
-          is_enabled: enabled,
-          disabled_reason: enabled ? null : reason,
-          updated_at: new Date().toISOString(),
-        });
+        .select('id')
+        .eq('isp_company_id', profile?.isp_company_id)
+        .eq('payment_method', methodId)
+        .maybeSingle();
 
-      if (error) throw error;
+      if (selectError && selectError.code !== 'PGRST116') {
+        throw selectError;
+      }
+
+      let result;
+      if (existingData) {
+        // Update existing record
+        result = await supabase
+          .from('payment_method_settings')
+          .update({
+            is_enabled: enabled,
+            disabled_reason: enabled ? null : reason,
+            updated_at: new Date().toISOString(),
+          })
+          .eq('id', existingData.id);
+      } else {
+        // Insert new record
+        result = await supabase
+          .from('payment_method_settings')
+          .insert({
+            isp_company_id: profile?.isp_company_id,
+            payment_method: methodId,
+            is_enabled: enabled,
+            disabled_reason: enabled ? null : reason,
+          });
+      }
+
+      if (result.error) {
+        // Handle duplicate key error gracefully
+        if (result.error.code === '23505') {
+          console.log('Record already exists, attempting update instead');
+          // Try updating again in case of race condition
+          const updateResult = await supabase
+            .from('payment_method_settings')
+            .update({
+              is_enabled: enabled,
+              disabled_reason: enabled ? null : reason,
+              updated_at: new Date().toISOString(),
+            })
+            .eq('isp_company_id', profile?.isp_company_id)
+            .eq('payment_method', methodId);
+
+          if (updateResult.error) throw updateResult.error;
+        } else {
+          throw result.error;
+        }
+      }
 
       // Update local state
-      setSettings(prev => prev.map(setting => 
-        setting.payment_method === methodId 
-          ? { ...setting, is_enabled: enabled, disabled_reason: enabled ? null : reason }
-          : setting
-      ));
+      setSettings(prev => {
+        const existingSetting = prev.find(s => s.payment_method === methodId);
+        if (existingSetting) {
+          return prev.map(setting => 
+            setting.payment_method === methodId 
+              ? { ...setting, is_enabled: enabled, disabled_reason: enabled ? null : reason }
+              : setting
+          );
+        } else {
+          // Add new setting to local state
+          return [...prev, {
+            id: '', // Will be updated on next fetch
+            payment_method: methodId,
+            is_enabled: enabled,
+            disabled_reason: enabled ? null : reason
+          }];
+        }
+      });
 
       toast({
         title: "Success",
