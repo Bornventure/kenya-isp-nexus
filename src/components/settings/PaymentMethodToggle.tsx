@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Switch } from '@/components/ui/switch';
@@ -43,6 +44,7 @@ const PaymentMethodToggle: React.FC = () => {
 
   const fetchPaymentSettings = async () => {
     try {
+      console.log('Fetching payment settings for company:', profile?.isp_company_id);
       const { data, error } = await supabase
         .from('payment_method_settings')
         .select('*')
@@ -53,6 +55,7 @@ const PaymentMethodToggle: React.FC = () => {
         throw error;
       }
 
+      console.log('Payment settings fetched:', data);
       setSettings(data as PaymentMethodSetting[] || []);
     } catch (error) {
       console.error('Error fetching payment settings:', error);
@@ -69,6 +72,8 @@ const PaymentMethodToggle: React.FC = () => {
   const updatePaymentMethod = async (methodId: string, enabled: boolean, reason?: string) => {
     setSaving(true);
     try {
+      console.log('Updating payment method:', methodId, { enabled, reason });
+      
       const { data: existingData, error: selectError } = await supabase
         .from('payment_method_settings')
         .select('id')
@@ -120,6 +125,7 @@ const PaymentMethodToggle: React.FC = () => {
         }
       }
 
+      // Update local state
       setSettings(prev => {
         const existingSetting = prev.find(s => s.payment_method === methodId);
         if (existingSetting) {
@@ -138,10 +144,14 @@ const PaymentMethodToggle: React.FC = () => {
         }
       });
 
+      console.log('Payment method updated successfully');
       toast({
         title: "Success",
         description: `${paymentMethods.find(m => m.id === methodId)?.name} payment method updated`,
       });
+
+      // Refresh the settings to ensure we have the latest state
+      await fetchPaymentSettings();
     } catch (error) {
       console.error('Error updating payment method:', error);
       toast({
@@ -232,12 +242,15 @@ const PaymentMethodCard: React.FC<PaymentMethodCardProps> = ({
   }, [setting]);
 
   const handleToggle = async (enabled: boolean) => {
-    setLocalEnabled(enabled);
-    
     if (enabled) {
+      // When enabling, immediately update and close reason input
+      setLocalEnabled(true);
       setShowReasonInput(false);
+      setReason('');
       await onUpdate(method.id, true, '');
     } else {
+      // When disabling, show reason input
+      setLocalEnabled(false);
       setShowReasonInput(true);
     }
   };
