@@ -13,15 +13,12 @@ export const useAutoRenewal = () => {
 
     const checkAndRenewSubscription = async () => {
       try {
-        // Get current client data
-        const { data: currentClient, error } = await supabase
-          .from('clients')
-          .select('*')
-          .eq('id', client.id)
-          .single();
+        // Use the client data from context instead of fetching from database
+        // This avoids RLS policy issues in the client portal
+        const currentClient = client;
 
-        if (error || !currentClient) {
-          console.error('Error fetching client data:', error);
+        if (!currentClient) {
+          console.log('No client data available for auto-renewal check');
           return;
         }
 
@@ -32,19 +29,16 @@ export const useAutoRenewal = () => {
         if (walletBalance >= monthlyRate) {
           // Calculate new subscription dates
           const now = new Date();
-          const subscriptionEndDate = currentClient.subscription_type === 'weekly' 
-            ? new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000)
-            : new Date(now.getTime() + 29 * 24 * 60 * 60 * 1000);
-
-          // Check if renewal is needed (subscription ends within 1 day or has expired)
           const currentEndDate = currentClient.subscription_end_date ? new Date(currentClient.subscription_end_date) : null;
           const needsRenewal = !currentEndDate || currentEndDate <= new Date(now.getTime() + 24 * 60 * 60 * 1000);
 
           if (needsRenewal) {
-            // Call the renewal function
+            console.log('Attempting automatic renewal for client:', currentClient.name);
+            
+            // Call the renewal function using the service role function
             const { data: renewalResult, error: renewalError } = await supabase
               .rpc('process_subscription_renewal', {
-                p_client_id: client.id
+                p_client_id: currentClient.id
               });
 
             if (renewalError) {
@@ -67,9 +61,16 @@ export const useAutoRenewal = () => {
               }
             }
           }
+        } else {
+          console.log('Insufficient balance for auto-renewal:', {
+            current: walletBalance,
+            required: monthlyRate,
+            shortfall: monthlyRate - walletBalance
+          });
         }
       } catch (error) {
         console.error('Auto-renewal check error:', error);
+        // Don't show error toast to user as this runs in background
       }
     };
 
