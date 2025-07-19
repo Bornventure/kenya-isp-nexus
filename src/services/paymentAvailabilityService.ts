@@ -24,11 +24,17 @@ interface PaymentMethodSetting {
 class PaymentAvailabilityService {
   async checkAdminSettings(): Promise<Record<string, { enabled: boolean; reason?: string }>> {
     try {
+      console.log('Checking admin payment method settings...');
       const { data, error } = await supabase
         .from('payment_method_settings')
         .select('payment_method, is_enabled, disabled_reason');
 
-      if (error) throw error;
+      if (error) {
+        console.error('Error fetching payment method settings:', error);
+        throw error;
+      }
+
+      console.log('Admin payment settings fetched:', data);
 
       const settings: Record<string, { enabled: boolean; reason?: string }> = {};
       (data as PaymentMethodSetting[])?.forEach(setting => {
@@ -49,6 +55,8 @@ class PaymentAvailabilityService {
     const adminSettings = await this.checkAdminSettings();
     const mpesaSettings = adminSettings['mpesa'];
 
+    console.log('M-Pesa admin settings:', mpesaSettings);
+
     if (mpesaSettings && !mpesaSettings.enabled) {
       return {
         method: 'mpesa',
@@ -58,27 +66,13 @@ class PaymentAvailabilityService {
       };
     }
 
+    // If admin settings allow it, check if the service is configured
     try {
-      const { data, error } = await supabase.functions.invoke('mpesa-stk-push', {
-        body: {
-          phone: '254700000000',
-          amount: 1,
-          accountReference: 'TEST',
-          transactionDesc: 'Availability Test'
-        }
-      });
-
-      if (data || (error && error.message)) {
-        return {
-          method: 'mpesa',
-          available: true
-        };
-      }
-
+      // We'll just return available true if admin hasn't disabled it
+      // The actual STK push will handle service configuration errors
       return {
         method: 'mpesa',
-        available: false,
-        error: 'M-Pesa service not configured'
+        available: true
       };
     } catch (error) {
       return {
@@ -93,6 +87,8 @@ class PaymentAvailabilityService {
     const adminSettings = await this.checkAdminSettings();
     const familyBankSettings = adminSettings['family_bank'];
 
+    console.log('Family Bank admin settings:', familyBankSettings);
+
     if (familyBankSettings && !familyBankSettings.enabled) {
       return {
         method: 'family_bank',
@@ -102,29 +98,13 @@ class PaymentAvailabilityService {
       };
     }
 
+    // If admin settings allow it, check if the service is configured
     try {
-      const { data, error } = await supabase.functions.invoke('family-bank-stk-push', {
-        body: {
-          phone: '254700000000',
-          amount: 1,
-          accountRef: 'TEST',
-          clientId: 'test-client',
-          invoiceId: null,
-          ispCompanyId: null
-        }
-      });
-
-      if (data || (error && error.message)) {
-        return {
-          method: 'family_bank',
-          available: true
-        };
-      }
-
+      // We'll just return available true if admin hasn't disabled it
+      // The actual STK push will handle service configuration errors
       return {
         method: 'family_bank',
-        available: false,
-        error: 'Family Bank service not configured'
+        available: true
       };
     } catch (error) {
       return {
@@ -161,6 +141,7 @@ class PaymentAvailabilityService {
 
   async checkAllPaymentMethods(): Promise<PaymentAvailabilityResult> {
     try {
+      console.log('Checking all payment methods availability...');
       const [mpesa, familyBank, stripe, paypal, pesapal] = await Promise.all([
         this.checkMpesaAvailability(),
         this.checkFamilyBankAvailability(),
@@ -169,11 +150,15 @@ class PaymentAvailabilityService {
         this.checkPesaPalAvailability()
       ]);
 
+      const methods = [mpesa, familyBank, stripe, paypal, pesapal];
+      console.log('Payment methods availability result:', methods);
+
       return {
         success: true,
-        methods: [mpesa, familyBank, stripe, paypal, pesapal]
+        methods
       };
     } catch (error) {
+      console.error('Error checking payment methods:', error);
       return {
         success: false,
         methods: [],

@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Switch } from '@/components/ui/switch';
@@ -54,7 +53,6 @@ const PaymentMethodToggle: React.FC = () => {
         throw error;
       }
 
-      // Type assertion to ensure data matches our expected type
       setSettings(data as PaymentMethodSetting[] || []);
     } catch (error) {
       console.error('Error fetching payment settings:', error);
@@ -71,7 +69,6 @@ const PaymentMethodToggle: React.FC = () => {
   const updatePaymentMethod = async (methodId: string, enabled: boolean, reason?: string) => {
     setSaving(true);
     try {
-      // First, try to update existing record
       const { data: existingData, error: selectError } = await supabase
         .from('payment_method_settings')
         .select('id')
@@ -85,7 +82,6 @@ const PaymentMethodToggle: React.FC = () => {
 
       let result;
       if (existingData) {
-        // Update existing record
         result = await supabase
           .from('payment_method_settings')
           .update({
@@ -95,7 +91,6 @@ const PaymentMethodToggle: React.FC = () => {
           })
           .eq('id', existingData.id);
       } else {
-        // Insert new record
         result = await supabase
           .from('payment_method_settings')
           .insert({
@@ -107,10 +102,8 @@ const PaymentMethodToggle: React.FC = () => {
       }
 
       if (result.error) {
-        // Handle duplicate key error gracefully
         if (result.error.code === '23505') {
           console.log('Record already exists, attempting update instead');
-          // Try updating again in case of race condition
           const updateResult = await supabase
             .from('payment_method_settings')
             .update({
@@ -127,7 +120,6 @@ const PaymentMethodToggle: React.FC = () => {
         }
       }
 
-      // Update local state
       setSettings(prev => {
         const existingSetting = prev.find(s => s.payment_method === methodId);
         if (existingSetting) {
@@ -137,9 +129,8 @@ const PaymentMethodToggle: React.FC = () => {
               : setting
           );
         } else {
-          // Add new setting to local state
           return [...prev, {
-            id: '', // Will be updated on next fetch
+            id: '',
             payment_method: methodId,
             is_enabled: enabled,
             disabled_reason: enabled ? null : reason
@@ -167,7 +158,6 @@ const PaymentMethodToggle: React.FC = () => {
     const setting = settings.find(s => s.payment_method === methodId);
     if (setting) return setting;
     
-    // Return a default setting if none exists
     return { 
       id: '', 
       payment_method: methodId, 
@@ -233,19 +223,29 @@ const PaymentMethodCard: React.FC<PaymentMethodCardProps> = ({
 }) => {
   const [localEnabled, setLocalEnabled] = useState(setting.is_enabled);
   const [reason, setReason] = useState(setting.disabled_reason || '');
+  const [showReasonInput, setShowReasonInput] = useState(!setting.is_enabled);
+
+  useEffect(() => {
+    setLocalEnabled(setting.is_enabled);
+    setReason(setting.disabled_reason || '');
+    setShowReasonInput(!setting.is_enabled);
+  }, [setting]);
 
   const handleToggle = async (enabled: boolean) => {
     setLocalEnabled(enabled);
-    if (!enabled && !reason.trim()) {
-      // Don't update yet, wait for reason
-      return;
+    
+    if (enabled) {
+      setShowReasonInput(false);
+      await onUpdate(method.id, true, '');
+    } else {
+      setShowReasonInput(true);
     }
-    await onUpdate(method.id, enabled, enabled ? '' : reason);
   };
 
   const handleSaveWithReason = async () => {
     if (!localEnabled && reason.trim()) {
       await onUpdate(method.id, false, reason);
+      setShowReasonInput(false);
     }
   };
 
@@ -273,7 +273,7 @@ const PaymentMethodCard: React.FC<PaymentMethodCardProps> = ({
         </div>
       </div>
 
-      {!localEnabled && (
+      {showReasonInput && !localEnabled && (
         <div className="space-y-3 bg-orange-50 border border-orange-200 rounded-lg p-3">
           <div className="flex items-center gap-2 text-orange-700">
             <AlertCircle className="h-4 w-4" />
@@ -299,6 +299,16 @@ const PaymentMethodCard: React.FC<PaymentMethodCardProps> = ({
               Save Disabled State
             </Button>
           )}
+        </div>
+      )}
+
+      {!localEnabled && setting.disabled_reason && !showReasonInput && (
+        <div className="bg-orange-50 border border-orange-200 rounded-lg p-3">
+          <div className="flex items-center gap-2 text-orange-700 mb-2">
+            <AlertCircle className="h-4 w-4" />
+            <span className="text-sm font-medium">Currently Disabled</span>
+          </div>
+          <p className="text-sm text-orange-600">{setting.disabled_reason}</p>
         </div>
       )}
     </div>
