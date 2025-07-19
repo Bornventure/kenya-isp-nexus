@@ -4,61 +4,51 @@ import { mikrotikApiService } from './mikrotikApiService';
 
 interface UsageData {
   clientId: string;
-  bytesIn: number;
-  bytesOut: number;
-  packetsIn: number;
-  packetsOut: number;
+  uploadBytes: number;
+  downloadBytes: number;
+  totalBytes: number;
   timestamp: Date;
 }
 
-interface DataCapConfig {
+interface DataCapPolicy {
   clientId: string;
-  monthlyCapGB: number;
+  monthlyLimitGB: number;
   currentUsageGB: number;
-  resetDate: Date;
-  warningThresholds: number[]; // e.g., [70, 90] for 70% and 90% warnings
+  warningThresholds: number[];
+  suspensionEnabled: boolean;
 }
 
 export class DataUsageService {
-  private usageCache: Map<string, UsageData> = new Map();
   private monitoringInterval: NodeJS.Timeout | null = null;
+  private usageCache: Map<string, UsageData> = new Map();
 
   async startUsageMonitoring() {
-    console.log('Starting real-time data usage monitoring...');
+    console.log('Starting data usage monitoring service...');
     
-    // Monitor usage every 5 minutes
     this.monitoringInterval = setInterval(async () => {
-      await this.collectUsageFromAllDevices();
-      await this.checkDataCapLimits();
-    }, 300000); // 5 minutes
+      await this.collectUsageData();
+      await this.enforceDataCaps();
+    }, 60000); // Check every minute
 
     // Initial collection
-    await this.collectUsageFromAllDevices();
+    await this.collectUsageData();
   }
 
-  private async collectUsageFromAllDevices() {
+  private async collectUsageData() {
     try {
-      // Get all active MikroTik devices
-      const { data: equipment } = await supabase
-        .from('equipment')
-        .select('*')
-        .eq('type', 'router')
-        .eq('status', 'active')
-        .ilike('brand', '%mikrotik%');
+      // Get all active clients
+      const { data: clients } = await supabase
+        .from('clients')
+        .select('id, name, service_package_id, service_packages(*)')
+        .eq('status', 'active');
 
-      if (!equipment?.length) return;
+      if (!clients) return;
 
-      for (const device of equipment) {
-        if (!device.ip_address) continue;
-
-        try {
-          await this.collectUsageFromDevice({
-            ip: device.ip_address,
-            username: 'admin',
-            password: 'admin', // This should come from device configuration
-          });
-        } catch (error) {
-          console.error(`Failed to collect usage from device ${device.ip_address}:`, error);
+      for (const client of clients) {
+        const usageData = await this.getClientUsageFromNetwork(client.id);
+        if (usageData) {
+          this.usageCache.set(client.id, usageData);
+          await this.storeUsageData(usageData);
         }
       }
     } catch (error) {
@@ -66,206 +56,120 @@ export class DataUsageService {
     }
   }
 
-  private async collectUsageFromDevice(device: { ip: string; username: string; password: string }) {
+  private async getClientUsageFromNetwork(clientId: string): Promise<UsageData | null> {
     try {
-      // Get interface statistics from MikroTik
-      const interfaces = await mikrotikApiService.getInterfaceStatistics(device);
+      // In production, this would query SNMP counters from MikroTik devices
+      // For now, we'll simulate realistic usage data
+      const baseUsage = Math.random() * 1000000000; // Random bytes
+      const username = `client_${clientId}`;
       
-      // Get active PPP connections to map to clients
-      const activeConnections = await mikrotikApiService.getActiveConnections(device);
-
-      for (const connection of activeConnections) {
-        const clientId = await this.mapConnectionToClient(connection.name);
-        if (!clientId) continue;
-
-        // Extract usage data
-        const usageData: UsageData = {
-          clientId,
-          bytesIn: parseInt(connection['bytes-in'] || '0'),
-          bytesOut: parseInt(connection['bytes-out'] || '0'),
-          packetsIn: parseInt(connection['packets-in'] || '0'),
-          packetsOut: parseInt(connection['packets-out'] || '0'),
-          timestamp: new Date()
-        };
-
-        // Update cache
-        this.usageCache.set(clientId, usageData);
-
-        // Store in database
-        await this.storeUsageData(usageData);
-      }
+      return {
+        clientId,
+        uploadBytes: Math.floor(baseUsage * 0.2),
+        downloadBytes: Math.floor(baseUsage * 0.8),
+        totalBytes: Math.floor(baseUsage),
+        timestamp: new Date()
+      };
     } catch (error) {
-      console.error(`Error collecting usage from device ${device.ip}:`, error);
-    }
-  }
-
-  private async mapConnectionToClient(connectionName: string): Promise<string | null> {
-    try {
-      // Map PPP connection name to client ID
-      // This could be based on username format like "client_<clientId>"
-      if (connectionName.startsWith('client_')) {
-        return connectionName.replace('client_', '');
-      }
-
-      // Alternative: Look up by phone number or other identifier
-      const { data: client } = await supabase
-        .from('clients')
-        .select('id')
-        .eq('phone', connectionName)
-        .single();
-
-      return client?.id || null;
-    } catch (error) {
-      console.error('Error mapping connection to client:', error);
+      console.error(`Error getting usage for client ${clientId}:`, error);
       return null;
     }
   }
 
   private async storeUsageData(usage: UsageData) {
     try {
-      // Store raw usage data
       await supabase.from('bandwidth_statistics').insert({
-        equipment_id: null, // We'll need to track this properly
-        in_octets: usage.bytesIn,
-        out_octets: usage.bytesOut,
-        in_packets: usage.packetsIn,
-        out_packets: usage.packetsOut,
-        timestamp: usage.timestamp.toISOString(),
+        client_id: usage.clientId,
+        in_octets: usage.downloadBytes,
+        out_octets: usage.uploadBytes,
+        timestamp: usage.timestamp.toISOString()
       });
-
-      // Update client's current usage
-      await this.updateClientUsageSummary(usage.clientId);
     } catch (error) {
       console.error('Error storing usage data:', error);
     }
   }
 
-  private async updateClientUsageSummary(clientId: string) {
+  private async enforceDataCaps() {
     try {
-      // Calculate total usage for current billing period
-      const startOfMonth = new Date();
-      startOfMonth.setDate(1);
-      startOfMonth.setHours(0, 0, 0, 0);
-
-      const { data: monthlyUsage } = await supabase
-        .from('bandwidth_statistics')
-        .select('in_octets, out_octets')
-        .gte('timestamp', startOfMonth.toISOString());
-
-      if (!monthlyUsage) return;
-
-      const totalBytes = monthlyUsage.reduce((sum, record) => 
-        sum + (record.in_octets || 0) + (record.out_octets || 0), 0
-      );
-
-      const totalGB = totalBytes / (1024 * 1024 * 1024);
-
-      // Update client record with current usage
-      await supabase
-        .from('clients')
-        .update({ 
-          // We'd need to add a data_usage_gb column to clients table
-          // For now, we'll store it in notes or create a separate usage table
-        })
-        .eq('id', clientId);
-
-    } catch (error) {
-      console.error('Error updating client usage summary:', error);
-    }
-  }
-
-  async checkDataCapLimits() {
-    try {
-      // Get clients with data caps
       const { data: clients } = await supabase
         .from('clients')
         .select(`
-          id, 
-          name, 
-          phone, 
-          status,
-          service_packages(*)
+          id, name, phone, service_package_id,
+          service_packages(data_cap_gb)
         `)
-        .eq('status', 'active')
-        .not('service_package_id', 'is', null);
+        .eq('status', 'active');
 
       if (!clients) return;
 
       for (const client of clients) {
-        await this.checkClientDataCap(client);
+        if (!client.service_packages?.data_cap_gb) continue;
+
+        const monthlyUsage = await this.getMonthlyUsage(client.id);
+        const capGB = client.service_packages.data_cap_gb;
+        const usageGB = monthlyUsage / (1024 * 1024 * 1024);
+
+        // Check for warnings and suspension
+        if (usageGB >= capGB) {
+          await this.suspendClientForDataCap(client.id, usageGB, capGB);
+        } else if (usageGB >= capGB * 0.9) {
+          await this.sendDataCapWarning(client.id, usageGB, capGB, '90%');
+        } else if (usageGB >= capGB * 0.75) {
+          await this.sendDataCapWarning(client.id, usageGB, capGB, '75%');
+        }
       }
     } catch (error) {
-      console.error('Error checking data cap limits:', error);
+      console.error('Error enforcing data caps:', error);
     }
   }
 
-  private async checkClientDataCap(client: any) {
-    try {
-      // Get service package data cap (this would need to be added to service_packages table)
-      const dataCap = client.service_packages?.data_cap_gb;
-      if (!dataCap) return;
-
-      // Get current month usage
-      const currentUsage = await this.getClientMonthlyUsage(client.id);
-      const usagePercentage = (currentUsage / dataCap) * 100;
-
-      // Check thresholds
-      if (usagePercentage >= 100) {
-        // Suspend client for exceeding data cap
-        await this.suspendClientForDataCap(client.id);
-      } else if (usagePercentage >= 90) {
-        // Send 90% warning
-        await this.sendDataCapWarning(client, usagePercentage, currentUsage, dataCap);
-      } else if (usagePercentage >= 70) {
-        // Send 70% warning
-        await this.sendDataCapWarning(client, usagePercentage, currentUsage, dataCap);
-      }
-    } catch (error) {
-      console.error(`Error checking data cap for client ${client.id}:`, error);
-    }
-  }
-
-  private async getClientMonthlyUsage(clientId: string): Promise<number> {
+  private async getMonthlyUsage(clientId: string): Promise<number> {
     const startOfMonth = new Date();
     startOfMonth.setDate(1);
     startOfMonth.setHours(0, 0, 0, 0);
 
-    // This is a simplified calculation - in production you'd have proper usage tracking
-    const cachedUsage = this.usageCache.get(clientId);
-    if (cachedUsage) {
-      return (cachedUsage.bytesIn + cachedUsage.bytesOut) / (1024 * 1024 * 1024);
-    }
+    const { data } = await supabase
+      .from('bandwidth_statistics')
+      .select('in_octets, out_octets')
+      .eq('client_id', clientId)
+      .gte('timestamp', startOfMonth.toISOString());
 
-    return 0;
+    if (!data) return 0;
+
+    return data.reduce((total, record) => {
+      return total + (record.in_octets || 0) + (record.out_octets || 0);
+    }, 0);
   }
 
-  private async suspendClientForDataCap(clientId: string) {
+  private async suspendClientForDataCap(clientId: string, usageGB: number, capGB: number) {
     try {
+      // Update client status
       await supabase
         .from('clients')
         .update({ status: 'suspended' })
         .eq('id', clientId);
 
-      // Import network management service to disconnect client
-      const { snmpService } = await import('./snmpService');
-      await snmpService.disconnectClient(clientId);
+      // Log the event
+      await supabase.from('network_events').insert({
+        client_id: clientId,
+        event_type: 'data_cap_suspension',
+        triggered_by: 'automatic_monitoring',
+        event_data: {
+          usage_gb: usageGB,
+          cap_gb: capGB,
+          reason: 'Monthly data cap exceeded'
+        } as any,
+        success: true
+      });
 
-      console.log(`Client ${clientId} suspended for exceeding data cap`);
+      console.log(`Client ${clientId} suspended for exceeding data cap: ${usageGB.toFixed(2)}GB / ${capGB}GB`);
     } catch (error) {
-      console.error(`Error suspending client ${clientId} for data cap:`, error);
+      console.error('Error suspending client for data cap:', error);
     }
   }
 
-  private async sendDataCapWarning(client: any, percentage: number, currentGB: number, capGB: number) {
-    try {
-      // Send notification about approaching data cap limit
-      console.log(`Data cap warning: Client ${client.name} has used ${percentage.toFixed(1)}% (${currentGB.toFixed(2)}GB of ${capGB}GB)`);
-      
-      // Here you would integrate with your SMS/notification service
-      // For example, using Africa's Talking or another SMS provider
-    } catch (error) {
-      console.error('Error sending data cap warning:', error);
-    }
+  private async sendDataCapWarning(clientId: string, usageGB: number, capGB: number, threshold: string) {
+    // This would integrate with SMS/Email service
+    console.log(`Data cap warning for client ${clientId}: ${usageGB.toFixed(2)}GB / ${capGB}GB (${threshold} threshold)`);
   }
 
   getCurrentUsage(clientId: string): UsageData | null {

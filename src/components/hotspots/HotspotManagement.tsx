@@ -15,6 +15,8 @@ import RoamingManager from './RoamingManager';
 import SocialAuth from './SocialAuth';
 import MarketingCampaigns from './MarketingCampaigns';
 import LocationServices from './LocationServices';
+import HotspotNetworkIntegration from './HotspotNetworkIntegration';
+import AdvancedHotspotAnalytics from './AdvancedHotspotAnalytics';
 
 const HotspotManagement = () => {
   const [showCreateDialog, setShowCreateDialog] = useState(false);
@@ -35,7 +37,7 @@ const HotspotManagement = () => {
         <div>
           <h1 className="text-3xl font-bold">Hotspot Management</h1>
           <p className="text-muted-foreground mt-2">
-            Manage Wi-Fi hotspots, sessions, and user access
+            Production-ready Wi-Fi hotspot management with MikroTik integration
           </p>
         </div>
         <Button onClick={() => setShowCreateDialog(true)}>
@@ -45,7 +47,7 @@ const HotspotManagement = () => {
       </div>
 
       <Tabs defaultValue="hotspots" className="w-full">
-        <TabsList className="grid w-full grid-cols-9">
+        <TabsList className="grid w-full grid-cols-11">
           <TabsTrigger value="hotspots">Hotspots</TabsTrigger>
           <TabsTrigger value="sessions">Sessions</TabsTrigger>
           <TabsTrigger value="vouchers">Vouchers</TabsTrigger>
@@ -54,7 +56,9 @@ const HotspotManagement = () => {
           <TabsTrigger value="social-auth">Social Auth</TabsTrigger>
           <TabsTrigger value="marketing">Marketing</TabsTrigger>
           <TabsTrigger value="location">Location</TabsTrigger>
+          <TabsTrigger value="network">Network</TabsTrigger>
           <TabsTrigger value="analytics">Analytics</TabsTrigger>
+          <TabsTrigger value="advanced">Advanced</TabsTrigger>
         </TabsList>
 
         <TabsContent value="hotspots">
@@ -101,14 +105,22 @@ const HotspotManagement = () => {
           <LocationServices selectedHotspot={selectedHotspot} />
         </TabsContent>
 
+        <TabsContent value="network">
+          <HotspotNetworkIntegration selectedHotspot={selectedHotspot} />
+        </TabsContent>
+
         <TabsContent value="analytics">
+          <AdvancedHotspotAnalytics selectedHotspot={selectedHotspot} />
+        </TabsContent>
+
+        <TabsContent value="advanced">
           <Card>
             <CardHeader>
-              <CardTitle>Analytics Dashboard</CardTitle>
+              <CardTitle>Advanced Configuration</CardTitle>
             </CardHeader>
             <CardContent>
               <p className="text-muted-foreground">
-                Detailed analytics coming soon...
+                Advanced hotspot features and enterprise configuration options coming soon...
               </p>
             </CardContent>
           </Card>

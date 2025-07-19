@@ -328,8 +328,7 @@ export class EnhancedSnmpService {
 
       try {
         // Get current simple queues from device
-        const command = '/queue/simple/print';
-        const queues = await mikrotikApiService.executeCommand(device, command);
+        const queues = await mikrotikApiService.getActiveConnections(device);
         
         // Validate against expected policies
         console.log(`Device ${device.name} has ${Array.isArray(queues) ? queues.length : 0} active queues`);
