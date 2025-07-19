@@ -61,7 +61,6 @@ export class DataUsageService {
       // In production, this would query SNMP counters from MikroTik devices
       // For now, we'll simulate realistic usage data
       const baseUsage = Math.random() * 1000000000; // Random bytes
-      const username = `client_${clientId}`;
       
       return {
         clientId,
@@ -78,8 +77,16 @@ export class DataUsageService {
 
   private async storeUsageData(usage: UsageData) {
     try {
+      // Get a dummy equipment_id for now - in production this would be the actual equipment
+      const { data: equipment } = await supabase
+        .from('equipment')
+        .select('id')
+        .limit(1)
+        .single();
+
       await supabase.from('bandwidth_statistics').insert({
         client_id: usage.clientId,
+        equipment_id: equipment?.id || null,
         in_octets: usage.downloadBytes,
         out_octets: usage.uploadBytes,
         timestamp: usage.timestamp.toISOString()
@@ -102,10 +109,11 @@ export class DataUsageService {
       if (!clients) return;
 
       for (const client of clients) {
-        if (!client.service_packages?.data_cap_gb) continue;
+        const servicePackage = client.service_packages as any;
+        if (!servicePackage?.data_cap_gb) continue;
 
         const monthlyUsage = await this.getMonthlyUsage(client.id);
-        const capGB = client.service_packages.data_cap_gb;
+        const capGB = servicePackage.data_cap_gb;
         const usageGB = monthlyUsage / (1024 * 1024 * 1024);
 
         // Check for warnings and suspension

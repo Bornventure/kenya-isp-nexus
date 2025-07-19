@@ -16,6 +16,7 @@ export type Database = {
     Tables: {
       bandwidth_statistics: {
         Row: {
+          client_id: string | null
           equipment_id: string
           id: string
           in_octets: number | null
@@ -26,6 +27,7 @@ export type Database = {
           timestamp: string | null
         }
         Insert: {
+          client_id?: string | null
           equipment_id: string
           id?: string
           in_octets?: number | null
@@ -36,6 +38,7 @@ export type Database = {
           timestamp?: string | null
         }
         Update: {
+          client_id?: string | null
           equipment_id?: string
           id?: string
           in_octets?: number | null
@@ -46,6 +49,13 @@ export type Database = {
           timestamp?: string | null
         }
         Relationships: [
+          {
+            foreignKeyName: "bandwidth_statistics_client_id_fkey"
+            columns: ["client_id"]
+            isOneToOne: false
+            referencedRelation: "clients"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "bandwidth_statistics_equipment_id_fkey"
             columns: ["equipment_id"]
@@ -2177,6 +2187,7 @@ export type Database = {
         Row: {
           connection_types: Database["public"]["Enums"]["connection_type"][]
           created_at: string | null
+          data_cap_gb: number | null
           description: string | null
           id: string
           is_active: boolean | null
@@ -2189,6 +2200,7 @@ export type Database = {
         Insert: {
           connection_types: Database["public"]["Enums"]["connection_type"][]
           created_at?: string | null
+          data_cap_gb?: number | null
           description?: string | null
           id?: string
           is_active?: boolean | null
@@ -2201,6 +2213,7 @@ export type Database = {
         Update: {
           connection_types?: Database["public"]["Enums"]["connection_type"][]
           created_at?: string | null
+          data_cap_gb?: number | null
           description?: string | null
           id?: string
           is_active?: boolean | null
