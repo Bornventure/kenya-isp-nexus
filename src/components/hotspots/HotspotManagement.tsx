@@ -17,19 +17,45 @@ import MarketingCampaigns from './MarketingCampaigns';
 import LocationServices from './LocationServices';
 import HotspotNetworkIntegration from './HotspotNetworkIntegration';
 import AdvancedHotspotAnalytics from './AdvancedHotspotAnalytics';
+import HotspotCaptivePortal from './HotspotCaptivePortal';
 
 const HotspotManagement = () => {
   const [showCreateDialog, setShowCreateDialog] = useState(false);
   const [selectedHotspot, setSelectedHotspot] = useState<string | null>(null);
+  const [showCaptivePortal, setShowCaptivePortal] = useState(false);
   const { data: hotspots = [], isLoading } = useHotspots();
 
   const handleCreateSuccess = () => {
+    console.log('Hotspot creation successful, closing dialog');
     setShowCreateDialog(false);
   };
 
   const handleSelectHotspot = (hotspotId: string) => {
+    console.log('Selected hotspot:', hotspotId);
     setSelectedHotspot(hotspotId);
   };
+
+  const handlePaymentComplete = (bundleId: string, paymentData: any) => {
+    console.log('Hotspot payment completed:', { bundleId, paymentData });
+    // Here you would activate the bundle for the user
+    // This would typically involve:
+    // 1. Recording the payment
+    // 2. Creating a session with the bundle limits
+    // 3. Configuring MikroTik to allow access
+    // 4. Starting usage monitoring
+  };
+
+  // Demo captive portal - in production this would be on a separate domain/subdomain
+  if (showCaptivePortal) {
+    return (
+      <HotspotCaptivePortal
+        hotspotId="demo-hotspot"
+        hotspotName="Demo Hotspot"
+        companyName="ISP Demo Company"
+        onPaymentComplete={handlePaymentComplete}
+      />
+    );
+  }
 
   return (
     <div className="space-y-6">
@@ -40,10 +66,18 @@ const HotspotManagement = () => {
             Production-ready Wi-Fi hotspot management with MikroTik integration
           </p>
         </div>
-        <Button onClick={() => setShowCreateDialog(true)}>
-          <Plus className="h-4 w-4 mr-2" />
-          Create Hotspot
-        </Button>
+        <div className="flex gap-2">
+          <Button variant="outline" onClick={() => setShowCaptivePortal(true)}>
+            Preview Portal
+          </Button>
+          <Button onClick={() => {
+            console.log('Opening create hotspot dialog');
+            setShowCreateDialog(true);
+          }}>
+            <Plus className="h-4 w-4 mr-2" />
+            Create Hotspot
+          </Button>
+        </div>
       </div>
 
       <Tabs defaultValue="hotspots" className="w-full">
@@ -127,8 +161,11 @@ const HotspotManagement = () => {
         </TabsContent>
       </Tabs>
 
-      <Dialog open={showCreateDialog} onOpenChange={setShowCreateDialog}>
-        <DialogContent className="max-w-2xl">
+      <Dialog open={showCreateDialog} onOpenChange={(open) => {
+        console.log('Dialog open state changed:', open);
+        setShowCreateDialog(open);
+      }}>
+        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>Create New Hotspot</DialogTitle>
           </DialogHeader>

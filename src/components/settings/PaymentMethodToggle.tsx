@@ -14,7 +14,8 @@ import {
   Building2, 
   Save, 
   AlertCircle,
-  CheckCircle
+  CheckCircle,
+  Loader2
 } from 'lucide-react';
 
 interface PaymentMethodSetting {
@@ -29,7 +30,7 @@ const PaymentMethodToggle: React.FC = () => {
   const { toast } = useToast();
   const [settings, setSettings] = useState<PaymentMethodSetting[]>([]);
   const [loading, setLoading] = useState(true);
-  const [saving, setSaving] = useState(false);
+  const [saving, setSaving] = useState<string | null>(null);
 
   const paymentMethods = [
     { id: 'mpesa', name: 'M-Pesa', icon: Smartphone, color: 'text-green-600' },
@@ -45,6 +46,8 @@ const PaymentMethodToggle: React.FC = () => {
   const fetchPaymentSettings = async () => {
     try {
       console.log('Fetching payment settings for company:', profile?.isp_company_id);
+      setLoading(true);
+      
       const { data, error } = await supabase
         .from('payment_method_settings')
         .select('*')
@@ -70,7 +73,7 @@ const PaymentMethodToggle: React.FC = () => {
   };
 
   const updatePaymentMethod = async (methodId: string, enabled: boolean, reason?: string) => {
-    setSaving(true);
+    setSaving(methodId);
     try {
       console.log('Updating payment method:', methodId, { enabled, reason });
       
@@ -160,7 +163,7 @@ const PaymentMethodToggle: React.FC = () => {
         variant: "destructive",
       });
     } finally {
-      setSaving(false);
+      setSaving(null);
     }
   };
 
@@ -209,7 +212,7 @@ const PaymentMethodToggle: React.FC = () => {
               method={method}
               setting={setting}
               onUpdate={updatePaymentMethod}
-              saving={saving}
+              saving={saving === method.id}
             />
           );
         })}
@@ -242,6 +245,8 @@ const PaymentMethodCard: React.FC<PaymentMethodCardProps> = ({
   }, [setting]);
 
   const handleToggle = async (enabled: boolean) => {
+    if (saving) return;
+    
     if (enabled) {
       // When enabling, immediately update and close reason input
       setLocalEnabled(true);
@@ -256,6 +261,8 @@ const PaymentMethodCard: React.FC<PaymentMethodCardProps> = ({
   };
 
   const handleSaveWithReason = async () => {
+    if (saving) return;
+    
     if (!localEnabled && reason.trim()) {
       await onUpdate(method.id, false, reason);
       setShowReasonInput(false);
@@ -278,11 +285,14 @@ const PaymentMethodCard: React.FC<PaymentMethodCardProps> = ({
           <Badge variant={localEnabled ? 'default' : 'secondary'}>
             {localEnabled ? 'Enabled' : 'Disabled'}
           </Badge>
-          <Switch
-            checked={localEnabled}
-            onCheckedChange={handleToggle}
-            disabled={saving}
-          />
+          <div className="flex items-center gap-2">
+            {saving && <Loader2 className="h-4 w-4 animate-spin" />}
+            <Switch
+              checked={localEnabled}
+              onCheckedChange={handleToggle}
+              disabled={saving}
+            />
+          </div>
         </div>
       </div>
 
@@ -300,6 +310,7 @@ const PaymentMethodCard: React.FC<PaymentMethodCardProps> = ({
             value={reason}
             onChange={(e) => setReason(e.target.value)}
             className="min-h-[60px]"
+            disabled={saving}
           />
           {reason.trim() && (
             <Button
@@ -308,7 +319,11 @@ const PaymentMethodCard: React.FC<PaymentMethodCardProps> = ({
               disabled={saving}
               className="w-full"
             >
-              <Save className="h-4 w-4 mr-2" />
+              {saving ? (
+                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+              ) : (
+                <Save className="h-4 w-4 mr-2" />
+              )}
               Save Disabled State
             </Button>
           )}
