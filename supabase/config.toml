@@ -6,3 +6,6 @@ verify_jwt = false
 
 [functions.mpesa-register-callback]
 verify_jwt = false
+
+[functions.family-bank-stk-callback]
+verify_jwt = false

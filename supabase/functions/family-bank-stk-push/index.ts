@@ -27,22 +27,22 @@ serve(async (req) => {
     const transID = `FBL${Date.now()}${Math.floor(Math.random() * 1000)}`;
     
     const timestamp = getTimestamp();
-    const password = btoa(
-      `${Deno.env.get("FBL_SHORTCODE")}${Deno.env.get("FBL_PASSKEY")}${timestamp}`
-    );
+    // Using the business shortcode and a passkey (we'll need the actual passkey from Family Bank)
+    const businessShortCode = "1740083";
+    const passkey = Deno.env.get("FBL_PASSKEY") || "TEMP_PASSKEY"; // We need the real passkey
+    const password = btoa(`${businessShortCode}${passkey}${timestamp}`);
 
-    // Get access token
-    const tokenRes = await fetch(Deno.env.get("FBL_TOKEN_URL")!, {
+    // Get access token using the new credentials
+    const tokenRes = await fetch("https://sandbox.familybank.co.ke/connect/token", {
       method: "POST",
       headers: {
-        "Content-Type": "application/json",
-        Accept: "*/*"
+        "Content-Type": "application/x-www-form-urlencoded"
       },
-      body: JSON.stringify({
-        client_id: Deno.env.get("FBL_CLIENT_ID"),
-        client_secret: Deno.env.get("FBL_CLIENT_SECRET"),
-        grant_type: "client_credentials",
-        scope: "OB_BULK_PAY"
+      body: new URLSearchParams({
+        'client_id': 'LAKELINK',
+        'client_secret': 'secret',
+        'grant_type': 'client_credentials',
+        'scope': 'ESB_REST_API'
       })
     });
 
@@ -71,25 +71,25 @@ serve(async (req) => {
       console.error('Database error:', dbError);
     }
 
-    // Prepare STK Push payload
+    // Prepare STK Push payload using the new format
     const payload = {
-      BusinessShortCode: Deno.env.get("FBL_SHORTCODE"),
+      BusinessShortCode: businessShortCode,
       Password: password,
       Timestamp: timestamp,
       TransactionType: "CustomerPayBillOnline",
       Amount: amount,
       PartyA: phone,
-      PartyB: Deno.env.get("FBL_SHORTCODE"),
+      PartyB: businessShortCode,
       PhoneNumber: phone,
-      CallBackURL: Deno.env.get("FBL_STK_CALLBACK_URL"),
+      CallBackURL: `${Deno.env.get('SUPABASE_URL')}/functions/v1/family-bank-stk-callback`,
       AccountReference: accountRef,
       TransactionDesc: "Website Payment",
       ThirdPartyTransID: transID
     };
 
-    console.log('Sending STK Push to Family Bank...');
+    console.log('Sending STK Push to Family Bank...', payload);
 
-    const res = await fetch(Deno.env.get("FBL_STK_PUSH_URL")!, {
+    const res = await fetch("https://sandbox.familybank.co.ke/api/v1/Mpesa/stkpush", {
       method: "POST",
       headers: {
         Authorization: `Bearer ${access_token}`,
