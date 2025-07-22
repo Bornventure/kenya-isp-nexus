@@ -29,8 +29,8 @@ serve(async (req) => {
     const timestamp = getTimestamp();
     // Correct password generation as per bank instructions: BusinessShortCode + ClientId + Timestamp
     const businessShortCode = "1740083";
-    const clientId = "LAKELINK";
-    const password = btoa(`${businessShortCode}${clientId}${timestamp}`);
+    const bankClientId = "LAKELINK"; // Family Bank client ID (renamed to avoid conflict)
+    const password = btoa(`${businessShortCode}${bankClientId}${timestamp}`);
 
     // Get access token using the provided credentials
     const tokenRes = await fetch("https://sandbox.familybank.co.ke/connect/token", {
