@@ -27,12 +27,12 @@ serve(async (req) => {
     const transID = `FBL${Date.now()}${Math.floor(Math.random() * 1000)}`;
     
     const timestamp = getTimestamp();
-    // Using the business shortcode and a passkey (we'll need the actual passkey from Family Bank)
+    // Correct password generation as per bank instructions: BusinessShortCode + ClientId + Timestamp
     const businessShortCode = "1740083";
-    const passkey = Deno.env.get("FBL_PASSKEY") || "TEMP_PASSKEY"; // We need the real passkey
-    const password = btoa(`${businessShortCode}${passkey}${timestamp}`);
+    const clientId = "LAKELINK";
+    const password = btoa(`${businessShortCode}${clientId}${timestamp}`);
 
-    // Get access token using the new credentials
+    // Get access token using the provided credentials
     const tokenRes = await fetch("https://sandbox.familybank.co.ke/connect/token", {
       method: "POST",
       headers: {
@@ -71,7 +71,7 @@ serve(async (req) => {
       console.error('Database error:', dbError);
     }
 
-    // Prepare STK Push payload using the new format
+    // Prepare STK Push payload using the correct format
     const payload = {
       BusinessShortCode: businessShortCode,
       Password: password,

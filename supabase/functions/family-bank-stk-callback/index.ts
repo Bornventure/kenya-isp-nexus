@@ -34,8 +34,8 @@ serve(async (req) => {
       console.error('Error storing Family Bank STK callback:', error);
     }
 
-    // If successful payment, process it
-    if (body.ResponseCode === '0') {
+    // Process successful payment based on the callback structure provided by the bank
+    if (body.TransID && body.TransAmount) {
       const { data: stkRequest } = await supabase
         .from('family_bank_stk_requests')
         .select('client_id, amount, invoice_id')
@@ -46,13 +46,33 @@ serve(async (req) => {
         // Call payment processor
         await supabase.functions.invoke('process-payment', {
           body: {
-            checkoutRequestId: body.CheckoutRequestID,
+            checkoutRequestId: body.TransID,
             clientId: stkRequest.client_id,
-            amount: stkRequest.amount,
+            amount: parseFloat(body.TransAmount),
             paymentMethod: 'family_bank',
             familyBankReceiptNumber: body.TransID
           }
         });
+
+        // Update the STK request status to success
+        await supabase
+          .from('family_bank_stk_requests')
+          .update({
+            status: 'success',
+            response_description: 'Payment completed successfully'
+          })
+          .eq('third_party_trans_id', body.ThirdPartyTransID);
+      }
+    } else {
+      // Handle failed payment - update status to failed
+      if (body.ThirdPartyTransID) {
+        await supabase
+          .from('family_bank_stk_requests')
+          .update({
+            status: 'failed',
+            response_description: 'Payment failed or was cancelled'
+          })
+          .eq('third_party_trans_id', body.ThirdPartyTransID);
       }
     }
 
