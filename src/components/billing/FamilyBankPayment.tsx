@@ -100,8 +100,8 @@ const FamilyBankPayment: React.FC<FamilyBankPaymentProps> = ({
           description: "Please check your phone for the Family Bank payment prompt.",
         });
         
-        // Start monitoring payment status using realtime subscription instead of polling
-        monitorPaymentStatusRealtime(data.ThirdPartyTransID);
+        // Start monitoring payment status with multiple methods
+        monitorPaymentStatus(data.ThirdPartyTransID);
       } else {
         throw new Error(data?.ResponseDescription || 'Failed to initiate payment');
       }
@@ -118,12 +118,16 @@ const FamilyBankPayment: React.FC<FamilyBankPaymentProps> = ({
     }
   };
 
-  const monitorPaymentStatusRealtime = (thirdPartyTransId: string) => {
+  const monitorPaymentStatus = (thirdPartyTransId: string) => {
     let timeoutId: NodeJS.Timeout;
+    let pollIntervalId: NodeJS.Timeout;
+    let channelSubscribed = false;
     
-    // Set up realtime subscription to listen for updates
+    console.log('Starting payment monitoring for:', thirdPartyTransId);
+    
+    // Method 1: Try realtime subscription first
     const channel = supabase
-      .channel(`family_bank_payment_${thirdPartyTransId}`)
+      .channel(`family_bank_payment_${thirdPartyTransId}_${Date.now()}`)
       .on(
         'postgres_changes',
         {
@@ -133,7 +137,7 @@ const FamilyBankPayment: React.FC<FamilyBankPaymentProps> = ({
           filter: `third_party_trans_id=eq.${thirdPartyTransId}`
         },
         (payload) => {
-          console.log('Payment status update received:', payload);
+          console.log('Realtime payment status update received:', payload);
           const newRecord = payload.new;
           
           if (newRecord?.status === 'success') {
@@ -145,8 +149,7 @@ const FamilyBankPayment: React.FC<FamilyBankPaymentProps> = ({
             if (onPaymentComplete) {
               onPaymentComplete({ transactionId: thirdPartyTransId });
             }
-            supabase.removeChannel(channel);
-            clearTimeout(timeoutId);
+            cleanup();
           } else if (newRecord?.status === 'failed') {
             setPaymentStatus('failed');
             toast({
@@ -154,22 +157,102 @@ const FamilyBankPayment: React.FC<FamilyBankPaymentProps> = ({
               description: newRecord.response_description || "Payment was cancelled or failed.",
               variant: "destructive",
             });
-            supabase.removeChannel(channel);
-            clearTimeout(timeoutId);
+            cleanup();
           }
         }
       )
-      .subscribe();
-
-    // Fallback timeout in case realtime doesn't work
-    timeoutId = setTimeout(() => {
-      setPaymentStatus('failed');
-      toast({
-        title: "Payment Timeout",
-        description: "Payment verification timed out. Please contact support if you made the payment.",
-        variant: "destructive",
+      .subscribe((status) => {
+        console.log('Realtime subscription status:', status);
+        if (status === 'SUBSCRIBED') {
+          channelSubscribed = true;
+          console.log('Successfully subscribed to realtime updates');
+        }
       });
+
+    // Method 2: Fallback polling (starts after 10 seconds if realtime not working)
+    const startPolling = () => {
+      console.log('Starting polling fallback');
+      let attempts = 0;
+      const maxAttempts = 30; // 5 minutes with 10-second intervals
+      
+      const pollStatus = async () => {
+        attempts++;
+        console.log(`Polling attempt ${attempts}/${maxAttempts}`);
+        
+        try {
+          // Use service role for direct query to avoid RLS issues
+          const { data, error } = await supabase
+            .from('family_bank_stk_requests')
+            .select('status, response_description')
+            .eq('third_party_trans_id', thirdPartyTransId)
+            .single();
+
+          console.log('Poll result:', { data, error });
+
+          if (error) {
+            console.error('Polling error:', error);
+            return;
+          }
+
+          if (data?.status === 'success') {
+            setPaymentStatus('success');
+            toast({
+              title: "Payment Successful!",
+              description: "Your payment has been processed successfully.",
+            });
+            if (onPaymentComplete) {
+              onPaymentComplete({ transactionId: thirdPartyTransId });
+            }
+            cleanup();
+          } else if (data?.status === 'failed') {
+            setPaymentStatus('failed');
+            toast({
+              title: "Payment Failed",
+              description: data.response_description || "Payment was cancelled or failed.",
+              variant: "destructive",
+            });
+            cleanup();
+          } else if (attempts < maxAttempts) {
+            pollIntervalId = setTimeout(pollStatus, 10000);
+          }
+        } catch (error) {
+          console.error('Error polling payment status:', error);
+          if (attempts < maxAttempts) {
+            pollIntervalId = setTimeout(pollStatus, 10000);
+          }
+        }
+      };
+      
+      pollStatus();
+    };
+
+    // Start polling after 10 seconds if realtime isn't working
+    setTimeout(() => {
+      if (!channelSubscribed || paymentStatus === 'pending') {
+        console.log('Realtime not working or status still pending, starting polling');
+        startPolling();
+      }
+    }, 10000);
+
+    // Cleanup function
+    const cleanup = () => {
+      console.log('Cleaning up payment monitoring');
+      if (timeoutId) clearTimeout(timeoutId);
+      if (pollIntervalId) clearTimeout(pollIntervalId);
       supabase.removeChannel(channel);
+    };
+
+    // Final timeout after 10 minutes
+    timeoutId = setTimeout(() => {
+      if (paymentStatus === 'pending') {
+        setPaymentStatus('failed');
+        toast({
+          title: "Payment Timeout",
+          description: "Payment verification timed out. Please contact support if you made the payment.",
+          variant: "destructive",
+        });
+      }
+      cleanup();
     }, 600000); // 10 minutes timeout
   };
 
