@@ -100,8 +100,8 @@ const FamilyBankPayment: React.FC<FamilyBankPaymentProps> = ({
           description: "Please check your phone for the Family Bank payment prompt.",
         });
         
-        // Start monitoring payment status
-        monitorPaymentStatus(data.ThirdPartyTransID);
+        // Start monitoring payment status using realtime subscription instead of polling
+        monitorPaymentStatusRealtime(data.ThirdPartyTransID);
       } else {
         throw new Error(data?.ResponseDescription || 'Failed to initiate payment');
       }
@@ -118,60 +118,59 @@ const FamilyBankPayment: React.FC<FamilyBankPaymentProps> = ({
     }
   };
 
-  const monitorPaymentStatus = async (thirdPartyTransId: string) => {
-    let attempts = 0;
-    const maxAttempts = 60; // 10 minutes maximum
+  const monitorPaymentStatusRealtime = (thirdPartyTransId: string) => {
+    let timeoutId: NodeJS.Timeout;
     
-    const checkStatus = async () => {
-      attempts++;
-      
-      try {
-        const { data } = await supabase
-          .from('family_bank_stk_requests')
-          .select('status, response_description')
-          .eq('third_party_trans_id', thirdPartyTransId)
-          .single();
-
-        if (data?.status === 'success') {
-          setPaymentStatus('success');
-          toast({
-            title: "Payment Successful!",
-            description: "Your payment has been processed successfully.",
-          });
-          if (onPaymentComplete) {
-            onPaymentComplete({ transactionId: thirdPartyTransId });
+    // Set up realtime subscription to listen for updates
+    const channel = supabase
+      .channel(`family_bank_payment_${thirdPartyTransId}`)
+      .on(
+        'postgres_changes',
+        {
+          event: 'UPDATE',
+          schema: 'public',
+          table: 'family_bank_stk_requests',
+          filter: `third_party_trans_id=eq.${thirdPartyTransId}`
+        },
+        (payload) => {
+          console.log('Payment status update received:', payload);
+          const newRecord = payload.new;
+          
+          if (newRecord?.status === 'success') {
+            setPaymentStatus('success');
+            toast({
+              title: "Payment Successful!",
+              description: "Your payment has been processed successfully.",
+            });
+            if (onPaymentComplete) {
+              onPaymentComplete({ transactionId: thirdPartyTransId });
+            }
+            supabase.removeChannel(channel);
+            clearTimeout(timeoutId);
+          } else if (newRecord?.status === 'failed') {
+            setPaymentStatus('failed');
+            toast({
+              title: "Payment Failed",
+              description: newRecord.response_description || "Payment was cancelled or failed.",
+              variant: "destructive",
+            });
+            supabase.removeChannel(channel);
+            clearTimeout(timeoutId);
           }
-          return;
-        } else if (data?.status === 'failed') {
-          setPaymentStatus('failed');
-          toast({
-            title: "Payment Failed",
-            description: data.response_description || "Payment was cancelled or failed.",
-            variant: "destructive",
-          });
-          return;
         }
+      )
+      .subscribe();
 
-        if (attempts < maxAttempts) {
-          setTimeout(checkStatus, 10000); // Check every 10 seconds
-        } else {
-          setPaymentStatus('failed');
-          toast({
-            title: "Payment Timeout",
-            description: "Payment verification timed out. Please contact support if you made the payment.",
-            variant: "destructive",
-          });
-        }
-      } catch (error) {
-        console.error('Error checking payment status:', error);
-        if (attempts < maxAttempts) {
-          setTimeout(checkStatus, 10000);
-        }
-      }
-    };
-
-    // Start checking after 5 seconds
-    setTimeout(checkStatus, 5000);
+    // Fallback timeout in case realtime doesn't work
+    timeoutId = setTimeout(() => {
+      setPaymentStatus('failed');
+      toast({
+        title: "Payment Timeout",
+        description: "Payment verification timed out. Please contact support if you made the payment.",
+        variant: "destructive",
+      });
+      supabase.removeChannel(channel);
+    }, 600000); // 10 minutes timeout
   };
 
   const getStatusIcon = () => {
