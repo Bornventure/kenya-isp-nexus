@@ -100,7 +100,7 @@ const FamilyBankPayment: React.FC<FamilyBankPaymentProps> = ({
           description: "Please check your phone for the Family Bank payment prompt.",
         });
         
-        // Start monitoring payment status with multiple methods
+        // Start monitoring payment status
         monitorPaymentStatus(data.ThirdPartyTransID);
       } else {
         throw new Error(data?.ResponseDescription || 'Failed to initiate payment');
@@ -121,80 +121,47 @@ const FamilyBankPayment: React.FC<FamilyBankPaymentProps> = ({
   const monitorPaymentStatus = (thirdPartyTransId: string) => {
     let timeoutId: NodeJS.Timeout;
     let pollIntervalId: NodeJS.Timeout;
-    let channelSubscribed = false;
     
     console.log('Starting payment monitoring for:', thirdPartyTransId);
     
-    // Method 1: Try realtime subscription first
-    const channel = supabase
-      .channel(`family_bank_payment_${thirdPartyTransId}_${Date.now()}`)
-      .on(
-        'postgres_changes',
-        {
-          event: 'UPDATE',
-          schema: 'public',
-          table: 'family_bank_stk_requests',
-          filter: `third_party_trans_id=eq.${thirdPartyTransId}`
-        },
-        (payload) => {
-          console.log('Realtime payment status update received:', payload);
-          const newRecord = payload.new;
-          
-          if (newRecord?.status === 'success') {
-            setPaymentStatus('success');
-            toast({
-              title: "Payment Successful!",
-              description: "Your payment has been processed successfully.",
-            });
-            if (onPaymentComplete) {
-              onPaymentComplete({ transactionId: thirdPartyTransId });
-            }
-            cleanup();
-          } else if (newRecord?.status === 'failed') {
-            setPaymentStatus('failed');
-            toast({
-              title: "Payment Failed",
-              description: newRecord.response_description || "Payment was cancelled or failed.",
-              variant: "destructive",
-            });
-            cleanup();
-          }
-        }
-      )
-      .subscribe((status) => {
-        console.log('Realtime subscription status:', status);
-        if (status === 'SUBSCRIBED') {
-          channelSubscribed = true;
-          console.log('Successfully subscribed to realtime updates');
-        }
-      });
-
-    // Method 2: Fallback polling (starts after 10 seconds if realtime not working)
+    // Start polling immediately since realtime is having issues
     const startPolling = () => {
-      console.log('Starting polling fallback');
+      console.log('Starting polling');
       let attempts = 0;
-      const maxAttempts = 30; // 5 minutes with 10-second intervals
+      const maxAttempts = 60; // 10 minutes with 10-second intervals
       
       const pollStatus = async () => {
         attempts++;
         console.log(`Polling attempt ${attempts}/${maxAttempts}`);
         
         try {
-          // Use service role for direct query to avoid RLS issues
+          // Use maybeSingle() instead of single() to handle no results gracefully
           const { data, error } = await supabase
             .from('family_bank_stk_requests')
             .select('status, response_description')
             .eq('third_party_trans_id', thirdPartyTransId)
-            .single();
+            .maybeSingle();
 
           console.log('Poll result:', { data, error });
 
           if (error) {
             console.error('Polling error:', error);
+            // Continue polling despite errors
+            if (attempts < maxAttempts) {
+              pollIntervalId = setTimeout(pollStatus, 10000);
+            }
             return;
           }
 
-          if (data?.status === 'success') {
+          if (!data) {
+            console.log('No data found yet, continuing to poll...');
+            if (attempts < maxAttempts) {
+              pollIntervalId = setTimeout(pollStatus, 10000);
+            }
+            return;
+          }
+
+          if (data.status === 'success') {
             setPaymentStatus('success');
             toast({
               title: "Payment Successful!",
@@ -204,7 +171,7 @@ const FamilyBankPayment: React.FC<FamilyBankPaymentProps> = ({
               onPaymentComplete({ transactionId: thirdPartyTransId });
             }
             cleanup();
-          } else if (data?.status === 'failed') {
+          } else if (data.status === 'failed') {
             setPaymentStatus('failed');
             toast({
               title: "Payment Failed",
@@ -213,34 +180,47 @@ const FamilyBankPayment: React.FC<FamilyBankPaymentProps> = ({
             });
             cleanup();
           } else if (attempts < maxAttempts) {
+            // Status is still pending, continue polling
             pollIntervalId = setTimeout(pollStatus, 10000);
+          } else {
+            // Max attempts reached
+            setPaymentStatus('failed');
+            toast({
+              title: "Payment Timeout",
+              description: "Payment verification timed out. Please contact support if you made the payment.",
+              variant: "destructive",
+            });
+            cleanup();
           }
         } catch (error) {
           console.error('Error polling payment status:', error);
           if (attempts < maxAttempts) {
             pollIntervalId = setTimeout(pollStatus, 10000);
+          } else {
+            setPaymentStatus('failed');
+            toast({
+              title: "Payment Verification Error",
+              description: "Unable to verify payment status. Please contact support if you made the payment.",
+              variant: "destructive",
+            });
+            cleanup();
           }
         }
       };
       
-      pollStatus();
+      // Start polling after 5 seconds to give the bank time to process
+      setTimeout(pollStatus, 5000);
     };
-
-    // Start polling after 10 seconds if realtime isn't working
-    setTimeout(() => {
-      if (!channelSubscribed || paymentStatus === 'pending') {
-        console.log('Realtime not working or status still pending, starting polling');
-        startPolling();
-      }
-    }, 10000);
 
     // Cleanup function
     const cleanup = () => {
       console.log('Cleaning up payment monitoring');
       if (timeoutId) clearTimeout(timeoutId);
       if (pollIntervalId) clearTimeout(pollIntervalId);
-      supabase.removeChannel(channel);
     };
+
+    // Start polling immediately
+    startPolling();
 
     // Final timeout after 10 minutes
     timeoutId = setTimeout(() => {
@@ -341,6 +321,9 @@ const FamilyBankPayment: React.FC<FamilyBankPaymentProps> = ({
               <div className="text-sm text-gray-600 space-y-1">
                 <p>A payment prompt has been sent to {phoneNumber}</p>
                 <p>Please check your phone and enter your PIN to complete the payment</p>
+                <p className="text-xs text-orange-600">
+                  Payment verification may take up to 2 minutes
+                </p>
               </div>
             )}
 
