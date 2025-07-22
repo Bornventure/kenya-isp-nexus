@@ -32,9 +32,8 @@ serve(async (req) => {
     const transID = `FBL${Date.now()}${Math.floor(Math.random() * 1000)}`;
     
     const timestamp = getTimestamp();
-    // Correct password generation as per bank instructions: BusinessShortCode + ClientId + Timestamp
     const businessShortCode = "1740083";
-    const bankClientId = "LAKELINK"; // Family Bank client ID (renamed to avoid conflict)
+    const bankClientId = "LAKELINK"; // Family Bank client ID
     const password = btoa(`${businessShortCode}${bankClientId}${timestamp}`);
 
     console.log('Getting access token with credentials:', {
@@ -75,7 +74,7 @@ serve(async (req) => {
     }
 
     // Store STK request in database first
-    const { data: stkData, error: dbError } = await supabase
+    const { data: stkRequestData, error: dbError } = await supabase
       .from('family_bank_stk_requests')
       .insert({
         phone_number: phone,
@@ -96,7 +95,7 @@ serve(async (req) => {
       throw new Error(`Failed to store STK request: ${dbError.message}`);
     }
 
-    console.log('STK request stored in database:', stkData);
+    console.log('STK request stored in database:', stkRequestData);
 
     // Prepare STK Push payload
     const payload = {
@@ -125,15 +124,21 @@ serve(async (req) => {
       body: JSON.stringify(payload)
     });
 
+    if (!stkRes.ok) {
+      console.error('STK Push request failed:', {
+        status: stkRes.status,
+        statusText: stkRes.statusText,
+        response: await stkRes.text()
+      });
+      throw new Error(`STK Push request failed: ${stkRes.statusText}`);
+    }
+
     const stkData = await stkRes.json();
     console.log('Family Bank STK Push response:', stkData);
 
-    if (!stkRes.ok || stkData.ResponseCode !== '0') {
-      console.error('STK Push failed:', {
-        status: stkRes.status,
-        response: stkData
-      });
-      throw new Error(`STK Push failed: ${stkData.ResponseDescription || stkRes.statusText}`);
+    if (stkData.ResponseCode !== '0') {
+      console.error('STK Push failed:', stkData);
+      throw new Error(`STK Push failed: ${stkData.ResponseDescription}`);
     }
 
     // Update request with response data
