@@ -23,6 +23,11 @@ serve(async (req) => {
 
     console.log('Family Bank STK Push request:', { phone, amount, accountRef, clientId });
 
+    // Input validation
+    if (!phone || !amount || !accountRef || !clientId) {
+      throw new Error('Missing required fields: phone, amount, accountRef, and clientId are required');
+    }
+
     // Generate unique transaction ID
     const transID = `FBL${Date.now()}${Math.floor(Math.random() * 1000)}`;
     
@@ -31,6 +36,13 @@ serve(async (req) => {
     const businessShortCode = "1740083";
     const bankClientId = "LAKELINK"; // Family Bank client ID (renamed to avoid conflict)
     const password = btoa(`${businessShortCode}${bankClientId}${timestamp}`);
+
+    console.log('Getting access token with credentials:', {
+      client_id: 'LAKELINK',
+      client_secret: 'secret',
+      grant_type: 'client_credentials',
+      scope: 'ESB_REST_API'
+    });
 
     // Get access token using the provided credentials
     const tokenRes = await fetch("https://sandbox.familybank.co.ke/connect/token", {
@@ -47,13 +59,23 @@ serve(async (req) => {
     });
 
     if (!tokenRes.ok) {
+      console.error('Token request failed:', {
+        status: tokenRes.status,
+        statusText: tokenRes.statusText,
+        response: await tokenRes.text()
+      });
       throw new Error(`Token request failed: ${tokenRes.statusText}`);
     }
 
-    const { access_token } = await tokenRes.json();
+    const tokenData = await tokenRes.json();
+    console.log('Token response:', tokenData);
 
-    // Store STK request in database
-    const { error: dbError } = await supabase
+    if (!tokenData.access_token) {
+      throw new Error('No access token received from Family Bank');
+    }
+
+    // Store STK request in database first
+    const { data: stkData, error: dbError } = await supabase
       .from('family_bank_stk_requests')
       .insert({
         phone_number: phone,
@@ -65,13 +87,18 @@ serve(async (req) => {
         invoice_id: invoiceId,
         isp_company_id: ispCompanyId,
         status: 'pending'
-      });
+      })
+      .select()
+      .single();
 
     if (dbError) {
       console.error('Database error:', dbError);
+      throw new Error(`Failed to store STK request: ${dbError.message}`);
     }
 
-    // Prepare STK Push payload using the correct format
+    console.log('STK request stored in database:', stkData);
+
+    // Prepare STK Push payload
     const payload = {
       BusinessShortCode: businessShortCode,
       Password: password,
@@ -89,35 +116,47 @@ serve(async (req) => {
 
     console.log('Sending STK Push to Family Bank...', payload);
 
-    const res = await fetch("https://sandbox.familybank.co.ke/api/v1/Mpesa/stkpush", {
+    const stkRes = await fetch("https://sandbox.familybank.co.ke/api/v1/Mpesa/stkpush", {
       method: "POST",
       headers: {
-        Authorization: `Bearer ${access_token}`,
+        Authorization: `Bearer ${tokenData.access_token}`,
         "Content-Type": "application/json"
       },
       body: JSON.stringify(payload)
     });
 
-    const data = await res.json();
-    console.log('Family Bank STK Push response:', data);
+    const stkData = await stkRes.json();
+    console.log('Family Bank STK Push response:', stkData);
+
+    if (!stkRes.ok || stkData.ResponseCode !== '0') {
+      console.error('STK Push failed:', {
+        status: stkRes.status,
+        response: stkData
+      });
+      throw new Error(`STK Push failed: ${stkData.ResponseDescription || stkRes.statusText}`);
+    }
 
     // Update request with response data
-    if (data.MerchantRequestID) {
-      await supabase
+    if (stkData.MerchantRequestID) {
+      const { error: updateError } = await supabase
         .from('family_bank_stk_requests')
         .update({
-          merchant_request_id: data.MerchantRequestID,
-          checkout_request_id: data.CheckoutRequestID,
-          status_code: data.ResponseCode,
-          response_description: data.ResponseDescription,
-          customer_message: data.CustomerMessage
+          merchant_request_id: stkData.MerchantRequestID,
+          checkout_request_id: stkData.CheckoutRequestID,
+          status_code: stkData.ResponseCode,
+          response_description: stkData.ResponseDescription,
+          customer_message: stkData.CustomerMessage
         })
         .eq('third_party_trans_id', transID);
+
+      if (updateError) {
+        console.error('Failed to update STK request:', updateError);
+      }
     }
 
     return new Response(JSON.stringify({
-      success: data.ResponseCode === '0',
-      ...data,
+      success: true,
+      ...stkData,
       ThirdPartyTransID: transID
     }), { 
       status: 200,
@@ -127,6 +166,7 @@ serve(async (req) => {
   } catch (error) {
     console.error('Family Bank STK Push error:', error);
     return new Response(JSON.stringify({ 
+      success: false,
       error: "STK Push failed", 
       detail: error.message 
     }), {
