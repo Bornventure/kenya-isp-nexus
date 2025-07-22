@@ -43,27 +43,45 @@ serve(async (req) => {
       scope: 'ESB_REST_API'
     });
 
-    // Get access token using the provided credentials
-    const tokenRes = await fetch("https://sandbox.familybank.co.ke/connect/token", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/x-www-form-urlencoded"
-      },
-      body: new URLSearchParams({
-        'client_id': 'LAKELINK',
-        'client_secret': 'secret',
-        'grant_type': 'client_credentials',
-        'scope': 'ESB_REST_API'
-      })
-    });
+    // Get access token with timeout and better error handling
+    let tokenRes;
+    try {
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 30000); // 30 second timeout
+      
+      tokenRes = await fetch("https://sandbox.familybank.co.ke/connect/token", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/x-www-form-urlencoded"
+        },
+        body: new URLSearchParams({
+          'client_id': 'LAKELINK',
+          'client_secret': 'secret',
+          'grant_type': 'client_credentials',
+          'scope': 'ESB_REST_API'
+        }),
+        signal: controller.signal
+      });
+      
+      clearTimeout(timeoutId);
+    } catch (fetchError) {
+      console.error('Token request fetch error:', fetchError);
+      throw new Error(`Family Bank API is currently unavailable. Please try again later. Error: ${fetchError.message}`);
+    }
 
     if (!tokenRes.ok) {
+      const errorText = await tokenRes.text();
       console.error('Token request failed:', {
         status: tokenRes.status,
         statusText: tokenRes.statusText,
-        response: await tokenRes.text()
+        response: errorText
       });
-      throw new Error(`Token request failed: ${tokenRes.statusText}`);
+      
+      if (tokenRes.status === 522) {
+        throw new Error('Family Bank API is currently experiencing connectivity issues. Please try again in a few minutes.');
+      }
+      
+      throw new Error(`Family Bank authentication failed (${tokenRes.status}). Please contact support if this persists.`);
     }
 
     const tokenData = await tokenRes.json();
@@ -115,22 +133,41 @@ serve(async (req) => {
 
     console.log('Sending STK Push to Family Bank...', payload);
 
-    const stkRes = await fetch("https://sandbox.familybank.co.ke/api/v1/Mpesa/stkpush", {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${tokenData.access_token}`,
-        "Content-Type": "application/json"
-      },
-      body: JSON.stringify(payload)
-    });
+    // Send STK Push with timeout
+    let stkRes;
+    try {
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 30000); // 30 second timeout
+      
+      stkRes = await fetch("https://sandbox.familybank.co.ke/api/v1/Mpesa/stkpush", {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${tokenData.access_token}`,
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify(payload),
+        signal: controller.signal
+      });
+      
+      clearTimeout(timeoutId);
+    } catch (fetchError) {
+      console.error('STK Push fetch error:', fetchError);
+      throw new Error(`Family Bank payment service is currently unavailable. Please try again later. Error: ${fetchError.message}`);
+    }
 
     if (!stkRes.ok) {
+      const errorText = await stkRes.text();
       console.error('STK Push request failed:', {
         status: stkRes.status,
         statusText: stkRes.statusText,
-        response: await stkRes.text()
+        response: errorText
       });
-      throw new Error(`STK Push request failed: ${stkRes.statusText}`);
+      
+      if (stkRes.status === 522) {
+        throw new Error('Family Bank payment service is currently experiencing connectivity issues. Please try again in a few minutes.');
+      }
+      
+      throw new Error(`STK Push request failed (${stkRes.status}). Please contact support if this persists.`);
     }
 
     const stkData = await stkRes.json();
