@@ -124,43 +124,50 @@ const FamilyBankPayment: React.FC<FamilyBankPaymentProps> = ({
     
     console.log('Starting payment monitoring for:', thirdPartyTransId);
     
-    // Start polling immediately since realtime is having issues
+    // Start polling with a longer initial delay to give Family Bank time to process
     const startPolling = () => {
       console.log('Starting polling');
       let attempts = 0;
-      const maxAttempts = 60; // 10 minutes with 10-second intervals
+      const maxAttempts = 120; // 20 minutes with 10-second intervals
       
       const pollStatus = async () => {
         attempts++;
         console.log(`Polling attempt ${attempts}/${maxAttempts}`);
         
         try {
-          // Use maybeSingle() instead of single() to handle no results gracefully
+          // Query the Family Bank STK requests table for status updates
           const { data, error } = await supabase
             .from('family_bank_stk_requests')
-            .select('status, response_description')
+            .select('status, response_description, callback_raw')
             .eq('third_party_trans_id', thirdPartyTransId)
             .maybeSingle();
 
-          console.log('Poll result:', { data, error });
+          console.log('Poll result:', { data, error, thirdPartyTransId });
 
           if (error) {
             console.error('Polling error:', error);
-            // Continue polling despite errors
-            if (attempts < maxAttempts) {
+            // Continue polling despite errors for a few more attempts
+            if (attempts < Math.min(5, maxAttempts)) {
               pollIntervalId = setTimeout(pollStatus, 10000);
+            } else {
+              handlePollingFailure();
             }
             return;
           }
 
           if (!data) {
-            console.log('No data found yet, continuing to poll...');
+            console.log('No STK request found yet, continuing to poll...');
             if (attempts < maxAttempts) {
               pollIntervalId = setTimeout(pollStatus, 10000);
+            } else {
+              handlePollingTimeout();
             }
             return;
           }
 
+          // Check the status from the database
+          console.log('STK request status:', data.status);
+          
           if (data.status === 'success') {
             setPaymentStatus('success');
             toast({
@@ -168,7 +175,10 @@ const FamilyBankPayment: React.FC<FamilyBankPaymentProps> = ({
               description: "Your payment has been processed successfully.",
             });
             if (onPaymentComplete) {
-              onPaymentComplete({ transactionId: thirdPartyTransId });
+              onPaymentComplete({ 
+                transactionId: thirdPartyTransId,
+                callbackData: data.callback_raw 
+              });
             }
             cleanup();
           } else if (data.status === 'failed') {
@@ -183,33 +193,40 @@ const FamilyBankPayment: React.FC<FamilyBankPaymentProps> = ({
             // Status is still pending, continue polling
             pollIntervalId = setTimeout(pollStatus, 10000);
           } else {
-            // Max attempts reached
-            setPaymentStatus('failed');
-            toast({
-              title: "Payment Timeout",
-              description: "Payment verification timed out. Please contact support if you made the payment.",
-              variant: "destructive",
-            });
-            cleanup();
+            handlePollingTimeout();
           }
         } catch (error) {
           console.error('Error polling payment status:', error);
           if (attempts < maxAttempts) {
             pollIntervalId = setTimeout(pollStatus, 10000);
           } else {
-            setPaymentStatus('failed');
-            toast({
-              title: "Payment Verification Error",
-              description: "Unable to verify payment status. Please contact support if you made the payment.",
-              variant: "destructive",
-            });
-            cleanup();
+            handlePollingFailure();
           }
         }
       };
       
-      // Start polling after 5 seconds to give the bank time to process
-      setTimeout(pollStatus, 5000);
+      // Start polling after 10 seconds to give Family Bank time to process
+      setTimeout(pollStatus, 10000);
+    };
+
+    const handlePollingTimeout = () => {
+      setPaymentStatus('failed');
+      toast({
+        title: "Payment Verification Timeout",
+        description: "We couldn't verify your payment status. If you completed the payment, please contact support with transaction ID: " + thirdPartyTransId,
+        variant: "destructive",
+      });
+      cleanup();
+    };
+
+    const handlePollingFailure = () => {
+      setPaymentStatus('failed');
+      toast({
+        title: "Payment Verification Error",
+        description: "Unable to verify payment status due to a technical error. Please contact support if you made the payment.",
+        variant: "destructive",
+      });
+      cleanup();
     };
 
     // Cleanup function
@@ -219,21 +236,16 @@ const FamilyBankPayment: React.FC<FamilyBankPaymentProps> = ({
       if (pollIntervalId) clearTimeout(pollIntervalId);
     };
 
-    // Start polling immediately
+    // Start polling
     startPolling();
 
-    // Final timeout after 10 minutes
+    // Final timeout after 20 minutes
     timeoutId = setTimeout(() => {
       if (paymentStatus === 'pending') {
-        setPaymentStatus('failed');
-        toast({
-          title: "Payment Timeout",
-          description: "Payment verification timed out. Please contact support if you made the payment.",
-          variant: "destructive",
-        });
+        handlePollingTimeout();
       }
       cleanup();
-    }, 600000); // 10 minutes timeout
+    }, 1200000); // 20 minutes timeout
   };
 
   const getStatusIcon = () => {
@@ -322,7 +334,7 @@ const FamilyBankPayment: React.FC<FamilyBankPaymentProps> = ({
                 <p>A payment prompt has been sent to {phoneNumber}</p>
                 <p>Please check your phone and enter your PIN to complete the payment</p>
                 <p className="text-xs text-orange-600">
-                  Payment verification may take up to 2 minutes
+                  Payment verification may take up to 5 minutes. Please be patient.
                 </p>
               </div>
             )}
