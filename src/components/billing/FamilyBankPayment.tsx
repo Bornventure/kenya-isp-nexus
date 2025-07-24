@@ -1,5 +1,5 @@
 
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -30,6 +30,11 @@ const FamilyBankPayment: React.FC<FamilyBankPaymentProps> = ({
   const [paymentStatus, setPaymentStatus] = useState<'idle' | 'pending' | 'success' | 'failed'>('idle');
   const [transactionId, setTransactionId] = useState('');
   const { toast } = useToast();
+  
+  // Use refs to track timers and prevent multiple polling instances
+  const timeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const pollIntervalRef = useRef<NodeJS.Timeout | null>(null);
+  const isPollingRef = useRef(false);
 
   const formatPhoneNumber = (phone: string) => {
     // Remove any non-digits
@@ -52,6 +57,19 @@ const FamilyBankPayment: React.FC<FamilyBankPaymentProps> = ({
     return /^254[0-9]{9}$/.test(formatted);
   };
 
+  const cleanup = () => {
+    console.log('Cleaning up payment monitoring timers');
+    if (timeoutRef.current) {
+      clearTimeout(timeoutRef.current);
+      timeoutRef.current = null;
+    }
+    if (pollIntervalRef.current) {
+      clearTimeout(pollIntervalRef.current);
+      pollIntervalRef.current = null;
+    }
+    isPollingRef.current = false;
+  };
+
   const initiatePayment = async () => {
     if (!validatePhoneNumber(phoneNumber)) {
       toast({
@@ -61,6 +79,9 @@ const FamilyBankPayment: React.FC<FamilyBankPaymentProps> = ({
       });
       return;
     }
+
+    // Clean up any existing polling
+    cleanup();
 
     setIsLoading(true);
     setPaymentStatus('pending');
@@ -83,7 +104,7 @@ const FamilyBankPayment: React.FC<FamilyBankPaymentProps> = ({
           accountRef: accountReference,
           clientId: clientId,
           invoiceId: invoiceId,
-          ispCompanyId: null // Will be set by the function
+          ispCompanyId: null // Will be determined by the function
         },
       });
 
@@ -119,94 +140,96 @@ const FamilyBankPayment: React.FC<FamilyBankPaymentProps> = ({
   };
 
   const monitorPaymentStatus = (thirdPartyTransId: string) => {
-    let timeoutId: NodeJS.Timeout;
-    let pollIntervalId: NodeJS.Timeout;
-    
+    // Prevent multiple polling instances
+    if (isPollingRef.current) {
+      console.log('Polling already in progress, skipping');
+      return;
+    }
+
+    isPollingRef.current = true;
     console.log('Starting payment monitoring for:', thirdPartyTransId);
     
-    // Start polling with a longer initial delay to give Family Bank time to process
-    const startPolling = () => {
-      console.log('Starting polling');
-      let attempts = 0;
-      const maxAttempts = 120; // 20 minutes with 10-second intervals
+    let attempts = 0;
+    const maxAttempts = 120; // 20 minutes with 10-second intervals
+    
+    const pollStatus = async () => {
+      if (!isPollingRef.current) {
+        console.log('Polling cancelled');
+        return;
+      }
+
+      attempts++;
+      console.log(`Polling attempt ${attempts}/${maxAttempts}`);
       
-      const pollStatus = async () => {
-        attempts++;
-        console.log(`Polling attempt ${attempts}/${maxAttempts}`);
-        
-        try {
-          // Query the Family Bank STK requests table for status updates
-          const { data, error } = await supabase
-            .from('family_bank_stk_requests')
-            .select('status, response_description, callback_raw')
-            .eq('third_party_trans_id', thirdPartyTransId)
-            .maybeSingle();
+      try {
+        // Query the Family Bank STK requests table for status updates
+        const { data, error } = await supabase
+          .from('family_bank_stk_requests')
+          .select('status, response_description, callback_raw')
+          .eq('third_party_trans_id', thirdPartyTransId)
+          .maybeSingle();
 
-          console.log('Poll result:', { data, error, thirdPartyTransId });
+        console.log('Poll result:', { data, error, thirdPartyTransId });
 
-          if (error) {
-            console.error('Polling error:', error);
-            // Continue polling despite errors for a few more attempts
-            if (attempts < Math.min(5, maxAttempts)) {
-              pollIntervalId = setTimeout(pollStatus, 10000);
-            } else {
-              handlePollingFailure();
-            }
-            return;
-          }
-
-          if (!data) {
-            console.log('No STK request found yet, continuing to poll...');
-            if (attempts < maxAttempts) {
-              pollIntervalId = setTimeout(pollStatus, 10000);
-            } else {
-              handlePollingTimeout();
-            }
-            return;
-          }
-
-          // Check the status from the database
-          console.log('STK request status:', data.status);
-          
-          if (data.status === 'success') {
-            setPaymentStatus('success');
-            toast({
-              title: "Payment Successful!",
-              description: "Your payment has been processed successfully.",
-            });
-            if (onPaymentComplete) {
-              onPaymentComplete({ 
-                transactionId: thirdPartyTransId,
-                callbackData: data.callback_raw 
-              });
-            }
-            cleanup();
-          } else if (data.status === 'failed') {
-            setPaymentStatus('failed');
-            toast({
-              title: "Payment Failed",
-              description: data.response_description || "Payment was cancelled or failed.",
-              variant: "destructive",
-            });
-            cleanup();
-          } else if (attempts < maxAttempts) {
-            // Status is still pending, continue polling
-            pollIntervalId = setTimeout(pollStatus, 10000);
-          } else {
-            handlePollingTimeout();
-          }
-        } catch (error) {
-          console.error('Error polling payment status:', error);
-          if (attempts < maxAttempts) {
-            pollIntervalId = setTimeout(pollStatus, 10000);
+        if (error) {
+          console.error('Polling error:', error);
+          // Continue polling despite errors for a few more attempts
+          if (attempts < Math.min(5, maxAttempts) && isPollingRef.current) {
+            pollIntervalRef.current = setTimeout(pollStatus, 10000);
           } else {
             handlePollingFailure();
           }
+          return;
         }
-      };
-      
-      // Start polling after 10 seconds to give Family Bank time to process
-      setTimeout(pollStatus, 10000);
+
+        if (!data) {
+          console.log('No STK request found yet, continuing to poll...');
+          if (attempts < maxAttempts && isPollingRef.current) {
+            pollIntervalRef.current = setTimeout(pollStatus, 10000);
+          } else {
+            handlePollingTimeout();
+          }
+          return;
+        }
+
+        // Check the status from the database
+        console.log('STK request status:', data.status);
+        
+        if (data.status === 'success') {
+          setPaymentStatus('success');
+          toast({
+            title: "Payment Successful!",
+            description: "Your payment has been processed successfully.",
+          });
+          if (onPaymentComplete) {
+            onPaymentComplete({ 
+              transactionId: thirdPartyTransId,
+              callbackData: data.callback_raw 
+            });
+          }
+          cleanup();
+        } else if (data.status === 'failed') {
+          setPaymentStatus('failed');
+          toast({
+            title: "Payment Failed",
+            description: data.response_description || "Payment was cancelled or failed.",
+            variant: "destructive",
+          });
+          cleanup();
+        } else if (attempts < maxAttempts && isPollingRef.current) {
+          // Status is still pending, continue polling
+          pollIntervalRef.current = setTimeout(pollStatus, 10000);
+        } else {
+          handlePollingTimeout();
+        }
+      } catch (error) {
+        console.error('Error polling payment status:', error);
+        if (attempts < maxAttempts && isPollingRef.current) {
+          pollIntervalRef.current = setTimeout(pollStatus, 10000);
+        } else {
+          handlePollingFailure();
+        }
+      }
     };
 
     const handlePollingTimeout = () => {
@@ -229,24 +252,24 @@ const FamilyBankPayment: React.FC<FamilyBankPaymentProps> = ({
       cleanup();
     };
 
-    // Cleanup function
-    const cleanup = () => {
-      console.log('Cleaning up payment monitoring');
-      if (timeoutId) clearTimeout(timeoutId);
-      if (pollIntervalId) clearTimeout(pollIntervalId);
-    };
-
-    // Start polling
-    startPolling();
+    // Start polling after 10 seconds to give Family Bank time to process the request
+    console.log('Starting initial polling delay...');
+    pollIntervalRef.current = setTimeout(pollStatus, 10000);
 
     // Final timeout after 20 minutes
-    timeoutId = setTimeout(() => {
-      if (paymentStatus === 'pending') {
+    timeoutRef.current = setTimeout(() => {
+      if (paymentStatus === 'pending' && isPollingRef.current) {
         handlePollingTimeout();
       }
-      cleanup();
     }, 1200000); // 20 minutes timeout
   };
+
+  // Cleanup on component unmount
+  React.useEffect(() => {
+    return () => {
+      cleanup();
+    };
+  }, []);
 
   const getStatusIcon = () => {
     switch (paymentStatus) {
@@ -272,6 +295,13 @@ const FamilyBankPayment: React.FC<FamilyBankPaymentProps> = ({
       default:
         return 'Ready to pay';
     }
+  };
+
+  const resetPayment = () => {
+    cleanup();
+    setPaymentStatus('idle');
+    setTransactionId('');
+    setPhoneNumber('');
   };
 
   return (
@@ -334,18 +364,14 @@ const FamilyBankPayment: React.FC<FamilyBankPaymentProps> = ({
                 <p>A payment prompt has been sent to {phoneNumber}</p>
                 <p>Please check your phone and enter your PIN to complete the payment</p>
                 <p className="text-xs text-orange-600">
-                  Payment verification may take up to 5 minutes. Please be patient.
+                  Payment verification may take up to 10 minutes. Please be patient.
                 </p>
               </div>
             )}
 
             {(paymentStatus === 'failed' || paymentStatus === 'success') && (
               <Button
-                onClick={() => {
-                  setPaymentStatus('idle');
-                  setTransactionId('');
-                  setPhoneNumber('');
-                }}
+                onClick={resetPayment}
                 variant="outline"
                 className="w-full"
               >

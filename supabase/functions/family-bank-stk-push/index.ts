@@ -21,11 +21,36 @@ serve(async (req) => {
 
     const { phone, amount, accountRef, clientId, invoiceId, ispCompanyId } = await req.json();
 
-    console.log('Family Bank STK Push request:', { phone, amount, accountRef, clientId });
+    console.log('Family Bank STK Push request:', { phone, amount, accountRef, clientId, invoiceId, ispCompanyId });
 
     // Input validation
     if (!phone || !amount || !accountRef || !clientId) {
       throw new Error('Missing required fields: phone, amount, accountRef, and clientId are required');
+    }
+
+    // Get client details to determine ISP company ID if not provided
+    let finalIspCompanyId = ispCompanyId;
+    if (!finalIspCompanyId && clientId) {
+      console.log('Getting client details for ISP company ID');
+      const { data: clientData, error: clientError } = await supabase
+        .from('clients')
+        .select('isp_company_id')
+        .eq('id', clientId)
+        .single();
+
+      if (clientError) {
+        console.error('Error getting client details:', clientError);
+        throw new Error(`Failed to get client details: ${clientError.message}`);
+      }
+
+      if (clientData) {
+        finalIspCompanyId = clientData.isp_company_id;
+        console.log('Found ISP company ID from client:', finalIspCompanyId);
+      }
+    }
+
+    if (!finalIspCompanyId) {
+      throw new Error('Could not determine ISP company ID');
     }
 
     // Generate unique transaction ID
@@ -36,12 +61,7 @@ serve(async (req) => {
     const bankClientId = "LAKELINK"; // Family Bank client ID
     const password = btoa(`${businessShortCode}${bankClientId}${timestamp}`);
 
-    console.log('Getting access token with credentials:', {
-      client_id: 'LAKELINK',
-      client_secret: 'secret',
-      grant_type: 'client_credentials',
-      scope: 'ESB_REST_API'
-    });
+    console.log('Getting Family Bank access token...');
 
     // Get access token with timeout and better error handling
     let tokenRes;
@@ -85,13 +105,25 @@ serve(async (req) => {
     }
 
     const tokenData = await tokenRes.json();
-    console.log('Token response:', tokenData);
+    console.log('Token response received');
 
     if (!tokenData.access_token) {
       throw new Error('No access token received from Family Bank');
     }
 
-    // Store STK request in database first
+    // Store STK request in database FIRST before making the API call
+    console.log('Storing STK request in database with data:', {
+      phone_number: phone,
+      amount: parseFloat(amount),
+      account_reference: accountRef,
+      transaction_desc: "Website Payment",
+      third_party_trans_id: transID,
+      client_id: clientId,
+      invoice_id: invoiceId || null,
+      isp_company_id: finalIspCompanyId,
+      status: 'pending'
+    });
+
     const { data: stkRequestData, error: dbError } = await supabase
       .from('family_bank_stk_requests')
       .insert({
@@ -101,19 +133,19 @@ serve(async (req) => {
         transaction_desc: "Website Payment",
         third_party_trans_id: transID,
         client_id: clientId,
-        invoice_id: invoiceId,
-        isp_company_id: ispCompanyId,
+        invoice_id: invoiceId || null,
+        isp_company_id: finalIspCompanyId,
         status: 'pending'
       })
       .select()
       .single();
 
     if (dbError) {
-      console.error('Database error:', dbError);
+      console.error('Database error storing STK request:', dbError);
       throw new Error(`Failed to store STK request: ${dbError.message}`);
     }
 
-    console.log('STK request stored in database:', stkRequestData);
+    console.log('STK request stored successfully in database:', stkRequestData);
 
     // Prepare STK Push payload
     const payload = {
@@ -152,6 +184,16 @@ serve(async (req) => {
       clearTimeout(timeoutId);
     } catch (fetchError) {
       console.error('STK Push fetch error:', fetchError);
+      
+      // Update the database record to failed status
+      await supabase
+        .from('family_bank_stk_requests')
+        .update({
+          status: 'failed',
+          response_description: `API unavailable: ${fetchError.message}`
+        })
+        .eq('third_party_trans_id', transID);
+        
       throw new Error(`Family Bank payment service is currently unavailable. Please try again later. Error: ${fetchError.message}`);
     }
 
@@ -162,6 +204,15 @@ serve(async (req) => {
         statusText: stkRes.statusText,
         response: errorText
       });
+
+      // Update the database record to failed status
+      await supabase
+        .from('family_bank_stk_requests')
+        .update({
+          status: 'failed',
+          response_description: `STK Push failed: ${stkRes.status} - ${errorText}`
+        })
+        .eq('third_party_trans_id', transID);
       
       if (stkRes.status === 522) {
         throw new Error('Family Bank payment service is currently experiencing connectivity issues. Please try again in a few minutes.');
@@ -175,6 +226,16 @@ serve(async (req) => {
 
     if (stkData.ResponseCode !== '0') {
       console.error('STK Push failed:', stkData);
+      
+      // Update the database record to failed status
+      await supabase
+        .from('family_bank_stk_requests')
+        .update({
+          status: 'failed',
+          response_description: stkData.ResponseDescription || 'STK Push failed'
+        })
+        .eq('third_party_trans_id', transID);
+        
       throw new Error(`STK Push failed: ${stkData.ResponseDescription}`);
     }
 
@@ -192,9 +253,13 @@ serve(async (req) => {
         .eq('third_party_trans_id', transID);
 
       if (updateError) {
-        console.error('Failed to update STK request:', updateError);
+        console.error('Failed to update STK request with response data:', updateError);
+      } else {
+        console.log('STK request updated with response data');
       }
     }
+
+    console.log('STK Push completed successfully, returning response');
 
     return new Response(JSON.stringify({
       success: true,
