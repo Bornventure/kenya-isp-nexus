@@ -75,11 +75,21 @@ export function ClientAuthProvider({ children }: { children: React.ReactNode }) 
 
       if (error) {
         console.error('Login error:', error);
-        toast({
-          title: "Login Failed",
-          description: error.message || "Invalid credentials",
-          variant: "destructive",
-        });
+        
+        // Handle specific error cases
+        if (error.message?.includes('Edge Function returned a non-2xx status code')) {
+          toast({
+            title: "Login Failed",
+            description: "Invalid email or ID number. Please check your credentials and try again.",
+            variant: "destructive",
+          });
+        } else {
+          toast({
+            title: "Login Failed",
+            description: "Unable to connect to the server. Please try again later.",
+            variant: "destructive",
+          });
+        }
         return false;
       }
 
@@ -94,19 +104,45 @@ export function ClientAuthProvider({ children }: { children: React.ReactNode }) 
         return true;
       }
 
+      // Handle case where data exists but login was not successful
+      const errorMessage = data?.error || "Invalid email or ID number";
       toast({
         title: "Login Failed",
-        description: "Invalid email or ID number",
+        description: errorMessage,
         variant: "destructive",
       });
       return false;
     } catch (error) {
       console.error('Login error:', error);
-      toast({
-        title: "Login Failed",
-        description: "A technical error occurred. Please try again.",
-        variant: "destructive",
-      });
+      
+      // Handle network errors and other exceptions
+      if (error instanceof Error) {
+        if (error.message.includes('FunctionsHttpError')) {
+          toast({
+            title: "Login Failed",
+            description: "Invalid email or ID number. Please check your credentials and try again.",
+            variant: "destructive",
+          });
+        } else if (error.message.includes('NetworkError') || error.message.includes('fetch')) {
+          toast({
+            title: "Connection Error",
+            description: "Unable to connect to the server. Please check your internet connection and try again.",
+            variant: "destructive",
+          });
+        } else {
+          toast({
+            title: "Login Failed",
+            description: "An unexpected error occurred. Please try again later.",
+            variant: "destructive",
+          });
+        }
+      } else {
+        toast({
+          title: "Login Failed",
+          description: "An unexpected error occurred. Please try again later.",
+          variant: "destructive",
+        });
+      }
       return false;
     } finally {
       setIsLoading(false);
