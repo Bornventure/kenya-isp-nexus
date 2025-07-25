@@ -13,9 +13,15 @@ interface MpesaPaymentFormProps {
   amount: number;
   onSuccess: () => void;
   onCancel: () => void;
+  clientId?: string;
 }
 
-const MpesaPaymentForm: React.FC<MpesaPaymentFormProps> = ({ amount, onSuccess, onCancel }) => {
+const MpesaPaymentForm: React.FC<MpesaPaymentFormProps> = ({ 
+  amount, 
+  onSuccess, 
+  onCancel, 
+  clientId 
+}) => {
   const [phoneNumber, setPhoneNumber] = useState('');
   const [isProcessing, setIsProcessing] = useState(false);
   const [paymentInitiated, setPaymentInitiated] = useState(false);
@@ -71,7 +77,9 @@ const MpesaPaymentForm: React.FC<MpesaPaymentFormProps> = ({ amount, onSuccess, 
               });
               setPaymentInitiated(false);
             }
-          }
+          },
+          clientId,
+          amount
         );
         
         toast({

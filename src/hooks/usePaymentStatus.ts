@@ -16,9 +16,11 @@ export const usePaymentStatus = () => {
   const startPaymentMonitoring = useCallback(async (
     invoiceId: string,
     checkoutRequestId: string,
-    callbacks: PaymentStatusCallbacks
+    callbacks: PaymentStatusCallbacks,
+    clientId?: string,
+    amount?: number
   ) => {
-    console.log('Starting payment monitoring for:', { invoiceId, checkoutRequestId });
+    console.log('Starting payment monitoring for:', { invoiceId, checkoutRequestId, clientId, amount });
     
     setIsMonitoring(true);
     let attempts = 0;
@@ -31,7 +33,7 @@ export const usePaymentStatus = () => {
       try {
         const { data, error } = await supabase.functions.invoke('check-payment-status', {
           body: { 
-            checkoutRequestId: checkoutRequestId, // Use camelCase to match the function expectation
+            checkoutRequestId: checkoutRequestId,
             invoice_id: invoiceId
           }
         });
@@ -49,7 +51,12 @@ export const usePaymentStatus = () => {
             setIsMonitoring(false);
             
             // Process the payment to update wallet and create records
-            await processPaymentSuccess(data.client_id, data.amount, checkoutRequestId, data.mpesa_receipt_number);
+            await processPaymentSuccess(
+              data.client_id || clientId, 
+              data.amount || amount, 
+              checkoutRequestId, 
+              data.mpesa_receipt_number
+            );
             
             if (callbacks.onSuccess) {
               callbacks.onSuccess(data);
@@ -99,6 +106,11 @@ export const usePaymentStatus = () => {
     checkoutRequestId: string,
     mpesaReceiptNumber?: string
   ) => {
+    if (!clientId || !amount) {
+      console.error('Missing clientId or amount for payment processing:', { clientId, amount });
+      throw new Error('Missing required parameters for payment processing');
+    }
+
     try {
       console.log('Processing payment success:', { clientId, amount, checkoutRequestId, mpesaReceiptNumber });
       

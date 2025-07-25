@@ -103,7 +103,9 @@ const MpesaPayment: React.FC<MpesaPaymentProps> = ({
             console.log('Payment monitoring timeout');
             setPaymentStatus('failed');
           }
-        }
+        },
+        clientId,
+        amount
       );
     } else {
       console.error('STK Push failed:', stkResponse);
