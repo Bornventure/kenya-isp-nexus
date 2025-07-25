@@ -25,7 +25,7 @@ export const useWalletTransactions = () => {
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
-  const { data: transactions = [], isLoading, error } = useQuery({
+  const { data: transactions = [], isLoading, error, refetch } = useQuery({
     queryKey: ['wallet-transactions', profile?.isp_company_id],
     queryFn: async () => {
       if (!profile?.isp_company_id) return [];
@@ -47,9 +47,11 @@ export const useWalletTransactions = () => {
         throw error;
       }
 
+      console.log('Wallet transactions fetched:', data);
       return data as WalletTransaction[];
     },
     enabled: !!profile?.isp_company_id,
+    refetchInterval: 5000, // Refetch every 5 seconds to show new transactions
   });
 
   const creditWalletMutation = useMutation({
@@ -125,6 +127,8 @@ export const useWalletTransactions = () => {
       queryClient.invalidateQueries({ queryKey: ['wallet-transactions'] });
       queryClient.invalidateQueries({ queryKey: ['clients'] });
       queryClient.invalidateQueries({ queryKey: ['payments'] });
+      queryClient.invalidateQueries({ queryKey: ['client-dashboard'] });
+      refetch(); // Force immediate refetch
       toast({
         title: "Wallet Credited",
         description: "Client wallet has been credited and account updated successfully.",
@@ -146,5 +150,6 @@ export const useWalletTransactions = () => {
     error,
     creditWallet: creditWalletMutation.mutate,
     isCrediting: creditWalletMutation.isPending,
+    refetch,
   };
 };

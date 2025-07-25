@@ -12,16 +12,18 @@ import { useClientAuth } from '@/contexts/ClientAuthContext';
 const WalletPage = () => {
   const [showTopUp, setShowTopUp] = useState(false);
   const [topUpAmount, setTopUpAmount] = useState('');
-  const { client } = useClientAuth();
+  const { client, refreshClientData } = useClientAuth();
 
   const handleTopUpClick = () => {
     setShowTopUp(true);
   };
 
   const handleTopUpSuccess = (paymentData: any) => {
+    console.log('Top-up successful:', paymentData);
     setShowTopUp(false);
     setTopUpAmount('');
-    // The wallet balance will be updated via the payment success callback
+    // Refresh client data to update wallet balance
+    refreshClientData();
   };
 
   const handleTopUpCancel = () => {

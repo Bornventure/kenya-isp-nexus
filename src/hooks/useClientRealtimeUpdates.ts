@@ -64,6 +64,8 @@ export const useClientRealtimeUpdates = () => {
 
       case 'payments':
         if (payload.eventType === 'INSERT') {
+          // Refresh client data when new payment is added
+          refreshClientData();
           toast({
             title: "Payment Received",
             description: `Your payment of KES ${payload.new.amount} has been processed`,
@@ -74,6 +76,8 @@ export const useClientRealtimeUpdates = () => {
 
       case 'wallet_transactions':
         if (payload.eventType === 'INSERT') {
+          // Refresh client data when new wallet transaction is added
+          refreshClientData();
           if (payload.new.transaction_type === 'credit') {
             toast({
               title: "Wallet Credited",

@@ -1,188 +1,201 @@
 
-import React, { useState } from 'react';
+import React, { useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Input } from '@/components/ui/input';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Badge } from '@/components/ui/badge';
-import { Button } from '@/components/ui/button';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { supabase } from '@/integrations/supabase/client';
 import { useClientAuth } from '@/contexts/ClientAuthContext';
 import { formatKenyanCurrency } from '@/utils/kenyanValidation';
-import { Search, Download, CreditCard, ArrowUpRight, ArrowDownLeft } from 'lucide-react';
+import { Loader2, RefreshCw } from 'lucide-react';
+import { Button } from '@/components/ui/button';
+
+interface WalletTransaction {
+  id: string;
+  transaction_type: 'credit' | 'debit' | 'payment' | 'refund';
+  amount: number;
+  description: string | null;
+  reference_number: string | null;
+  mpesa_receipt_number: string | null;
+  created_at: string;
+}
 
 const TransactionHistory: React.FC = () => {
   const { client } = useClientAuth();
-  const [searchTerm, setSearchTerm] = useState('');
-  const [filterType, setFilterType] = useState('all');
-  const [sortOrder, setSortOrder] = useState('desc');
+  const queryClient = useQueryClient();
 
-  if (!client) return null;
+  const { data: transactions = [], isLoading, error, refetch } = useQuery({
+    queryKey: ['wallet-transactions', client?.id],
+    queryFn: async () => {
+      if (!client?.id) return [];
 
-  const transactions = client.wallet_transactions || [];
+      console.log('Fetching wallet transactions for client:', client.id);
+      
+      const { data, error } = await supabase
+        .from('wallet_transactions')
+        .select('*')
+        .eq('client_id', client.id)
+        .order('created_at', { ascending: false })
+        .limit(50);
 
-  const filteredTransactions = transactions
-    .filter(transaction => {
-      const matchesSearch = transaction.description.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                           transaction.mpesa_receipt_number?.toLowerCase().includes(searchTerm.toLowerCase());
-      const matchesType = filterType === 'all' || transaction.transaction_type === filterType;
-      return matchesSearch && matchesType;
-    })
-    .sort((a, b) => {
-      const dateA = new Date(a.created_at).getTime();
-      const dateB = new Date(b.created_at).getTime();
-      return sortOrder === 'desc' ? dateB - dateA : dateA - dateB;
+      if (error) {
+        console.error('Error fetching wallet transactions:', error);
+        throw error;
+      }
+
+      console.log('Wallet transactions fetched:', data);
+      return data as WalletTransaction[];
+    },
+    enabled: !!client?.id,
+    refetchInterval: 5000, // Refetch every 5 seconds
+  });
+
+  // Set up real-time subscription for wallet transactions
+  useEffect(() => {
+    if (!client?.id) return;
+
+    const channel = supabase
+      .channel('wallet_transactions_realtime')
+      .on(
+        'postgres_changes',
+        {
+          event: 'INSERT',
+          schema: 'public',
+          table: 'wallet_transactions',
+          filter: `client_id=eq.${client.id}`
+        },
+        (payload) => {
+          console.log('New wallet transaction received:', payload);
+          queryClient.invalidateQueries({ queryKey: ['wallet-transactions'] });
+          refetch();
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [client?.id, queryClient, refetch]);
+
+  const getTransactionTypeColor = (type: string) => {
+    switch (type) {
+      case 'credit':
+        return 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200';
+      case 'debit':
+        return 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200';
+      case 'payment':
+        return 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200';
+      case 'refund':
+        return 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200';
+      default:
+        return 'bg-gray-100 text-gray-800 dark:bg-gray-900 dark:text-gray-200';
+    }
+  };
+
+  const formatDate = (dateString: string) => {
+    return new Date(dateString).toLocaleDateString('en-KE', {
+      year: 'numeric',
+      month: 'short',
+      day: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit'
     });
+  };
 
-  const totalCredit = transactions
-    .filter(t => t.transaction_type === 'credit')
-    .reduce((sum, t) => sum + t.amount, 0);
+  const formatAmount = (amount: number, type: string) => {
+    const formattedAmount = formatKenyanCurrency(amount);
+    return type === 'credit' ? `+${formattedAmount}` : `-${formattedAmount}`;
+  };
 
-  const totalDebit = transactions
-    .filter(t => t.transaction_type === 'debit')
-    .reduce((sum, t) => sum + t.amount, 0);
-
-  return (
-    <div className="space-y-6">
-      {/* Summary Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        <Card>
-          <CardContent className="p-4">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm font-medium text-gray-600">Total Credits</p>
-                <p className="text-lg font-bold text-green-600">
-                  {formatKenyanCurrency(totalCredit)}
-                </p>
-              </div>
-              <ArrowDownLeft className="h-8 w-8 text-green-600" />
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardContent className="p-4">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm font-medium text-gray-600">Total Debits</p>
-                <p className="text-lg font-bold text-red-600">
-                  {formatKenyanCurrency(totalDebit)}
-                </p>
-              </div>
-              <ArrowUpRight className="h-8 w-8 text-red-600" />
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardContent className="p-4">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm font-medium text-gray-600">Current Balance</p>
-                <p className="text-lg font-bold text-blue-600">
-                  {formatKenyanCurrency(client.wallet_balance)}
-                </p>
-              </div>
-              <CreditCard className="h-8 w-8 text-blue-600" />
-            </div>
-          </CardContent>
-        </Card>
-      </div>
-
-      {/* Transaction History */}
+  if (error) {
+    return (
       <Card>
         <CardHeader>
-          <div className="flex items-center justify-between">
-            <CardTitle>Transaction History</CardTitle>
-            <Button variant="outline" size="sm">
-              <Download className="h-4 w-4 mr-2" />
-              Export
-            </Button>
-          </div>
-          
-          {/* Filters */}
-          <div className="flex flex-col sm:flex-row gap-4 mt-4">
-            <div className="relative flex-1">
-              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
-              <Input
-                placeholder="Search transactions..."
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                className="pl-10"
-              />
-            </div>
-            
-            <Select value={filterType} onValueChange={setFilterType}>
-              <SelectTrigger className="w-full sm:w-40">
-                <SelectValue placeholder="Filter by type" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">All Types</SelectItem>
-                <SelectItem value="credit">Credits</SelectItem>
-                <SelectItem value="debit">Debits</SelectItem>
-              </SelectContent>
-            </Select>
-            
-            <Select value={sortOrder} onValueChange={setSortOrder}>
-              <SelectTrigger className="w-full sm:w-40">
-                <SelectValue placeholder="Sort by date" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="desc">Newest First</SelectItem>
-                <SelectItem value="asc">Oldest First</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
+          <CardTitle>Transaction History</CardTitle>
         </CardHeader>
         <CardContent>
-          {filteredTransactions.length === 0 ? (
-            <div className="text-center py-8 text-gray-500">
-              <CreditCard className="h-12 w-12 mx-auto mb-4 text-gray-400" />
-              <p>No transactions found</p>
-              <p className="text-sm">Try adjusting your search criteria</p>
-            </div>
-          ) : (
-            <div className="space-y-4">
-              {filteredTransactions.map((transaction) => (
-                <div key={transaction.id} className="flex items-center justify-between p-4 border rounded-lg hover:bg-gray-50">
-                  <div className="flex items-center gap-3">
-                    <div className={`p-2 rounded-full ${
-                      transaction.transaction_type === 'credit' 
-                        ? 'bg-green-100 text-green-600' 
-                        : 'bg-red-100 text-red-600'
-                    }`}>
-                      {transaction.transaction_type === 'credit' ? (
-                        <ArrowDownLeft className="h-4 w-4" />
-                      ) : (
-                        <ArrowUpRight className="h-4 w-4" />
-                      )}
-                    </div>
-                    <div>
-                      <p className="font-medium">{transaction.description}</p>
-                      <div className="flex items-center gap-2 text-sm text-gray-500">
-                        <span>{new Date(transaction.created_at).toLocaleDateString()}</span>
-                        <span>{new Date(transaction.created_at).toLocaleTimeString()}</span>
-                        {transaction.mpesa_receipt_number && (
-                          <Badge variant="outline" className="text-xs">
-                            {transaction.mpesa_receipt_number}
-                          </Badge>
-                        )}
-                      </div>
-                    </div>
-                  </div>
-                  <div className="text-right">
-                    <p className={`font-bold ${
-                      transaction.transaction_type === 'credit' ? 'text-green-600' : 'text-red-600'
-                    }`}>
-                      {transaction.transaction_type === 'credit' ? '+' : '-'}
-                      {formatKenyanCurrency(transaction.amount)}
-                    </p>
-                  </div>
-                </div>
-              ))}
-            </div>
-          )}
+          <div className="text-center py-8">
+            <p className="text-red-600 dark:text-red-400">
+              Error loading transactions. Please try again.
+            </p>
+            <Button onClick={() => refetch()} className="mt-4">
+              <RefreshCw className="h-4 w-4 mr-2" />
+              Retry
+            </Button>
+          </div>
         </CardContent>
       </Card>
-    </div>
+    );
+  }
+
+  return (
+    <Card>
+      <CardHeader className="flex flex-row items-center justify-between">
+        <CardTitle>Transaction History</CardTitle>
+        <Button 
+          variant="outline" 
+          size="sm" 
+          onClick={() => refetch()}
+          disabled={isLoading}
+        >
+          {isLoading ? (
+            <Loader2 className="h-4 w-4 animate-spin" />
+          ) : (
+            <RefreshCw className="h-4 w-4" />
+          )}
+        </Button>
+      </CardHeader>
+      <CardContent>
+        {isLoading && transactions.length === 0 ? (
+          <div className="flex items-center justify-center py-8">
+            <Loader2 className="h-6 w-6 animate-spin mr-2" />
+            <span>Loading transactions...</span>
+          </div>
+        ) : transactions.length === 0 ? (
+          <div className="text-center py-8">
+            <p className="text-gray-600 dark:text-gray-300">
+              No transactions found. Your transaction history will appear here.
+            </p>
+          </div>
+        ) : (
+          <div className="space-y-4">
+            {transactions.map((transaction) => (
+              <div
+                key={transaction.id}
+                className="flex items-center justify-between p-4 border rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors"
+              >
+                <div className="flex-1">
+                  <div className="flex items-center gap-2 mb-1">
+                    <Badge className={getTransactionTypeColor(transaction.transaction_type)}>
+                      {transaction.transaction_type.charAt(0).toUpperCase() + transaction.transaction_type.slice(1)}
+                    </Badge>
+                    <span className="text-sm text-gray-600 dark:text-gray-400">
+                      {formatDate(transaction.created_at)}
+                    </span>
+                  </div>
+                  <p className="text-sm font-medium mb-1">
+                    {transaction.description || 'Transaction'}
+                  </p>
+                  {(transaction.reference_number || transaction.mpesa_receipt_number) && (
+                    <p className="text-xs text-gray-500 dark:text-gray-400">
+                      Ref: {transaction.mpesa_receipt_number || transaction.reference_number}
+                    </p>
+                  )}
+                </div>
+                <div className="text-right">
+                  <span className={`font-semibold ${
+                    transaction.transaction_type === 'credit' 
+                      ? 'text-green-600 dark:text-green-400' 
+                      : 'text-red-600 dark:text-red-400'
+                  }`}>
+                    {formatAmount(transaction.amount, transaction.transaction_type)}
+                  </span>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </CardContent>
+    </Card>
   );
 };
 
