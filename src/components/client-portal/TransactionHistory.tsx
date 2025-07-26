@@ -20,7 +20,7 @@ interface WalletTransaction {
 }
 
 const TransactionHistory: React.FC = () => {
-  const { client } = useClientAuth();
+  const { client, refreshClientData } = useClientAuth();
   const queryClient = useQueryClient();
 
   const { data: transactions = [], isLoading, error, refetch } = useQuery({
@@ -46,35 +46,40 @@ const TransactionHistory: React.FC = () => {
       return data as WalletTransaction[];
     },
     enabled: !!client?.id,
-    refetchInterval: 5000, // Refetch every 5 seconds
+    refetchInterval: 3000, // Refetch every 3 seconds for real-time updates
   });
 
   // Set up real-time subscription for wallet transactions
   useEffect(() => {
     if (!client?.id) return;
 
+    console.log('Setting up real-time subscription for wallet transactions, client:', client.id);
+
     const channel = supabase
-      .channel('wallet_transactions_realtime')
+      .channel(`wallet_transactions_${client.id}`)
       .on(
         'postgres_changes',
         {
-          event: 'INSERT',
+          event: '*',
           schema: 'public',
           table: 'wallet_transactions',
           filter: `client_id=eq.${client.id}`
         },
         (payload) => {
-          console.log('New wallet transaction received:', payload);
-          queryClient.invalidateQueries({ queryKey: ['wallet-transactions'] });
-          refetch();
+          console.log('Real-time wallet transaction update:', payload);
+          queryClient.invalidateQueries({ queryKey: ['wallet-transactions', client.id] });
+          refreshClientData(); // Also refresh client data to update wallet balance
         }
       )
-      .subscribe();
+      .subscribe((status) => {
+        console.log('Wallet transactions subscription status:', status);
+      });
 
     return () => {
+      console.log('Cleaning up wallet transactions subscription');
       supabase.removeChannel(channel);
     };
-  }, [client?.id, queryClient, refetch]);
+  }, [client?.id, queryClient, refreshClientData]);
 
   const getTransactionTypeColor = (type: string) => {
     switch (type) {
@@ -134,7 +139,10 @@ const TransactionHistory: React.FC = () => {
         <Button 
           variant="outline" 
           size="sm" 
-          onClick={() => refetch()}
+          onClick={() => {
+            console.log('Manual refresh triggered');
+            refetch();
+          }}
           disabled={isLoading}
         >
           {isLoading ? (
@@ -155,9 +163,23 @@ const TransactionHistory: React.FC = () => {
             <p className="text-gray-600 dark:text-gray-300">
               No transactions found. Your transaction history will appear here.
             </p>
+            <Button 
+              onClick={() => {
+                console.log('Retrying to fetch transactions');
+                refetch();
+              }} 
+              variant="outline" 
+              className="mt-4"
+            >
+              <RefreshCw className="h-4 w-4 mr-2" />
+              Refresh
+            </Button>
           </div>
         ) : (
           <div className="space-y-4">
+            <div className="text-sm text-gray-500 mb-4">
+              Showing {transactions.length} transaction{transactions.length !== 1 ? 's' : ''}
+            </div>
             {transactions.map((transaction) => (
               <div
                 key={transaction.id}

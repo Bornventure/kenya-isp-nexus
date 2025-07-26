@@ -44,15 +44,32 @@ const PackageRenewalForm: React.FC = () => {
     setPaymentStatus(null);
 
     try {
+      console.log('Initiating package renewal for client:', client.name);
+      
+      // Format phone number to ensure it's in correct format
+      let formattedNumber = mpesaNumber;
+      if (formattedNumber.startsWith('07')) {
+        formattedNumber = '254' + formattedNumber.substring(1);
+      } else if (formattedNumber.startsWith('+254')) {
+        formattedNumber = formattedNumber.substring(1);
+      } else if (!formattedNumber.startsWith('254')) {
+        formattedNumber = '254' + formattedNumber;
+      }
+
       const { data, error } = await supabase.functions.invoke('package-renewal', {
         body: {
           client_email: client.email,
           client_id_number: client.id_number,
-          mpesa_number: mpesaNumber,
+          mpesa_number: formattedNumber,
         }
       });
 
-      if (error) throw error;
+      console.log('Package renewal response:', { data, error });
+
+      if (error) {
+        console.error('Package renewal error:', error);
+        throw error;
+      }
 
       if (data?.success) {
         setPaymentStatus({
@@ -67,27 +84,39 @@ const PackageRenewalForm: React.FC = () => {
         });
 
         // Start polling for payment status
-        pollPaymentStatus(data.data?.checkout_request_id);
+        if (data.data?.checkout_request_id) {
+          pollPaymentStatus(data.data.checkout_request_id, data.data?.invoice?.id);
+        }
       } else {
         throw new Error(data?.error || 'Payment initiation failed');
       }
     } catch (error: any) {
       console.error('Renewal error:', error);
+      
+      let errorMessage = "Failed to initiate payment. Please try again.";
+      
+      if (error.message?.includes('Client not found')) {
+        errorMessage = "Client not found. Please check your details.";
+      } else if (error.message?.includes('M-Pesa')) {
+        errorMessage = "M-Pesa payment initiation failed. Please check your phone number and try again.";
+      }
+      
       toast({
         title: "Error",
-        description: error.message || "Failed to initiate payment. Please try again.",
+        description: errorMessage,
         variant: "destructive",
       });
+      
       setPaymentStatus({
         status: 'failed',
-        message: error.message || 'Payment failed'
+        message: errorMessage
       });
     } finally {
       setLoading(false);
     }
   };
 
-  const pollPaymentStatus = async (checkoutRequestId: string) => {
+  const pollPaymentStatus = async (checkoutRequestId: string, invoiceId?: string) => {
     if (!checkoutRequestId) return;
 
     const maxAttempts = 30; // 5 minutes of polling
@@ -97,9 +126,16 @@ const PackageRenewalForm: React.FC = () => {
       attempts++;
       
       try {
+        console.log(`Payment status check attempt ${attempts}/${maxAttempts}`);
+        
         const { data } = await supabase.functions.invoke('check-payment-status', {
-          body: { checkout_request_id: checkoutRequestId }
+          body: { 
+            checkout_request_id: checkoutRequestId,
+            invoice_id: invoiceId || checkoutRequestId
+          }
         });
+
+        console.log('Payment status response:', data);
 
         if (data?.success && data?.status === 'completed') {
           clearInterval(pollInterval);
@@ -115,11 +151,17 @@ const PackageRenewalForm: React.FC = () => {
 
           // Refresh client data to show updated status
           await refreshClientData();
-        } else if (data?.status === 'failed') {
+        } else if (data?.status === 'failed' && data?.message !== 'The transaction is still under processing') {
           clearInterval(pollInterval);
           setPaymentStatus({
             status: 'failed',
-            message: 'Payment failed. Please try again.'
+            message: data?.message || 'Payment failed. Please try again.'
+          });
+          
+          toast({
+            title: "Payment Failed",
+            description: data?.message || "Payment was not completed successfully.",
+            variant: "destructive",
           });
         }
       } catch (error) {
@@ -131,6 +173,12 @@ const PackageRenewalForm: React.FC = () => {
         setPaymentStatus({
           status: 'timeout',
           message: 'Payment status check timed out. Please check your account or contact support.'
+        });
+        
+        toast({
+          title: "Payment Status Unknown",
+          description: "Please check your account status or contact support.",
+          variant: "destructive",
         });
       }
     }, 10000); // Check every 10 seconds
@@ -166,7 +214,7 @@ const PackageRenewalForm: React.FC = () => {
           <Input
             id="mpesa-number"
             type="tel"
-            placeholder="254700000000"
+            placeholder="254700000000 or 0700000000"
             value={mpesaNumber}
             onChange={(e) => setMpesaNumber(e.target.value)}
             disabled={loading}
@@ -190,13 +238,18 @@ const PackageRenewalForm: React.FC = () => {
 
         <Button 
           onClick={handleRenewal} 
-          disabled={loading || !mpesaNumber}
+          disabled={loading || !mpesaNumber || paymentStatus?.status === 'initiated'}
           className="w-full"
         >
           {loading ? (
             <>
               <Loader2 className="h-4 w-4 mr-2 animate-spin" />
               Processing...
+            </>
+          ) : paymentStatus?.status === 'initiated' ? (
+            <>
+              <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+              Waiting for payment...
             </>
           ) : (
             <>
