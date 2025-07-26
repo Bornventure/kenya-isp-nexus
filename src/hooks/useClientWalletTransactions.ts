@@ -24,25 +24,36 @@ export const useClientWalletTransactions = () => {
     queryFn: async () => {
       if (!client?.id) return [];
 
-      console.log('Fetching client wallet transactions for:', client.id);
+      console.log('Fetching client wallet transactions via edge function for:', client.id);
       
-      const { data, error } = await supabase
-        .from('wallet_transactions')
-        .select('*')
-        .eq('client_id', client.id)
-        .order('created_at', { ascending: false })
-        .limit(100);
+      try {
+        const { data, error } = await supabase.functions.invoke('get-client-wallet-transactions', {
+          body: { 
+            client_id: client.id,
+            client_email: client.email,
+            client_id_number: client.id_number
+          }
+        });
 
-      if (error) {
+        if (error) {
+          console.error('Error calling wallet transactions function:', error);
+          throw error;
+        }
+
+        if (!data?.success) {
+          console.error('Wallet transactions function returned error:', data?.error);
+          throw new Error(data?.error || 'Failed to fetch transactions');
+        }
+
+        console.log('Client wallet transactions fetched via edge function:', data.data?.transactions?.length || 0, 'transactions');
+        return data.data?.transactions || [];
+      } catch (error) {
         console.error('Error fetching client wallet transactions:', error);
         throw error;
       }
-
-      console.log('Client wallet transactions fetched:', data);
-      return data as ClientWalletTransaction[];
     },
     enabled: !!client?.id,
-    refetchInterval: 5000,
+    refetchInterval: 30000, // Reduced frequency since we're using edge function
   });
 
   // Set up real-time subscription for wallet transactions
