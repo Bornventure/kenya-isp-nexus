@@ -1,86 +1,14 @@
 
-import React, { useEffect } from 'react';
+import React from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { supabase } from '@/integrations/supabase/client';
-import { useClientAuth } from '@/contexts/ClientAuthContext';
 import { formatKenyanCurrency } from '@/utils/kenyanValidation';
 import { Loader2, RefreshCw, CreditCard, Smartphone, Building2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-
-interface WalletTransaction {
-  id: string;
-  transaction_type: 'credit' | 'debit' | 'payment' | 'refund';
-  amount: number;
-  description: string | null;
-  reference_number: string | null;
-  mpesa_receipt_number: string | null;
-  payment_method?: string | null;
-  created_at: string;
-}
+import { useClientWalletTransactions } from '@/hooks/useClientWalletTransactions';
 
 const TransactionHistory: React.FC = () => {
-  const { client, refreshClientData } = useClientAuth();
-  const queryClient = useQueryClient();
-
-  const { data: transactions = [], isLoading, error, refetch } = useQuery({
-    queryKey: ['wallet-transactions', client?.id],
-    queryFn: async () => {
-      if (!client?.id) return [];
-
-      console.log('Fetching wallet transactions for client:', client.id);
-      
-      const { data, error } = await supabase
-        .from('wallet_transactions')
-        .select('*')
-        .eq('client_id', client.id)
-        .order('created_at', { ascending: false })
-        .limit(50);
-
-      if (error) {
-        console.error('Error fetching wallet transactions:', error);
-        throw error;
-      }
-
-      console.log('Wallet transactions fetched:', data);
-      return data as WalletTransaction[];
-    },
-    enabled: !!client?.id,
-    refetchInterval: 3000,
-  });
-
-  // Set up real-time subscription for wallet transactions
-  useEffect(() => {
-    if (!client?.id) return;
-
-    console.log('Setting up real-time subscription for wallet transactions, client:', client.id);
-
-    const channel = supabase
-      .channel(`wallet_transactions_${client.id}`)
-      .on(
-        'postgres_changes',
-        {
-          event: '*',
-          schema: 'public',
-          table: 'wallet_transactions',
-          filter: `client_id=eq.${client.id}`
-        },
-        (payload) => {
-          console.log('Real-time wallet transaction update:', payload);
-          queryClient.invalidateQueries({ queryKey: ['wallet-transactions', client.id] });
-          refreshClientData();
-        }
-      )
-      .subscribe((status) => {
-        console.log('Wallet transactions subscription status:', status);
-      });
-
-    return () => {
-      console.log('Cleaning up wallet transactions subscription');
-      supabase.removeChannel(channel);
-    };
-  }, [client?.id, queryClient, refreshClientData]);
+  const { transactions, isLoading, error, refetch } = useClientWalletTransactions();
 
   const getTransactionTypeColor = (type: string) => {
     switch (type) {
@@ -188,7 +116,6 @@ const TransactionHistory: React.FC = () => {
           onClick={() => {
             console.log('Manual refresh triggered');
             refetch();
-            refreshClientData();
           }}
           disabled={isLoading}
         >
@@ -214,7 +141,6 @@ const TransactionHistory: React.FC = () => {
               onClick={() => {
                 console.log('Retrying to fetch transactions');
                 refetch();
-                refreshClientData();
               }} 
               variant="outline" 
               className="mt-4"
