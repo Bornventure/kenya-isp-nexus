@@ -6,7 +6,7 @@ import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useClientAuth } from '@/contexts/ClientAuthContext';
 import { formatKenyanCurrency } from '@/utils/kenyanValidation';
-import { Loader2, RefreshCw } from 'lucide-react';
+import { Loader2, RefreshCw, CreditCard, Smartphone, Building2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 
 interface WalletTransaction {
@@ -16,6 +16,7 @@ interface WalletTransaction {
   description: string | null;
   reference_number: string | null;
   mpesa_receipt_number: string | null;
+  payment_method?: string | null;
   created_at: string;
 }
 
@@ -46,7 +47,7 @@ const TransactionHistory: React.FC = () => {
       return data as WalletTransaction[];
     },
     enabled: !!client?.id,
-    refetchInterval: 3000, // Refetch every 3 seconds for real-time updates
+    refetchInterval: 3000,
   });
 
   // Set up real-time subscription for wallet transactions
@@ -68,7 +69,7 @@ const TransactionHistory: React.FC = () => {
         (payload) => {
           console.log('Real-time wallet transaction update:', payload);
           queryClient.invalidateQueries({ queryKey: ['wallet-transactions', client.id] });
-          refreshClientData(); // Also refresh client data to update wallet balance
+          refreshClientData();
         }
       )
       .subscribe((status) => {
@@ -94,6 +95,51 @@ const TransactionHistory: React.FC = () => {
       default:
         return 'bg-gray-100 text-gray-800 dark:bg-gray-900 dark:text-gray-200';
     }
+  };
+
+  const getPaymentMethodIcon = (method: string | null) => {
+    switch (method?.toLowerCase()) {
+      case 'mpesa':
+        return <Smartphone className="h-3 w-3 text-green-600" />;
+      case 'family_bank':
+        return <Smartphone className="h-3 w-3 text-purple-600" />;
+      case 'bank':
+        return <Building2 className="h-3 w-3 text-blue-600" />;
+      case 'cash':
+        return <CreditCard className="h-3 w-3 text-gray-600" />;
+      default:
+        return <CreditCard className="h-3 w-3 text-gray-500" />;
+    }
+  };
+
+  const getPaymentMethodName = (method: string | null) => {
+    switch (method?.toLowerCase()) {
+      case 'mpesa':
+        return 'M-Pesa';
+      case 'family_bank':
+        return 'Family Bank';
+      case 'bank':
+        return 'Bank Transfer';
+      case 'cash':
+        return 'Cash';
+      default:
+        return 'Unknown';
+    }
+  };
+
+  const getTransactionPurpose = (description: string | null) => {
+    if (!description) return 'Transaction';
+    
+    if (description.includes('Subscription renewal') || description.includes('Package renewal')) {
+      return 'Package Renewal';
+    }
+    if (description.includes('Wallet credit') || description.includes('Top up')) {
+      return 'Wallet Top-up';
+    }
+    if (description.includes('Payment for')) {
+      return 'Service Payment';
+    }
+    return description;
   };
 
   const formatDate = (dateString: string) => {
@@ -142,6 +188,7 @@ const TransactionHistory: React.FC = () => {
           onClick={() => {
             console.log('Manual refresh triggered');
             refetch();
+            refreshClientData();
           }}
           disabled={isLoading}
         >
@@ -167,6 +214,7 @@ const TransactionHistory: React.FC = () => {
               onClick={() => {
                 console.log('Retrying to fetch transactions');
                 refetch();
+                refreshClientData();
               }} 
               variant="outline" 
               className="mt-4"
@@ -190,12 +238,18 @@ const TransactionHistory: React.FC = () => {
                     <Badge className={getTransactionTypeColor(transaction.transaction_type)}>
                       {transaction.transaction_type.charAt(0).toUpperCase() + transaction.transaction_type.slice(1)}
                     </Badge>
+                    {transaction.payment_method && (
+                      <div className="flex items-center gap-1 text-xs text-gray-600">
+                        {getPaymentMethodIcon(transaction.payment_method)}
+                        <span>{getPaymentMethodName(transaction.payment_method)}</span>
+                      </div>
+                    )}
                     <span className="text-sm text-gray-600 dark:text-gray-400">
                       {formatDate(transaction.created_at)}
                     </span>
                   </div>
                   <p className="text-sm font-medium mb-1">
-                    {transaction.description || 'Transaction'}
+                    {getTransactionPurpose(transaction.description)}
                   </p>
                   {(transaction.reference_number || transaction.mpesa_receipt_number) && (
                     <p className="text-xs text-gray-500 dark:text-gray-400">

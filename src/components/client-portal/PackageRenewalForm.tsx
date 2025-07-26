@@ -1,187 +1,21 @@
 
 import React, { useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import { Alert, AlertDescription } from '@/components/ui/alert';
 import { useClientAuth } from '@/contexts/ClientAuthContext';
-import { useToast } from '@/hooks/use-toast';
-import { supabase } from '@/integrations/supabase/client';
 import { formatKenyanCurrency } from '@/utils/kenyanValidation';
-import { Loader2, CreditCard, RefreshCw } from 'lucide-react';
+import { RefreshCw } from 'lucide-react';
+import PaymentMethodSelector from '@/components/customers/PaymentMethodSelector';
 
 const PackageRenewalForm: React.FC = () => {
   const { client, refreshClientData } = useClientAuth();
-  const { toast } = useToast();
-  const [loading, setLoading] = useState(false);
-  const [mpesaNumber, setMpesaNumber] = useState('');
-  const [paymentStatus, setPaymentStatus] = useState<{
-    status: string;
-    checkoutRequestId?: string;
-    message?: string;
-  } | null>(null);
+  const [isProcessing, setIsProcessing] = useState(false);
 
-  React.useEffect(() => {
-    if (client?.mpesa_number || client?.phone) {
-      setMpesaNumber(client.mpesa_number || client.phone);
-    }
-  }, [client]);
-
-  const handleRenewal = async () => {
-    if (!client) return;
+  const handlePaymentComplete = async (paymentData: any) => {
+    console.log('Package renewal payment completed:', paymentData);
+    setIsProcessing(false);
     
-    if (!mpesaNumber) {
-      toast({
-        title: "Error",
-        description: "Please enter your M-Pesa number",
-        variant: "destructive",
-      });
-      return;
-    }
-
-    setLoading(true);
-    setPaymentStatus(null);
-
-    try {
-      console.log('Initiating package renewal for client:', client.name);
-      
-      // Format phone number to ensure it's in correct format
-      let formattedNumber = mpesaNumber;
-      if (formattedNumber.startsWith('07')) {
-        formattedNumber = '254' + formattedNumber.substring(1);
-      } else if (formattedNumber.startsWith('+254')) {
-        formattedNumber = formattedNumber.substring(1);
-      } else if (!formattedNumber.startsWith('254')) {
-        formattedNumber = '254' + formattedNumber;
-      }
-
-      const { data, error } = await supabase.functions.invoke('package-renewal', {
-        body: {
-          client_email: client.email,
-          client_id_number: client.id_number,
-          mpesa_number: formattedNumber,
-        }
-      });
-
-      console.log('Package renewal response:', { data, error });
-
-      if (error) {
-        console.error('Package renewal error:', error);
-        throw error;
-      }
-
-      if (data?.success) {
-        setPaymentStatus({
-          status: 'initiated',
-          checkoutRequestId: data.data?.checkout_request_id,
-          message: 'Payment request sent to your phone. Please complete the M-Pesa transaction.'
-        });
-        
-        toast({
-          title: "Payment Initiated",
-          description: "Check your phone for M-Pesa payment prompt",
-        });
-
-        // Start polling for payment status
-        if (data.data?.checkout_request_id) {
-          pollPaymentStatus(data.data.checkout_request_id, data.data?.invoice?.id);
-        }
-      } else {
-        throw new Error(data?.error || 'Payment initiation failed');
-      }
-    } catch (error: any) {
-      console.error('Renewal error:', error);
-      
-      let errorMessage = "Failed to initiate payment. Please try again.";
-      
-      if (error.message?.includes('Client not found')) {
-        errorMessage = "Client not found. Please check your details.";
-      } else if (error.message?.includes('M-Pesa')) {
-        errorMessage = "M-Pesa payment initiation failed. Please check your phone number and try again.";
-      }
-      
-      toast({
-        title: "Error",
-        description: errorMessage,
-        variant: "destructive",
-      });
-      
-      setPaymentStatus({
-        status: 'failed',
-        message: errorMessage
-      });
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const pollPaymentStatus = async (checkoutRequestId: string, invoiceId?: string) => {
-    if (!checkoutRequestId) return;
-
-    const maxAttempts = 30; // 5 minutes of polling
-    let attempts = 0;
-
-    const pollInterval = setInterval(async () => {
-      attempts++;
-      
-      try {
-        console.log(`Payment status check attempt ${attempts}/${maxAttempts}`);
-        
-        const { data } = await supabase.functions.invoke('check-payment-status', {
-          body: { 
-            checkout_request_id: checkoutRequestId,
-            invoice_id: invoiceId || checkoutRequestId
-          }
-        });
-
-        console.log('Payment status response:', data);
-
-        if (data?.success && data?.status === 'completed') {
-          clearInterval(pollInterval);
-          setPaymentStatus({
-            status: 'completed',
-            message: 'Payment successful! Your service has been renewed.'
-          });
-          
-          toast({
-            title: "Payment Successful",
-            description: "Your package has been renewed successfully!",
-          });
-
-          // Refresh client data to show updated status
-          await refreshClientData();
-        } else if (data?.status === 'failed' && data?.message !== 'The transaction is still under processing') {
-          clearInterval(pollInterval);
-          setPaymentStatus({
-            status: 'failed',
-            message: data?.message || 'Payment failed. Please try again.'
-          });
-          
-          toast({
-            title: "Payment Failed",
-            description: data?.message || "Payment was not completed successfully.",
-            variant: "destructive",
-          });
-        }
-      } catch (error) {
-        console.error('Status check error:', error);
-      }
-
-      if (attempts >= maxAttempts) {
-        clearInterval(pollInterval);
-        setPaymentStatus({
-          status: 'timeout',
-          message: 'Payment status check timed out. Please check your account or contact support.'
-        });
-        
-        toast({
-          title: "Payment Status Unknown",
-          description: "Please check your account status or contact support.",
-          variant: "destructive",
-        });
-      }
-    }, 10000); // Check every 10 seconds
+    // Refresh client data to show updated status
+    await refreshClientData();
   };
 
   if (!client) return null;
@@ -209,58 +43,15 @@ const PackageRenewalForm: React.FC = () => {
           </div>
         )}
 
-        <div className="space-y-2">
-          <Label htmlFor="mpesa-number">M-Pesa Number</Label>
-          <Input
-            id="mpesa-number"
-            type="tel"
-            placeholder="254700000000 or 0700000000"
-            value={mpesaNumber}
-            onChange={(e) => setMpesaNumber(e.target.value)}
-            disabled={loading}
-          />
-          <p className="text-sm text-gray-600">
-            Enter the M-Pesa number to receive payment prompt
-          </p>
-        </div>
-
-        {paymentStatus && (
-          <Alert className={
-            paymentStatus.status === 'completed' ? 'border-green-200 bg-green-50' :
-            paymentStatus.status === 'failed' ? 'border-red-200 bg-red-50' :
-            'border-blue-200 bg-blue-50'
-          }>
-            <AlertDescription>
-              {paymentStatus.message}
-            </AlertDescription>
-          </Alert>
-        )}
-
-        <Button 
-          onClick={handleRenewal} 
-          disabled={loading || !mpesaNumber || paymentStatus?.status === 'initiated'}
-          className="w-full"
-        >
-          {loading ? (
-            <>
-              <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-              Processing...
-            </>
-          ) : paymentStatus?.status === 'initiated' ? (
-            <>
-              <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-              Waiting for payment...
-            </>
-          ) : (
-            <>
-              <CreditCard className="h-4 w-4 mr-2" />
-              Renew for {formatKenyanCurrency(packageAmount)}
-            </>
-          )}
-        </Button>
+        <PaymentMethodSelector
+          clientId={client.id}
+          amount={packageAmount}
+          accountReference={`PACKAGE_RENEWAL_${client.id}`}
+          onPaymentComplete={handlePaymentComplete}
+        />
 
         <div className="text-xs text-gray-500 space-y-1">
-          <p>• Payment will be processed via M-Pesa STK Push</p>
+          <p>• Payment will be processed via your selected payment method</p>
           <p>• Your service will be renewed immediately after payment</p>
           <p>• You will receive an SMS confirmation</p>
         </div>
