@@ -2,231 +2,175 @@
 import React, { useState } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
-import { useEquipment } from '@/hooks/useEquipment';
-import { useToast } from '@/hooks/use-toast';
-import { supabase } from '@/integrations/supabase/client';
-import { useAuth } from '@/contexts/AuthContext';
+import { Badge } from '@/components/ui/badge';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Separator } from '@/components/ui/separator';
+import { CheckCircle, XCircle, User, Phone, Mail, MapPin, Package, Calendar, CreditCard } from 'lucide-react';
+import { useClients } from '@/hooks/useClients';
 
 interface NOCClientApprovalDialogProps {
-  client: any;
-  open: boolean;
+  isOpen: boolean;
   onClose: () => void;
-  onApprove: () => void;
+  client: any;
 }
 
-const NOCClientApprovalDialog = ({ client, open, onClose, onApprove }: NOCClientApprovalDialogProps) => {
-  const { equipment } = useEquipment();
-  const { toast } = useToast();
-  const { profile } = useAuth();
-  const [selectedEquipment, setSelectedEquipment] = useState<string>('');
-  const [isLoading, setIsLoading] = useState(false);
-
-  // Filter available equipment (not already assigned)
-  const availableEquipment = equipment.filter(eq => eq.status === 'available');
+const NOCClientApprovalDialog: React.FC<NOCClientApprovalDialogProps> = ({
+  isOpen,
+  onClose,
+  client
+}) => {
+  const [notes, setNotes] = useState('');
+  const [isProcessing, setIsProcessing] = useState(false);
+  const { updateClient } = useClients();
 
   const handleApprove = async () => {
-    if (!selectedEquipment) {
-      toast({
-        title: "Error",
-        description: "Please select equipment to assign to this client",
-        variant: "destructive",
-      });
-      return;
-    }
-
-    setIsLoading(true);
-
+    setIsProcessing(true);
     try {
-      // Update client status to approved (not active yet)
-      const { error: clientError } = await supabase
-        .from('clients')
-        .update({
-          status: 'approved' as const,
-          approved_by: profile?.id,
+      await updateClient({
+        id: client.id,
+        updates: {
+          status: 'approved',
+          approved_by: 'current_user_id', // This would be the actual user ID
           approved_at: new Date().toISOString(),
-        })
-        .eq('id', client.id);
-
-      if (clientError) throw clientError;
-
-      // Assign equipment to client
-      const { error: assignmentError } = await supabase
-        .from('equipment_assignments')
-        .insert({
-          client_id: client.id,
-          equipment_id: selectedEquipment,
-          assigned_by: profile?.id,
-          isp_company_id: profile?.isp_company_id,
-        });
-
-      if (assignmentError) throw assignmentError;
-
-      // Update equipment status to assigned
-      const { error: equipmentError } = await supabase
-        .from('equipment')
-        .update({
-          status: 'assigned',
-          client_id: client.id,
-        })
-        .eq('id', selectedEquipment);
-
-      if (equipmentError) throw equipmentError;
-
-      // Get installation fee from system settings
-      const { data: settings, error: settingsError } = await supabase
-        .from('system_settings')
-        .select('installation_fee')
-        .eq('isp_company_id', profile?.isp_company_id)
-        .single();
-
-      if (settingsError) throw settingsError;
-
-      const installationFee = settings?.installation_fee || 0;
-      const vatAmount = installationFee * 0.16;
-      const totalAmount = installationFee + vatAmount;
-
-      // Generate installation invoice
-      const { data: invoiceData, error: invoiceError } = await supabase
-        .rpc('generate_installation_invoice_number');
-
-      if (invoiceError) throw invoiceError;
-
-      const { error: createInvoiceError } = await supabase
-        .from('installation_invoices')
-        .insert({
-          client_id: client.id,
-          invoice_number: invoiceData,
-          amount: installationFee,
-          vat_amount: vatAmount,
-          total_amount: totalAmount,
-          status: 'pending',
-          isp_company_id: profile?.isp_company_id,
-          equipment_details: {
-            equipment_id: selectedEquipment,
-            assigned_by: profile?.id,
-            assigned_at: new Date().toISOString(),
-          },
-        });
-
-      if (createInvoiceError) throw createInvoiceError;
-
-      // Create technical installation record
-      const { error: technicalError } = await supabase
-        .from('technical_installations')
-        .insert({
-          client_id: client.id,
-          status: 'pending',
-          isp_company_id: profile?.isp_company_id,
-        });
-
-      if (technicalError) throw technicalError;
-
-      toast({
-        title: "Client Approved",
-        description: "Client has been approved, equipment assigned, and installation invoice generated.",
+          installation_status: 'scheduled'
+        }
       });
-
-      onApprove();
       onClose();
     } catch (error) {
       console.error('Error approving client:', error);
-      toast({
-        title: "Error",
-        description: "Failed to approve client. Please try again.",
-        variant: "destructive",
-      });
     } finally {
-      setIsLoading(false);
+      setIsProcessing(false);
     }
   };
 
+  const handleReject = async () => {
+    setIsProcessing(true);
+    try {
+      await updateClient({
+        id: client.id,
+        updates: {
+          status: 'rejected',
+          // Add rejection notes or reason
+        }
+      });
+      onClose();
+    } catch (error) {
+      console.error('Error rejecting client:', error);
+    } finally {
+      setIsProcessing(false);
+    }
+  };
+
+  if (!client) return null;
+
   return (
-    <Dialog open={open} onOpenChange={onClose}>
-      <DialogContent className="max-w-2xl">
+    <Dialog open={isOpen} onOpenChange={onClose}>
+      <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
-          <DialogTitle>Approve Client & Assign Equipment</DialogTitle>
+          <DialogTitle className="flex items-center gap-2">
+            <User className="h-5 w-5" />
+            Client Approval Review
+          </DialogTitle>
         </DialogHeader>
 
         <div className="space-y-6">
-          {/* Client Information */}
-          <Card>
-            <CardHeader>
-              <CardTitle>Client Information</CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <Label className="text-sm font-medium">Name</Label>
-                  <p className="text-sm">{client.name}</p>
-                </div>
-                <div>
-                  <Label className="text-sm font-medium">Email</Label>
-                  <p className="text-sm">{client.email}</p>
-                </div>
-                <div>
-                  <Label className="text-sm font-medium">Phone</Label>
-                  <p className="text-sm">{client.phone}</p>
-                </div>
-                <div>
-                  <Label className="text-sm font-medium">County</Label>
-                  <p className="text-sm">{client.county}</p>
-                </div>
-              </div>
-              <div>
-                <Label className="text-sm font-medium">Address</Label>
-                <p className="text-sm">{client.address}</p>
-              </div>
-              <div className="flex items-center gap-2">
-                <Label className="text-sm font-medium">Current Status:</Label>
-                <Badge variant="outline">{client.status}</Badge>
-              </div>
-            </CardContent>
-          </Card>
+          {/* Status Badge */}
+          <div className="flex items-center gap-2">
+            <Badge variant={client.status === 'pending' ? 'secondary' : 'default'}>
+              {client.status}
+            </Badge>
+            <span className="text-sm text-muted-foreground">
+              Submitted: {new Date(client.created_at).toLocaleDateString()}
+            </span>
+          </div>
 
-          {/* Equipment Assignment */}
-          <Card>
-            <CardHeader>
-              <CardTitle>Equipment Assignment</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-4">
-                <div>
-                  <Label htmlFor="equipment">Select Equipment</Label>
-                  <Select value={selectedEquipment} onValueChange={setSelectedEquipment}>
-                    <SelectTrigger>
-                      <SelectValue placeholder="Choose equipment to assign" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {availableEquipment.map((eq) => (
-                        <SelectItem key={eq.id} value={eq.id}>
-                          {eq.type} - {eq.brand} {eq.model} ({eq.serial_number})
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
+          {/* Client Information */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-lg">Personal Information</CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-3">
+                <div className="flex items-center gap-2">
+                  <User className="h-4 w-4 text-muted-foreground" />
+                  <span className="font-medium">{client.name}</span>
                 </div>
-                {availableEquipment.length === 0 && (
-                  <p className="text-sm text-red-500">No equipment available for assignment</p>
-                )}
-              </div>
-            </CardContent>
-          </Card>
+                <div className="flex items-center gap-2">
+                  <Mail className="h-4 w-4 text-muted-foreground" />
+                  <span>{client.email}</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <Phone className="h-4 w-4 text-muted-foreground" />
+                  <span>{client.phone}</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <CreditCard className="h-4 w-4 text-muted-foreground" />
+                  <span>ID: {client.id_number}</span>
+                </div>
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-lg">Location & Service</CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-3">
+                <div className="flex items-center gap-2">
+                  <MapPin className="h-4 w-4 text-muted-foreground" />
+                  <span>{client.address}</span>
+                </div>
+                <div className="text-sm text-muted-foreground">
+                  {client.sub_county}, {client.county}
+                </div>
+                <div className="flex items-center gap-2">
+                  <Package className="h-4 w-4 text-muted-foreground" />
+                  <span>{client.service_packages?.name || 'No package assigned'}</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <Calendar className="h-4 w-4 text-muted-foreground" />
+                  <span>Rate: KES {client.monthly_rate?.toLocaleString()}/month</span>
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+
+          <Separator />
+
+          {/* Notes Section */}
+          <div className="space-y-3">
+            <Label htmlFor="notes">Approval Notes (Optional)</Label>
+            <Textarea
+              id="notes"
+              placeholder="Add any notes about this approval..."
+              value={notes}
+              onChange={(e) => setNotes(e.target.value)}
+              rows={3}
+            />
+          </div>
         </div>
 
-        <DialogFooter>
-          <Button variant="outline" onClick={onClose}>
+        <DialogFooter className="flex gap-2">
+          <Button variant="outline" onClick={onClose} disabled={isProcessing}>
             Cancel
           </Button>
           <Button 
-            onClick={handleApprove} 
-            disabled={!selectedEquipment || isLoading}
-            className="bg-green-600 hover:bg-green-700"
+            variant="destructive" 
+            onClick={handleReject}
+            disabled={isProcessing}
+            className="flex items-center gap-2"
           >
-            {isLoading ? 'Processing...' : 'Approve & Generate Invoice'}
+            <XCircle className="h-4 w-4" />
+            Reject
+          </Button>
+          <Button 
+            onClick={handleApprove}
+            disabled={isProcessing}
+            className="flex items-center gap-2"
+          >
+            <CheckCircle className="h-4 w-4" />
+            Approve
           </Button>
         </DialogFooter>
       </DialogContent>

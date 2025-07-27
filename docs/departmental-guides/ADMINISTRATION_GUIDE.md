@@ -1,386 +1,259 @@
 
-# ISP Management System - Administration Guide
-
-## Table of Contents
-1. [Overview](#overview)
-2. [User Management](#user-management)
-3. [Company Settings](#company-settings)
-4. [License Management](#license-management)
-5. [System Configuration](#system-configuration)
-6. [Reporting and Analytics](#reporting-and-analytics)
-7. [Security Administration](#security-administration)
-8. [Troubleshooting](#troubleshooting)
+# Administration Guide
 
 ## Overview
+This guide provides comprehensive instructions for ISP administrators to manage their Internet Service Provider operations through the ISP Management System.
 
-The Administration module provides comprehensive tools for managing the ISP Management System. As an administrator, you have access to user management, system configuration, license management, and overall system oversight.
+## Table of Contents
+1. [Getting Started](#getting-started)
+2. [User Management](#user-management)
+3. [Client Management](#client-management)
+4. [Service Package Management](#service-package-management)
+5. [Equipment Management](#equipment-management)
+6. [System Settings](#system-settings)
+7. [Reports and Analytics](#reports-and-analytics)
+8. [Troubleshooting](#troubleshooting)
 
-### Key Responsibilities
-- User account management and role assignments
-- Company settings and configuration
-- License management and compliance
-- System security and access control
-- System-wide reporting and analytics
-- Backup and maintenance oversight
+## Getting Started
+
+### Initial Setup
+1. **Login to the System**
+   - Use your administrator credentials to access the system
+   - Navigate to the dashboard upon successful login
+
+2. **Dashboard Overview**
+   - Review key metrics and system status
+   - Monitor active clients, revenue, and network health
+   - Check pending approvals and tasks
+
+### Navigation
+- **Dashboard**: Main overview and quick actions
+- **Clients**: Client management and registration
+- **Users**: Staff and user account management
+- **Equipment**: Network equipment and inventory
+- **Settings**: System configuration and preferences
+- **Reports**: Analytics and reporting tools
 
 ## User Management
 
-### Adding New Users
+### Creating User Accounts
+1. Navigate to **Settings** → **User Management**
+2. Click **Add New User**
+3. Fill in required information:
+   - Full Name
+   - Email Address
+   - Role Assignment
+   - Department
+   - Contact Information
+4. Set initial password and permissions
+5. Save and send credentials to the user
 
-1. **Navigate to User Management**
-   - Go to **Settings** → **User Management**
-   - Click **Add New User** button
+### User Roles and Permissions
+- **ISP Admin**: Full system access and configuration
+- **Billing/Finance**: Financial management and invoicing
+- **Customer Support**: Client support and ticket management
+- **Sales/Account Manager**: Client acquisition and account management
+- **Network Operations**: Network monitoring and troubleshooting
+- **Infrastructure/Asset**: Equipment and infrastructure management
 
-2. **Fill User Details**
-   - **Personal Information**: First name, last name, email
-   - **Role Assignment**: Select appropriate role from dropdown
-   - **Company Assignment**: Assign to specific ISP company (for multi-tenant)
-   - **Access Level**: Set permissions and restrictions
+### Managing Existing Users
+- **Edit User Details**: Update information and permissions
+- **Reset Passwords**: Generate new passwords for users
+- **Deactivate Users**: Disable access without deleting accounts
+- **Role Changes**: Modify user roles and permissions
 
-3. **User Roles Available**
-   - **Super Admin**: Full system access
-   - **ISP Admin**: Company-level administration
-   - **Billing & Finance**: Financial operations
-   - **Customer Support**: Client service and ticketing
-   - **Sales & Account Manager**: Client acquisition and management
-   - **Network Operations**: Technical operations and approvals
-   - **Infrastructure & Asset**: Equipment and inventory management
-   - **Hotspot Admin**: WiFi hotspot management
+## Client Management
 
-### User Account Management
+### Client Registration Process
+1. **New Client Registration**
+   - Navigate to **Clients** → **Add New Client**
+   - Complete all required fields
+   - Upload necessary documentation
+   - Submit for approval
 
-#### Activating/Deactivating Users
-- Navigate to user list
-- Click on user's action menu (three dots)
-- Select **Activate** or **Deactivate**
-- Confirm the action
+2. **Client Approval Workflow**
+   - Review submitted applications
+   - Verify client information and documents
+   - Approve or reject applications
+   - Schedule installation if approved
 
-#### Resetting Passwords
-- Go to user profile
-- Click **Reset Password** button
-- New credentials will be sent to user's email
-- User must change password on first login
+3. **Service Activation**
+   - Assign service packages
+   - Configure network access
+   - Generate installation invoices
+   - Schedule technical installation
 
-#### Updating User Roles
-- Access user profile
-- Click **Edit** button
-- Update role from dropdown
-- Save changes
-- User will receive role change notification
+### Client Account Management
+- **Account Information**: Update client details
+- **Service Modifications**: Change service packages
+- **Billing Management**: Handle payments and invoices
+- **Support Tickets**: Manage client support requests
+- **Account Status**: Suspend, reactivate, or terminate services
 
-### Bulk User Operations
+## Service Package Management
 
-#### Bulk User Import
-1. Download CSV template from **User Management** page
-2. Fill template with user data
-3. Upload CSV file using **Bulk Import** button
-4. Review import preview
-5. Confirm import
-6. Users will receive welcome emails with login credentials
+### Creating Service Packages
+1. Navigate to **Settings** → **Service Packages**
+2. Click **Add New Package**
+3. Configure package details:
+   - Package Name
+   - Speed/Bandwidth
+   - Monthly Rate
+   - Features and Limitations
+   - Description
+4. Set package status (Active/Inactive)
+5. Save configuration
 
-#### Bulk Role Updates
-- Select multiple users using checkboxes
-- Click **Bulk Actions** → **Update Roles**
-- Choose new role
-- Confirm changes
+### Package Pricing and Features
+- **Speed Tiers**: Define different bandwidth levels
+- **Pricing Structure**: Set competitive monthly rates
+- **Feature Sets**: Include value-added services
+- **Promotional Offers**: Create special pricing
+- **Usage Limits**: Set data caps if applicable
 
-## Company Settings
+### Managing Existing Packages
+- **Edit Packages**: Modify pricing and features
+- **Package Status**: Enable or disable packages
+- **Client Assignments**: Manage package subscriptions
+- **Usage Analytics**: Monitor package performance
 
-### Basic Company Configuration
+## Equipment Management
 
-#### Company Information
-- **Company Name**: Legal business name
-- **Contact Information**: Address, phone, email
-- **Business Registration**: Certificate numbers and tax information
-- **License Details**: ISP license type and expiration dates
+### Inventory Management
+1. **Adding Equipment**
+   - Navigate to **Equipment** → **Inventory**
+   - Click **Add New Item**
+   - Enter equipment details:
+     - Equipment Type
+     - Brand and Model
+     - Serial Number
+     - Purchase Information
+     - Location
+   - Save to inventory
 
-#### Service Configuration
-- **Service Packages**: Available internet plans
-- **Coverage Areas**: Geographic service zones
-- **Installation Fees**: Setup and connection charges
-- **Payment Methods**: Accepted payment options
+2. **Equipment Categories**
+   - Network Hardware (Routers, Switches, Access Points)
+   - Customer Premises Equipment (CPE)
+   - Infrastructure Equipment (Towers, Cables)
+   - Test Equipment and Tools
 
-### Multi-Tenant Management
+### Equipment Deployment
+- **Client Assignments**: Assign equipment to clients
+- **Installation Planning**: Schedule equipment installation
+- **Configuration Management**: Set up network parameters
+- **Maintenance Schedules**: Plan regular maintenance
 
-#### ISP Company Registration
-1. Navigate to **Companies** → **Register New ISP**
-2. Fill company registration form:
-   - Legal business name
-   - Contact information
-   - License type (Starter/Professional/Enterprise)
-   - Business registration documents
-3. Set initial user limits based on license
-4. Assign ISP Admin user
-5. Configure company-specific settings
+### Equipment Tracking
+- **Asset Management**: Track equipment lifecycle
+- **Warranty Information**: Monitor warranty status
+- **Maintenance Records**: Log service activities
+- **Replacement Planning**: Plan equipment upgrades
 
-#### Company Status Management
-- **Active**: Company can operate normally
-- **Suspended**: Temporarily disabled
-- **Expired**: License expired, read-only access
-- **Cancelled**: Company account closed
+## System Settings
 
-## License Management
+### Company Configuration
+1. **Company Information**
+   - Company Name and Logo
+   - Contact Information
+   - Business Registration Details
+   - Service Area Coverage
 
-### License Types and Limits
+2. **System Preferences**
+   - Time Zone Settings
+   - Currency Configuration
+   - Date/Time Formats
+   - Language Settings
 
-#### Starter License
-- Up to 100 clients
-- Basic features enabled
-- Email support
-- Monthly billing: KES 5,000
+### Network Configuration
+- **Base Stations**: Configure network infrastructure
+- **Coverage Areas**: Define service regions
+- **Network Monitoring**: Set up SNMP monitoring
+- **Quality of Service**: Configure QoS parameters
 
-#### Professional License
-- Up to 500 clients
-- Advanced features enabled
-- Priority support
-- Monthly billing: KES 15,000
+### Integration Settings
+- **Payment Gateway**: Configure M-Pesa and banking
+- **SMS Service**: Set up automated notifications
+- **Email Configuration**: Configure SMTP settings
+- **API Access**: Manage third-party integrations
 
-#### Enterprise License
-- Up to 2,000 clients
-- All features enabled
-- Dedicated support
-- Monthly billing: KES 50,000
+## Reports and Analytics
 
-### License Activation Process
+### Financial Reports
+- **Revenue Reports**: Monthly and yearly revenue
+- **Payment Analysis**: Payment methods and trends
+- **Outstanding Invoices**: Overdue accounts
+- **Profitability Analysis**: Service package performance
 
-1. **Purchase License**
-   - Select license type
-   - Process payment
-   - Receive activation key
-
-2. **Activate License**
-   - Go to **License Management**
-   - Enter activation key
-   - Confirm activation
-   - System validates and activates
-
-3. **License Renewal**
-   - Monitor expiration dates
-   - Renew before expiration
-   - Update payment information
-   - Confirm renewal
-
-### License Monitoring
-
-#### Usage Tracking
-- Monitor client count vs. license limits
-- Track feature usage
-- Review support ticket volume
-- Monitor system performance
-
-#### Compliance Reporting
-- Generate license compliance reports
-- Track usage patterns
-- Monitor overage situations
-- Plan capacity upgrades
-
-## System Configuration
-
-### General Settings
-
-#### System Preferences
-- **Date Format**: DD/MM/YYYY or MM/DD/YYYY
-- **Time Zone**: Set local time zone
-- **Currency**: Local currency settings
-- **Language**: System language preference
-
-#### Notification Settings
-- **Email Notifications**: Enable/disable email alerts
-- **SMS Notifications**: Configure SMS gateway
-- **Push Notifications**: In-app notification settings
-- **Notification Templates**: Customize message templates
-
-### Payment Gateway Configuration
-
-#### M-PESA Integration
-1. **Obtain M-PESA Credentials**
-   - Register with Safaricom Developer Portal
-   - Get Consumer Key and Secret
-   - Obtain Passkey and Shortcode
-
-2. **Configure M-PESA Settings**
-   - Go to **Settings** → **Payment Methods**
-   - Select **M-PESA Configuration**
-   - Enter API credentials
-   - Set callback URLs
-   - Test integration
-
-3. **M-PESA Features**
-   - STK Push payments
-   - Paybill integration
-   - Payment status tracking
-   - Automatic reconciliation
-
-#### Family Bank Integration
-1. **Setup Family Bank API**
-   - Contact Family Bank for API access
-   - Obtain client credentials
-   - Configure callback URLs
-
-2. **Configure Bank Settings**
-   - Enter API credentials
-   - Set transaction limits
-   - Configure notification settings
-   - Test connectivity
-
-### SMS Gateway Configuration
-
-#### Celcomafrica SMS Setup
-1. **Configure SMS Settings**
-   - Go to **Settings** → **SMS Configuration**
-   - Enter API details:
-     - URL: https://isms.celcomafrica.com/api/services/sendsms
-     - API Key: 3230abd57d39aa89fc407618f3faaacc
-     - Partner ID: 800
-     - Shortcode: LAKELINK
-
-2. **SMS Features**
-   - Payment confirmations
-   - Service reminders
-   - Support notifications
-   - Bulk messaging
-
-#### Resend Email Configuration
-1. **Setup Resend Account**
-   - Create account at resend.com
-   - Verify domain
-   - Generate API key
-
-2. **Configure Email Settings**
-   - Enter Resend API key
-   - Set sender email address
-   - Configure email templates
-   - Test email delivery
-
-## Reporting and Analytics
-
-### System Reports
-
-#### User Activity Reports
-- Login frequency and patterns
-- Feature usage statistics
-- User performance metrics
-- Security audit logs
-
-#### System Performance Reports
-- Server response times
-- Database performance
-- API usage statistics
-- Error rates and types
-
-### Business Intelligence
-
-#### Revenue Analytics
-- Monthly revenue trends
-- Payment method analysis
-- Customer acquisition costs
-- Churn rate analysis
-
-#### Operational Metrics
-- Support ticket volumes
-- Resolution times
-- Customer satisfaction scores
-- Staff productivity metrics
+### Operational Reports
+- **Client Statistics**: Growth and churn analysis
+- **Network Performance**: Bandwidth utilization
+- **Support Metrics**: Ticket resolution times
+- **Equipment Status**: Asset utilization
 
 ### Custom Reports
-
-#### Report Builder
-1. **Create Custom Report**
-   - Select data sources
-   - Choose date ranges
-   - Apply filters
-   - Select visualization type
-
-2. **Schedule Reports**
-   - Set report frequency
-   - Choose recipients
-   - Configure delivery method
-   - Set report format
-
-## Security Administration
-
-### Access Control
-
-#### Role-Based Permissions
-- Define role capabilities
-- Set data access levels
-- Configure feature restrictions
-- Monitor permission usage
-
-#### Security Policies
-- Password requirements
-- Session timeout settings
-- Two-factor authentication
-- API access controls
-
-### Audit and Compliance
-
-#### Security Monitoring
-- Failed login attempts
-- Unusual access patterns
-- Data modification logs
-- System vulnerability scans
-
-#### Compliance Reporting
-- Data protection compliance
-- Access audit reports
-- Security incident logs
-- Regulatory compliance status
+- **Report Builder**: Create custom reports
+- **Scheduled Reports**: Automate report generation
+- **Export Options**: PDF, Excel, CSV formats
+- **Dashboard Widgets**: Key performance indicators
 
 ## Troubleshooting
 
 ### Common Issues
+1. **Login Problems**
+   - Check credentials and account status
+   - Verify network connectivity
+   - Clear browser cache and cookies
 
-#### User Access Problems
-**Issue**: Users cannot login
-**Solutions**:
-- Check user account status
-- Verify role assignments
-- Reset password if needed
-- Check system maintenance status
+2. **System Performance**
+   - Monitor server resources
+   - Check database performance
+   - Review network connectivity
 
-#### License Issues
-**Issue**: License limit exceeded
-**Solutions**:
-- Review current client count
-- Upgrade license if needed
-- Clean up inactive accounts
-- Contact support for assistance
+3. **Client Issues**
+   - Payment processing problems
+   - Service connectivity issues
+   - Account access problems
 
-#### Integration Problems
-**Issue**: Payment gateway not working
-**Solutions**:
-- Check API credentials
-- Verify callback URLs
-- Test network connectivity
-- Review error logs
+### Support Procedures
+- **Internal Support**: Staff assistance procedures
+- **Client Support**: Customer service protocols
+- **Technical Support**: Network troubleshooting
+- **Escalation Process**: Issue escalation guidelines
 
 ### System Maintenance
+- **Regular Backups**: Data backup procedures
+- **Security Updates**: System update process
+- **Performance Monitoring**: System health checks
+- **Disaster Recovery**: Emergency procedures
 
-#### Regular Maintenance Tasks
-- Database optimization
-- Log file cleanup
-- Security updates
-- Performance monitoring
+## Best Practices
 
-#### Backup and Recovery
-- Daily automated backups
-- Recovery procedures
-- Disaster recovery plans
-- Data integrity checks
+### Security
+- **Password Policies**: Enforce strong passwords
+- **Access Control**: Implement role-based access
+- **Audit Trails**: Monitor system activities
+- **Data Protection**: Secure sensitive information
 
-### Support Resources
+### Operations
+- **Regular Monitoring**: Daily system checks
+- **Preventive Maintenance**: Scheduled maintenance
+- **Documentation**: Maintain operational records
+- **Training**: Staff training and development
 
-#### Internal Support
-- System documentation
-- Video tutorials
-- Knowledge base
-- Training materials
+### Client Relations
+- **Communication**: Regular client updates
+- **Service Quality**: Maintain service standards
+- **Feedback Collection**: Gather client feedback
+- **Continuous Improvement**: Enhance services
 
-#### External Support
-- Technical support tickets
-- Phone support
-- Email support
-- Community forums
+## Contact Information
 
-This administration guide provides comprehensive instructions for managing the ISP Management System effectively. Regular review and updates ensure optimal system performance and security.
+For system support and assistance:
+- **Technical Support**: Contact your system administrator
+- **User Training**: Schedule training sessions
+- **Documentation Updates**: Request guide updates
+- **Feature Requests**: Submit enhancement requests
+
+---
+
+*This guide is regularly updated to reflect system changes and improvements. Please check for the latest version periodically.*

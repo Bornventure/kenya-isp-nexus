@@ -2961,6 +2961,10 @@ export type Database = {
         Args: Record<PropertyKey, never>
         Returns: undefined
       }
+      delete_company_cascade: {
+        Args: { company_id_param: string }
+        Returns: Json
+      }
       end_expired_sessions: {
         Args: Record<PropertyKey, never>
         Returns: undefined
@@ -3032,7 +3036,12 @@ export type Database = {
       }
     }
     Enums: {
-      client_status: "active" | "suspended" | "disconnected" | "pending"
+      client_status:
+        | "active"
+        | "suspended"
+        | "disconnected"
+        | "pending"
+        | "approved"
       client_type: "individual" | "business" | "corporate" | "government"
       connection_type: "fiber" | "wireless" | "satellite" | "dsl"
       license_type: "starter" | "professional" | "enterprise" | "unlimited"
@@ -3189,7 +3198,13 @@ export type CompositeTypes<
 export const Constants = {
   public: {
     Enums: {
-      client_status: ["active", "suspended", "disconnected", "pending"],
+      client_status: [
+        "active",
+        "suspended",
+        "disconnected",
+        "pending",
+        "approved",
+      ],
       client_type: ["individual", "business", "corporate", "government"],
       connection_type: ["fiber", "wireless", "satellite", "dsl"],
       license_type: ["starter", "professional", "enterprise", "unlimited"],

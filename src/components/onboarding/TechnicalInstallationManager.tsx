@@ -1,134 +1,172 @@
-import { useState } from 'react';
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+
+import React, { useState } from 'react';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
-import { CheckCircle, Clock, AlertCircle, Calendar, User, MapPin, Phone, Mail } from 'lucide-react';
-import { supabase } from '@/integrations/supabase/client';
-import { toast } from 'sonner';
-import { Tables } from '@/integrations/supabase/types';
+import { useTechnicalInstallations } from '@/hooks/useTechnicalInstallations';
+import { useUsers } from '@/hooks/useUsers';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { CheckCircle, Clock, User, Phone, MapPin, Calendar, Wrench, FileText } from 'lucide-react';
 
-interface TechnicalInstallation extends Tables<'technical_installations'> {
-  client: Tables<'clients'> | null;
-}
-
-interface InstallationStatusProps {
-  status: 'pending' | 'completed' | 'failed';
-}
-
-const InstallationStatus: React.FC<InstallationStatusProps> = ({ status }) => {
-  switch (status) {
-    case 'pending':
-      return <Badge variant="outline"><Clock className="mr-2 h-4 w-4" /> Pending</Badge>;
-    case 'completed':
-      return <Badge variant="success"><CheckCircle className="mr-2 h-4 w-4" /> Completed</Badge>;
-    case 'failed':
-      return <Badge variant="destructive"><AlertCircle className="mr-2 h-4 w-4" /> Failed</Badge>;
-    default:
-      return <Badge variant="secondary">Unknown</Badge>;
-  }
-};
-
-export default function TechnicalInstallationManager() {
-  const [selectedInstallation, setSelectedInstallation] = useState<string | null>(null);
+const TechnicalInstallationManager: React.FC = () => {
+  const { installations, isLoading, assignTechnician, completeInstallation, isAssigning, isCompleting } = useTechnicalInstallations();
+  const { users } = useUsers();
+  const [selectedInstallation, setSelectedInstallation] = useState<any>(null);
+  const [showAssignDialog, setShowAssignDialog] = useState(false);
+  const [showCompleteDialog, setShowCompleteDialog] = useState(false);
+  const [selectedTechnician, setSelectedTechnician] = useState('');
   const [completionNotes, setCompletionNotes] = useState('');
-  const queryClient = useQueryClient();
 
-  const { data: technicalInstallations, isLoading, isError } = useQuery({
-    queryKey: ['technical-installations'],
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from('technical_installations')
-        .select(`
-          *,
-          client:clients (*)
-        `)
-        .order('created_at', { ascending: false });
-
-      if (error) throw error;
-      return data as TechnicalInstallation[];
-    },
-  });
-
-  const completeInstallationMutation = useMutation({
-    mutationFn: async ({ installationId, notes }: { installationId: string; notes?: string }) => {
-      const { data, error } = await supabase
-        .from('technical_installations')
-        .update({
-          status: 'completed',
-          notes: notes || null,
-        })
-        .eq('id', installationId)
-        .select()
-        .single();
-
-      if (error) throw error;
-      return data;
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['technical-installations'] });
-      toast.success('Installation completed successfully');
-      setSelectedInstallation(null);
-      setCompletionNotes('');
-    },
-    onError: (error) => {
-      console.error('Error completing installation:', error);
-      toast.error('Failed to complete installation');
-    },
-  });
-
-  const handleCompleteInstallation = () => {
-    if (!selectedInstallation) return;
-    
-    completeInstallationMutation.mutate({
-      installationId: selectedInstallation,
-      notes: completionNotes,
-    });
+  const getStatusBadgeVariant = (status: string) => {
+    switch (status) {
+      case 'completed':
+        return 'default'; // Using default instead of success
+      case 'assigned':
+        return 'secondary';
+      case 'pending':
+        return 'outline';
+      default:
+        return 'secondary';
+    }
   };
 
-  if (isLoading) return <div>Loading installations...</div>;
-  if (isError) return <div>Error fetching installations.</div>;
+  const getInstallationStatusBadgeVariant = (status: string) => {
+    switch (status) {
+      case 'completed':
+        return 'default';
+      case 'scheduled':
+        return 'secondary';
+      case 'pending':
+        return 'outline';
+      default:
+        return 'secondary';
+    }
+  };
+
+  const handleAssignTechnician = () => {
+    if (selectedInstallation && selectedTechnician) {
+      assignTechnician({
+        installationId: selectedInstallation.id,
+        technicianId: selectedTechnician
+      });
+      setShowAssignDialog(false);
+      setSelectedTechnician('');
+    }
+  };
+
+  const handleCompleteInstallation = () => {
+    if (selectedInstallation) {
+      completeInstallation({
+        installationId: selectedInstallation.id,
+        notes: completionNotes
+      });
+      setShowCompleteDialog(false);
+      setCompletionNotes('');
+    }
+  };
+
+  const technicians = users?.filter(user => 
+    user.role === 'network_operations' || user.role === 'infrastructure_asset'
+  ) || [];
+
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center h-64">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-gray-900 mx-auto mb-4"></div>
+          <p>Loading installations...</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
-    <div className="container mx-auto p-4">
-      <h1 className="text-2xl font-bold mb-4">Technical Installation Manager</h1>
+    <div className="space-y-6">
+      <div className="flex items-center justify-between">
+        <h2 className="text-2xl font-bold">Technical Installation Management</h2>
+        <div className="flex items-center gap-4">
+          <Badge variant="outline" className="gap-2">
+            <Clock className="h-3 w-3" />
+            {installations.filter(i => i.status === 'pending').length} Pending
+          </Badge>
+          <Badge variant="secondary" className="gap-2">
+            <User className="h-3 w-3" />
+            {installations.filter(i => i.status === 'assigned').length} Assigned
+          </Badge>
+          <Badge variant="default" className="gap-2">
+            <CheckCircle className="h-3 w-3" />
+            {installations.filter(i => i.status === 'completed').length} Completed
+          </Badge>
+        </div>
+      </div>
+
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-        {technicalInstallations?.map((installation) => (
-          <Card key={installation.id} className="bg-white shadow-md rounded-md">
-            <CardHeader>
-              <CardTitle>{installation.client?.name}</CardTitle>
-              <CardDescription>
-                <InstallationStatus status={installation.status} />
-              </CardDescription>
+        {installations.map((installation) => (
+          <Card key={installation.id} className="hover:shadow-lg transition-shadow">
+            <CardHeader className="pb-3">
+              <div className="flex items-center justify-between">
+                <CardTitle className="text-lg">{installation.clients?.name}</CardTitle>
+                <Badge variant={getStatusBadgeVariant(installation.status)}>
+                  {installation.status}
+                </Badge>
+              </div>
             </CardHeader>
-            <CardContent>
-              <div className="mb-2">
-                <Label>Client Information</Label>
-                <p className="text-sm text-gray-500">
-                  <User className="mr-2 inline-block h-4 w-4" /> {installation.client?.name}
-                  <br />
-                  <Mail className="mr-2 inline-block h-4 w-4" /> {installation.client?.email}
-                  <br />
-                  <Phone className="mr-2 inline-block h-4 w-4" /> {installation.client?.phone}
-                  <br />
-                  <MapPin className="mr-2 inline-block h-4 w-4" /> {installation.client?.address}, {installation.client?.county}
-                </p>
+            <CardContent className="space-y-3">
+              <div className="space-y-2">
+                <div className="flex items-center gap-2 text-sm">
+                  <Phone className="h-3 w-3 text-muted-foreground" />
+                  {installation.clients?.phone}
+                </div>
+                <div className="flex items-center gap-2 text-sm">
+                  <MapPin className="h-3 w-3 text-muted-foreground" />
+                  {installation.clients?.address}
+                </div>
+                <div className="flex items-center gap-2 text-sm">
+                  <Calendar className="h-3 w-3 text-muted-foreground" />
+                  {installation.installation_date ? 
+                    new Date(installation.installation_date).toLocaleDateString() : 
+                    'Not scheduled'
+                  }
+                </div>
               </div>
-              <div className="mb-2">
-                <Label>Installation Date</Label>
-                <p className="text-sm text-gray-500">
-                  <Calendar className="mr-2 inline-block h-4 w-4" /> {installation.installation_date || 'Not Scheduled'}
-                </p>
-              </div>
-              <div className="flex justify-between items-center">
+
+              {installation.technician && (
+                <div className="flex items-center gap-2 text-sm">
+                  <User className="h-3 w-3 text-muted-foreground" />
+                  {installation.technician.first_name} {installation.technician.last_name}
+                </div>
+              )}
+
+              <div className="flex gap-2 pt-2">
                 {installation.status === 'pending' && (
-                  <Button
-                    onClick={() => setSelectedInstallation(installation.id)}
-                    disabled={selectedInstallation === installation.id}
+                  <Button 
+                    size="sm" 
+                    variant="outline"
+                    onClick={() => {
+                      setSelectedInstallation(installation);
+                      setShowAssignDialog(true);
+                    }}
+                    className="flex items-center gap-1"
                   >
-                    {selectedInstallation === installation.id ? 'Selected' : 'Complete Installation'}
+                    <User className="h-3 w-3" />
+                    Assign
+                  </Button>
+                )}
+                
+                {installation.status === 'assigned' && (
+                  <Button 
+                    size="sm"
+                    onClick={() => {
+                      setSelectedInstallation(installation);
+                      setShowCompleteDialog(true);
+                    }}
+                    className="flex items-center gap-1"
+                  >
+                    <CheckCircle className="h-3 w-3" />
+                    Complete
                   </Button>
                 )}
               </div>
@@ -137,27 +175,109 @@ export default function TechnicalInstallationManager() {
         ))}
       </div>
 
-      {selectedInstallation && (
-        <div className="mt-8">
-          <h2 className="text-xl font-semibold mb-2">Complete Installation</h2>
-          <Card className="bg-white shadow-md rounded-md">
-            <CardContent>
-              <div className="mb-4">
-                <Label htmlFor="completionNotes">Completion Notes</Label>
-                <Textarea
-                  id="completionNotes"
-                  placeholder="Enter any notes about the installation"
-                  value={completionNotes}
-                  onChange={(e) => setCompletionNotes(e.target.value)}
-                />
-              </div>
-              <Button onClick={handleCompleteInstallation} disabled={completeInstallationMutation.isPending}>
-                {completeInstallationMutation.isPending ? 'Completing...' : 'Mark as Completed'}
-              </Button>
-            </CardContent>
-          </Card>
+      {installations.length === 0 && (
+        <div className="text-center py-12">
+          <Wrench className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
+          <h3 className="text-lg font-medium">No installations found</h3>
+          <p className="text-muted-foreground">
+            No technical installations are currently scheduled.
+          </p>
         </div>
       )}
+
+      {/* Assign Technician Dialog */}
+      <Dialog open={showAssignDialog} onOpenChange={setShowAssignDialog}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Assign Technician</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div>
+              <Label htmlFor="client-info">Client</Label>
+              <p className="text-sm text-muted-foreground">
+                {selectedInstallation?.clients?.name} - {selectedInstallation?.clients?.phone}
+              </p>
+            </div>
+            <div>
+              <Label htmlFor="technician-select">Select Technician</Label>
+              <Select value={selectedTechnician} onValueChange={setSelectedTechnician}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Choose a technician" />
+                </SelectTrigger>
+                <SelectContent>
+                  {technicians.map((tech) => (
+                    <SelectItem key={tech.id} value={tech.id}>
+                      {tech.first_name} {tech.last_name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowAssignDialog(false)}>
+              Cancel
+            </Button>
+            <Button 
+              onClick={handleAssignTechnician}
+              disabled={!selectedTechnician || isAssigning}
+            >
+              {isAssigning ? 'Assigning...' : 'Assign Technician'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Complete Installation Dialog */}
+      <Dialog open={showCompleteDialog} onOpenChange={setShowCompleteDialog}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Complete Installation</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div>
+              <Label htmlFor="client-info">Client</Label>
+              <p className="text-sm text-muted-foreground">
+                {selectedInstallation?.clients?.name} - {selectedInstallation?.clients?.phone}
+              </p>
+            </div>
+            <div>
+              <Label htmlFor="completion-notes">Completion Notes</Label>
+              <Textarea
+                id="completion-notes"
+                placeholder="Add any notes about the installation completion..."
+                value={completionNotes}
+                onChange={(e) => setCompletionNotes(e.target.value)}
+                rows={4}
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowCompleteDialog(false)}>
+              Cancel
+            </Button>
+            <Button 
+              onClick={handleCompleteInstallation}
+              disabled={isCompleting}
+              className="flex items-center gap-2"
+            >
+              {isCompleting ? (
+                <>
+                  <div className="animate-spin rounded-full h-3 w-3 border-b-2 border-white"></div>
+                  Completing...
+                </>
+              ) : (
+                <>
+                  <CheckCircle className="h-3 w-3" />
+                  Complete Installation
+                </>
+              )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
-}
+};
+
+export default TechnicalInstallationManager;

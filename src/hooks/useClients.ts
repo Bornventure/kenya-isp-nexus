@@ -173,7 +173,7 @@ export const useClients = () => {
   });
 
   const updateClientMutation = useMutation({
-    mutationFn: async ({ id, updates }: { id: string; updates: Partial<Omit<DatabaseClient, 'id' | 'created_at' | 'updated_at' | 'service_packages'>> }) => {
+    mutationFn: async ({ id, updates }: { id: string; updates: Partial<DatabaseClient> }) => {
       const { data, error } = await supabase
         .from('clients')
         .update(updates)
@@ -202,7 +202,7 @@ export const useClients = () => {
   });
 
   const createClientMutation = useMutation({
-    mutationFn: async (clientData: Omit<DatabaseClient, 'id' | 'created_at' | 'updated_at' | 'isp_company_id' | 'service_packages'>) => {
+    mutationFn: async (clientData: Omit<DatabaseClient, 'id' | 'created_at' | 'updated_at' | 'service_packages'>) => {
       if (!profile?.isp_company_id) {
         throw new Error('No ISP company associated with user');
       }
@@ -269,6 +269,7 @@ export const useClients = () => {
     const activeClients = clients.filter(c => c.status === 'active').length;
     const suspendedClients = clients.filter(c => c.status === 'suspended').length;
     const pendingClients = clients.filter(c => c.status === 'pending').length;
+    const approvedClients = clients.filter(c => c.status === 'approved').length;
     const totalRevenue = clients.reduce((sum, c) => sum + (c.wallet_balance || 0), 0);
 
     return {
@@ -276,6 +277,7 @@ export const useClients = () => {
       activeClients,
       suspendedClients,
       pendingClients,
+      approvedClients,
       totalRevenue
     };
   };
