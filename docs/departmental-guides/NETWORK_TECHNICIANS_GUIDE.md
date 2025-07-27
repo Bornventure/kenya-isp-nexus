@@ -1,8 +1,11 @@
+# ISP Management System - Network Technicians Guide
 
-# Network Technicians Guide
+## System Access
+- **Staff Portal**: https://main.lakelink.co.ke/
+- **Client Portal**: https://main.lakelink.co.ke/client-portal/
 
 ## Overview
-This guide provides comprehensive instructions for network technicians to manage network infrastructure, perform installations, and maintain optimal network performance using the ISP Management System.
+This guide provides network technicians with detailed instructions for managing network infrastructure, equipment, and client installations using the ISP Management System.
 
 ## Table of Contents
 1. [Getting Started](#getting-started)

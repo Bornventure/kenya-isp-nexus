@@ -1,8 +1,11 @@
+# ISP Management System - Administration Guide
 
-# Administration Guide
+## System Access
+- **Staff Portal**: https://main.lakelink.co.ke/
+- **Client Portal**: https://main.lakelink.co.ke/client-portal/
 
 ## Overview
-This guide provides comprehensive instructions for ISP administrators to manage their Internet Service Provider operations through the ISP Management System.
+This guide provides comprehensive instructions for ISP administrators to effectively manage their Internet Service Provider operations using the ISP Management System.
 
 ## Table of Contents
 1. [Getting Started](#getting-started)

@@ -1,8 +1,11 @@
+# ISP Management System - Customer Support Guide
 
-# Customer Support Guide
+## System Access
+- **Staff Portal**: https://main.lakelink.co.ke/
+- **Client Portal**: https://main.lakelink.co.ke/client-portal/
 
 ## Overview
-This guide provides comprehensive instructions for customer support staff to effectively handle client inquiries, resolve issues, and maintain high service standards using the ISP Management System.
+This guide helps customer support representatives efficiently handle client inquiries, manage support tickets, and provide excellent customer service through the ISP Management System.
 
 ## Table of Contents
 1. [Getting Started](#getting-started)
