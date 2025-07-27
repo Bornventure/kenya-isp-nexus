@@ -1,3 +1,4 @@
+
 import { useState } from 'react';
 import { useServicePackages } from '@/hooks/useServicePackages';
 import { useToast } from '@/hooks/use-toast';
@@ -107,16 +108,17 @@ export const useClientRegistrationForm = ({ onClose, onSave }: UseClientRegistra
     setIsSubmitting(true);
 
     try {
-      // Prepare client data
+      // Prepare client data - now with submitted_by field for new workflow
       const clientData = {
         ...formData,
         isp_company_id: profile?.isp_company_id,
-        status: 'pending' as const,
+        status: 'pending' as const, // Always pending for new workflow
         balance: 0,
         wallet_balance: 0,
         is_active: true,
         installation_date: formData.installation_date || null,
-        mpesa_number: formData.mpesa_number || formData.phone, // Default to phone if no M-Pesa number
+        mpesa_number: formData.mpesa_number || formData.phone,
+        submitted_by: profile?.id, // Track who submitted this client
       };
 
       console.log('Submitting client data with coordinates:', {
@@ -139,49 +141,12 @@ export const useClientRegistrationForm = ({ onClose, onSave }: UseClientRegistra
 
       console.log('Client created successfully:', client);
 
-      // If email is provided, create user account
-      if (formData.email) {
-        try {
-          const { error: authError } = await supabase.auth.admin.createUser({
-            email: formData.email,
-            password: Math.random().toString(36).slice(-8), // Temporary password
-            email_confirm: true,
-            user_metadata: {
-              first_name: formData.name.split(' ')[0],
-              last_name: formData.name.split(' ').slice(1).join(' '),
-              client_id: client.id,
-              role: 'client'
-            }
-          });
-
-          if (authError) {
-            console.error('Error creating user account:', authError);
-            // Don't throw here, client creation was successful
-            toast({
-              title: "Client Created",
-              description: "Client created successfully, but user account creation failed. You can create the account manually later.",
-              variant: "default",
-            });
-          } else {
-            toast({
-              title: "Success",
-              description: "Client registered successfully! Login credentials will be sent to their email.",
-            });
-          }
-        } catch (authError) {
-          console.error('Auth error:', authError);
-          toast({
-            title: "Client Created",
-            description: "Client created successfully, but user account creation failed. You can create the account manually later.",
-            variant: "default",
-          });
-        }
-      } else {
-        toast({
-          title: "Success",
-          description: "Client registered successfully!",
-        });
-      }
+      // For the new workflow, we don't create user accounts immediately
+      // They will be created after installation completion
+      toast({
+        title: "Success",
+        description: "Client submitted successfully and is pending approval from the Network Administrator.",
+      });
 
       onSave(client);
       onClose();
@@ -189,7 +154,7 @@ export const useClientRegistrationForm = ({ onClose, onSave }: UseClientRegistra
       console.error('Error during client registration:', error);
       toast({
         title: "Error",
-        description: "Failed to register client. Please try again.",
+        description: "Failed to submit client registration. Please try again.",
         variant: "destructive",
       });
     } finally {

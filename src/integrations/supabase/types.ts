@@ -326,6 +326,8 @@ export type Database = {
       clients: {
         Row: {
           address: string
+          approved_at: string | null
+          approved_by: string | null
           balance: number | null
           client_type: Database["public"]["Enums"]["client_type"]
           connection_type: Database["public"]["Enums"]["connection_type"]
@@ -334,7 +336,10 @@ export type Database = {
           email: string | null
           id: string
           id_number: string
+          installation_completed_at: string | null
+          installation_completed_by: string | null
           installation_date: string | null
+          installation_status: string | null
           is_active: boolean
           isp_company_id: string | null
           kra_pin_number: string | null
@@ -344,9 +349,11 @@ export type Database = {
           mpesa_number: string | null
           name: string
           phone: string
+          service_activated_at: string | null
           service_package_id: string | null
           status: Database["public"]["Enums"]["client_status"] | null
           sub_county: string
+          submitted_by: string | null
           subscription_end_date: string | null
           subscription_start_date: string | null
           subscription_type: string | null
@@ -355,6 +362,8 @@ export type Database = {
         }
         Insert: {
           address: string
+          approved_at?: string | null
+          approved_by?: string | null
           balance?: number | null
           client_type: Database["public"]["Enums"]["client_type"]
           connection_type: Database["public"]["Enums"]["connection_type"]
@@ -363,7 +372,10 @@ export type Database = {
           email?: string | null
           id?: string
           id_number: string
+          installation_completed_at?: string | null
+          installation_completed_by?: string | null
           installation_date?: string | null
+          installation_status?: string | null
           is_active?: boolean
           isp_company_id?: string | null
           kra_pin_number?: string | null
@@ -373,9 +385,11 @@ export type Database = {
           mpesa_number?: string | null
           name: string
           phone: string
+          service_activated_at?: string | null
           service_package_id?: string | null
           status?: Database["public"]["Enums"]["client_status"] | null
           sub_county: string
+          submitted_by?: string | null
           subscription_end_date?: string | null
           subscription_start_date?: string | null
           subscription_type?: string | null
@@ -384,6 +398,8 @@ export type Database = {
         }
         Update: {
           address?: string
+          approved_at?: string | null
+          approved_by?: string | null
           balance?: number | null
           client_type?: Database["public"]["Enums"]["client_type"]
           connection_type?: Database["public"]["Enums"]["connection_type"]
@@ -392,7 +408,10 @@ export type Database = {
           email?: string | null
           id?: string
           id_number?: string
+          installation_completed_at?: string | null
+          installation_completed_by?: string | null
           installation_date?: string | null
+          installation_status?: string | null
           is_active?: boolean
           isp_company_id?: string | null
           kra_pin_number?: string | null
@@ -402,9 +421,11 @@ export type Database = {
           mpesa_number?: string | null
           name?: string
           phone?: string
+          service_activated_at?: string | null
           service_package_id?: string | null
           status?: Database["public"]["Enums"]["client_status"] | null
           sub_county?: string
+          submitted_by?: string | null
           subscription_end_date?: string | null
           subscription_start_date?: string | null
           subscription_type?: string | null
@@ -412,6 +433,20 @@ export type Database = {
           wallet_balance?: number | null
         }
         Relationships: [
+          {
+            foreignKeyName: "clients_approved_by_fkey"
+            columns: ["approved_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "clients_installation_completed_by_fkey"
+            columns: ["installation_completed_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "clients_isp_company_id_fkey"
             columns: ["isp_company_id"]
@@ -424,6 +459,13 @@ export type Database = {
             columns: ["service_package_id"]
             isOneToOne: false
             referencedRelation: "service_packages"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "clients_submitted_by_fkey"
+            columns: ["submitted_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
             referencedColumns: ["id"]
           },
         ]
@@ -651,6 +693,65 @@ export type Database = {
           },
           {
             foreignKeyName: "equipment_isp_company_id_fkey"
+            columns: ["isp_company_id"]
+            isOneToOne: false
+            referencedRelation: "isp_companies"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      equipment_assignments: {
+        Row: {
+          assigned_at: string | null
+          assigned_by: string
+          client_id: string
+          equipment_id: string
+          id: string
+          installation_notes: string | null
+          isp_company_id: string
+        }
+        Insert: {
+          assigned_at?: string | null
+          assigned_by: string
+          client_id: string
+          equipment_id: string
+          id?: string
+          installation_notes?: string | null
+          isp_company_id: string
+        }
+        Update: {
+          assigned_at?: string | null
+          assigned_by?: string
+          client_id?: string
+          equipment_id?: string
+          id?: string
+          installation_notes?: string | null
+          isp_company_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "equipment_assignments_assigned_by_fkey"
+            columns: ["assigned_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "equipment_assignments_client_id_fkey"
+            columns: ["client_id"]
+            isOneToOne: false
+            referencedRelation: "clients"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "equipment_assignments_equipment_id_fkey"
+            columns: ["equipment_id"]
+            isOneToOne: false
+            referencedRelation: "equipment"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "equipment_assignments_isp_company_id_fkey"
             columns: ["isp_company_id"]
             isOneToOne: false
             referencedRelation: "isp_companies"
@@ -1175,6 +1276,75 @@ export type Database = {
           updated_at?: string
         }
         Relationships: []
+      }
+      installation_invoices: {
+        Row: {
+          amount: number
+          client_id: string
+          created_at: string | null
+          equipment_details: Json | null
+          id: string
+          invoice_number: string
+          isp_company_id: string
+          notes: string | null
+          paid_at: string | null
+          payment_method: string | null
+          payment_reference: string | null
+          status: string | null
+          total_amount: number
+          updated_at: string | null
+          vat_amount: number
+        }
+        Insert: {
+          amount?: number
+          client_id: string
+          created_at?: string | null
+          equipment_details?: Json | null
+          id?: string
+          invoice_number: string
+          isp_company_id: string
+          notes?: string | null
+          paid_at?: string | null
+          payment_method?: string | null
+          payment_reference?: string | null
+          status?: string | null
+          total_amount?: number
+          updated_at?: string | null
+          vat_amount?: number
+        }
+        Update: {
+          amount?: number
+          client_id?: string
+          created_at?: string | null
+          equipment_details?: Json | null
+          id?: string
+          invoice_number?: string
+          isp_company_id?: string
+          notes?: string | null
+          paid_at?: string | null
+          payment_method?: string | null
+          payment_reference?: string | null
+          status?: string | null
+          total_amount?: number
+          updated_at?: string | null
+          vat_amount?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "installation_invoices_client_id_fkey"
+            columns: ["client_id"]
+            isOneToOne: false
+            referencedRelation: "clients"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "installation_invoices_isp_company_id_fkey"
+            columns: ["isp_company_id"]
+            isOneToOne: false
+            referencedRelation: "isp_companies"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       interface_statistics: {
         Row: {
@@ -2469,6 +2639,7 @@ export type Database = {
           date_format: string | null
           email_from_address: string | null
           id: string
+          installation_fee: number | null
           isp_company_id: string
           maintenance_mode: boolean | null
           notifications_enabled: boolean | null
@@ -2487,6 +2658,7 @@ export type Database = {
           date_format?: string | null
           email_from_address?: string | null
           id?: string
+          installation_fee?: number | null
           isp_company_id: string
           maintenance_mode?: boolean | null
           notifications_enabled?: boolean | null
@@ -2505,6 +2677,7 @@ export type Database = {
           date_format?: string | null
           email_from_address?: string | null
           id?: string
+          installation_fee?: number | null
           isp_company_id?: string
           maintenance_mode?: boolean | null
           notifications_enabled?: boolean | null
@@ -2519,6 +2692,77 @@ export type Database = {
             foreignKeyName: "system_settings_isp_company_id_fkey"
             columns: ["isp_company_id"]
             isOneToOne: true
+            referencedRelation: "isp_companies"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      technical_installations: {
+        Row: {
+          assigned_technician: string | null
+          client_id: string
+          completed_at: string | null
+          completed_by: string | null
+          completion_notes: string | null
+          created_at: string | null
+          id: string
+          installation_date: string | null
+          isp_company_id: string
+          status: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          assigned_technician?: string | null
+          client_id: string
+          completed_at?: string | null
+          completed_by?: string | null
+          completion_notes?: string | null
+          created_at?: string | null
+          id?: string
+          installation_date?: string | null
+          isp_company_id: string
+          status?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          assigned_technician?: string | null
+          client_id?: string
+          completed_at?: string | null
+          completed_by?: string | null
+          completion_notes?: string | null
+          created_at?: string | null
+          id?: string
+          installation_date?: string | null
+          isp_company_id?: string
+          status?: string | null
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "technical_installations_assigned_technician_fkey"
+            columns: ["assigned_technician"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "technical_installations_client_id_fkey"
+            columns: ["client_id"]
+            isOneToOne: false
+            referencedRelation: "clients"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "technical_installations_completed_by_fkey"
+            columns: ["completed_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "technical_installations_isp_company_id_fkey"
+            columns: ["isp_company_id"]
+            isOneToOne: false
             referencedRelation: "isp_companies"
             referencedColumns: ["id"]
           },
@@ -2721,8 +2965,16 @@ export type Database = {
         Args: Record<PropertyKey, never>
         Returns: undefined
       }
+      generate_installation_invoice_number: {
+        Args: Record<PropertyKey, never>
+        Returns: string
+      }
       generate_invoice_number: {
         Args: Record<PropertyKey, never>
+        Returns: string
+      }
+      generate_service_package_invoice: {
+        Args: { client_id_param: string }
         Returns: string
       }
       generate_voucher_code: {

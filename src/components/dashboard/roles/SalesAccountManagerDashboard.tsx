@@ -1,201 +1,176 @@
 
-import React from 'react';
+import React, { useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { 
-  TrendingUp, 
-  Users, 
-  DollarSign, 
-  Target,
-  UserPlus,
-  Calendar,
-  Phone,
-  Mail
-} from 'lucide-react';
+import MetricCard from '@/components/dashboard/MetricCard';
+import { Users, UserPlus, Clock, CheckCircle, TrendingUp, Plus } from 'lucide-react';
 import { useClients } from '@/hooks/useClients';
-import { usePayments } from '@/hooks/usePayments';
-import { formatKenyanCurrency } from '@/utils/kenyanValidation';
+import { useAuth } from '@/contexts/AuthContext';
+import SalesClientRegistrationForm from '@/components/onboarding/SalesClientRegistrationForm';
 
 const SalesAccountManagerDashboard = () => {
-  const { clients } = useClients();
-  const { payments } = usePayments();
+  const { clients, isLoading } = useClients();
+  const { profile } = useAuth();
+  const [showRegistrationForm, setShowRegistrationForm] = useState(false);
 
-  const thisMonthClients = clients.filter(c => {
-    const clientDate = new Date(c.created_at);
-    const now = new Date();
-    return clientDate.getMonth() === now.getMonth() && clientDate.getFullYear() === now.getFullYear();
-  });
+  // Filter clients submitted by this sales user
+  const mySubmissions = clients.filter(client => client.submitted_by === profile?.id);
+  const pendingSubmissions = mySubmissions.filter(client => client.status === 'pending');
+  const approvedSubmissions = mySubmissions.filter(client => client.status === 'approved');
+  const activeClients = mySubmissions.filter(client => client.status === 'active');
 
-  const thisMonthRevenue = payments.filter(p => {
-    const paymentDate = new Date(p.payment_date);
-    const now = new Date();
-    return paymentDate.getMonth() === now.getMonth() && paymentDate.getFullYear() === now.getFullYear();
-  }).reduce((sum, p) => sum + p.amount, 0);
+  const handleRegistrationSuccess = () => {
+    // This will trigger a refetch of clients
+    window.location.reload();
+  };
 
-  const conversionRate = 85; // This would be calculated from actual lead data
-  const avgDealSize = thisMonthRevenue / (thisMonthClients.length || 1);
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center h-48">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center gap-2">
-        <TrendingUp className="h-6 w-6 text-blue-600" />
-        <h1 className="text-3xl font-bold">Sales & Account Management Dashboard</h1>
+      <div className="flex justify-between items-center">
+        <h1 className="text-3xl font-bold">Sales Dashboard</h1>
+        <Button onClick={() => setShowRegistrationForm(true)} className="gap-2">
+          <Plus className="h-4 w-4" />
+          Register New Client
+        </Button>
       </div>
 
-      {/* Sales Metrics */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-        <Card className="border-l-4 border-l-blue-500">
-          <CardContent className="p-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm font-medium text-muted-foreground">New Clients This Month</p>
-                <p className="text-2xl font-bold text-blue-600">{thisMonthClients.length}</p>
-              </div>
-              <UserPlus className="h-8 w-8 text-blue-600" />
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card className="border-l-4 border-l-green-500">
-          <CardContent className="p-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm font-medium text-muted-foreground">Monthly Revenue</p>
-                <p className="text-2xl font-bold text-green-600">{formatKenyanCurrency(thisMonthRevenue)}</p>
-              </div>
-              <DollarSign className="h-8 w-8 text-green-600" />
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card className="border-l-4 border-l-purple-500">
-          <CardContent className="p-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm font-medium text-muted-foreground">Conversion Rate</p>
-                <p className="text-2xl font-bold text-purple-600">{conversionRate}%</p>
-              </div>
-              <Target className="h-8 w-8 text-purple-600" />
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card className="border-l-4 border-l-orange-500">
-          <CardContent className="p-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm font-medium text-muted-foreground">Avg Deal Size</p>
-                <p className="text-2xl font-bold text-orange-600">{formatKenyanCurrency(avgDealSize)}</p>
-              </div>
-              <TrendingUp className="h-8 w-8 text-orange-600" />
-            </div>
-          </CardContent>
-        </Card>
+      {/* Metrics */}
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
+        <MetricCard
+          title="Total Submissions"
+          value={mySubmissions.length}
+          icon={<Users className="h-4 w-4" />}
+          trend={12}
+        />
+        <MetricCard
+          title="Pending Approval"
+          value={pendingSubmissions.length}
+          icon={<Clock className="h-4 w-4" />}
+          trend={-5}
+        />
+        <MetricCard
+          title="Approved Clients"
+          value={approvedSubmissions.length}
+          icon={<CheckCircle className="h-4 w-4" />}
+          trend={8}
+        />
+        <MetricCard
+          title="Active Clients"
+          value={activeClients.length}
+          icon={<TrendingUp className="h-4 w-4" />}
+          trend={15}
+        />
       </div>
 
-      {/* Recent Clients */}
+      {/* Recent Submissions */}
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
-            <Users className="h-5 w-5 text-blue-600" />
-            Recent Client Acquisitions
+            <UserPlus className="h-5 w-5" />
+            Recent Client Submissions
           </CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="space-y-3">
-            {thisMonthClients.slice(0, 5).map((client) => (
-              <div key={client.id} className="flex items-center justify-between p-3 bg-blue-50 rounded-lg border border-blue-100">
-                <div className="flex items-center gap-3">
-                  <div className="w-2 h-2 bg-blue-500 rounded-full"></div>
-                  <div>
-                    <p className="font-medium">{client.name}</p>
-                    <p className="text-sm text-muted-foreground">
-                      {client.phone} • {new Date(client.created_at).toLocaleDateString()}
+          {mySubmissions.length === 0 ? (
+            <div className="text-center py-8">
+              <p className="text-gray-500">No client submissions yet</p>
+              <Button 
+                onClick={() => setShowRegistrationForm(true)}
+                className="mt-4 gap-2"
+              >
+                <Plus className="h-4 w-4" />
+                Register Your First Client
+              </Button>
+            </div>
+          ) : (
+            <div className="space-y-4">
+              {mySubmissions.slice(0, 10).map((client) => (
+                <div key={client.id} className="flex items-center justify-between p-4 border rounded-lg">
+                  <div className="flex-1">
+                    <h3 className="font-semibold">{client.name}</h3>
+                    <p className="text-sm text-gray-600">{client.email}</p>
+                    <p className="text-sm text-gray-500">
+                      {client.address} • {client.county}
                     </p>
                   </div>
-                </div>
-                <div className="flex items-center gap-2">
-                  <Badge 
-                    variant={client.status === 'active' ? 'default' : 'secondary'}
-                    className={client.status === 'active' ? 'bg-blue-100 text-blue-800 border-blue-200' : ''}
-                  >
-                    {client.status}
-                  </Badge>
-                  <div className="text-right text-sm">
-                    <p className="font-medium">{formatKenyanCurrency(client.monthly_rate)}</p>
-                    <p className="text-muted-foreground">monthly</p>
+                  <div className="flex items-center gap-3">
+                    <div className="text-right">
+                      <p className="text-sm font-medium">
+                        KES {client.monthly_rate.toLocaleString()}/month
+                      </p>
+                      <p className="text-xs text-gray-500">
+                        {client.service_packages?.name}
+                      </p>
+                    </div>
+                    <Badge 
+                      variant={
+                        client.status === 'active' ? 'default' :
+                        client.status === 'approved' ? 'secondary' :
+                        client.status === 'pending' ? 'outline' : 'destructive'
+                      }
+                    >
+                      {client.status}
+                    </Badge>
                   </div>
                 </div>
-              </div>
-            ))}
-          </div>
+              ))}
+            </div>
+          )}
         </CardContent>
       </Card>
 
       {/* Quick Actions */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <Calendar className="h-5 w-5 text-blue-600" />
-              Follow-up Schedule
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-2">
-              <div className="flex items-center gap-2 p-2 bg-blue-50 rounded border border-blue-100">
-                <div className="w-2 h-2 bg-blue-500 rounded-full"></div>
-                <span className="text-sm">5 clients due for renewal</span>
-              </div>
-              <div className="flex items-center gap-2 p-2 bg-blue-50 rounded border border-blue-100">
-                <div className="w-2 h-2 bg-blue-500 rounded-full"></div>
-                <span className="text-sm">3 upgrade opportunities</span>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
+      <Card>
+        <CardHeader>
+          <CardTitle>Quick Actions</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <Button 
+              variant="outline" 
+              onClick={() => setShowRegistrationForm(true)}
+              className="gap-2 p-6 h-auto flex-col"
+            >
+              <UserPlus className="h-8 w-8" />
+              <span>Register New Client</span>
+              <span className="text-xs text-gray-500">Submit for approval</span>
+            </Button>
+            <Button 
+              variant="outline" 
+              className="gap-2 p-6 h-auto flex-col"
+            >
+              <Clock className="h-8 w-8" />
+              <span>Track Submissions</span>
+              <span className="text-xs text-gray-500">{pendingSubmissions.length} pending</span>
+            </Button>
+            <Button 
+              variant="outline" 
+              className="gap-2 p-6 h-auto flex-col"
+            >
+              <TrendingUp className="h-8 w-8" />
+              <span>Performance</span>
+              <span className="text-xs text-gray-500">View analytics</span>
+            </Button>
+          </div>
+        </CardContent>
+      </Card>
 
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <Phone className="h-5 w-5 text-blue-600" />
-              Contact Activities
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-2">
-              <div className="flex items-center gap-2 p-2 bg-blue-50 rounded border border-blue-100">
-                <div className="w-2 h-2 bg-green-500 rounded-full"></div>
-                <span className="text-sm">12 calls made today</span>
-              </div>
-              <div className="flex items-center gap-2 p-2 bg-blue-50 rounded border border-blue-100">
-                <div className="w-2 h-2 bg-blue-500 rounded-full"></div>
-                <span className="text-sm">8 emails sent</span>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <Target className="h-5 w-5 text-blue-600" />
-              Performance Goals
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-2">
-              <div className="flex items-center justify-between">
-                <span className="text-sm">Monthly Target</span>
-                <span className="text-sm font-medium text-blue-600">75%</span>
-              </div>
-              <div className="w-full bg-gray-200 rounded-full h-2">
-                <div className="bg-blue-500 h-2 rounded-full" style={{width: '75%'}}></div>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-      </div>
+      {/* Registration Form Modal */}
+      {showRegistrationForm && (
+        <SalesClientRegistrationForm
+          onClose={() => setShowRegistrationForm(false)}
+          onSuccess={handleRegistrationSuccess}
+        />
+      )}
     </div>
   );
 };
