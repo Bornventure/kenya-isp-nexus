@@ -68,8 +68,9 @@ const TechnicalInstallationManager: React.FC = () => {
     }
   };
 
+  // Filter for technicians using correct role values
   const technicians = users?.filter(user => 
-    user.role === 'network_operations' || user.role === 'infrastructure_asset'
+    user.role === 'technician' || user.role === 'network_engineer' || user.role === 'infrastructure_manager'
   ) || [];
 
   if (isLoading) {

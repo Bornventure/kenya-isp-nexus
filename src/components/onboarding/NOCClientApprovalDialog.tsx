@@ -11,15 +11,17 @@ import { CheckCircle, XCircle, User, Phone, Mail, MapPin, Package, Calendar, Cre
 import { useClients } from '@/hooks/useClients';
 
 interface NOCClientApprovalDialogProps {
-  isOpen: boolean;
+  open: boolean;
   onClose: () => void;
   client: any;
+  onApprove?: () => void;
 }
 
 const NOCClientApprovalDialog: React.FC<NOCClientApprovalDialogProps> = ({
-  isOpen,
+  open,
   onClose,
-  client
+  client,
+  onApprove
 }) => {
   const [notes, setNotes] = useState('');
   const [isProcessing, setIsProcessing] = useState(false);
@@ -37,6 +39,7 @@ const NOCClientApprovalDialog: React.FC<NOCClientApprovalDialogProps> = ({
           installation_status: 'scheduled'
         }
       });
+      onApprove?.();
       onClose();
     } catch (error) {
       console.error('Error approving client:', error);
@@ -51,10 +54,11 @@ const NOCClientApprovalDialog: React.FC<NOCClientApprovalDialogProps> = ({
       await updateClient({
         id: client.id,
         updates: {
-          status: 'rejected',
+          status: 'suspended', // Using 'suspended' instead of 'rejected' as it's a valid enum value
           // Add rejection notes or reason
         }
       });
+      onApprove?.();
       onClose();
     } catch (error) {
       console.error('Error rejecting client:', error);
@@ -66,7 +70,7 @@ const NOCClientApprovalDialog: React.FC<NOCClientApprovalDialogProps> = ({
   if (!client) return null;
 
   return (
-    <Dialog open={isOpen} onOpenChange={onClose}>
+    <Dialog open={open} onOpenChange={onClose}>
       <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
