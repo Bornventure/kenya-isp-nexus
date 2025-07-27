@@ -59,25 +59,25 @@ const NetworkOperationsDashboard = () => {
         <MetricCard
           title="Pending Approvals"
           value={pendingClients.length}
-          icon={<Clock className="h-4 w-4" />}
+          icon={Clock}
           trend={0}
         />
         <MetricCard
           title="Approved Clients"
           value={approvedClients.length}
-          icon={<CheckCircle className="h-4 w-4" />}
+          icon={CheckCircle}
           trend={8}
         />
         <MetricCard
           title="Active Clients"
           value={activeClients.length}
-          icon={<Users className="h-4 w-4" />}
+          icon={Users}
           trend={15}
         />
         <MetricCard
           title="Pending Invoices"
           value={pendingInvoices.length}
-          icon={<Shield className="h-4 w-4" />}
+          icon={Shield}
           trend={-3}
         />
       </div>

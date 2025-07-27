@@ -28,7 +28,7 @@ export interface TechnicalInstallation {
     first_name: string;
     last_name: string;
     email: string;
-  };
+  } | null;
 }
 
 export const useTechnicalInstallations = () => {
@@ -67,7 +67,13 @@ export const useTechnicalInstallations = () => {
         throw error;
       }
 
-      return data as TechnicalInstallation[];
+      // Process the data to handle potential null technician
+      const processedData = data.map(installation => ({
+        ...installation,
+        technician: installation.technician || null
+      }));
+
+      return processedData as TechnicalInstallation[];
     },
     enabled: !!profile?.isp_company_id,
   });
