@@ -1,3 +1,4 @@
+
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
@@ -142,7 +143,7 @@ export const useClients = () => {
     enabled: !!profile?.isp_company_id,
   });
 
-  const { data: clients = [], isLoading, error } = useQuery({
+  const { data: clients = [], isLoading, error, refetch } = useQuery({
     queryKey: ['clients', profile?.isp_company_id],
     queryFn: async () => {
       if (!profile?.isp_company_id) return [];
@@ -283,6 +284,7 @@ export const useClients = () => {
     clients,
     isLoading,
     error,
+    refetch,
     updateClient: updateClientMutation.mutate,
     createClient: createClientMutation.mutate,
     deleteClient: deleteClientMutation.mutate,

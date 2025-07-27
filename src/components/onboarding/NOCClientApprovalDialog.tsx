@@ -1,3 +1,4 @@
+
 import React, { useState } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
@@ -6,8 +7,6 @@ import { Badge } from '@/components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Label } from '@/components/ui/label';
 import { useEquipment } from '@/hooks/useEquipment';
-import { useClients } from '@/hooks/useClients';
-import { useInstallationInvoices } from '@/hooks/useInstallationInvoices';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
@@ -46,7 +45,7 @@ const NOCClientApprovalDialog = ({ client, open, onClose, onApprove }: NOCClient
       const { error: clientError } = await supabase
         .from('clients')
         .update({
-          status: 'approved',
+          status: 'approved' as const,
           approved_by: profile?.id,
           approved_at: new Date().toISOString(),
         })

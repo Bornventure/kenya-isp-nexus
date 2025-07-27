@@ -15,14 +15,7 @@ class ServicePackageService {
         return [];
       }
 
-      return data?.map(pkg => ({
-        id: pkg.id,
-        name: pkg.name,
-        speed: pkg.speed,
-        monthlyRate: pkg.monthly_rate,
-        connectionType: pkg.connection_types || [],
-        description: pkg.description || ''
-      })) || [];
+      return data || [];
     } catch (error) {
       console.error('Service package fetch error:', error);
       return [];

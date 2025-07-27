@@ -22,6 +22,7 @@ export interface TechnicalInstallation {
     phone: string;
     address: string;
     county: string;
+    sub_county: string;
   };
   technician?: {
     first_name: string;
@@ -49,12 +50,12 @@ export const useTechnicalInstallations = () => {
             email,
             phone,
             address,
-            county
+            county,
+            sub_county
           ),
           technician:profiles!technical_installations_assigned_technician_fkey (
             first_name,
-            last_name,
-            email
+            last_name
           )
         `)
         .eq('isp_company_id', profile.isp_company_id)
@@ -69,7 +70,7 @@ export const useTechnicalInstallations = () => {
       return (data || []).map(installation => ({
         ...installation,
         technician: installation.technician && typeof installation.technician === 'object' && !('error' in installation.technician)
-          ? installation.technician
+          ? { ...installation.technician, email: '' }
           : null
       })) as TechnicalInstallation[];
     },
