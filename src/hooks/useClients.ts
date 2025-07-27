@@ -11,7 +11,7 @@ export interface DatabaseClient {
   id_number: string;
   mpesa_number: string | null;
   client_type: 'individual' | 'business' | 'corporate' | 'government';
-  status: 'active' | 'suspended' | 'disconnected' | 'pending';
+  status: 'active' | 'suspended' | 'disconnected' | 'pending' | 'approved';
   connection_type: 'fiber' | 'wireless' | 'satellite' | 'dsl';
   monthly_rate: number;
   installation_date: string | null;
@@ -31,6 +31,13 @@ export interface DatabaseClient {
   latitude: number | null;
   longitude: number | null;
   kra_pin_number: string | null;
+  submitted_by: string | null;
+  approved_by: string | null;
+  approved_at: string | null;
+  installation_status: string | null;
+  installation_completed_by: string | null;
+  installation_completed_at: string | null;
+  service_activated_at: string | null;
   service_packages?: {
     name: string;
     speed: string;
@@ -48,7 +55,7 @@ export interface Client {
   idNumber: string;
   kraPinNumber?: string;
   clientType: 'individual' | 'business' | 'corporate' | 'government';
-  status: 'active' | 'suspended' | 'disconnected' | 'pending';
+  status: 'active' | 'suspended' | 'disconnected' | 'pending' | 'approved';
   connectionType: 'fiber' | 'wireless' | 'satellite' | 'dsl';
   servicePackage: string;
   monthlyRate: number;

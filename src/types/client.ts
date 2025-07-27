@@ -40,3 +40,62 @@ export interface DatabaseClient {
   subscription_start_date?: string;
   subscription_end_date?: string;
 }
+
+// Legacy Client interface for backwards compatibility
+export interface Client {
+  id: string;
+  name: string;
+  email: string;
+  phone: string;
+  mpesaNumber?: string;
+  idNumber: string;
+  kraPinNumber?: string;
+  clientType: 'individual' | 'business' | 'corporate' | 'government';
+  status: ClientStatus;
+  connectionType: 'fiber' | 'wireless' | 'satellite' | 'dsl';
+  servicePackage: string;
+  monthlyRate: number;
+  installationDate: string;
+  location: {
+    address: string;
+    county: string;
+    subCounty: string;
+    coordinates?: {
+      lat: number;
+      lng: number;
+    };
+  };
+  equipment?: {
+    router?: string;
+    modem?: string;
+    serialNumbers: string[];
+  };
+  balance: number;
+  lastPayment?: {
+    date: string;
+    amount: number;
+    method: 'mpesa' | 'bank' | 'cash';
+  };
+  payments?: any[];
+  invoices?: any[];
+  supportTickets?: any[];
+}
+
+export interface ServicePackage {
+  id: string;
+  name: string;
+  speed: string;
+  monthly_rate: number;
+  description?: string;
+  features?: string[];
+  is_active: boolean;
+  created_at: string;
+  updated_at: string;
+  isp_company_id: string;
+}
+
+export interface ClientLoginCredentials {
+  email: string;
+  password: string;
+  clientId: string;
+}

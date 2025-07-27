@@ -7,12 +7,12 @@ import { useToast } from '@/hooks/use-toast';
 export interface TechnicalInstallation {
   id: string;
   client_id: string;
-  assigned_technician?: string;
-  installation_date?: string;
+  assigned_technician: string | null;
+  installation_date: string | null;
   status: string;
-  completion_notes?: string;
-  completed_by?: string;
-  completed_at?: string;
+  completion_notes: string | null;
+  completed_by: string | null;
+  completed_at: string | null;
   created_at: string;
   updated_at: string;
   isp_company_id: string;
@@ -22,7 +22,6 @@ export interface TechnicalInstallation {
     phone: string;
     address: string;
     county: string;
-    sub_county: string;
   };
   technician?: {
     first_name: string;
@@ -50,10 +49,9 @@ export const useTechnicalInstallations = () => {
             email,
             phone,
             address,
-            county,
-            sub_county
+            county
           ),
-          technician:profiles!assigned_technician (
+          technician:profiles!technical_installations_assigned_technician_fkey (
             first_name,
             last_name,
             email
@@ -67,36 +65,26 @@ export const useTechnicalInstallations = () => {
         throw error;
       }
 
-      // Process the data to handle potential null technician
-      const processedData = data.map(installation => ({
+      // Handle the case where technician might be null or have query errors
+      return (data || []).map(installation => ({
         ...installation,
-        technician: installation.technician || null
-      }));
-
-      return processedData as TechnicalInstallation[];
+        technician: installation.technician && typeof installation.technician === 'object' && !('error' in installation.technician)
+          ? installation.technician
+          : null
+      })) as TechnicalInstallation[];
     },
     enabled: !!profile?.isp_company_id,
   });
 
-  const createTechnicalInstallation = useMutation({
-    mutationFn: async (installationData: {
-      client_id: string;
-      assigned_technician?: string;
-      installation_date?: string;
-    }) => {
-      if (!profile?.isp_company_id) {
-        throw new Error('No ISP company associated with user');
-      }
-
+  const assignTechnician = useMutation({
+    mutationFn: async ({ installationId, technicianId }: { installationId: string; technicianId: string }) => {
       const { data, error } = await supabase
         .from('technical_installations')
-        .insert({
-          client_id: installationData.client_id,
-          assigned_technician: installationData.assigned_technician,
-          installation_date: installationData.installation_date,
-          status: 'pending',
-          isp_company_id: profile.isp_company_id,
+        .update({
+          assigned_technician: technicianId,
+          updated_at: new Date().toISOString(),
         })
+        .eq('id', installationId)
         .select()
         .single();
 
@@ -106,68 +94,40 @@ export const useTechnicalInstallations = () => {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['technical-installations'] });
       toast({
-        title: "Installation Assignment Created",
-        description: "Technical installation has been assigned successfully.",
+        title: "Technician Assigned",
+        description: "Installation has been assigned to a technician.",
       });
     },
     onError: (error) => {
-      console.error('Error creating technical installation:', error);
+      console.error('Error assigning technician:', error);
       toast({
         title: "Error",
-        description: "Failed to create technical installation. Please try again.",
-        variant: "destructive",
-      });
-    },
-  });
-
-  const updateTechnicalInstallation = useMutation({
-    mutationFn: async ({ id, updates }: { id: string; updates: Partial<TechnicalInstallation> }) => {
-      const { data, error } = await supabase
-        .from('technical_installations')
-        .update(updates)
-        .eq('id', id)
-        .select()
-        .single();
-
-      if (error) throw error;
-      return data;
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['technical-installations'] });
-      toast({
-        title: "Installation Updated",
-        description: "Technical installation has been updated successfully.",
-      });
-    },
-    onError: (error) => {
-      console.error('Error updating technical installation:', error);
-      toast({
-        title: "Error",
-        description: "Failed to update technical installation. Please try again.",
+        description: "Failed to assign technician. Please try again.",
         variant: "destructive",
       });
     },
   });
 
   const completeInstallation = useMutation({
-    mutationFn: async ({ id, completion_notes }: { id: string; completion_notes?: string }) => {
-      const { data, error } = await supabase
+    mutationFn: async ({ installationId, notes }: { installationId: string; notes?: string }) => {
+      const installation = installations.find(i => i.id === installationId);
+      if (!installation) throw new Error('Installation not found');
+
+      // Update installation status
+      const { error: installationError } = await supabase
         .from('technical_installations')
         .update({
           status: 'completed',
+          completion_notes: notes,
           completed_by: profile?.id,
           completed_at: new Date().toISOString(),
-          completion_notes,
         })
-        .eq('id', id)
-        .select()
-        .single();
+        .eq('id', installationId);
 
-      if (error) throw error;
+      if (installationError) throw installationError;
 
       // Update client installation status
-      const installation = data as TechnicalInstallation;
-      await supabase
+      const { error: clientError } = await supabase
         .from('clients')
         .update({
           installation_status: 'completed',
@@ -176,7 +136,9 @@ export const useTechnicalInstallations = () => {
         })
         .eq('id', installation.client_id);
 
-      return data;
+      if (clientError) throw clientError;
+
+      return { installationId, clientId: installation.client_id };
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['technical-installations'] });
@@ -200,11 +162,9 @@ export const useTechnicalInstallations = () => {
     installations,
     isLoading,
     error,
-    createTechnicalInstallation: createTechnicalInstallation.mutate,
-    updateTechnicalInstallation: updateTechnicalInstallation.mutate,
+    assignTechnician: assignTechnician.mutate,
     completeInstallation: completeInstallation.mutate,
-    isCreating: createTechnicalInstallation.isPending,
-    isUpdating: updateTechnicalInstallation.isPending,
+    isAssigning: assignTechnician.isPending,
     isCompleting: completeInstallation.isPending,
   };
 };

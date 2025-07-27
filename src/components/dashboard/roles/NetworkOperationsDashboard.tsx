@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -60,25 +59,21 @@ const NetworkOperationsDashboard = () => {
           title="Pending Approvals"
           value={pendingClients.length}
           icon={Clock}
-          trend={0}
         />
         <MetricCard
           title="Approved Clients"
           value={approvedClients.length}
           icon={CheckCircle}
-          trend={8}
         />
         <MetricCard
           title="Active Clients"
           value={activeClients.length}
           icon={Users}
-          trend={15}
         />
         <MetricCard
           title="Pending Invoices"
           value={pendingInvoices.length}
           icon={Shield}
-          trend={-3}
         />
       </div>
 

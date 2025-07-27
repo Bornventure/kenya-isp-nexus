@@ -49,25 +49,21 @@ const SalesAccountManagerDashboard = () => {
           title="Total Submissions"
           value={mySubmissions.length}
           icon={Users}
-          trend={12}
         />
         <MetricCard
           title="Pending Approval"
           value={pendingSubmissions.length}
           icon={Clock}
-          trend={-5}
         />
         <MetricCard
           title="Approved Clients"
           value={approvedSubmissions.length}
           icon={CheckCircle}
-          trend={8}
         />
         <MetricCard
           title="Active Clients"
           value={activeClients.length}
           icon={TrendingUp}
-          trend={15}
         />
       </div>
 

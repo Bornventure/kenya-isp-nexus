@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
@@ -22,8 +21,6 @@ interface NOCClientApprovalDialogProps {
 
 const NOCClientApprovalDialog = ({ client, open, onClose, onApprove }: NOCClientApprovalDialogProps) => {
   const { equipment } = useEquipment();
-  const { refetch: refetchClients } = useClients();
-  const { refetch: refetchInvoices } = useInstallationInvoices();
   const { toast } = useToast();
   const { profile } = useAuth();
   const [selectedEquipment, setSelectedEquipment] = useState<string>('');
@@ -45,11 +42,11 @@ const NOCClientApprovalDialog = ({ client, open, onClose, onApprove }: NOCClient
     setIsLoading(true);
 
     try {
-      // Update client status to active (not approved)
+      // Update client status to approved (not active yet)
       const { error: clientError } = await supabase
         .from('clients')
         .update({
-          status: 'active',
+          status: 'approved',
           approved_by: profile?.id,
           approved_at: new Date().toISOString(),
         })
@@ -134,9 +131,6 @@ const NOCClientApprovalDialog = ({ client, open, onClose, onApprove }: NOCClient
         description: "Client has been approved, equipment assigned, and installation invoice generated.",
       });
 
-      // Refetch data
-      refetchClients();
-      refetchInvoices();
       onApprove();
       onClose();
     } catch (error) {
