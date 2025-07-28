@@ -1,4 +1,3 @@
-
 import React, { useState, useRef } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -90,21 +89,20 @@ const FamilyBankPayment: React.FC<FamilyBankPaymentProps> = ({
       const formattedPhone = formatPhoneNumber(phoneNumber);
       
       console.log('Initiating Family Bank STK Push:', {
-        phone: formattedPhone,
+        phone_number: formattedPhone,
         amount,
-        accountRef: accountReference,
-        clientId,
-        invoiceId
+        account_reference: accountReference,
+        client_id: clientId,
+        invoice_id: invoiceId
       });
 
       const { data, error } = await supabase.functions.invoke('family-bank-stk-push', {
         body: {
-          phone: formattedPhone,
+          phone_number: formattedPhone,
           amount: amount,
-          accountRef: accountReference,
-          clientId: clientId,
-          invoiceId: invoiceId,
-          ispCompanyId: null // Will be determined by the function
+          account_reference: accountReference,
+          client_id: clientId,
+          invoice_id: invoiceId
         },
       });
 
@@ -115,16 +113,16 @@ const FamilyBankPayment: React.FC<FamilyBankPaymentProps> = ({
       console.log('Family Bank STK Push response:', data);
 
       if (data?.success) {
-        setTransactionId(data.ThirdPartyTransID);
+        setTransactionId(data.transaction_id);
         toast({
           title: "Payment Initiated",
           description: "Please check your phone for the Family Bank payment prompt.",
         });
         
         // Start monitoring payment status
-        monitorPaymentStatus(data.ThirdPartyTransID);
+        monitorPaymentStatus(data.transaction_id);
       } else {
-        throw new Error(data?.ResponseDescription || 'Failed to initiate payment');
+        throw new Error(data?.message || 'Failed to initiate payment');
       }
     } catch (error) {
       console.error('Family Bank payment error:', error);
