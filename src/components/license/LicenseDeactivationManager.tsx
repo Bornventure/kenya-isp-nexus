@@ -4,7 +4,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { Badge } from '@/components/ui/badge';
-import { AlertTriangle, CheckCircle, XCircle } from 'lucide-react';
+import { AlertTriangle, CheckCircle, XCircle, Trash2 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
@@ -31,8 +31,10 @@ export const LicenseDeactivationManager: React.FC<LicenseDeactivationManagerProp
   const [deactivationReason, setDeactivationReason] = useState('');
   const [isDeactivating, setIsDeactivating] = useState(false);
   const [isReactivating, setIsReactivating] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
   const [showDeactivateDialog, setShowDeactivateDialog] = useState(false);
   const [showReactivateDialog, setShowReactivateDialog] = useState(false);
+  const [showDeleteDialog, setShowDeleteDialog] = useState(false);
   const { toast } = useToast();
 
   const handleDeactivate = async () => {
@@ -111,6 +113,43 @@ export const LicenseDeactivationManager: React.FC<LicenseDeactivationManagerProp
     }
   };
 
+  const handleDeleteCompany = async () => {
+    if (!selectedCompany) return;
+
+    setIsDeleting(true);
+    try {
+      const { data, error } = await supabase.functions.invoke('delete-company', {
+        body: {
+          companyId: selectedCompany.id
+        }
+      });
+
+      if (error) throw error;
+
+      if (data?.success) {
+        toast({
+          title: "Company Deleted",
+          description: `${selectedCompany.name} and all associated data has been permanently deleted.`
+        });
+
+        setShowDeleteDialog(false);
+        setSelectedCompany(null);
+        onCompanyUpdate();
+      } else {
+        throw new Error(data?.error || 'Failed to delete company');
+      }
+    } catch (error) {
+      console.error('Error deleting company:', error);
+      toast({
+        title: "Error",
+        description: "Failed to delete company. Please try again.",
+        variant: "destructive"
+      });
+    } finally {
+      setIsDeleting(false);
+    }
+  };
+
   return (
     <>
       <Card>
@@ -167,6 +206,17 @@ export const LicenseDeactivationManager: React.FC<LicenseDeactivationManagerProp
                       Reactivate
                     </Button>
                   )}
+                  <Button
+                    variant="destructive"
+                    size="sm"
+                    onClick={() => {
+                      setSelectedCompany(company);
+                      setShowDeleteDialog(true);
+                    }}
+                  >
+                    <Trash2 className="h-4 w-4 mr-1" />
+                    Delete
+                  </Button>
                 </div>
               </div>
             ))}
@@ -230,6 +280,51 @@ export const LicenseDeactivationManager: React.FC<LicenseDeactivationManagerProp
               disabled={isReactivating}
             >
               {isReactivating ? 'Reactivating...' : 'Reactivate License'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Delete Company Dialog */}
+      <Dialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-destructive">
+              <Trash2 className="h-5 w-5" />
+              Delete Company
+            </DialogTitle>
+            <DialogDescription>
+              <div className="space-y-2">
+                <p className="font-medium text-destructive">
+                  WARNING: This action cannot be undone!
+                </p>
+                <p>
+                  You are about to permanently delete {selectedCompany?.name} and ALL associated data including:
+                </p>
+                <ul className="list-disc list-inside text-sm space-y-1 ml-4">
+                  <li>All user accounts and profiles</li>
+                  <li>All client data and records</li>
+                  <li>All equipment and inventory</li>
+                  <li>All invoices and payment history</li>
+                  <li>All support tickets and messages</li>
+                  <li>All network events and analytics</li>
+                </ul>
+                <p className="font-medium">
+                  This will completely remove the company from the system.
+                </p>
+              </div>
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowDeleteDialog(false)}>
+              Cancel
+            </Button>
+            <Button
+              variant="destructive"
+              onClick={handleDeleteCompany}
+              disabled={isDeleting}
+            >
+              {isDeleting ? 'Deleting...' : 'Delete Company Permanently'}
             </Button>
           </DialogFooter>
         </DialogContent>
