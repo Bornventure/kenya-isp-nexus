@@ -19,6 +19,89 @@ serve(async (req) => {
   try {
     console.log('=== Company Deletion Request Started ===')
 
+    // Get the authorization header
+    const authHeader = req.headers.get('authorization')
+    if (!authHeader) {
+      return new Response(
+        JSON.stringify({
+          success: false,
+          error: 'No authorization header provided',
+          code: 'UNAUTHORIZED'
+        }),
+        { 
+          status: 401, 
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
+        }
+      )
+    }
+
+    // Create authenticated client
+    const supabaseClient = createClient(
+      Deno.env.get('SUPABASE_URL') ?? '',
+      Deno.env.get('SUPABASE_ANON_KEY') ?? '',
+      {
+        global: {
+          headers: {
+            authorization: authHeader,
+          },
+        },
+      }
+    )
+
+    // Get current user
+    const { data: { user }, error: userError } = await supabaseClient.auth.getUser()
+    if (userError || !user) {
+      console.error('User authentication failed:', userError)
+      return new Response(
+        JSON.stringify({
+          success: false,
+          error: 'User authentication failed',
+          code: 'UNAUTHORIZED'
+        }),
+        { 
+          status: 401, 
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
+        }
+      )
+    }
+
+    // Check user role
+    const { data: profile, error: profileError } = await supabaseClient
+      .from('profiles')
+      .select('role')
+      .eq('id', user.id)
+      .single()
+
+    if (profileError || !profile) {
+      console.error('Profile fetch failed:', profileError)
+      return new Response(
+        JSON.stringify({
+          success: false,
+          error: 'Failed to fetch user profile',
+          code: 'PROFILE_ERROR'
+        }),
+        { 
+          status: 400, 
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
+        }
+      )
+    }
+
+    if (profile.role !== 'super_admin') {
+      return new Response(
+        JSON.stringify({
+          success: false,
+          error: 'Only super administrators can delete companies',
+          code: 'INSUFFICIENT_PERMISSIONS'
+        }),
+        { 
+          status: 403, 
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
+        }
+      )
+    }
+
+    // Use admin client for deletion
     const supabaseAdmin = createClient(
       Deno.env.get('SUPABASE_URL') ?? '',
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '',
