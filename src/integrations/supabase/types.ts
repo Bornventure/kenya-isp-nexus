@@ -14,6 +14,50 @@ export type Database = {
   }
   public: {
     Tables: {
+      auto_notification_settings: {
+        Row: {
+          created_at: string | null
+          delay_minutes: number | null
+          id: string
+          is_enabled: boolean | null
+          isp_company_id: string | null
+          retry_attempts: number | null
+          retry_delay_minutes: number | null
+          trigger_event: string
+          updated_at: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          delay_minutes?: number | null
+          id?: string
+          is_enabled?: boolean | null
+          isp_company_id?: string | null
+          retry_attempts?: number | null
+          retry_delay_minutes?: number | null
+          trigger_event: string
+          updated_at?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          delay_minutes?: number | null
+          id?: string
+          is_enabled?: boolean | null
+          isp_company_id?: string | null
+          retry_attempts?: number | null
+          retry_delay_minutes?: number | null
+          trigger_event?: string
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "auto_notification_settings_isp_company_id_fkey"
+            columns: ["isp_company_id"]
+            isOneToOne: false
+            referencedRelation: "isp_companies"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       bandwidth_statistics: {
         Row: {
           client_id: string | null
@@ -2091,6 +2135,65 @@ export type Database = {
           },
         ]
       }
+      notification_templates: {
+        Row: {
+          category: string
+          channels: string[] | null
+          created_at: string | null
+          created_by: string | null
+          email_template: string | null
+          id: string
+          is_active: boolean | null
+          isp_company_id: string | null
+          name: string
+          sms_template: string | null
+          subject: string | null
+          trigger_event: string
+          updated_at: string | null
+          variables: Json | null
+        }
+        Insert: {
+          category: string
+          channels?: string[] | null
+          created_at?: string | null
+          created_by?: string | null
+          email_template?: string | null
+          id?: string
+          is_active?: boolean | null
+          isp_company_id?: string | null
+          name: string
+          sms_template?: string | null
+          subject?: string | null
+          trigger_event: string
+          updated_at?: string | null
+          variables?: Json | null
+        }
+        Update: {
+          category?: string
+          channels?: string[] | null
+          created_at?: string | null
+          created_by?: string | null
+          email_template?: string | null
+          id?: string
+          is_active?: boolean | null
+          isp_company_id?: string | null
+          name?: string
+          sms_template?: string | null
+          subject?: string | null
+          trigger_event?: string
+          updated_at?: string | null
+          variables?: Json | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "notification_templates_isp_company_id_fkey"
+            columns: ["isp_company_id"]
+            isOneToOne: false
+            referencedRelation: "isp_companies"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       notifications: {
         Row: {
           action_url: string | null
@@ -3029,6 +3132,10 @@ export type Database = {
       promote_inventory_to_equipment: {
         Args: { inventory_item_id: string; equipment_data: Json }
         Returns: string
+      }
+      trigger_auto_notification: {
+        Args: { p_client_id: string; p_trigger_event: string; p_data?: Json }
+        Returns: undefined
       }
       upsert_system_settings: {
         Args: { company_id: string; settings_data: Json }

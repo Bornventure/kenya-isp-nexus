@@ -6,53 +6,101 @@ import { Badge } from '@/components/ui/badge';
 import { Switch } from '@/components/ui/switch';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Mail, MessageSquare, Edit, Trash2, Plus, Search, Filter } from 'lucide-react';
+import { Mail, MessageSquare, Edit, Trash2, Search } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
+import { supabase } from '@/integrations/supabase/client';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 
 interface NotificationTemplatesListProps {
-  templates: any[];
   onEdit: (template: any) => void;
-  onDelete: (templateId: string) => void;
-  onToggleActive: (templateId: string, isActive: boolean) => void;
 }
 
-const NotificationTemplatesList: React.FC<NotificationTemplatesListProps> = ({
-  templates,
-  onEdit,
-  onDelete,
-  onToggleActive
-}) => {
+const NotificationTemplatesList: React.FC<NotificationTemplatesListProps> = ({ onEdit }) => {
   const [searchTerm, setSearchTerm] = useState('');
   const [filterCategory, setFilterCategory] = useState('all');
   const [filterTrigger, setFilterTrigger] = useState('all');
   const { toast } = useToast();
+  const queryClient = useQueryClient();
 
-  const filteredTemplates = templates.filter(template => {
+  const { data: templates, isLoading } = useQuery({
+    queryKey: ['notification-templates'],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('notification_templates')
+        .select('*')
+        .order('created_at', { ascending: false });
+      
+      if (error) throw error;
+      return data;
+    }
+  });
+
+  const filteredTemplates = templates?.filter(template => {
     const matchesSearch = template.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
                          template.category.toLowerCase().includes(searchTerm.toLowerCase());
     const matchesCategory = filterCategory === 'all' || template.category === filterCategory;
     const matchesTrigger = filterTrigger === 'all' || template.trigger_event === filterTrigger;
     
     return matchesSearch && matchesCategory && matchesTrigger;
-  });
+  }) || [];
 
-  const handleToggleActive = (templateId: string, isActive: boolean) => {
-    onToggleActive(templateId, isActive);
-    toast({
-      title: isActive ? "Template Activated" : "Template Deactivated",
-      description: `Template has been ${isActive ? 'activated' : 'deactivated'}`,
-    });
-  };
+  const handleToggleActive = async (templateId: string, isActive: boolean) => {
+    try {
+      const { error } = await supabase
+        .from('notification_templates')
+        .update({ is_active: isActive })
+        .eq('id', templateId);
 
-  const handleDelete = (templateId: string) => {
-    if (window.confirm('Are you sure you want to delete this template?')) {
-      onDelete(templateId);
+      if (error) throw error;
+
+      queryClient.invalidateQueries({ queryKey: ['notification-templates'] });
       toast({
-        title: "Template Deleted",
-        description: "Template has been deleted successfully",
+        title: isActive ? "Template Activated" : "Template Deactivated",
+        description: `Template has been ${isActive ? 'activated' : 'deactivated'}`,
+      });
+    } catch (error) {
+      console.error('Error updating template:', error);
+      toast({
+        title: "Error",
+        description: "Failed to update template",
+        variant: "destructive",
       });
     }
   };
+
+  const handleDelete = async (templateId: string) => {
+    if (window.confirm('Are you sure you want to delete this template?')) {
+      try {
+        const { error } = await supabase
+          .from('notification_templates')
+          .delete()
+          .eq('id', templateId);
+
+        if (error) throw error;
+
+        queryClient.invalidateQueries({ queryKey: ['notification-templates'] });
+        toast({
+          title: "Template Deleted",
+          description: "Template has been deleted successfully",
+        });
+      } catch (error) {
+        console.error('Error deleting template:', error);
+        toast({
+          title: "Error",
+          description: "Failed to delete template",
+          variant: "destructive",
+        });
+      }
+    }
+  };
+
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center h-64">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">
@@ -144,7 +192,6 @@ const NotificationTemplatesList: React.FC<NotificationTemplatesListProps> = ({
               </div>
               
               <div className="text-sm text-gray-600">
-                <p className="font-medium">Auto-send: {template.auto_send ? 'Yes' : 'No'}</p>
                 <p>Variables: {template.variables?.length || 0}</p>
               </div>
 

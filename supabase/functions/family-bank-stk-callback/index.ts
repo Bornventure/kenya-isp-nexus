@@ -1,104 +1,117 @@
 
-import { serve } from "https://deno.land/std@0.177.0/http/server.ts";
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
+import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-};
+}
 
 serve(async (req) => {
-  // Handle CORS preflight requests
   if (req.method === 'OPTIONS') {
-    return new Response(null, { headers: corsHeaders });
+    return new Response('ok', { headers: corsHeaders })
   }
 
   try {
-    const supabase = createClient(
-      Deno.env.get('SUPABASE_URL') ?? '',
-      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
-    );
+    const supabaseUrl = Deno.env.get('SUPABASE_URL')!
+    const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
+    const supabase = createClient(supabaseUrl, supabaseServiceKey)
 
-    const body = await req.json();
-    console.log("Family Bank STK Callback RECEIVED:", JSON.stringify(body, null, 2));
+    const callbackData = await req.json()
+    console.log('Family Bank STK Callback received:', callbackData)
 
-    // Store the callback for processing via trigger
-    const { error } = await supabase
+    // Store callback data
+    const { data: callback, error: callbackError } = await supabase
       .from('family_bank_stk_callbacks')
       .insert({
-        callback_raw: body,
+        callback_raw: callbackData,
         processed: false
-      });
+      })
+      .select()
+      .single()
 
-    if (error) {
-      console.error('Error storing Family Bank STK callback:', error);
+    if (callbackError) {
+      console.error('Error storing callback:', callbackError)
+      return new Response(JSON.stringify({ error: 'Failed to store callback' }), {
+        status: 500,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+      })
     }
 
-    // Process successful payment based on the callback structure provided by the bank
-    if (body.TransID && body.TransAmount) {
-      const { data: stkRequest } = await supabase
+    const responseCode = callbackData.ResponseCode
+    const thirdPartyTransId = callbackData.ThirdPartyTransID
+
+    // Update STK request status
+    if (responseCode === '0') {
+      // Success
+      const { data: stkRequest, error: updateError } = await supabase
         .from('family_bank_stk_requests')
-        .select('client_id, amount, invoice_id')
-        .eq('third_party_trans_id', body.ThirdPartyTransID)
-        .single();
+        .update({
+          status: 'success',
+          merchant_request_id: callbackData.MerchantRequestID,
+          checkout_request_id: callbackData.CheckoutRequestID,
+          response_description: callbackData.ResponseDescription,
+          customer_message: callbackData.CustomerMessage,
+          callback_raw: callbackData
+        })
+        .eq('third_party_trans_id', thirdPartyTransId)
+        .select()
+        .single()
 
-      if (stkRequest) {
-        // Call payment processor
-        await supabase.functions.invoke('process-payment', {
-          body: {
-            checkoutRequestId: body.TransID,
-            clientId: stkRequest.client_id,
-            amount: parseFloat(body.TransAmount),
-            paymentMethod: 'family_bank',
-            familyBankReceiptNumber: body.TransID
-          }
-        });
-
-        // Update the STK request status to success
-        await supabase
-          .from('family_bank_stk_requests')
-          .update({
-            status: 'success',
-            response_description: 'Payment completed successfully'
+      if (updateError) {
+        console.error('Error updating STK request:', updateError)
+      } else if (stkRequest) {
+        // Create payment record
+        const { error: paymentError } = await supabase
+          .from('family_bank_payments')
+          .insert({
+            client_id: stkRequest.client_id,
+            trans_id: callbackData.MerchantRequestID,
+            third_party_trans_id: thirdPartyTransId,
+            trans_amount: stkRequest.amount,
+            trans_time: new Date().toISOString(),
+            bill_ref_number: stkRequest.account_reference,
+            msisdn: stkRequest.phone_number,
+            transaction_type: 'Payment',
+            status: 'completed',
+            callback_raw: callbackData,
+            isp_company_id: stkRequest.isp_company_id
           })
-          .eq('third_party_trans_id', body.ThirdPartyTransID);
+
+        if (paymentError) {
+          console.error('Error creating payment record:', paymentError)
+        } else {
+          console.log('Payment record created successfully')
+        }
       }
     } else {
-      // Handle failed payment - update status to failed
-      if (body.ThirdPartyTransID) {
-        await supabase
-          .from('family_bank_stk_requests')
-          .update({
-            status: 'failed',
-            response_description: 'Payment failed or was cancelled'
-          })
-          .eq('third_party_trans_id', body.ThirdPartyTransID);
-      }
+      // Failed
+      await supabase
+        .from('family_bank_stk_requests')
+        .update({
+          status: 'failed',
+          response_description: callbackData.ResponseDescription,
+          customer_message: callbackData.CustomerMessage,
+          callback_raw: callbackData
+        })
+        .eq('third_party_trans_id', thirdPartyTransId)
     }
 
-    return new Response(
-      JSON.stringify({
-        ResultCode: 0,
-        ResultDesc: "Callback received successfully"
-      }),
-      {
-        status: 200,
-        headers: { ...corsHeaders, "Content-Type": "application/json" }
-      }
-    );
+    // Mark callback as processed
+    await supabase
+      .from('family_bank_stk_callbacks')
+      .update({ processed: true })
+      .eq('id', callback.id)
+
+    return new Response(JSON.stringify({ success: true }), {
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+    })
 
   } catch (error) {
-    console.error('Family Bank STK callback error:', error);
-    
-    return new Response(
-      JSON.stringify({
-        ResultCode: 1,
-        ResultDesc: "Callback processing failed"
-      }),
-      {
-        status: 500,
-        headers: { ...corsHeaders, "Content-Type": "application/json" }
-      }
-    );
+    console.error('Family Bank STK Callback error:', error)
+    return new Response(JSON.stringify({ error: 'Internal server error' }), {
+      status: 500,
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+    })
   }
-});
+})

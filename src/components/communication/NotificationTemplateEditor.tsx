@@ -1,20 +1,33 @@
 
-import React, { useState } from 'react';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import React, { useState, useEffect } from 'react';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Checkbox } from '@/components/ui/checkbox';
 import { Badge } from '@/components/ui/badge';
-import { Switch } from '@/components/ui/switch';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Save, Eye, Send, TestTube2 } from 'lucide-react';
+import { ArrowLeft, Save, Plus, X } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
+import { supabase } from '@/integrations/supabase/client';
+
+interface NotificationTemplate {
+  id?: string;
+  name: string;
+  category: string;
+  trigger_event: string;
+  subject: string;
+  email_template: string;
+  sms_template: string;
+  variables: string[];
+  is_active: boolean;
+  channels: string[];
+}
 
 interface NotificationTemplateEditorProps {
-  template: any;
-  onSave: (template: any) => void;
+  template: NotificationTemplate | null;
+  onSave: (template: NotificationTemplate) => void;
   onClose: () => void;
 }
 
@@ -23,287 +36,328 @@ const NotificationTemplateEditor: React.FC<NotificationTemplateEditorProps> = ({
   onSave,
   onClose
 }) => {
-  const [formData, setFormData] = useState(template || {
+  const { toast } = useToast();
+  const [formData, setFormData] = useState<NotificationTemplate>({
     name: '',
-    category: '',
-    trigger_event: '',
-    channels: [],
-    email_template: {
-      subject: '',
-      content: '',
-      html_content: ''
-    },
-    sms_template: {
-      content: ''
-    },
+    category: 'billing',
+    trigger_event: 'payment_received',
+    subject: '',
+    email_template: '',
+    sms_template: '',
     variables: [],
     is_active: true,
-    auto_send: true
+    channels: ['email', 'sms']
   });
 
-  const [previewMode, setPreviewMode] = useState(false);
-  const { toast } = useToast();
+  const [newVariable, setNewVariable] = useState('');
+  const [isLoading, setIsLoading] = useState(false);
 
-  const availableVariables = [
-    'client_name', 'client_email', 'client_phone', 'amount', 'invoice_number',
-    'due_date', 'expiry_date', 'service_period_start', 'service_period_end',
-    'package_name', 'paybill_number', 'account_number', 'receipt_number',
-    'remaining_balance', 'days_remaining', 'support_ticket_number',
-    'installation_date', 'technician_name', 'payment_method'
+  useEffect(() => {
+    if (template) {
+      setFormData(template);
+    }
+  }, [template]);
+
+  const categories = [
+    { value: 'billing', label: 'Billing' },
+    { value: 'service', label: 'Service' },
+    { value: 'support', label: 'Support' },
+    { value: 'account', label: 'Account' },
+    { value: 'network', label: 'Network' }
   ];
 
   const triggerEvents = [
-    { value: 'client_registration', label: 'Client Registration' },
     { value: 'payment_received', label: 'Payment Received' },
     { value: 'payment_reminder', label: 'Payment Reminder' },
     { value: 'service_expiry', label: 'Service Expiry' },
     { value: 'service_renewal', label: 'Service Renewal' },
     { value: 'service_suspension', label: 'Service Suspension' },
+    { value: 'client_registration', label: 'Client Registration' },
     { value: 'package_upgrade', label: 'Package Upgrade' },
-    { value: 'package_downgrade', label: 'Package Downgrade' },
-    { value: 'installation_scheduled', label: 'Installation Scheduled' },
-    { value: 'installation_completed', label: 'Installation Completed' },
-    { value: 'network_maintenance', label: 'Network Maintenance' },
-    { value: 'support_ticket_created', label: 'Support Ticket Created' },
-    { value: 'support_ticket_resolved', label: 'Support Ticket Resolved' },
-    { value: 'account_setup', label: 'Account Setup' },
-    { value: 'password_reset', label: 'Password Reset' }
+    { value: 'network_maintenance', label: 'Network Maintenance' }
   ];
 
-  const handleSave = () => {
-    onSave(formData);
-    toast({
-      title: "Template Saved",
-      description: "Notification template has been saved successfully",
-    });
+  const handleInputChange = (field: keyof NotificationTemplate, value: any) => {
+    setFormData(prev => ({
+      ...prev,
+      [field]: value
+    }));
   };
 
-  const handleTestSend = () => {
-    toast({
-      title: "Test Sent",
-      description: "Test notification has been sent to your registered email/phone",
-    });
+  const handleChannelChange = (channel: string, checked: boolean) => {
+    setFormData(prev => ({
+      ...prev,
+      channels: checked 
+        ? [...prev.channels, channel]
+        : prev.channels.filter(c => c !== channel)
+    }));
   };
 
-  const insertVariable = (variable: string, field: 'email_subject' | 'email_content' | 'sms_content') => {
-    const variableTag = `{${variable}}`;
-    
-    if (field === 'email_subject') {
+  const addVariable = () => {
+    if (newVariable.trim() && !formData.variables.includes(newVariable.trim())) {
       setFormData(prev => ({
         ...prev,
-        email_template: {
-          ...prev.email_template,
-          subject: prev.email_template.subject + variableTag
-        }
+        variables: [...prev.variables, newVariable.trim()]
       }));
-    } else if (field === 'email_content') {
-      setFormData(prev => ({
-        ...prev,
-        email_template: {
-          ...prev.email_template,
-          content: prev.email_template.content + variableTag
-        }
-      }));
-    } else if (field === 'sms_content') {
-      setFormData(prev => ({
-        ...prev,
-        sms_template: {
-          ...prev.sms_template,
-          content: prev.sms_template.content + variableTag
-        }
-      }));
+      setNewVariable('');
+    }
+  };
+
+  const removeVariable = (variable: string) => {
+    setFormData(prev => ({
+      ...prev,
+      variables: prev.variables.filter(v => v !== variable)
+    }));
+  };
+
+  const handleSave = async () => {
+    if (!formData.name.trim()) {
+      toast({
+        title: "Error",
+        description: "Template name is required",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    if (formData.channels.length === 0) {
+      toast({
+        title: "Error",
+        description: "At least one channel must be selected",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    setIsLoading(true);
+
+    try {
+      const { data: userProfile } = await supabase
+        .from('profiles')
+        .select('isp_company_id')
+        .eq('id', (await supabase.auth.getUser()).data.user?.id)
+        .single();
+
+      const templateData = {
+        ...formData,
+        isp_company_id: userProfile?.isp_company_id
+      };
+
+      if (template?.id) {
+        const { error } = await supabase
+          .from('notification_templates')
+          .update(templateData)
+          .eq('id', template.id);
+
+        if (error) throw error;
+      } else {
+        const { error } = await supabase
+          .from('notification_templates')
+          .insert(templateData);
+
+        if (error) throw error;
+      }
+
+      onSave(formData);
+      toast({
+        title: "Success",
+        description: "Template saved successfully"
+      });
+    } catch (error) {
+      console.error('Error saving template:', error);
+      toast({
+        title: "Error",
+        description: "Failed to save template",
+        variant: "destructive"
+      });
+    } finally {
+      setIsLoading(false);
     }
   };
 
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
-        <h2 className="text-2xl font-bold">Notification Template Editor</h2>
-        <div className="flex gap-2">
-          <Button variant="outline" onClick={handleTestSend}>
-            <TestTube2 className="h-4 w-4 mr-2" />
-            Test Send
+        <div className="flex items-center gap-4">
+          <Button variant="ghost" size="sm" onClick={onClose}>
+            <ArrowLeft className="h-4 w-4" />
+            Back
           </Button>
-          <Button variant="outline" onClick={() => setPreviewMode(!previewMode)}>
-            <Eye className="h-4 w-4 mr-2" />
-            {previewMode ? 'Edit' : 'Preview'}
-          </Button>
-          <Button onClick={handleSave}>
-            <Save className="h-4 w-4 mr-2" />
-            Save Template
-          </Button>
+          <h2 className="text-2xl font-bold">
+            {template ? 'Edit Template' : 'Create New Template'}
+          </h2>
         </div>
+        <Button onClick={handleSave} disabled={isLoading}>
+          <Save className="h-4 w-4 mr-2" />
+          {isLoading ? 'Saving...' : 'Save Template'}
+        </Button>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
-        <Card className="lg:col-span-3">
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        {/* Basic Information */}
+        <Card>
           <CardHeader>
-            <CardTitle>Template Configuration</CardTitle>
-            <CardDescription>Configure the notification template settings and content</CardDescription>
+            <CardTitle>Basic Information</CardTitle>
           </CardHeader>
-          <CardContent className="space-y-6">
-            {/* Basic Settings */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div>
-                <Label htmlFor="name">Template Name</Label>
-                <Input
-                  id="name"
-                  value={formData.name}
-                  onChange={(e) => setFormData(prev => ({ ...prev, name: e.target.value }))}
-                />
-              </div>
-              <div>
-                <Label htmlFor="category">Category</Label>
-                <Select value={formData.category} onValueChange={(value) => setFormData(prev => ({ ...prev, category: value }))}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Select category" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="billing">Billing</SelectItem>
-                    <SelectItem value="service">Service</SelectItem>
-                    <SelectItem value="support">Support</SelectItem>
-                    <SelectItem value="account">Account</SelectItem>
-                    <SelectItem value="network">Network</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
+          <CardContent className="space-y-4">
+            <div>
+              <Label htmlFor="name">Template Name</Label>
+              <Input
+                id="name"
+                value={formData.name}
+                onChange={(e) => handleInputChange('name', e.target.value)}
+                placeholder="Enter template name"
+              />
             </div>
 
             <div>
-              <Label htmlFor="trigger_event">Trigger Event</Label>
-              <Select value={formData.trigger_event} onValueChange={(value) => setFormData(prev => ({ ...prev, trigger_event: value }))}>
+              <Label htmlFor="category">Category</Label>
+              <Select value={formData.category} onValueChange={(value) => handleInputChange('category', value)}>
                 <SelectTrigger>
-                  <SelectValue placeholder="Select trigger event" />
+                  <SelectValue placeholder="Select category" />
                 </SelectTrigger>
                 <SelectContent>
-                  {triggerEvents.map(event => (
-                    <SelectItem key={event.value} value={event.value}>{event.label}</SelectItem>
+                  {categories.map(cat => (
+                    <SelectItem key={cat.value} value={cat.value}>
+                      {cat.label}
+                    </SelectItem>
                   ))}
                 </SelectContent>
               </Select>
             </div>
 
-            {/* Channel Selection */}
             <div>
-              <Label>Notification Channels</Label>
+              <Label htmlFor="trigger_event">Trigger Event</Label>
+              <Select value={formData.trigger_event} onValueChange={(value) => handleInputChange('trigger_event', value)}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Select trigger event" />
+                </SelectTrigger>
+                <SelectContent>
+                  {triggerEvents.map(event => (
+                    <SelectItem key={event.value} value={event.value}>
+                      {event.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div>
+              <Label>Channels</Label>
               <div className="flex gap-4 mt-2">
                 <div className="flex items-center space-x-2">
-                  <Switch
-                    id="email-channel"
+                  <Checkbox
+                    id="email"
                     checked={formData.channels.includes('email')}
-                    onCheckedChange={(checked) => {
-                      if (checked) {
-                        setFormData(prev => ({ ...prev, channels: [...prev.channels, 'email'] }));
-                      } else {
-                        setFormData(prev => ({ ...prev, channels: prev.channels.filter(c => c !== 'email') }));
-                      }
-                    }}
+                    onCheckedChange={(checked) => handleChannelChange('email', checked as boolean)}
                   />
-                  <Label htmlFor="email-channel">Email</Label>
+                  <Label htmlFor="email">Email</Label>
                 </div>
                 <div className="flex items-center space-x-2">
-                  <Switch
-                    id="sms-channel"
+                  <Checkbox
+                    id="sms"
                     checked={formData.channels.includes('sms')}
-                    onCheckedChange={(checked) => {
-                      if (checked) {
-                        setFormData(prev => ({ ...prev, channels: [...prev.channels, 'sms'] }));
-                      } else {
-                        setFormData(prev => ({ ...prev, channels: prev.channels.filter(c => c !== 'sms') }));
-                      }
-                    }}
+                    onCheckedChange={(checked) => handleChannelChange('sms', checked as boolean)}
                   />
-                  <Label htmlFor="sms-channel">SMS</Label>
+                  <Label htmlFor="sms">SMS</Label>
                 </div>
               </div>
             </div>
 
-            {/* Template Content */}
-            <Tabs defaultValue="email" className="w-full">
-              <TabsList>
-                <TabsTrigger value="email">Email Template</TabsTrigger>
-                <TabsTrigger value="sms">SMS Template</TabsTrigger>
-              </TabsList>
-              
-              <TabsContent value="email" className="space-y-4">
-                <div>
-                  <Label htmlFor="email-subject">Email Subject</Label>
-                  <Input
-                    id="email-subject"
-                    value={formData.email_template.subject}
-                    onChange={(e) => setFormData(prev => ({
-                      ...prev,
-                      email_template: { ...prev.email_template, subject: e.target.value }
-                    }))}
-                  />
-                </div>
-                <div>
-                  <Label htmlFor="email-content">Email Content</Label>
-                  <Textarea
-                    id="email-content"
-                    rows={8}
-                    value={formData.email_template.content}
-                    onChange={(e) => setFormData(prev => ({
-                      ...prev,
-                      email_template: { ...prev.email_template, content: e.target.value }
-                    }))}
-                  />
-                </div>
-              </TabsContent>
-              
-              <TabsContent value="sms" className="space-y-4">
-                <div>
-                  <Label htmlFor="sms-content">SMS Content</Label>
-                  <Textarea
-                    id="sms-content"
-                    rows={4}
-                    value={formData.sms_template.content}
-                    onChange={(e) => setFormData(prev => ({
-                      ...prev,
-                      sms_template: { ...prev.sms_template, content: e.target.value }
-                    }))}
-                  />
-                  <p className="text-sm text-gray-500 mt-1">
-                    Character count: {formData.sms_template.content.length}/160
-                  </p>
-                </div>
-              </TabsContent>
-            </Tabs>
-
-            {/* Auto-send Settings */}
             <div className="flex items-center space-x-2">
-              <Switch
-                id="auto-send"
-                checked={formData.auto_send}
-                onCheckedChange={(checked) => setFormData(prev => ({ ...prev, auto_send: checked }))}
+              <Checkbox
+                id="is_active"
+                checked={formData.is_active}
+                onCheckedChange={(checked) => handleInputChange('is_active', checked)}
               />
-              <Label htmlFor="auto-send">Automatically send when triggered</Label>
+              <Label htmlFor="is_active">Active</Label>
             </div>
           </CardContent>
         </Card>
 
+        {/* Variables */}
         <Card>
           <CardHeader>
-            <CardTitle>Available Variables</CardTitle>
-            <CardDescription>Click to insert into template</CardDescription>
+            <CardTitle>Template Variables</CardTitle>
           </CardHeader>
-          <CardContent>
-            <div className="space-y-2">
-              {availableVariables.map(variable => (
-                <div key={variable} className="flex flex-wrap gap-1">
-                  <Badge
-                    variant="outline"
-                    className="cursor-pointer hover:bg-gray-100"
-                    onClick={() => insertVariable(variable, 'email_subject')}
-                  >
-                    {variable}
-                  </Badge>
-                </div>
+          <CardContent className="space-y-4">
+            <div className="flex gap-2">
+              <Input
+                value={newVariable}
+                onChange={(e) => setNewVariable(e.target.value)}
+                placeholder="Enter variable name"
+                onKeyPress={(e) => e.key === 'Enter' && addVariable()}
+              />
+              <Button onClick={addVariable} size="sm">
+                <Plus className="h-4 w-4" />
+              </Button>
+            </div>
+
+            <div className="flex flex-wrap gap-2">
+              {formData.variables.map(variable => (
+                <Badge key={variable} variant="secondary" className="gap-1">
+                  {variable}
+                  <button onClick={() => removeVariable(variable)}>
+                    <X className="h-3 w-3" />
+                  </button>
+                </Badge>
               ))}
             </div>
           </CardContent>
         </Card>
       </div>
+
+      {/* Email Template */}
+      {formData.channels.includes('email') && (
+        <Card>
+          <CardHeader>
+            <CardTitle>Email Template</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div>
+              <Label htmlFor="subject">Subject</Label>
+              <Input
+                id="subject"
+                value={formData.subject}
+                onChange={(e) => handleInputChange('subject', e.target.value)}
+                placeholder="Email subject"
+              />
+            </div>
+
+            <div>
+              <Label htmlFor="email_template">Email Content</Label>
+              <Textarea
+                id="email_template"
+                value={formData.email_template}
+                onChange={(e) => handleInputChange('email_template', e.target.value)}
+                placeholder="Email template content"
+                rows={8}
+              />
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* SMS Template */}
+      {formData.channels.includes('sms') && (
+        <Card>
+          <CardHeader>
+            <CardTitle>SMS Template</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div>
+              <Label htmlFor="sms_template">SMS Content</Label>
+              <Textarea
+                id="sms_template"
+                value={formData.sms_template}
+                onChange={(e) => handleInputChange('sms_template', e.target.value)}
+                placeholder="SMS template content"
+                rows={4}
+              />
+            </div>
+          </CardContent>
+        </Card>
+      )}
     </div>
   );
 };

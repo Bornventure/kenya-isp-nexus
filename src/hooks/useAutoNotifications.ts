@@ -1,5 +1,5 @@
 
-import { useMutation } from '@tanstack/react-query';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 
@@ -12,6 +12,7 @@ export interface AutoNotificationPayload {
 
 export const useAutoNotifications = () => {
   const { toast } = useToast();
+  const queryClient = useQueryClient();
 
   const sendAutoNotification = useMutation({
     mutationFn: async (payload: AutoNotificationPayload) => {
@@ -23,22 +24,68 @@ export const useAutoNotifications = () => {
       return data;
     },
     onSuccess: (data) => {
-      const successCount = data.results.filter((r: any) => r.success).length;
-      const totalCount = data.results.length;
+      const successCount = data.results?.filter((r: any) => r.success).length || 0;
+      const totalCount = data.results?.length || 0;
       
       toast({
         title: "Notifications Sent",
         description: `${successCount}/${totalCount} notifications sent successfully`,
       });
+      
+      queryClient.invalidateQueries({ queryKey: ['notification-logs'] });
     },
     onError: (error) => {
+      console.error('Auto notification error:', error);
       toast({
         title: "Notification Failed",
         description: "Failed to send automatic notifications",
         variant: "destructive",
       });
-      console.error('Auto notification error:', error);
     },
+  });
+
+  const { data: templates, isLoading: templatesLoading } = useQuery({
+    queryKey: ['notification-templates'],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('notification_templates')
+        .select('*')
+        .order('created_at', { ascending: false });
+      
+      if (error) throw error;
+      return data;
+    }
+  });
+
+  const { data: notificationLogs, isLoading: logsLoading } = useQuery({
+    queryKey: ['notification-logs'],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('notification_logs')
+        .select(`
+          *,
+          clients(name, email, phone),
+          notification_templates(name, category)
+        `)
+        .order('created_at', { ascending: false })
+        .limit(100);
+      
+      if (error) throw error;
+      return data;
+    }
+  });
+
+  const { data: settings, isLoading: settingsLoading } = useQuery({
+    queryKey: ['auto-notification-settings'],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('auto_notification_settings')
+        .select('*')
+        .order('trigger_event');
+      
+      if (error) throw error;
+      return data;
+    }
   });
 
   // Helper functions for common notification triggers
@@ -50,6 +97,7 @@ export const useAutoNotifications = () => {
         amount: paymentData.amount,
         receipt_number: paymentData.receipt_number,
         payment_method: paymentData.payment_method,
+        payment_date: paymentData.payment_date,
         expiry_date: paymentData.expiry_date,
         receipt_html: paymentData.receipt_html
       }
@@ -135,6 +183,12 @@ export const useAutoNotifications = () => {
 
   return {
     sendAutoNotification,
+    templates,
+    templatesLoading,
+    notificationLogs,
+    logsLoading,
+    settings,
+    settingsLoading,
     triggerPaymentConfirmation,
     triggerServiceRenewal,
     triggerPaymentReminder,
