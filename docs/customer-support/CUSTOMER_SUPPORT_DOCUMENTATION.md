@@ -16,7 +16,7 @@
 The ISP Management System provides comprehensive customer support tools designed to help support staff efficiently manage client interactions, resolve issues, and maintain high customer satisfaction levels.
 
 ### System Access
-- **Login URL**: https://main.qorioninnovations.com
+- **Login URL**: https://main.lakelink.co.ke/
 - **Support Dashboard**: Navigate to Support → Tickets
 - **Client Portal**: Separate interface for clients to submit tickets
 - **Knowledge Base**: Accessible from Support → Knowledge Base

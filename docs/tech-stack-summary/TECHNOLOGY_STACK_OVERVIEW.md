@@ -234,7 +234,7 @@
 - **RAM**: 4GB
 - **Storage**: 20GB SSD
 - **Network**: 10 Mbps
-- **Browser**: Chrome 90+, Firefox 88+, Safari 14+
+- **Browser**: Chrome 90+, Firefox 88+, Safari 14+, Microsoft Edge 136+ (Official build) (32-64-bit)
 
 ### Recommended Requirements
 - **CPU**: 4 cores
