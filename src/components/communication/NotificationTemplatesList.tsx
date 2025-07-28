@@ -11,8 +11,18 @@ import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 
+interface NotificationTemplate {
+  id: string;
+  name: string;
+  category: string;
+  trigger_event: string;
+  channels: string[];
+  variables: string[] | any;
+  is_active: boolean;
+}
+
 interface NotificationTemplatesListProps {
-  onEdit: (template: any) => void;
+  onEdit: (template: NotificationTemplate) => void;
 }
 
 const NotificationTemplatesList: React.FC<NotificationTemplatesListProps> = ({ onEdit }) => {
@@ -92,6 +102,21 @@ const NotificationTemplatesList: React.FC<NotificationTemplatesListProps> = ({ o
         });
       }
     }
+  };
+
+  const getVariablesCount = (variables: any): number => {
+    if (Array.isArray(variables)) {
+      return variables.length;
+    }
+    if (typeof variables === 'string') {
+      try {
+        const parsed = JSON.parse(variables);
+        return Array.isArray(parsed) ? parsed.length : 0;
+      } catch {
+        return 0;
+      }
+    }
+    return 0;
   };
 
   if (isLoading) {
@@ -192,7 +217,7 @@ const NotificationTemplatesList: React.FC<NotificationTemplatesListProps> = ({ o
               </div>
               
               <div className="text-sm text-gray-600">
-                <p>Variables: {template.variables?.length || 0}</p>
+                <p>Variables: {getVariablesCount(template.variables)}</p>
               </div>
 
               <div className="flex justify-between items-center pt-2">
