@@ -17,7 +17,29 @@ serve(async (req) => {
     const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
     const supabase = createClient(supabaseUrl, supabaseServiceKey)
 
-    const callbackData = await req.json()
+    // Handle empty request body
+    let callbackData;
+    const requestText = await req.text();
+    
+    if (!requestText || requestText.trim() === '') {
+      console.log('Empty request body received');
+      return new Response(JSON.stringify({ error: 'Empty request body' }), {
+        status: 400,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+      });
+    }
+
+    try {
+      callbackData = JSON.parse(requestText);
+    } catch (parseError) {
+      console.error('JSON parse error:', parseError);
+      console.log('Raw request text:', requestText);
+      return new Response(JSON.stringify({ error: 'Invalid JSON in request body' }), {
+        status: 400,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+      });
+    }
+
     console.log('Family Bank STK Callback received:', JSON.stringify(callbackData, null, 2))
 
     // Store callback data
