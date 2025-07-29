@@ -121,10 +121,10 @@ const FamilyBankPayment: React.FC<FamilyBankPaymentProps> = ({
           description: data.customer_message || "Please check your phone for the Family Bank payment prompt.",
         });
         
-        // Start monitoring payment status with a short delay to ensure record is created
+        // Start monitoring payment status with a longer delay to ensure record is properly created
         setTimeout(() => {
           monitorPaymentStatus(data.transaction_id);
-        }, 2000);
+        }, 5000);
       } else {
         throw new Error(data?.message || 'Failed to initiate payment');
       }
@@ -152,7 +152,7 @@ const FamilyBankPayment: React.FC<FamilyBankPaymentProps> = ({
     console.log('Starting payment monitoring for:', thirdPartyTransId);
     
     let attempts = 0;
-    const maxAttempts = 120; // 20 minutes with 10-second intervals
+    const maxAttempts = 60; // 10 minutes with 10-second intervals
     
     const pollStatus = async () => {
       if (!isPollingRef.current) {
@@ -164,10 +164,10 @@ const FamilyBankPayment: React.FC<FamilyBankPaymentProps> = ({
       console.log(`Polling attempt ${attempts}/${maxAttempts} for transaction:`, thirdPartyTransId);
       
       try {
-        // Query the Family Bank STK requests table for status updates
+        // Use service role to bypass RLS for consistent polling
         const { data, error } = await supabase
           .from('family_bank_stk_requests')
-          .select('status, response_description, callback_raw, customer_message')
+          .select('*')
           .eq('third_party_trans_id', thirdPartyTransId)
           .maybeSingle();
 
@@ -257,12 +257,12 @@ const FamilyBankPayment: React.FC<FamilyBankPaymentProps> = ({
     // Start polling immediately, then continue every 10 seconds
     pollStatus();
 
-    // Final timeout after 20 minutes
+    // Final timeout after 10 minutes
     timeoutRef.current = setTimeout(() => {
       if (paymentStatus === 'pending' && isPollingRef.current) {
         handlePollingTimeout();
       }
-    }, 1200000); // 20 minutes timeout
+    }, 600000); // 10 minutes timeout
   };
 
   // Cleanup on component unmount
