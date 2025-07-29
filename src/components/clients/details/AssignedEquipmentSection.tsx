@@ -1,3 +1,4 @@
+
 import React, { useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -14,7 +15,7 @@ import { Plus, Unplug, Eye, Package, Network } from 'lucide-react';
 import { useInventoryItems, useUnassignEquipmentFromClient } from '@/hooks/useInventory';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
-import UnifiedEquipmentAssignmentDialog from '@/components/inventory/UnifiedEquipmentAssignmentDialog';
+import AssignEquipmentDialog from '@/components/inventory/AssignEquipmentDialog';
 import { format } from 'date-fns';
 
 interface AssignedEquipmentSectionProps {
@@ -44,23 +45,6 @@ const AssignedEquipmentSection: React.FC<AssignedEquipmentSectionProps> = ({
       const { data, error } = await supabase
         .from('equipment')
         .select('*')
-        .eq('client_id', clientId);
-
-      if (error) throw error;
-      return data || [];
-    },
-  });
-
-  // Get client equipment mappings for additional context
-  const { data: equipmentMappings = [] } = useQuery({
-    queryKey: ['client-equipment-mappings', clientId],
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from('client_equipment')
-        .select(`
-          *,
-          inventory_items (*)
-        `)
         .eq('client_id', clientId);
 
       if (error) throw error;
@@ -105,12 +89,6 @@ const AssignedEquipmentSection: React.FC<AssignedEquipmentSectionProps> = ({
   };
 
   const totalEquipment = clientInventoryEquipment.length + networkEquipment.length;
-
-  const handleAssignEquipment = (data: { itemId: string; clientId: string }) => {
-    // This will be handled by the dialog's onAssign prop
-    console.log('Assigning equipment:', data);
-    setShowAssignDialog(false);
-  };
 
   return (
     <Card>
@@ -266,12 +244,11 @@ const AssignedEquipmentSection: React.FC<AssignedEquipmentSectionProps> = ({
         )}
       </CardContent>
 
-      <UnifiedEquipmentAssignmentDialog
-        isOpen={showAssignDialog}
-        onClose={() => setShowAssignDialog(false)}
-        onAssign={handleAssignEquipment}
-        itemId=""
-        itemName="Equipment"
+      <AssignEquipmentDialog
+        open={showAssignDialog}
+        onOpenChange={setShowAssignDialog}
+        clientId={clientId}
+        clientName={clientName}
       />
     </Card>
   );
