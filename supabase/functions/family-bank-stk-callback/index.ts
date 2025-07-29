@@ -18,7 +18,7 @@ serve(async (req) => {
     const supabase = createClient(supabaseUrl, supabaseServiceKey)
 
     const callbackData = await req.json()
-    console.log('Family Bank STK Callback received:', callbackData)
+    console.log('Family Bank STK Callback received:', JSON.stringify(callbackData, null, 2))
 
     // Store callback data
     const { data: callback, error: callbackError } = await supabase
@@ -41,10 +41,27 @@ serve(async (req) => {
     const responseCode = callbackData.ResponseCode
     const thirdPartyTransId = callbackData.ThirdPartyTransID
 
-    // Update STK request status
+    console.log('Processing callback for transaction:', thirdPartyTransId, 'with response code:', responseCode)
+
+    // Find the corresponding STK request
+    const { data: stkRequest, error: stkError } = await supabase
+      .from('family_bank_stk_requests')
+      .select('*')
+      .eq('third_party_trans_id', thirdPartyTransId)
+      .single()
+
+    if (stkError || !stkRequest) {
+      console.error('STK request not found:', stkError)
+      return new Response(JSON.stringify({ error: 'STK request not found' }), {
+        status: 404,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+      })
+    }
+
+    // Update STK request status based on response code
     if (responseCode === '0') {
       // Success
-      const { data: stkRequest, error: updateError } = await supabase
+      const { error: updateError } = await supabase
         .from('family_bank_stk_requests')
         .update({
           status: 'success',
@@ -55,18 +72,18 @@ serve(async (req) => {
           callback_raw: callbackData
         })
         .eq('third_party_trans_id', thirdPartyTransId)
-        .select()
-        .single()
 
       if (updateError) {
         console.error('Error updating STK request:', updateError)
-      } else if (stkRequest) {
+      } else {
+        console.log('STK request updated to success for:', thirdPartyTransId)
+        
         // Create payment record
         const { error: paymentError } = await supabase
           .from('family_bank_payments')
           .insert({
             client_id: stkRequest.client_id,
-            trans_id: callbackData.MerchantRequestID,
+            trans_id: callbackData.MerchantRequestID || thirdPartyTransId,
             third_party_trans_id: thirdPartyTransId,
             trans_amount: stkRequest.amount,
             trans_time: new Date().toISOString(),
@@ -81,11 +98,12 @@ serve(async (req) => {
         if (paymentError) {
           console.error('Error creating payment record:', paymentError)
         } else {
-          console.log('Payment record created successfully')
+          console.log('Payment record created successfully for:', thirdPartyTransId)
         }
       }
     } else {
       // Failed
+      console.log('Payment failed for transaction:', thirdPartyTransId)
       await supabase
         .from('family_bank_stk_requests')
         .update({
@@ -102,6 +120,8 @@ serve(async (req) => {
       .from('family_bank_stk_callbacks')
       .update({ processed: true })
       .eq('id', callback.id)
+
+    console.log('Callback processed successfully for:', thirdPartyTransId)
 
     return new Response(JSON.stringify({ success: true }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' }

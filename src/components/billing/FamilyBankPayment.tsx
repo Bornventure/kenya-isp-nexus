@@ -1,3 +1,4 @@
+
 import React, { useState, useRef } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -107,6 +108,7 @@ const FamilyBankPayment: React.FC<FamilyBankPaymentProps> = ({
       });
 
       if (error) {
+        console.error('Family Bank STK Push error:', error);
         throw error;
       }
 
@@ -116,7 +118,7 @@ const FamilyBankPayment: React.FC<FamilyBankPaymentProps> = ({
         setTransactionId(data.transaction_id);
         toast({
           title: "Payment Initiated",
-          description: "Please check your phone for the Family Bank payment prompt.",
+          description: data.customer_message || "Please check your phone for the Family Bank payment prompt.",
         });
         
         // Start monitoring payment status
@@ -157,13 +159,13 @@ const FamilyBankPayment: React.FC<FamilyBankPaymentProps> = ({
       }
 
       attempts++;
-      console.log(`Polling attempt ${attempts}/${maxAttempts}`);
+      console.log(`Polling attempt ${attempts}/${maxAttempts} for transaction:`, thirdPartyTransId);
       
       try {
         // Query the Family Bank STK requests table for status updates
         const { data, error } = await supabase
           .from('family_bank_stk_requests')
-          .select('status, response_description, callback_raw')
+          .select('status, response_description, callback_raw, customer_message')
           .eq('third_party_trans_id', thirdPartyTransId)
           .maybeSingle();
 
@@ -172,7 +174,7 @@ const FamilyBankPayment: React.FC<FamilyBankPaymentProps> = ({
         if (error) {
           console.error('Polling error:', error);
           // Continue polling despite errors for a few more attempts
-          if (attempts < Math.min(5, maxAttempts) && isPollingRef.current) {
+          if (attempts < Math.min(10, maxAttempts) && isPollingRef.current) {
             pollIntervalRef.current = setTimeout(pollStatus, 10000);
           } else {
             handlePollingFailure();
@@ -197,7 +199,7 @@ const FamilyBankPayment: React.FC<FamilyBankPaymentProps> = ({
           setPaymentStatus('success');
           toast({
             title: "Payment Successful!",
-            description: "Your payment has been processed successfully.",
+            description: data.customer_message || "Your payment has been processed successfully.",
           });
           if (onPaymentComplete) {
             onPaymentComplete({ 
@@ -210,7 +212,7 @@ const FamilyBankPayment: React.FC<FamilyBankPaymentProps> = ({
           setPaymentStatus('failed');
           toast({
             title: "Payment Failed",
-            description: data.response_description || "Payment was cancelled or failed.",
+            description: data.response_description || data.customer_message || "Payment was cancelled or failed.",
             variant: "destructive",
           });
           cleanup();
@@ -250,9 +252,8 @@ const FamilyBankPayment: React.FC<FamilyBankPaymentProps> = ({
       cleanup();
     };
 
-    // Start polling after 10 seconds to give Family Bank time to process the request
-    console.log('Starting initial polling delay...');
-    pollIntervalRef.current = setTimeout(pollStatus, 10000);
+    // Start polling immediately, then continue every 10 seconds
+    pollStatus();
 
     // Final timeout after 20 minutes
     timeoutRef.current = setTimeout(() => {
@@ -362,7 +363,7 @@ const FamilyBankPayment: React.FC<FamilyBankPaymentProps> = ({
                 <p>A payment prompt has been sent to {phoneNumber}</p>
                 <p>Please check your phone and enter your PIN to complete the payment</p>
                 <p className="text-xs text-orange-600">
-                  Payment verification may take up to 10 minutes. Please be patient.
+                  Payment verification may take a few minutes. Please be patient.
                 </p>
               </div>
             )}

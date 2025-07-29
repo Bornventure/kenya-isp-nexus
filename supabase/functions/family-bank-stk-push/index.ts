@@ -21,6 +21,21 @@ serve(async (req) => {
 
     console.log('Family Bank STK Push request:', { client_id, invoice_id, amount, phone_number, account_reference })
 
+    // Get client details for isp_company_id
+    const { data: clientData, error: clientError } = await supabase
+      .from('clients')
+      .select('isp_company_id')
+      .eq('id', client_id)
+      .single()
+
+    if (clientError || !clientData) {
+      console.error('Error fetching client:', clientError)
+      return new Response(JSON.stringify({ error: 'Client not found' }), {
+        status: 400,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+      })
+    }
+
     // Generate unique transaction ID
     const thirdPartyTransId = `FB_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`
 
@@ -43,7 +58,8 @@ serve(async (req) => {
         account_reference,
         third_party_trans_id: thirdPartyTransId,
         transaction_desc: `Payment for invoice ${account_reference}`,
-        status: 'pending'
+        status: 'pending',
+        isp_company_id: clientData.isp_company_id
       })
       .select()
       .single()
@@ -56,7 +72,7 @@ serve(async (req) => {
       })
     }
 
-    // Family Bank STK Push payload with corrected callback URL
+    // Family Bank STK Push payload with correct callback URL
     const stkPayload = {
       MerchantCode: Deno.env.get('FAMILY_BANK_MERCHANT_CODE'),
       AccountNumber: account_reference,
@@ -66,7 +82,7 @@ serve(async (req) => {
       Description: `Payment for invoice ${account_reference}`,
       ThirdPartyTransID: thirdPartyTransId,
       MSISDN: formattedPhone,
-      CallBackUrl: 'https://ddljuawonxdnesrnclsx.supabase.co/functions/v1/family-bank-stk-callback'
+      CallBackUrl: `${supabaseUrl}/functions/v1/family-bank-stk-callback`
     }
 
     console.log('STK Push payload:', stkPayload)
