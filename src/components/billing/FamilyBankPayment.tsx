@@ -121,8 +121,10 @@ const FamilyBankPayment: React.FC<FamilyBankPaymentProps> = ({
           description: data.customer_message || "Please check your phone for the Family Bank payment prompt.",
         });
         
-        // Start monitoring payment status
-        monitorPaymentStatus(data.transaction_id);
+        // Start monitoring payment status with a short delay to ensure record is created
+        setTimeout(() => {
+          monitorPaymentStatus(data.transaction_id);
+        }, 2000);
       } else {
         throw new Error(data?.message || 'Failed to initiate payment');
       }
