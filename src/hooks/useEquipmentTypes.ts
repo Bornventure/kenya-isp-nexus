@@ -21,12 +21,19 @@ export const useEquipmentTypes = () => {
   return useQuery({
     queryKey: ['equipment-types'],
     queryFn: async () => {
+      console.log('Fetching equipment types...');
+      
       const { data, error } = await supabase
         .from('equipment_types')
         .select('*')
         .order('name');
 
-      if (error) throw error;
+      if (error) {
+        console.error('Error fetching equipment types:', error);
+        throw error;
+      }
+      
+      console.log('Equipment types fetched:', data);
       return data as EquipmentType[];
     },
   });

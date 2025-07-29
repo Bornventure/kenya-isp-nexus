@@ -9,6 +9,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { usePromoteToNetworkEquipment, InventoryItem } from '@/hooks/useInventory';
 import { useEquipmentTypes } from '@/hooks/useEquipmentTypes';
+import { Loader2 } from 'lucide-react';
 
 interface PromoteToEquipmentDialogProps {
   open: boolean;
@@ -30,13 +31,18 @@ const PromoteToEquipmentDialog: React.FC<PromoteToEquipmentDialogProps> = ({
   });
 
   const { mutate: promoteToEquipment, isPending } = usePromoteToNetworkEquipment();
-  const { data: equipmentTypes = [] } = useEquipmentTypes();
+  const { data: equipmentTypes = [], isLoading: typesLoading, error: typesError } = useEquipmentTypes();
+
+  console.log('Equipment types:', equipmentTypes);
+  console.log('Types loading:', typesLoading);
+  console.log('Types error:', typesError);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     
     if (!inventoryItem) return;
 
+    console.log('Promoting item with data:', formData);
     promoteToEquipment(
       {
         inventoryItemId: inventoryItem.id,
@@ -64,7 +70,7 @@ const PromoteToEquipmentDialog: React.FC<PromoteToEquipmentDialogProps> = ({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-2xl">
+      <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>Promote to Network Equipment</DialogTitle>
         </DialogHeader>
@@ -107,21 +113,42 @@ const PromoteToEquipmentDialog: React.FC<PromoteToEquipmentDialogProps> = ({
             <CardContent className="space-y-4">
               <div className="space-y-2">
                 <Label htmlFor="equipment_type_id">Equipment Type</Label>
-                <Select 
-                  value={formData.equipment_type_id} 
-                  onValueChange={(value) => setFormData(prev => ({ ...prev, equipment_type_id: value }))}
-                >
-                  <SelectTrigger>
-                    <SelectValue placeholder="Select equipment type" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {equipmentTypes.map((type) => (
-                      <SelectItem key={type.id} value={type.id}>
-                        {type.name} ({type.brand} {type.model})
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                {typesError ? (
+                  <div className="text-sm text-destructive p-2 border border-destructive rounded">
+                    Error loading equipment types: {typesError.message}
+                  </div>
+                ) : (
+                  <Select 
+                    value={formData.equipment_type_id} 
+                    onValueChange={(value) => setFormData(prev => ({ ...prev, equipment_type_id: value }))}
+                    disabled={typesLoading}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder={
+                        typesLoading ? "Loading equipment types..." : "Select equipment type"
+                      } />
+                      {typesLoading && <Loader2 className="h-4 w-4 animate-spin" />}
+                    </SelectTrigger>
+                    <SelectContent>
+                      {typesLoading ? (
+                        <SelectItem value="loading" disabled>
+                          <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                          Loading...
+                        </SelectItem>
+                      ) : equipmentTypes.length === 0 ? (
+                        <SelectItem value="no-types" disabled>
+                          No equipment types available
+                        </SelectItem>
+                      ) : (
+                        equipmentTypes.map((type) => (
+                          <SelectItem key={type.id} value={type.id}>
+                            {type.name} ({type.brand} {type.model})
+                          </SelectItem>
+                        ))
+                      )}
+                    </SelectContent>
+                  </Select>
+                )}
               </div>
 
               <div className="grid grid-cols-2 gap-4">
@@ -177,8 +204,18 @@ const PromoteToEquipmentDialog: React.FC<PromoteToEquipmentDialogProps> = ({
             <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
               Cancel
             </Button>
-            <Button type="submit" disabled={isPending || !formData.equipment_type_id}>
-              {isPending ? 'Promoting...' : 'Promote to Network Equipment'}
+            <Button 
+              type="submit" 
+              disabled={isPending || !formData.equipment_type_id || typesLoading}
+            >
+              {isPending ? (
+                <>
+                  <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                  Promoting...
+                </>
+              ) : (
+                'Promote to Network Equipment'
+              )}
             </Button>
           </div>
         </form>

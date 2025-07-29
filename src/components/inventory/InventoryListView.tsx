@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -45,13 +44,29 @@ const InventoryListView: React.FC<InventoryListViewProps> = ({
 
   const { mutate: unassignEquipment, isPending: isUnassigning } = useUnassignEquipmentFromClient();
 
-  const filters = {
-    ...(categoryFilter && { category: categoryFilter }),
-    ...(statusFilter && { status: statusFilter }),
-    ...(search && { search }),
-  };
+  // Build filters object, only including non-empty values
+  const filters = React.useMemo(() => {
+    const filterObj: { category?: string; status?: string; search?: string } = {};
+    
+    if (categoryFilter && categoryFilter.trim()) {
+      filterObj.category = categoryFilter;
+    }
+    if (statusFilter && statusFilter.trim()) {
+      filterObj.status = statusFilter;
+    }
+    if (search && search.trim()) {
+      filterObj.search = search;
+    }
+    
+    console.log('Applied filters:', filterObj);
+    return filterObj;
+  }, [categoryFilter, statusFilter, search]);
 
-  const { data: inventoryItems = [], isLoading } = useInventoryItems(filters);
+  const { data: inventoryItems = [], isLoading, error } = useInventoryItems(filters);
+
+  console.log('Inventory items loaded:', inventoryItems.length, 'items');
+  console.log('Loading state:', isLoading);
+  console.log('Error state:', error);
 
   const handleUnassign = (itemId: string) => {
     if (confirm('Are you sure you want to unassign this equipment?')) {
@@ -76,6 +91,19 @@ const InventoryListView: React.FC<InventoryListViewProps> = ({
 
   const categories = ['Network Hardware', 'CPE', 'Infrastructure', 'Logical Resource', 'Consumable'];
   const statuses = ['In Stock', 'Deployed', 'Maintenance', 'Out of Stock'];
+
+  if (error) {
+    console.error('Error loading inventory:', error);
+    return (
+      <div className="space-y-6">
+        <div className="text-center py-8">
+          <Package className="h-12 w-12 mx-auto mb-4 opacity-50 text-destructive" />
+          <p className="text-destructive">Error loading inventory items</p>
+          <p className="text-sm text-muted-foreground">{error.message}</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">
@@ -129,7 +157,10 @@ const InventoryListView: React.FC<InventoryListViewProps> = ({
       {/* Items Table */}
       <div className="border rounded-lg">
         {isLoading ? (
-          <div className="p-6 text-center">Loading inventory items...</div>
+          <div className="p-6 text-center">
+            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto mb-2"></div>
+            <p>Loading inventory items...</p>
+          </div>
         ) : inventoryItems.length > 0 ? (
           <Table>
             <TableHeader>
@@ -254,7 +285,7 @@ const InventoryListView: React.FC<InventoryListViewProps> = ({
           <div className="p-6 text-center text-muted-foreground">
             <Package className="h-12 w-12 mx-auto mb-4 opacity-50" />
             <p>No inventory items found</p>
-            <p className="text-sm">Add some items to get started</p>
+            <p className="text-sm">Try adjusting your search or filters</p>
           </div>
         )}
       </div>
