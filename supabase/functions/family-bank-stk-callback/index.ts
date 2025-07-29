@@ -73,16 +73,25 @@ serve(async (req) => {
       .single()
 
     if (stkError || !stkRequest) {
-      console.error('STK request not found:', stkError)
-      return new Response(JSON.stringify({ error: 'STK request not found' }), {
+      console.error('STK request not found for transaction:', thirdPartyTransId, 'Error:', stkError)
+      
+      // Mark callback as processed even if we can't find the STK request
+      await supabase
+        .from('family_bank_stk_callbacks')
+        .update({ processed: true })
+        .eq('id', callback.id)
+      
+      return new Response(JSON.stringify({ error: 'STK request not found', transaction_id: thirdPartyTransId }), {
         status: 404,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' }
       })
     }
 
+    console.log('Found STK request:', stkRequest.id, 'for transaction:', thirdPartyTransId)
+
     // Update STK request status based on response code
     if (responseCode === '0') {
-      // Success
+      // Success - Update STK request to success
       const { error: updateError } = await supabase
         .from('family_bank_stk_requests')
         .update({
@@ -96,37 +105,75 @@ serve(async (req) => {
         .eq('third_party_trans_id', thirdPartyTransId)
 
       if (updateError) {
-        console.error('Error updating STK request:', updateError)
+        console.error('Error updating STK request to success:', updateError)
       } else {
         console.log('STK request updated to success for:', thirdPartyTransId)
+      }
+
+      // Create payment record
+      const { error: paymentError } = await supabase
+        .from('family_bank_payments')
+        .insert({
+          client_id: stkRequest.client_id,
+          trans_id: callbackData.MerchantRequestID || thirdPartyTransId,
+          third_party_trans_id: thirdPartyTransId,
+          trans_amount: stkRequest.amount,
+          trans_time: new Date().toISOString(),
+          bill_ref_number: stkRequest.account_reference,
+          msisdn: stkRequest.phone_number,
+          transaction_type: 'Payment',
+          status: 'completed',
+          callback_raw: callbackData,
+          isp_company_id: stkRequest.isp_company_id
+        })
+
+      if (paymentError) {
+        console.error('Error creating payment record:', paymentError)
+      } else {
+        console.log('Payment record created successfully for:', thirdPartyTransId)
+      }
+
+      // If this is a wallet top-up, update client wallet balance
+      if (stkRequest.account_reference === 'WALLET_TOPUP' && stkRequest.client_id) {
+        console.log('Processing wallet top-up for client:', stkRequest.client_id, 'Amount:', stkRequest.amount)
         
-        // Create payment record
-        const { error: paymentError } = await supabase
-          .from('family_bank_payments')
+        // Update client wallet balance
+        const { error: walletError } = await supabase
+          .from('clients')
+          .update({
+            wallet_balance: supabase.sql`wallet_balance + ${stkRequest.amount}`
+          })
+          .eq('id', stkRequest.client_id)
+
+        if (walletError) {
+          console.error('Error updating wallet balance:', walletError)
+        } else {
+          console.log('Wallet balance updated successfully for client:', stkRequest.client_id)
+        }
+
+        // Create wallet transaction record
+        const { error: walletTransactionError } = await supabase
+          .from('wallet_transactions')
           .insert({
             client_id: stkRequest.client_id,
-            trans_id: callbackData.MerchantRequestID || thirdPartyTransId,
-            third_party_trans_id: thirdPartyTransId,
-            trans_amount: stkRequest.amount,
-            trans_time: new Date().toISOString(),
-            bill_ref_number: stkRequest.account_reference,
-            msisdn: stkRequest.phone_number,
-            transaction_type: 'Payment',
-            status: 'completed',
-            callback_raw: callbackData,
-            isp_company_id: stkRequest.isp_company_id
+            transaction_type: 'credit',
+            amount: stkRequest.amount,
+            description: `Wallet top-up via Family Bank - ${thirdPartyTransId}`,
+            isp_company_id: stkRequest.isp_company_id,
+            reference_number: thirdPartyTransId
           })
 
-        if (paymentError) {
-          console.error('Error creating payment record:', paymentError)
+        if (walletTransactionError) {
+          console.error('Error creating wallet transaction:', walletTransactionError)
         } else {
-          console.log('Payment record created successfully for:', thirdPartyTransId)
+          console.log('Wallet transaction created successfully')
         }
       }
+
     } else {
-      // Failed
-      console.log('Payment failed for transaction:', thirdPartyTransId)
-      await supabase
+      // Failed - Update STK request to failed
+      console.log('Payment failed for transaction:', thirdPartyTransId, 'Response code:', responseCode)
+      const { error: failureUpdateError } = await supabase
         .from('family_bank_stk_requests')
         .update({
           status: 'failed',
@@ -135,6 +182,12 @@ serve(async (req) => {
           callback_raw: callbackData
         })
         .eq('third_party_trans_id', thirdPartyTransId)
+
+      if (failureUpdateError) {
+        console.error('Error updating STK request to failed:', failureUpdateError)
+      } else {
+        console.log('STK request updated to failed for:', thirdPartyTransId)
+      }
     }
 
     // Mark callback as processed
@@ -145,13 +198,13 @@ serve(async (req) => {
 
     console.log('Callback processed successfully for:', thirdPartyTransId)
 
-    return new Response(JSON.stringify({ success: true }), {
+    return new Response(JSON.stringify({ success: true, transaction_id: thirdPartyTransId }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' }
     })
 
   } catch (error) {
     console.error('Family Bank STK Callback error:', error)
-    return new Response(JSON.stringify({ error: 'Internal server error' }), {
+    return new Response(JSON.stringify({ error: 'Internal server error', details: error.message }), {
       status: 500,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' }
     })

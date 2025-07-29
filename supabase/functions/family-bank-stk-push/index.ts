@@ -114,7 +114,17 @@ serve(async (req) => {
     // Get OAuth2 access token
     const accessToken = await getAccessToken();
 
-    // Create STK request record
+    // Create STK request record BEFORE making the API call
+    console.log('Creating STK request record with:', {
+      client_id,
+      invoice_id,
+      amount,
+      phone_number: formattedPhone,
+      account_reference,
+      third_party_trans_id: thirdPartyTransId,
+      isp_company_id: clientData.isp_company_id
+    });
+
     const { data: stkRequest, error: stkError } = await supabase
       .from('family_bank_stk_requests')
       .insert({
@@ -133,11 +143,13 @@ serve(async (req) => {
 
     if (stkError) {
       console.error('Error creating STK request:', stkError)
-      return new Response(JSON.stringify({ error: 'Failed to create STK request' }), {
+      return new Response(JSON.stringify({ error: 'Failed to create STK request', details: stkError }), {
         status: 500,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' }
       })
     }
+
+    console.log('STK request record created successfully:', stkRequest.id);
 
     // Family Bank STK Push payload
     const stkPayload = {
@@ -174,7 +186,7 @@ serve(async (req) => {
     console.log('Family Bank STK response:', familyBankResult)
 
     // Update STK request with response
-    await supabase
+    const { error: updateError } = await supabase
       .from('family_bank_stk_requests')
       .update({
         merchant_request_id: familyBankResult.MerchantRequestID,
@@ -186,6 +198,12 @@ serve(async (req) => {
       })
       .eq('id', stkRequest.id)
 
+    if (updateError) {
+      console.error('Error updating STK request with response:', updateError)
+    } else {
+      console.log('STK request updated with Family Bank response')
+    }
+
     if (familyBankResult.ResponseCode === '0') {
       return new Response(JSON.stringify({
         success: true,
@@ -196,6 +214,12 @@ serve(async (req) => {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' }
       })
     } else {
+      // Update status to failed if Family Bank rejected the request
+      await supabase
+        .from('family_bank_stk_requests')
+        .update({ status: 'failed' })
+        .eq('id', stkRequest.id)
+
       return new Response(JSON.stringify({
         success: false,
         message: familyBankResult.ResponseDescription || 'STK push failed',
@@ -208,7 +232,7 @@ serve(async (req) => {
 
   } catch (error) {
     console.error('Family Bank STK Push error:', error)
-    return new Response(JSON.stringify({ error: 'Internal server error' }), {
+    return new Response(JSON.stringify({ error: 'Internal server error', details: error.message }), {
       status: 500,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' }
     })
