@@ -63,6 +63,11 @@ const ClientRegistrationForm: React.FC<ClientRegistrationFormProps> = ({ onClose
     updateFormData(dbField, value);
   };
 
+  console.log('Rendering ClientRegistrationForm');
+  console.log('Form data:', transformedFormData);
+  console.log('Errors:', errors);
+  console.log('Is submitting:', isSubmitting);
+
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
       <Card className="w-full max-w-4xl max-h-[90vh] overflow-y-auto">
@@ -76,12 +81,24 @@ const ClientRegistrationForm: React.FC<ClientRegistrationFormProps> = ({ onClose
           <div className="mb-4 p-4 bg-blue-50 border border-blue-200 rounded-lg">
             <div className="flex items-center gap-2 text-blue-700">
               <Mail className="h-4 w-4" />
-              <span className="font-medium">Account Creation</span>
+              <span className="font-medium">Client Registration</span>
             </div>
             <p className="text-sm text-blue-600 mt-1">
-              A user account will be automatically created and login credentials will be sent to the client's email address.
+              Fill out all required fields to register a new client in the system.
             </p>
           </div>
+
+          {/* Show validation errors if any */}
+          {Object.keys(errors).length > 0 && (
+            <div className="mb-4 p-4 bg-red-50 border border-red-200 rounded-lg">
+              <h4 className="font-medium text-red-800 mb-2">Please fix the following errors:</h4>
+              <ul className="list-disc list-inside text-sm text-red-600">
+                {Object.entries(errors).map(([field, message]) => (
+                  <li key={field}>{message}</li>
+                ))}
+              </ul>
+            </div>
+          )}
 
           <form onSubmit={handleSubmit} className="space-y-6">
             <PersonalInfoSection
@@ -111,13 +128,18 @@ const ClientRegistrationForm: React.FC<ClientRegistrationFormProps> = ({ onClose
               <Button type="button" variant="outline" onClick={onClose} disabled={isSubmitting}>
                 Cancel
               </Button>
-              <Button type="submit" className="gap-2" disabled={isSubmitting || packagesLoading}>
+              <Button 
+                type="submit" 
+                className="gap-2" 
+                disabled={isSubmitting || packagesLoading}
+                onClick={() => console.log('Submit button clicked')}
+              >
                 {isSubmitting ? (
                   <Loader2 className="h-4 w-4 animate-spin" />
                 ) : (
                   <Save className="h-4 w-4" />
                 )}
-                {isSubmitting ? 'Creating Account...' : 'Register Client'}
+                {isSubmitting ? 'Registering...' : 'Register Client'}
               </Button>
             </div>
           </form>

@@ -1,47 +1,52 @@
 
-import { useLicenseManagement } from '@/hooks/useLicenseManagement';
+import { useAuth } from '@/contexts/AuthContext';
+import { useClients } from '@/hooks/useClients';
 import { useToast } from '@/hooks/use-toast';
 
 export const useLicenseLimitCheck = () => {
-  const { licenseInfo, canAddMoreClients, remainingClients } = useLicenseManagement();
+  const { profile } = useAuth();
+  const { clients } = useClients();
   const { toast } = useToast();
 
-  const checkCanAddClient = (): boolean => {
-    if (!licenseInfo) {
+  const checkCanAddClient = () => {
+    console.log('Checking license limits...');
+    console.log('Current user profile:', profile);
+    console.log('Current clients count:', clients.length);
+
+    // Super admin can always add clients
+    if (profile?.role === 'super_admin') {
+      console.log('Super admin detected - bypassing license check');
+      return true;
+    }
+
+    // For other users, check if we have company info
+    if (!profile?.isp_company_id) {
+      console.error('No ISP company ID found');
       toast({
-        title: "License Check Failed",
-        description: "Unable to verify license status. Please try again.",
+        title: "Error",
+        description: "No company information found. Please contact support.",
         variant: "destructive",
       });
       return false;
     }
 
-    if (!canAddMoreClients) {
+    // For now, allow up to 1000 clients (we can implement proper license checking later)
+    const currentCount = clients.length;
+    const limit = 1000; // Default high limit
+
+    console.log(`Current clients: ${currentCount}, Limit: ${limit}`);
+
+    if (currentCount >= limit) {
       toast({
-        title: "Client Limit Reached",
-        description: `You have reached your client limit of ${licenseInfo.client_limit}. Please upgrade your license to add more clients.`,
+        title: "License Limit Reached",
+        description: `You have reached the maximum number of clients (${limit}). Please upgrade your license or contact support.`,
         variant: "destructive",
       });
       return false;
-    }
-
-    // Warning when approaching limit (90% or less than 5 slots remaining)
-    const warningThreshold = Math.max(licenseInfo.client_limit * 0.9, licenseInfo.client_limit - 5);
-    if (licenseInfo.current_client_count >= warningThreshold) {
-      toast({
-        title: "Approaching Client Limit",
-        description: `You have ${remainingClients} client slots remaining. Consider upgrading your license soon.`,
-        variant: "default",
-      });
     }
 
     return true;
   };
 
-  return {
-    licenseInfo,
-    canAddMoreClients,
-    remainingClients,
-    checkCanAddClient,
-  };
+  return { checkCanAddClient };
 };

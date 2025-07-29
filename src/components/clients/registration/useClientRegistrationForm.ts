@@ -37,8 +37,8 @@ export const useClientRegistrationForm = ({ onClose, onSave }: UseClientRegistra
     // Service Information
     service_package_id: '',
     monthly_rate: 0,
-    connection_type: '' as any,
-    client_type: '' as any,
+    connection_type: 'fiber' as any,
+    client_type: 'individual' as any,
     installation_date: '',
   });
 
@@ -46,6 +46,7 @@ export const useClientRegistrationForm = ({ onClose, onSave }: UseClientRegistra
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   const updateFormData = (field: string, value: any) => {
+    console.log('Updating form field:', field, 'with value:', value);
     setFormData(prev => ({ ...prev, [field]: value }));
     
     // Clear error when user starts typing
@@ -65,6 +66,8 @@ export const useClientRegistrationForm = ({ onClose, onSave }: UseClientRegistra
   const validateForm = () => {
     const newErrors: Record<string, string> = {};
 
+    console.log('Validating form with data:', formData);
+
     // Required field validation
     if (!formData.name.trim()) newErrors.name = 'Name is required';
     if (!formData.phone.trim()) newErrors.phone = 'Phone is required';
@@ -76,7 +79,7 @@ export const useClientRegistrationForm = ({ onClose, onSave }: UseClientRegistra
     if (!formData.connection_type) newErrors.connection_type = 'Connection type is required';
     if (!formData.client_type) newErrors.client_type = 'Client type is required';
 
-    // Email validation
+    // Email validation (if provided)
     if (formData.email && !/\S+@\S+\.\S+/.test(formData.email)) {
       newErrors.email = 'Please enter a valid email address';
     }
@@ -91,41 +94,61 @@ export const useClientRegistrationForm = ({ onClose, onSave }: UseClientRegistra
       newErrors.mpesa_number = 'Please enter a valid M-Pesa number';
     }
 
+    console.log('Validation errors:', newErrors);
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    console.log('Form submission started');
+    
+    // Check if user profile exists
+    if (!profile) {
+      console.error('No user profile found');
+      toast({
+        title: "Error",
+        description: "User profile not found. Please log in again.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    console.log('User profile:', profile);
     
     // Check license limits first
     if (!checkCanAddClient()) {
+      console.log('License limit check failed');
       return;
     }
     
-    if (!validateForm()) return;
+    if (!validateForm()) {
+      console.log('Form validation failed');
+      return;
+    }
 
     setIsSubmitting(true);
 
     try {
-      // Prepare client data - now with submitted_by field for new workflow
+      // Prepare client data
       const clientData = {
         ...formData,
         isp_company_id: profile?.isp_company_id,
-        status: 'pending' as const, // Always pending for new workflow
+        status: 'pending' as const,
         balance: 0,
         wallet_balance: 0,
         is_active: true,
         installation_date: formData.installation_date || null,
         mpesa_number: formData.mpesa_number || formData.phone,
-        submitted_by: profile?.id, // Track who submitted this client
+        submitted_by: profile?.id,
       };
 
-      console.log('Submitting client data with coordinates:', {
-        latitude: clientData.latitude,
-        longitude: clientData.longitude,
-        address: clientData.address
-      });
+      console.log('Submitting client data:', clientData);
+
+      // Validate required fields one more time
+      if (!clientData.isp_company_id) {
+        throw new Error('No ISP company ID found in user profile');
+      }
 
       // Create client record
       const { data: client, error: clientError } = await supabase
@@ -141,20 +164,19 @@ export const useClientRegistrationForm = ({ onClose, onSave }: UseClientRegistra
 
       console.log('Client created successfully:', client);
 
-      // For the new workflow, we don't create user accounts immediately
-      // They will be created after installation completion
       toast({
         title: "Success",
-        description: "Client submitted successfully and is pending approval from the Network Administrator.",
+        description: "Client registered successfully!",
       });
 
       onSave(client);
       onClose();
     } catch (error) {
       console.error('Error during client registration:', error);
+      const errorMessage = error instanceof Error ? error.message : 'Failed to register client. Please try again.';
       toast({
         title: "Error",
-        description: "Failed to submit client registration. Please try again.",
+        description: errorMessage,
         variant: "destructive",
       });
     } finally {
