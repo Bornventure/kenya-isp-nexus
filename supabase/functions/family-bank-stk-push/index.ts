@@ -7,6 +7,57 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 }
 
+// Generate timestamp in the required format (YYYYMMDDHHMMSS)
+function getTimestamp(): string {
+  const now = new Date();
+  const year = now.getFullYear();
+  const month = String(now.getMonth() + 1).padStart(2, '0');
+  const day = String(now.getDate()).padStart(2, '0');
+  const hour = String(now.getHours()).padStart(2, '0');
+  const minute = String(now.getMinutes()).padStart(2, '0');
+  const second = String(now.getSeconds()).padStart(2, '0');
+  
+  return `${year}${month}${day}${hour}${minute}${second}`;
+}
+
+// Generate password using Base64 encoding of BusinessShortCode + ClientID + Timestamp
+function generatePassword(businessShortCode: string, clientId: string, timestamp: string): string {
+  const rawString = `${businessShortCode}${clientId}${timestamp}`;
+  return btoa(rawString);
+}
+
+// Get OAuth2 access token from Family Bank
+async function getAccessToken(): Promise<string> {
+  const tokenUrl = Deno.env.get('FAMILY_BANK_TOKEN_URL')!;
+  const clientId = Deno.env.get('FAMILY_BANK_CLIENT_ID')!;
+  const clientSecret = Deno.env.get('FAMILY_BANK_CLIENT_SECRET')!;
+  const scope = Deno.env.get('FAMILY_BANK_SCOPE')!;
+
+  console.log('Requesting OAuth2 token from:', tokenUrl);
+
+  const tokenResponse = await fetch(tokenUrl, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/x-www-form-urlencoded',
+      'Authorization': `Basic ${btoa(`${clientId}:${clientSecret}`)}`
+    },
+    body: new URLSearchParams({
+      'grant_type': 'client_credentials',
+      'scope': scope
+    })
+  });
+
+  if (!tokenResponse.ok) {
+    console.error('Token request failed:', tokenResponse.status, await tokenResponse.text());
+    throw new Error(`Failed to get access token: ${tokenResponse.status}`);
+  }
+
+  const tokenData = await tokenResponse.json();
+  console.log('Token response received');
+  
+  return tokenData.access_token;
+}
+
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response('ok', { headers: corsHeaders })
@@ -47,6 +98,22 @@ serve(async (req) => {
       formattedPhone = '254' + formattedPhone
     }
 
+    // Generate timestamp and password
+    const timestamp = getTimestamp();
+    const merchantCode = Deno.env.get('FAMILY_BANK_MERCHANT_CODE')!;
+    const clientId = Deno.env.get('FAMILY_BANK_CLIENT_ID')!;
+    const password = generatePassword(merchantCode, clientId, timestamp);
+
+    console.log('Generated authentication:', {
+      timestamp,
+      merchantCode,
+      clientId,
+      passwordGenerated: true
+    });
+
+    // Get OAuth2 access token
+    const accessToken = await getAccessToken();
+
     // Create STK request record
     const { data: stkRequest, error: stkError } = await supabase
       .from('family_bank_stk_requests')
@@ -72,27 +139,33 @@ serve(async (req) => {
       })
     }
 
-    // Family Bank STK Push payload with correct callback URL
+    // Family Bank STK Push payload
     const stkPayload = {
-      MerchantCode: Deno.env.get('FAMILY_BANK_MERCHANT_CODE'),
-      AccountNumber: account_reference,
+      BusinessShortCode: merchantCode,
+      Password: password,
+      Timestamp: timestamp,
+      TransactionType: "CustomerPayBillOnline",
       Amount: amount,
-      Currency: 'KES',
-      DateExpiry: new Date(Date.now() + 15 * 60 * 1000).toISOString(), // 15 minutes expiry
-      Description: `Payment for invoice ${account_reference}`,
-      ThirdPartyTransID: thirdPartyTransId,
-      MSISDN: formattedPhone,
-      CallBackUrl: `${supabaseUrl}/functions/v1/family-bank-stk-callback`
+      PartyA: formattedPhone,
+      PartyB: merchantCode,
+      PhoneNumber: formattedPhone,
+      CallBackURL: `${supabaseUrl}/functions/v1/family-bank-stk-callback`,
+      AccountReference: account_reference,
+      TransactionDesc: `Payment for invoice ${account_reference}`,
+      ThirdPartyTransID: thirdPartyTransId
     }
 
-    console.log('STK Push payload:', stkPayload)
+    console.log('STK Push payload:', {
+      ...stkPayload,
+      Password: '[HIDDEN]' // Hide password in logs for security
+    });
 
     // Make STK push request to Family Bank
     const familyBankResponse = await fetch(Deno.env.get('FAMILY_BANK_STK_URL')!, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'Authorization': `Bearer ${Deno.env.get('FAMILY_BANK_ACCESS_TOKEN')}`
+        'Authorization': `Bearer ${accessToken}`
       },
       body: JSON.stringify(stkPayload)
     })
