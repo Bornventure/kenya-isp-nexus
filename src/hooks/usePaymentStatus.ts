@@ -34,12 +34,33 @@ export const usePaymentStatus = () => {
         const { data, error } = await supabase.functions.invoke('check-payment-status', {
           body: { 
             checkoutRequestId: checkoutRequestId,
-            invoice_id: invoiceId
+            invoice_id: invoiceId,
+            paymentId: invoiceId
           }
         });
 
         if (error) {
           console.error('Payment status check error:', error);
+          
+          // If this is an early attempt and we get an error, continue trying
+          if (attempts < 5) {
+            console.log('Early attempt failed, continuing...');
+            if (attempts < maxAttempts) {
+              setTimeout(checkPaymentStatus, 10000);
+            }
+            return;
+          }
+          
+          // After several attempts, treat as still pending
+          console.log('Multiple attempts failed, treating as pending...');
+          if (attempts < maxAttempts) {
+            setTimeout(checkPaymentStatus, 10000);
+          } else {
+            setIsMonitoring(false);
+            if (callbacks.onTimeout) {
+              callbacks.onTimeout();
+            }
+          }
           return;
         }
 
@@ -52,10 +73,10 @@ export const usePaymentStatus = () => {
             
             // Process the payment to update wallet and create records
             await processPaymentSuccess(
-              data.client_id || clientId, 
-              data.amount || amount, 
+              data.data?.client_id || clientId, 
+              data.data?.amount || amount, 
               checkoutRequestId, 
-              data.mpesa_receipt_number
+              data.data?.mpesa_receipt || data.mpesa_receipt_number
             );
             
             if (callbacks.onSuccess) {
@@ -85,6 +106,8 @@ export const usePaymentStatus = () => {
         }
       } catch (error) {
         console.error('Payment status check error:', error);
+        
+        // For network errors or other issues, continue trying for a while
         if (attempts < maxAttempts) {
           setTimeout(checkPaymentStatus, 10000);
         } else {
