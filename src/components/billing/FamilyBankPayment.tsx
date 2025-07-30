@@ -5,7 +5,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
-import { Smartphone, CheckCircle, Clock, AlertCircle } from 'lucide-react';
+import { Smartphone, CheckCircle, Clock, AlertCircle, RefreshCw } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { formatKenyanCurrency } from '@/utils/kenyanValidation';
 import { useToast } from '@/hooks/use-toast';
@@ -35,6 +35,7 @@ const FamilyBankPayment: React.FC<FamilyBankPaymentProps> = ({
   const timeoutRef = useRef<NodeJS.Timeout | null>(null);
   const pollIntervalRef = useRef<NodeJS.Timeout | null>(null);
   const isPollingRef = useRef(false);
+  const pollAttemptsRef = useRef(0);
 
   const formatPhoneNumber = (phone: string) => {
     // Remove any non-digits
@@ -58,7 +59,7 @@ const FamilyBankPayment: React.FC<FamilyBankPaymentProps> = ({
   };
 
   const cleanup = () => {
-    console.log('Cleaning up payment monitoring timers');
+    console.log('Cleaning up Family Bank payment monitoring timers');
     if (timeoutRef.current) {
       clearTimeout(timeoutRef.current);
       timeoutRef.current = null;
@@ -68,6 +69,7 @@ const FamilyBankPayment: React.FC<FamilyBankPaymentProps> = ({
       pollIntervalRef.current = null;
     }
     isPollingRef.current = false;
+    pollAttemptsRef.current = 0;
   };
 
   const initiatePayment = async () => {
@@ -124,7 +126,7 @@ const FamilyBankPayment: React.FC<FamilyBankPaymentProps> = ({
         // Start monitoring payment status with a longer delay to ensure record is properly created
         setTimeout(() => {
           monitorPaymentStatus(data.transaction_id);
-        }, 5000);
+        }, 3000); // Reduced from 5000ms to 3000ms for better responsiveness
       } else {
         throw new Error(data?.message || 'Failed to initiate payment');
       }
@@ -149,10 +151,12 @@ const FamilyBankPayment: React.FC<FamilyBankPaymentProps> = ({
     }
 
     isPollingRef.current = true;
-    console.log('Starting payment monitoring for:', thirdPartyTransId);
+    pollAttemptsRef.current = 0;
+    console.log('Starting Family Bank payment monitoring for:', thirdPartyTransId);
     
-    let attempts = 0;
     const maxAttempts = 60; // 10 minutes with 10-second intervals
+    const pollInterval = 10000; // 10 seconds
+    const fallbackQueryInterval = 5; // Use fallback query after 5 attempts
     
     const pollStatus = async () => {
       if (!isPollingRef.current) {
@@ -160,24 +164,22 @@ const FamilyBankPayment: React.FC<FamilyBankPaymentProps> = ({
         return;
       }
 
-      attempts++;
-      console.log(`Polling attempt ${attempts}/${maxAttempts} for transaction:`, thirdPartyTransId);
+      pollAttemptsRef.current++;
+      console.log(`Family Bank polling attempt ${pollAttemptsRef.current}/${maxAttempts} for transaction:`, thirdPartyTransId);
       
       try {
-        // Use service role to bypass RLS for consistent polling
+        // First try checking our database for callback updates
         const { data, error } = await supabase
           .from('family_bank_stk_requests')
           .select('*')
           .eq('third_party_trans_id', thirdPartyTransId)
           .maybeSingle();
 
-        console.log('Poll result:', { data, error, thirdPartyTransId });
-
         if (error) {
-          console.error('Polling error:', error);
-          // Continue polling despite errors for a few more attempts
-          if (attempts < Math.min(10, maxAttempts) && isPollingRef.current) {
-            pollIntervalRef.current = setTimeout(pollStatus, 10000);
+          console.error('Database polling error:', error);
+          // Continue polling despite database errors for a few attempts
+          if (pollAttemptsRef.current < Math.min(10, maxAttempts) && isPollingRef.current) {
+            pollIntervalRef.current = setTimeout(pollStatus, pollInterval);
           } else {
             handlePollingFailure();
           }
@@ -186,17 +188,62 @@ const FamilyBankPayment: React.FC<FamilyBankPaymentProps> = ({
 
         if (!data) {
           console.log('No STK request found yet, continuing to poll...');
-          if (attempts < maxAttempts && isPollingRef.current) {
-            pollIntervalRef.current = setTimeout(pollStatus, 10000);
+          if (pollAttemptsRef.current < maxAttempts && isPollingRef.current) {
+            pollIntervalRef.current = setTimeout(pollStatus, pollInterval);
           } else {
             handlePollingTimeout();
           }
           return;
         }
 
-        // Check the status from the database
         console.log('STK request status:', data.status);
         
+        // If callback hasn't arrived after several attempts, try querying Family Bank API directly
+        if (data.status === 'pending' && pollAttemptsRef.current >= fallbackQueryInterval) {
+          console.log('Using fallback query to check Family Bank payment status...');
+          
+          try {
+            const { data: queryData, error: queryError } = await supabase.functions.invoke('family-bank-query-status', {
+              body: { third_party_trans_id: thirdPartyTransId }
+            });
+
+            if (!queryError && queryData) {
+              console.log('Family Bank query result:', queryData);
+              
+              if (queryData.success && queryData.status === 'completed') {
+                setPaymentStatus('success');
+                toast({
+                  title: "Payment Successful!",
+                  description: queryData.message || "Your payment has been processed successfully.",
+                });
+                if (onPaymentComplete) {
+                  onPaymentComplete({ 
+                    transactionId: thirdPartyTransId,
+                    queryData: queryData 
+                  });
+                }
+                cleanup();
+                return;
+              } else if (!queryData.success && queryData.status === 'failed') {
+                setPaymentStatus('failed');
+                toast({
+                  title: "Payment Failed",
+                  description: queryData.message || "Payment was cancelled or failed.",
+                  variant: "destructive",
+                });
+                cleanup();
+                return;
+              }
+            } else {
+              console.log('Fallback query failed or returned no data, continuing polling...');
+            }
+          } catch (queryError) {
+            console.error('Fallback query error:', queryError);
+            // Continue with regular polling if fallback query fails
+          }
+        }
+        
+        // Check status from database (updated by callback or query)
         if (data.status === 'success') {
           setPaymentStatus('success');
           toast({
@@ -218,16 +265,16 @@ const FamilyBankPayment: React.FC<FamilyBankPaymentProps> = ({
             variant: "destructive",
           });
           cleanup();
-        } else if (attempts < maxAttempts && isPollingRef.current) {
+        } else if (pollAttemptsRef.current < maxAttempts && isPollingRef.current) {
           // Status is still pending, continue polling
-          pollIntervalRef.current = setTimeout(pollStatus, 10000);
+          pollIntervalRef.current = setTimeout(pollStatus, pollInterval);
         } else {
           handlePollingTimeout();
         }
       } catch (error) {
-        console.error('Error polling payment status:', error);
-        if (attempts < maxAttempts && isPollingRef.current) {
-          pollIntervalRef.current = setTimeout(pollStatus, 10000);
+        console.error('Error polling Family Bank payment status:', error);
+        if (pollAttemptsRef.current < maxAttempts && isPollingRef.current) {
+          pollIntervalRef.current = setTimeout(pollStatus, pollInterval);
         } else {
           handlePollingFailure();
         }
@@ -263,6 +310,60 @@ const FamilyBankPayment: React.FC<FamilyBankPaymentProps> = ({
         handlePollingTimeout();
       }
     }, 600000); // 10 minutes timeout
+  };
+
+  const manualStatusCheck = async () => {
+    if (!transactionId) return;
+
+    setIsLoading(true);
+    try {
+      console.log('Manual status check for transaction:', transactionId);
+      
+      const { data, error } = await supabase.functions.invoke('family-bank-query-status', {
+        body: { third_party_trans_id: transactionId }
+      });
+
+      if (error) {
+        throw error;
+      }
+
+      console.log('Manual query result:', data);
+
+      if (data.success && data.status === 'completed') {
+        setPaymentStatus('success');
+        toast({
+          title: "Payment Confirmed!",
+          description: data.message || "Your payment has been processed successfully.",
+        });
+        if (onPaymentComplete) {
+          onPaymentComplete({ 
+            transactionId,
+            queryData: data 
+          });
+        }
+      } else if (!data.success && data.status === 'failed') {
+        setPaymentStatus('failed');
+        toast({
+          title: "Payment Failed",
+          description: data.message || "Payment was not successful.",
+          variant: "destructive",
+        });
+      } else {
+        toast({
+          title: "Status Check Complete",
+          description: "Payment is still being processed. Please wait a moment.",
+        });
+      }
+    } catch (error) {
+      console.error('Manual status check error:', error);
+      toast({
+        title: "Status Check Failed",
+        description: "Unable to check payment status. Please try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   // Cleanup on component unmount
@@ -361,12 +462,22 @@ const FamilyBankPayment: React.FC<FamilyBankPaymentProps> = ({
             )}
 
             {paymentStatus === 'pending' && (
-              <div className="text-sm text-gray-600 space-y-1">
+              <div className="text-sm text-gray-600 space-y-2">
                 <p>A payment prompt has been sent to {phoneNumber}</p>
                 <p>Please check your phone and enter your PIN to complete the payment</p>
                 <p className="text-xs text-orange-600">
                   Payment verification may take a few minutes. Please be patient.
                 </p>
+                <Button
+                  onClick={manualStatusCheck}
+                  disabled={isLoading}
+                  variant="outline"
+                  size="sm"
+                  className="mt-2"
+                >
+                  <RefreshCw className="h-4 w-4 mr-2" />
+                  Check Status
+                </Button>
               </div>
             )}
 

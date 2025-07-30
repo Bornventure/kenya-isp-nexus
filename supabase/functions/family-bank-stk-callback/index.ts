@@ -12,6 +12,10 @@ serve(async (req) => {
     return new Response('ok', { headers: corsHeaders })
   }
 
+  console.log('=== Family Bank STK Callback Received ===');
+  console.log('Request method:', req.method);
+  console.log('Request headers:', Object.fromEntries(req.headers.entries()));
+
   try {
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!
     const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
@@ -21,9 +25,14 @@ serve(async (req) => {
     let callbackData;
     const requestText = await req.text();
     
+    console.log('Raw request body:', requestText);
+    
     if (!requestText || requestText.trim() === '') {
       console.log('Empty request body received');
-      return new Response(JSON.stringify({ error: 'Empty request body' }), {
+      return new Response(JSON.stringify({ 
+        success: false,
+        error: 'Empty request body' 
+      }), {
         status: 400,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' }
       });
@@ -31,18 +40,22 @@ serve(async (req) => {
 
     try {
       callbackData = JSON.parse(requestText);
+      console.log('Parsed callback data:', JSON.stringify(callbackData, null, 2));
     } catch (parseError) {
       console.error('JSON parse error:', parseError);
-      console.log('Raw request text:', requestText);
-      return new Response(JSON.stringify({ error: 'Invalid JSON in request body' }), {
+      console.log('Failed to parse request text:', requestText);
+      return new Response(JSON.stringify({ 
+        success: false,
+        error: 'Invalid JSON in request body',
+        received_data: requestText 
+      }), {
         status: 400,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' }
       });
     }
 
-    console.log('Family Bank STK Callback received:', JSON.stringify(callbackData, null, 2))
-
-    // Store callback data
+    // Store callback data for audit trail
+    console.log('Storing callback data...');
     const { data: callback, error: callbackError } = await supabase
       .from('family_bank_stk_callbacks')
       .insert({
@@ -54,11 +67,17 @@ serve(async (req) => {
 
     if (callbackError) {
       console.error('Error storing callback:', callbackError)
-      return new Response(JSON.stringify({ error: 'Failed to store callback' }), {
+      return new Response(JSON.stringify({ 
+        success: false,
+        error: 'Failed to store callback',
+        details: callbackError 
+      }), {
         status: 500,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' }
       })
     }
+
+    console.log('Callback stored with ID:', callback.id);
 
     const responseCode = callbackData.ResponseCode
     const thirdPartyTransId = callbackData.ThirdPartyTransID
@@ -66,14 +85,15 @@ serve(async (req) => {
     console.log('Processing callback for transaction:', thirdPartyTransId, 'with response code:', responseCode)
 
     // Find the corresponding STK request
+    console.log('Looking up STK request...');
     const { data: stkRequest, error: stkError } = await supabase
       .from('family_bank_stk_requests')
       .select('*')
       .eq('third_party_trans_id', thirdPartyTransId)
-      .single()
+      .maybeSingle()
 
-    if (stkError || !stkRequest) {
-      console.error('STK request not found for transaction:', thirdPartyTransId, 'Error:', stkError)
+    if (stkError) {
+      console.error('Error looking up STK request:', stkError);
       
       // Mark callback as processed even if we can't find the STK request
       await supabase
@@ -81,7 +101,30 @@ serve(async (req) => {
         .update({ processed: true })
         .eq('id', callback.id)
       
-      return new Response(JSON.stringify({ error: 'STK request not found', transaction_id: thirdPartyTransId }), {
+      return new Response(JSON.stringify({ 
+        success: false,
+        error: 'Database error while looking up STK request',
+        transaction_id: thirdPartyTransId 
+      }), {
+        status: 500,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+      })
+    }
+
+    if (!stkRequest) {
+      console.error('STK request not found for transaction:', thirdPartyTransId);
+      
+      // Mark callback as processed even if we can't find the STK request
+      await supabase
+        .from('family_bank_stk_callbacks')
+        .update({ processed: true })
+        .eq('id', callback.id)
+      
+      return new Response(JSON.stringify({ 
+        success: false,
+        error: 'STK request not found',
+        transaction_id: thirdPartyTransId 
+      }), {
         status: 404,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' }
       })
@@ -91,7 +134,9 @@ serve(async (req) => {
 
     // Update STK request status based on response code
     if (responseCode === '0') {
-      // Success - Update STK request to success
+      console.log('Payment successful for transaction:', thirdPartyTransId);
+      
+      // Update STK request to success
       const { error: updateError } = await supabase
         .from('family_bank_stk_requests')
         .update({
@@ -111,6 +156,7 @@ serve(async (req) => {
       }
 
       // Create payment record
+      console.log('Creating payment record...');
       const { error: paymentError } = await supabase
         .from('family_bank_payments')
         .insert({
@@ -171,8 +217,9 @@ serve(async (req) => {
       }
 
     } else {
-      // Failed - Update STK request to failed
       console.log('Payment failed for transaction:', thirdPartyTransId, 'Response code:', responseCode)
+      
+      // Update STK request to failed
       const { error: failureUpdateError } = await supabase
         .from('family_bank_stk_requests')
         .update({
@@ -198,13 +245,25 @@ serve(async (req) => {
 
     console.log('Callback processed successfully for:', thirdPartyTransId)
 
-    return new Response(JSON.stringify({ success: true, transaction_id: thirdPartyTransId }), {
+    return new Response(JSON.stringify({ 
+      success: true,
+      message: 'Callback processed successfully',
+      transaction_id: thirdPartyTransId 
+    }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' }
     })
 
   } catch (error) {
-    console.error('Family Bank STK Callback error:', error)
-    return new Response(JSON.stringify({ error: 'Internal server error', details: error.message }), {
+    console.error('=== Family Bank STK Callback Error ===')
+    console.error('Error details:', error)
+    console.error('Error stack:', error.stack)
+    
+    return new Response(JSON.stringify({ 
+      success: false,
+      error: 'Internal server error',
+      message: 'Failed to process callback',
+      details: error.message 
+    }), {
       status: 500,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' }
     })
