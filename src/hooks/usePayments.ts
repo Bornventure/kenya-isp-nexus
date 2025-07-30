@@ -28,7 +28,7 @@ export const usePayments = () => {
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
-  const { data: payments = [], isLoading, error } = useQuery({
+  const { data: payments = [], isLoading, error, refetch } = useQuery({
     queryKey: ['payments', profile?.isp_company_id],
     queryFn: async () => {
       if (!profile?.isp_company_id) return [];
@@ -50,6 +50,8 @@ export const usePayments = () => {
         throw error;
       }
 
+      console.log(`Fetched ${data?.length || 0} payments for company ${profile.isp_company_id}`);
+
       // Fix amount parsing issues
       return (data as Payment[]).map(payment => ({
         ...payment,
@@ -57,6 +59,7 @@ export const usePayments = () => {
       }));
     },
     enabled: !!profile?.isp_company_id,
+    refetchInterval: 30000, // Refresh every 30 seconds for real-time updates
   });
 
   const createPaymentMutation = useMutation({
@@ -67,7 +70,6 @@ export const usePayments = () => {
 
       console.log('Processing manual payment:', paymentData);
 
-      // Use the comprehensive payment processor
       const { data: processResult, error: processError } = await supabase.functions.invoke('process-payment', {
         body: {
           checkoutRequestId: paymentData.reference_number || `MANUAL-${Date.now()}`,
@@ -92,7 +94,12 @@ export const usePayments = () => {
       queryClient.invalidateQueries({ queryKey: ['clients'] });
       queryClient.invalidateQueries({ queryKey: ['invoices'] });
       queryClient.invalidateQueries({ queryKey: ['wallet-transactions'] });
-      queryClient.invalidateQueries({ queryKey: ['dashboard'] });
+      queryClient.invalidateQueries({ queryKey: ['dashboard-stats'] });
+      queryClient.invalidateQueries({ queryKey: ['revenue-data'] });
+      queryClient.invalidateQueries({ queryKey: ['system-activity'] });
+      
+      // Force refetch
+      refetch();
       
       toast({
         title: "Payment Processed",
@@ -115,5 +122,6 @@ export const usePayments = () => {
     error,
     createPayment: createPaymentMutation.mutate,
     isCreating: createPaymentMutation.isPending,
+    refetch,
   };
 };

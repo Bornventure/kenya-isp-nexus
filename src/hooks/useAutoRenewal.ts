@@ -13,12 +13,20 @@ export const useAutoRenewal = () => {
 
     const checkAndRenewSubscription = async () => {
       try {
-        // Use the client data from context instead of fetching from database
-        // This avoids RLS policy issues in the client portal
         const currentClient = client;
 
         if (!currentClient) {
           console.log('No client data available for auto-renewal check');
+          return;
+        }
+
+        // CRITICAL FIX: Check if service is already active and not expired
+        const now = new Date();
+        const subscriptionEndDate = currentClient.subscription_end_date ? new Date(currentClient.subscription_end_date) : null;
+        const isServiceActive = currentClient.status === 'active' && subscriptionEndDate && subscriptionEndDate > now;
+
+        if (isServiceActive) {
+          console.log('Service is already active and not expired, skipping auto-renewal');
           return;
         }
 
@@ -27,15 +35,12 @@ export const useAutoRenewal = () => {
         const walletBalance = currentClient.wallet_balance || 0;
 
         if (walletBalance >= monthlyRate) {
-          // Calculate new subscription dates
-          const now = new Date();
-          const currentEndDate = currentClient.subscription_end_date ? new Date(currentClient.subscription_end_date) : null;
-          const needsRenewal = !currentEndDate || currentEndDate <= new Date(now.getTime() + 24 * 60 * 60 * 1000);
+          // Only renew if service is expired or suspended
+          const needsRenewal = currentClient.status === 'suspended' || !subscriptionEndDate || subscriptionEndDate <= now;
 
           if (needsRenewal) {
             console.log('Attempting automatic renewal for client:', currentClient.name);
             
-            // Call the renewal function using the service role function
             const { data: renewalResult, error: renewalError } = await supabase
               .rpc('process_subscription_renewal', {
                 p_client_id: currentClient.id
@@ -46,7 +51,6 @@ export const useAutoRenewal = () => {
               return;
             }
 
-            // Check if renewal was successful
             if (renewalResult && typeof renewalResult === 'object' && 'success' in renewalResult) {
               const result = renewalResult as { success: boolean; message?: string; remaining_balance?: number };
               
@@ -56,7 +60,6 @@ export const useAutoRenewal = () => {
                   description: `Your subscription has been automatically renewed. Remaining balance: KES ${result.remaining_balance?.toFixed(2) || '0.00'}`,
                 });
                 
-                // Refresh client data to update UI
                 await refreshClientData();
               }
             }
@@ -70,7 +73,6 @@ export const useAutoRenewal = () => {
         }
       } catch (error) {
         console.error('Auto-renewal check error:', error);
-        // Don't show error toast to user as this runs in background
       }
     };
 

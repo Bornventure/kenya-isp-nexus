@@ -51,7 +51,7 @@ serve(async (req) => {
     // Get client details
     const { data: client, error: clientError } = await supabase
       .from('clients')
-      .select('id, name, wallet_balance, balance, monthly_rate, isp_company_id, email, phone, id_number')
+      .select('id, name, wallet_balance, balance, monthly_rate, isp_company_id, email, phone, id_number, status, subscription_end_date')
       .eq('id', clientId)
       .single()
 
@@ -102,7 +102,7 @@ serve(async (req) => {
       console.log('Invoice created successfully:', invoice.id)
     }
 
-    // Create payment record
+    // Create payment record - CRITICAL FIX: This was missing proper data
     const { data: paymentRecord, error: paymentError } = await supabase
       .from('payments')
       .insert({
@@ -121,6 +121,17 @@ serve(async (req) => {
 
     if (paymentError) {
       console.error('Error creating payment record:', paymentError)
+      return new Response(
+        JSON.stringify({
+          success: false,
+          error: 'Failed to record payment',
+          code: 'PAYMENT_RECORD_ERROR'
+        }),
+        { 
+          status: 500, 
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
+        }
+      )
     } else {
       console.log('Payment record created successfully:', paymentRecord.id)
     }
@@ -177,8 +188,12 @@ serve(async (req) => {
       console.log('Wallet transaction recorded:', walletTransaction.id)
     }
 
-    // Try automatic subscription renewal if balance is sufficient
-    if (newBalance >= client.monthly_rate) {
+    // Check if balance is sufficient for auto-renewal and service is not already active
+    let autoRenewed = false
+    const currentDate = new Date()
+    const serviceExpired = !client.subscription_end_date || new Date(client.subscription_end_date) <= currentDate
+    
+    if (newBalance >= client.monthly_rate && (client.status === 'suspended' || serviceExpired)) {
       console.log('Attempting automatic renewal...')
       try {
         const { data: renewalResult } = await supabase.rpc('process_subscription_renewal', {
@@ -187,10 +202,44 @@ serve(async (req) => {
         
         if (renewalResult?.success) {
           console.log('Auto-renewal successful')
+          autoRenewed = true
+          
+          // Send renewal notification
+          await supabase.functions.invoke('send-notifications', {
+            body: {
+              client_id: clientId,
+              type: 'service_renewal',
+              data: {
+                amount: client.monthly_rate,
+                service_period_end: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(),
+                remaining_balance: newBalance - client.monthly_rate
+              }
+            }
+          })
         }
       } catch (renewalError) {
         console.error('Auto-renewal failed:', renewalError)
       }
+    }
+
+    // Send payment success notification
+    try {
+      await supabase.functions.invoke('send-notifications', {
+        body: {
+          client_id: clientId,
+          type: 'payment_success',
+          data: {
+            amount: amount,
+            receipt_number: mpesaReceiptNumber || checkoutRequestId,
+            payment_method: paymentMethod,
+            new_balance: autoRenewed ? newBalance - client.monthly_rate : newBalance,
+            auto_renewed: autoRenewed
+          }
+        }
+      })
+      console.log('Payment success notification sent')
+    } catch (notificationError) {
+      console.error('Error sending notification:', notificationError)
     }
 
     console.log('Payment processing completed successfully')
@@ -199,14 +248,14 @@ serve(async (req) => {
       JSON.stringify({
         success: true,
         data: {
-          payment_id: paymentRecord?.id,
+          payment_id: paymentRecord.id,
           invoice_id: invoice?.id,
           client_name: client.name,
           amount: amount,
-          new_balance: newBalance,
+          new_balance: autoRenewed ? newBalance - client.monthly_rate : newBalance,
           payment_method: paymentMethod,
           wallet_transaction_id: walletTransaction?.id,
-          auto_renewed: false
+          auto_renewed: autoRenewed
         }
       }),
       { 

@@ -6,7 +6,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { useClientAuth } from '@/contexts/ClientAuthContext';
 import { formatKenyanCurrency } from '@/utils/kenyanValidation';
-import { RefreshCw, Smartphone, CreditCard, Building2, AlertCircle } from 'lucide-react';
+import { RefreshCw, Smartphone, CreditCard, Building2, AlertCircle, CheckCircle } from 'lucide-react';
 import MpesaPayment from '@/components/billing/MpesaPayment';
 import FamilyBankPayment from '@/components/billing/FamilyBankPayment';
 
@@ -32,13 +32,22 @@ const PackageRenewalForm: React.FC = () => {
     setShowPaymentDialog(false);
     setSelectedPaymentMethod('');
     
-    // Refresh client data to show updated status
     await refreshClientData();
   };
 
   const handleDialogClose = () => {
     setShowPaymentDialog(false);
     setIsProcessing(false);
+  };
+
+  // CRITICAL FIX: Check if service is already active and not expired
+  const isServiceActive = () => {
+    if (!client) return false;
+    
+    const now = new Date();
+    const subscriptionEndDate = client.subscription_end_date ? new Date(client.subscription_end_date) : null;
+    
+    return client.status === 'active' && subscriptionEndDate && subscriptionEndDate > now;
   };
 
   const getPaymentMethodIcon = (method: string) => {
@@ -109,6 +118,47 @@ const PackageRenewalForm: React.FC = () => {
 
   const currentPackage = client.service_package;
   const packageAmount = client.monthly_rate;
+  const serviceActive = isServiceActive();
+
+  // If service is already active, show status instead of renewal form
+  if (serviceActive) {
+    const subscriptionEndDate = client.subscription_end_date ? new Date(client.subscription_end_date) : null;
+    const daysRemaining = subscriptionEndDate ? Math.ceil((subscriptionEndDate.getTime() - new Date().getTime()) / (1000 * 60 * 60 * 24)) : 0;
+
+    return (
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <CheckCircle className="h-5 w-5 text-green-600" />
+            Service Active
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="bg-green-50 p-4 rounded-lg border border-green-200">
+            <h3 className="font-medium text-green-900 mb-2">Your service is currently active</h3>
+            <p className="text-green-700 mb-2">
+              Package: {currentPackage?.name || 'Default Package'}
+            </p>
+            <p className="text-green-700 mb-2">
+              Speed: {currentPackage?.speed || 'N/A'}
+            </p>
+            <p className="text-green-700 mb-2">
+              Expires: {subscriptionEndDate?.toLocaleDateString() || 'N/A'}
+            </p>
+            <p className="text-sm text-green-600">
+              {daysRemaining > 0 ? `${daysRemaining} days remaining` : 'Service expires today'}
+            </p>
+          </div>
+
+          <div className="text-xs text-gray-500 space-y-1 border-t pt-4">
+            <p>• Your service will automatically renew if you have sufficient wallet balance</p>
+            <p>• You can top up your wallet anytime to ensure uninterrupted service</p>
+            <p>• Renewal will become available when your service expires</p>
+          </div>
+        </CardContent>
+      </Card>
+    );
+  }
 
   return (
     <Card>
@@ -188,7 +238,6 @@ const PackageRenewalForm: React.FC = () => {
           )}
         </div>
 
-        {/* Payment Dialog */}
         <Dialog open={showPaymentDialog} onOpenChange={handleDialogClose}>
           <DialogContent className="max-w-md">
             <DialogHeader>
