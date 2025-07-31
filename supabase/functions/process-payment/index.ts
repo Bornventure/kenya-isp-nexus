@@ -102,31 +102,39 @@ serve(async (req) => {
       console.log('Invoice created successfully:', invoice.id)
     }
 
-    // Create payment record - Remove all fields that don't exist in the payments table
+    // Create payment record with only fields that exist in the payments table schema
+    console.log('Creating payment record with validated fields...')
+    
+    const paymentData = {
+      client_id: clientId,
+      invoice_id: invoice?.id,
+      amount: amount,
+      payment_method: paymentMethod,
+      payment_date: new Date().toISOString(),
+      reference_number: checkoutRequestId,
+      mpesa_receipt_number: mpesaReceiptNumber,
+      notes: `Payment via ${paymentMethod} - Receipt: ${mpesaReceiptNumber || checkoutRequestId}`,
+      isp_company_id: client.isp_company_id
+    }
+
+    console.log('Payment data to insert:', paymentData)
+
     const { data: paymentRecord, error: paymentError } = await supabase
       .from('payments')
-      .insert({
-        client_id: clientId,
-        invoice_id: invoice?.id,
-        amount: amount,
-        payment_method: paymentMethod,
-        payment_date: new Date().toISOString(),
-        reference_number: checkoutRequestId,
-        mpesa_receipt_number: mpesaReceiptNumber,
-        notes: `Payment via ${paymentMethod} - Receipt: ${mpesaReceiptNumber || checkoutRequestId}`,
-        isp_company_id: client.isp_company_id
-      })
+      .insert(paymentData)
       .select()
       .single()
 
     if (paymentError) {
       console.error('Error creating payment record:', paymentError)
+      console.error('Payment error details:', JSON.stringify(paymentError, null, 2))
       return new Response(
         JSON.stringify({
           success: false,
           error: 'Failed to record payment',
           code: 'PAYMENT_RECORD_ERROR',
-          details: paymentError.message
+          details: paymentError.message,
+          paymentData: paymentData
         }),
         { 
           status: 500, 
