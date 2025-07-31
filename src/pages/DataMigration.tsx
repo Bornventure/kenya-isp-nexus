@@ -1,9 +1,9 @@
 
 import React from 'react';
-import { DashboardLayout } from '@/components/dashboard/DashboardLayout';
+import DashboardLayout from '@/components/dashboard/DashboardLayout';
 import { MigrationRunner } from '@/components/admin/MigrationRunner';
 import { useAuth } from '@/contexts/AuthContext';
-import { AccessDenied } from '@/components/AccessDenied';
+import AccessDenied from '@/components/AccessDenied';
 
 const DataMigration = () => {
   const { profile } = useAuth();

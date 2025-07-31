@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { 
@@ -26,7 +25,8 @@ import {
   Headphones,
   Key,
   Activity,
-  LogOut
+  LogOut,
+  Database
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useAuth } from '@/contexts/AuthContext';
@@ -150,6 +150,12 @@ const Sidebar = () => {
       path: '/system-license-admin', 
       icon: Shield,
       show: profile?.role === 'super_admin'
+    },
+    { 
+      name: 'Data Migration', 
+      path: '/data-migration', 
+      icon: Database,
+      show: isAdmin
     },
     { 
       name: 'Developer Portal', 

@@ -1,4 +1,3 @@
-
 import React, { useMemo } from 'react';
 import { Routes, Route, Navigate } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
@@ -24,6 +23,7 @@ import Profile from '@/pages/Profile';
 import Invoices from '@/pages/Invoices';
 import Analytics from '@/pages/Analytics';
 import DeveloperPortal from '@/pages/DeveloperPortal';
+import DataMigration from '@/pages/DataMigration';
 import NotFound from '@/pages/NotFound';
 import AccessDenied from '@/components/AccessDenied';
 import DashboardLayout from '@/components/dashboard/DashboardLayout';
@@ -286,6 +286,7 @@ const AppContent: React.FC = () => {
                         <LicenseManagement />
                       )
                     } />
+                    <Route path="/data-migration" element={<DataMigration />} />
                     <Route path="/license-activation" element={<LicenseActivation />} />
                   </>
                 )}
