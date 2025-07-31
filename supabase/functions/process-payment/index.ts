@@ -102,7 +102,7 @@ serve(async (req) => {
       console.log('Invoice created successfully:', invoice.id)
     }
 
-    // Create payment record - CRITICAL FIX: This was missing proper data
+    // Create payment record - FIXED: Remove status field that doesn't exist
     const { data: paymentRecord, error: paymentError } = await supabase
       .from('payments')
       .insert({
