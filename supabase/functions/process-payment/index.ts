@@ -102,7 +102,7 @@ serve(async (req) => {
       console.log('Invoice created successfully:', invoice.id)
     }
 
-    // Create payment record - FIXED: Remove status field that doesn't exist
+    // Create payment record - Remove all fields that don't exist in the payments table
     const { data: paymentRecord, error: paymentError } = await supabase
       .from('payments')
       .insert({
@@ -125,7 +125,8 @@ serve(async (req) => {
         JSON.stringify({
           success: false,
           error: 'Failed to record payment',
-          code: 'PAYMENT_RECORD_ERROR'
+          code: 'PAYMENT_RECORD_ERROR',
+          details: paymentError.message
         }),
         { 
           status: 500, 
@@ -269,7 +270,8 @@ serve(async (req) => {
       JSON.stringify({
         success: false,
         error: 'Payment processing failed',
-        code: 'INTERNAL_ERROR'
+        code: 'INTERNAL_ERROR',
+        details: error.message
       }),
       { 
         status: 500, 
