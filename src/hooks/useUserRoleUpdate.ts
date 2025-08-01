@@ -2,10 +2,11 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
+import { SystemUser } from '@/types/user';
 
 interface UpdateUserRoleParams {
   userId: string;
-  role: string;
+  role: SystemUser['role'];
 }
 
 export const useUserRoleUpdate = () => {

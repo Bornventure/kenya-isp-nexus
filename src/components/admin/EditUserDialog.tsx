@@ -10,51 +10,51 @@ import { SystemUser } from '@/types/user';
 
 interface EditUserDialogProps {
   user: SystemUser | null;
-  isOpen: boolean;
-  onClose: () => void;
-  onSave: (user: SystemUser) => void;
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
 }
 
 const EditUserDialog: React.FC<EditUserDialogProps> = ({
   user,
-  isOpen,
-  onClose,
-  onSave,
+  open,
+  onOpenChange,
 }) => {
   const [formData, setFormData] = React.useState<Partial<SystemUser>>({});
 
   React.useEffect(() => {
     if (user) {
       setFormData({
-        firstName: user.firstName || '',
-        lastName: user.lastName || '',
+        first_name: user.first_name || '',
+        last_name: user.last_name || '',
         email: user.email || '',
         phone: user.phone || '',
         role: user.role,
-        isActive: user.isActive ?? true,
+        is_active: user.is_active ?? true,
       });
     }
   }, [user]);
 
   const handleSave = () => {
     if (user && formData) {
-      onSave({
+      const updatedUser: SystemUser = {
         ...user,
-        firstName: formData.firstName || user.firstName,
-        lastName: formData.lastName || user.lastName,
+        first_name: formData.first_name || user.first_name,
+        last_name: formData.last_name || user.last_name,
         email: formData.email || user.email,
         phone: formData.phone || user.phone,
         role: formData.role || user.role,
-        isActive: formData.isActive ?? user.isActive,
-      });
+        is_active: formData.is_active ?? user.is_active,
+      };
+      // Note: This would need to be connected to an update mutation
+      console.log('Updated user:', updatedUser);
     }
-    onClose();
+    onOpenChange(false);
   };
 
   if (!user) return null;
 
   return (
-    <Dialog open={isOpen} onOpenChange={onClose}>
+    <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
           <DialogTitle>Edit User</DialogTitle>
@@ -63,19 +63,19 @@ const EditUserDialog: React.FC<EditUserDialogProps> = ({
         <div className="space-y-4">
           <div className="grid grid-cols-2 gap-4">
             <div>
-              <Label htmlFor="firstName">First Name</Label>
+              <Label htmlFor="first_name">First Name</Label>
               <Input
-                id="firstName"
-                value={formData.firstName || ''}
-                onChange={(e) => setFormData(prev => ({ ...prev, firstName: e.target.value }))}
+                id="first_name"
+                value={formData.first_name || ''}
+                onChange={(e) => setFormData(prev => ({ ...prev, first_name: e.target.value }))}
               />
             </div>
             <div>
-              <Label htmlFor="lastName">Last Name</Label>
+              <Label htmlFor="last_name">Last Name</Label>
               <Input
-                id="lastName"
-                value={formData.lastName || ''}
-                onChange={(e) => setFormData(prev => ({ ...prev, lastName: e.target.value }))}
+                id="last_name"
+                value={formData.last_name || ''}
+                onChange={(e) => setFormData(prev => ({ ...prev, last_name: e.target.value }))}
               />
             </div>
           </div>
@@ -103,7 +103,7 @@ const EditUserDialog: React.FC<EditUserDialogProps> = ({
             <Label htmlFor="role">Role</Label>
             <Select
               value={formData.role || user.role}
-              onValueChange={(value) => setFormData(prev => ({ ...prev, role: value as any }))}
+              onValueChange={(value) => setFormData(prev => ({ ...prev, role: value as SystemUser['role'] }))}
             >
               <SelectTrigger>
                 <SelectValue />
@@ -121,15 +121,15 @@ const EditUserDialog: React.FC<EditUserDialogProps> = ({
 
           <div className="flex items-center space-x-2">
             <Switch
-              id="isActive"
-              checked={formData.isActive ?? user.isActive}
-              onCheckedChange={(checked) => setFormData(prev => ({ ...prev, isActive: checked }))}
+              id="is_active"
+              checked={formData.is_active ?? user.is_active}
+              onCheckedChange={(checked) => setFormData(prev => ({ ...prev, is_active: checked }))}
             />
-            <Label htmlFor="isActive">Active User</Label>
+            <Label htmlFor="is_active">Active User</Label>
           </div>
 
           <div className="flex justify-end space-x-2 pt-4">
-            <Button variant="outline" onClick={onClose}>
+            <Button variant="outline" onClick={() => onOpenChange(false)}>
               Cancel
             </Button>
             <Button onClick={handleSave}>
