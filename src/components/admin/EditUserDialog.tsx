@@ -1,156 +1,142 @@
-import React, { useState, useEffect } from 'react';
+
+import React from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { useUserRoleUpdate } from '@/hooks/useUserRoleUpdate';
-import { User, UserRole } from '@/types/index';
+import { Switch } from '@/components/ui/switch';
+import { SystemUser } from '@/types/user';
 
 interface EditUserDialogProps {
-  user: User | null;
+  user: SystemUser | null;
   isOpen: boolean;
   onClose: () => void;
-  onUpdate: (user: User) => void;
+  onSave: (user: SystemUser) => void;
 }
 
 const EditUserDialog: React.FC<EditUserDialogProps> = ({
   user,
   isOpen,
   onClose,
-  onUpdate,
+  onSave,
 }) => {
-  const [firstName, setFirstName] = useState('');
-  const [lastName, setLastName] = useState('');
-  const [email, setEmail] = useState('');
-  const [phone, setPhone] = useState('');
-  const [role, setRole] = useState<UserRole>('customer_support');
-  const [isActive, setIsActive] = useState(true);
+  const [formData, setFormData] = React.useState<Partial<SystemUser>>({});
 
-  const { updateUserRole, isUpdatingRole } = useUserRoleUpdate();
-
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!user) return;
-
-    // Update user role
-    updateUserRole({ userId: user.id, newRole: role });
-
-    // Update user data (this would typically call another mutation for other fields)
-    onUpdate({
-      ...user,
-      first_name: firstName,
-      last_name: lastName,
-      email,
-      phone,
-      role,
-      is_active: isActive,
-    });
-
-    onClose();
-  };
-
-  useEffect(() => {
+  React.useEffect(() => {
     if (user) {
-      setFirstName(user.first_name || '');
-      setLastName(user.last_name || '');
-      setEmail(user.email || '');
-      setPhone(user.phone || '');
-      setRole(user.role);
-      setIsActive(user.is_active);
+      setFormData({
+        firstName: user.firstName || '',
+        lastName: user.lastName || '',
+        email: user.email || '',
+        phone: user.phone || '',
+        role: user.role,
+        isActive: user.isActive ?? true,
+      });
     }
   }, [user]);
+
+  const handleSave = () => {
+    if (user && formData) {
+      onSave({
+        ...user,
+        firstName: formData.firstName || user.firstName,
+        lastName: formData.lastName || user.lastName,
+        email: formData.email || user.email,
+        phone: formData.phone || user.phone,
+        role: formData.role || user.role,
+        isActive: formData.isActive ?? user.isActive,
+      });
+    }
+    onClose();
+  };
 
   if (!user) return null;
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="sm:max-w-[425px]">
+      <DialogContent className="sm:max-w-md">
         <DialogHeader>
           <DialogTitle>Edit User</DialogTitle>
         </DialogHeader>
-        <form onSubmit={handleSubmit} className="space-y-4">
+        
+        <div className="space-y-4">
           <div className="grid grid-cols-2 gap-4">
             <div>
               <Label htmlFor="firstName">First Name</Label>
               <Input
                 id="firstName"
-                value={firstName}
-                onChange={(e) => setFirstName(e.target.value)}
-                required
+                value={formData.firstName || ''}
+                onChange={(e) => setFormData(prev => ({ ...prev, firstName: e.target.value }))}
               />
             </div>
             <div>
               <Label htmlFor="lastName">Last Name</Label>
               <Input
                 id="lastName"
-                value={lastName}
-                onChange={(e) => setLastName(e.target.value)}
-                required
+                value={formData.lastName || ''}
+                onChange={(e) => setFormData(prev => ({ ...prev, lastName: e.target.value }))}
               />
             </div>
           </div>
-          
+
           <div>
             <Label htmlFor="email">Email</Label>
             <Input
               id="email"
               type="email"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              required
+              value={formData.email || ''}
+              onChange={(e) => setFormData(prev => ({ ...prev, email: e.target.value }))}
             />
           </div>
-          
+
           <div>
             <Label htmlFor="phone">Phone</Label>
             <Input
               id="phone"
-              value={phone}
-              onChange={(e) => setPhone(e.target.value)}
+              value={formData.phone || ''}
+              onChange={(e) => setFormData(prev => ({ ...prev, phone: e.target.value }))}
             />
           </div>
-          
+
           <div>
             <Label htmlFor="role">Role</Label>
-            <Select value={role} onValueChange={(value) => setRole(value as UserRole)}>
+            <Select
+              value={formData.role || user.role}
+              onValueChange={(value) => setFormData(prev => ({ ...prev, role: value as any }))}
+            >
               <SelectTrigger>
-                <SelectValue placeholder="Select role" />
+                <SelectValue />
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="super_admin">Super Admin</SelectItem>
                 <SelectItem value="isp_admin">ISP Admin</SelectItem>
-                <SelectItem value="billing_finance">Billing & Finance</SelectItem>
-                <SelectItem value="customer_support">Customer Support</SelectItem>
-                <SelectItem value="sales_account_manager">Sales & Account Manager</SelectItem>
-                <SelectItem value="network_operations">Network Operations</SelectItem>
-                <SelectItem value="infrastructure_asset">Infrastructure & Asset</SelectItem>
-                <SelectItem value="hotspot_admin">Hotspot Admin</SelectItem>
+                <SelectItem value="network_engineer">Network Engineer</SelectItem>
                 <SelectItem value="technician">Technician</SelectItem>
-                <SelectItem value="readonly">Read Only</SelectItem>
+                <SelectItem value="customer_support">Customer Support</SelectItem>
+                <SelectItem value="billing_finance">Billing & Finance</SelectItem>
               </SelectContent>
             </Select>
           </div>
-          
+
           <div className="flex items-center space-x-2">
-            <input
-              type="checkbox"
+            <Switch
               id="isActive"
-              checked={isActive}
-              onChange={(e) => setIsActive(e.target.checked)}
+              checked={formData.isActive ?? user.isActive}
+              onCheckedChange={(checked) => setFormData(prev => ({ ...prev, isActive: checked }))}
             />
-            <Label htmlFor="isActive">Active</Label>
+            <Label htmlFor="isActive">Active User</Label>
           </div>
-          
-          <div className="flex justify-end space-x-2">
-            <Button type="button" variant="outline" onClick={onClose}>
+
+          <div className="flex justify-end space-x-2 pt-4">
+            <Button variant="outline" onClick={onClose}>
               Cancel
             </Button>
-            <Button type="submit" disabled={isUpdatingRole}>
-              {isUpdatingRole ? 'Updating...' : 'Update User'}
+            <Button onClick={handleSave}>
+              Save Changes
             </Button>
           </div>
-        </form>
+        </div>
       </DialogContent>
     </Dialog>
   );

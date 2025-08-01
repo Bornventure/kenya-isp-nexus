@@ -2,22 +2,21 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
-import { UserRole } from '@/types/index';
 
-export interface UpdateUserRoleParams {
+interface UpdateUserRoleParams {
   userId: string;
-  newRole: UserRole;
+  role: string;
 }
 
 export const useUserRoleUpdate = () => {
-  const queryClient = useQueryClient();
   const { toast } = useToast();
+  const queryClient = useQueryClient();
 
-  const updateUserRole = useMutation({
-    mutationFn: async ({ userId, newRole }: UpdateUserRoleParams) => {
+  return useMutation({
+    mutationFn: async ({ userId, role }: UpdateUserRoleParams) => {
       const { data, error } = await supabase
         .from('profiles')
-        .update({ role: newRole })
+        .update({ role })
         .eq('id', userId)
         .select()
         .single();
@@ -41,9 +40,4 @@ export const useUserRoleUpdate = () => {
       });
     },
   });
-
-  return {
-    updateUserRole: updateUserRole.mutate,
-    isUpdatingRole: updateUserRole.isPending,
-  };
 };
