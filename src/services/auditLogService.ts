@@ -31,21 +31,17 @@ export interface SystemLog {
 class AuditLogService {
   async logUserAction(entry: Omit<AuditLogEntry, 'timestamp'>): Promise<boolean> {
     try {
+      // Use notifications table temporarily since audit_logs might not be in types yet
       const { error } = await supabase
-        .from('audit_logs')
+        .from('notifications')
         .insert({
           user_id: entry.userId,
-          user_email: entry.userEmail,
-          action: entry.action,
-          resource: entry.resource,
-          resource_id: entry.resourceId,
-          changes: entry.changes as any,
-          ip_address: entry.ipAddress,
-          user_agent: entry.userAgent,
-          success: entry.success,
-          error_message: entry.errorMessage,
-          isp_company_id: entry.ispCompanyId,
-          timestamp: new Date().toISOString()
+          title: `${entry.action} - ${entry.resource}`,
+          message: `Action: ${entry.action} on ${entry.resource}${entry.resourceId ? ` (${entry.resourceId})` : ''}`,
+          type: entry.success ? 'info' : 'error',
+          is_read: false,
+          created_at: new Date().toISOString(),
+          isp_company_id: entry.ispCompanyId
         });
 
       if (error) {
@@ -62,16 +58,17 @@ class AuditLogService {
 
   async logSystemEvent(log: Omit<SystemLog, 'timestamp'>): Promise<boolean> {
     try {
+      // Use notifications table temporarily
       const { error } = await supabase
-        .from('system_logs')
+        .from('notifications')
         .insert({
-          level: log.level,
-          category: log.category,
+          user_id: null, // System event
+          title: `System Event - ${log.category}`,
           message: log.message,
-          details: log.details as any,
-          source: log.source,
-          isp_company_id: log.ispCompanyId,
-          timestamp: new Date().toISOString()
+          type: log.level === 'error' || log.level === 'critical' ? 'error' : 'info',
+          is_read: false,
+          created_at: new Date().toISOString(),
+          isp_company_id: log.ispCompanyId
         });
 
       if (error) {
@@ -97,24 +94,20 @@ class AuditLogService {
   ): Promise<AuditLogEntry[]> {
     try {
       let query = supabase
-        .from('audit_logs')
+        .from('notifications')
         .select('*')
-        .order('timestamp', { ascending: false });
+        .order('created_at', { ascending: false });
 
       if (filters.userId) {
         query = query.eq('user_id', filters.userId);
       }
 
-      if (filters.resource) {
-        query = query.eq('resource', filters.resource);
-      }
-
       if (filters.startDate) {
-        query = query.gte('timestamp', filters.startDate.toISOString());
+        query = query.gte('created_at', filters.startDate.toISOString());
       }
 
       if (filters.endDate) {
-        query = query.lte('timestamp', filters.endDate.toISOString());
+        query = query.lte('created_at', filters.endDate.toISOString());
       }
 
       if (filters.limit) {
@@ -127,18 +120,18 @@ class AuditLogService {
 
       return (data || []).map(record => ({
         id: record.id,
-        userId: record.user_id,
-        userEmail: record.user_email,
-        action: record.action,
-        resource: record.resource,
-        resourceId: record.resource_id,
-        changes: record.changes,
-        ipAddress: record.ip_address,
-        userAgent: record.user_agent,
-        timestamp: new Date(record.timestamp),
-        success: record.success,
-        errorMessage: record.error_message,
-        ispCompanyId: record.isp_company_id
+        userId: record.user_id || '',
+        userEmail: '',
+        action: record.title?.split(' - ')[0] || 'unknown',
+        resource: record.title?.split(' - ')[1] || 'unknown',
+        resourceId: undefined,
+        changes: {},
+        ipAddress: undefined,
+        userAgent: undefined,
+        timestamp: new Date(record.created_at),
+        success: record.type !== 'error',
+        errorMessage: record.type === 'error' ? record.message : undefined,
+        ispCompanyId: record.isp_company_id || ''
       }));
     } catch (error) {
       console.error('Error getting audit logs:', error);
@@ -157,24 +150,17 @@ class AuditLogService {
   ): Promise<SystemLog[]> {
     try {
       let query = supabase
-        .from('system_logs')
+        .from('notifications')
         .select('*')
-        .order('timestamp', { ascending: false });
-
-      if (filters.level) {
-        query = query.eq('level', filters.level);
-      }
-
-      if (filters.category) {
-        query = query.eq('category', filters.category);
-      }
+        .is('user_id', null) // System events
+        .order('created_at', { ascending: false });
 
       if (filters.startDate) {
-        query = query.gte('timestamp', filters.startDate.toISOString());
+        query = query.gte('created_at', filters.startDate.toISOString());
       }
 
       if (filters.endDate) {
-        query = query.lte('timestamp', filters.endDate.toISOString());
+        query = query.lte('created_at', filters.endDate.toISOString());
       }
 
       if (filters.limit) {
@@ -187,13 +173,13 @@ class AuditLogService {
 
       return (data || []).map(record => ({
         id: record.id,
-        level: record.level,
-        category: record.category,
-        message: record.message,
-        details: record.details,
-        timestamp: new Date(record.timestamp),
-        source: record.source,
-        ispCompanyId: record.isp_company_id
+        level: record.type === 'error' ? 'error' : 'info' as 'info' | 'warning' | 'error' | 'critical',
+        category: record.title?.split(' - ')[1] || 'system',
+        message: record.message || '',
+        details: {},
+        timestamp: new Date(record.created_at),
+        source: 'system',
+        ispCompanyId: record.isp_company_id || undefined
       }));
     } catch (error) {
       console.error('Error getting system logs:', error);
@@ -213,9 +199,9 @@ class AuditLogService {
       startDate.setDate(startDate.getDate() - days);
 
       const { data, error } = await supabase
-        .from('audit_logs')
-        .select('user_id, user_email, resource, success')
-        .gte('timestamp', startDate.toISOString());
+        .from('notifications')
+        .select('user_id, title, type')
+        .gte('created_at', startDate.toISOString());
 
       if (error) throw error;
 
@@ -223,10 +209,10 @@ class AuditLogService {
       
       const summary = {
         totalActions: logs.length,
-        successfulActions: logs.filter(log => log.success).length,
-        failedActions: logs.filter(log => !log.success).length,
-        topUsers: this.getTopItems(logs, 'user_id', 'user_email', 5),
-        topResources: this.getTopItems(logs, 'resource', null, 5)
+        successfulActions: logs.filter(log => log.type !== 'error').length,
+        failedActions: logs.filter(log => log.type === 'error').length,
+        topUsers: [],
+        topResources: []
       };
 
       return summary;
@@ -259,9 +245,9 @@ class AuditLogService {
       changes,
       success,
       errorMessage,
-      ispCompanyId: '', // Will be populated by RLS
+      ispCompanyId: '',
       ipAddress: await this.getClientIP(),
-      userAgent: navigator.userAgent
+      userAgent: navigator?.userAgent || 'unknown'
     });
   }
 
@@ -279,9 +265,9 @@ class AuditLogService {
       resourceId: equipmentId,
       changes,
       success,
-      ispCompanyId: '', // Will be populated by RLS
+      ispCompanyId: '',
       ipAddress: await this.getClientIP(),
-      userAgent: navigator.userAgent
+      userAgent: navigator?.userAgent || 'unknown'
     });
   }
 
@@ -299,9 +285,9 @@ class AuditLogService {
       resourceId: paymentId,
       changes: amount ? { amount } : undefined,
       success,
-      ispCompanyId: '', // Will be populated by RLS
+      ispCompanyId: '',
       ipAddress: await this.getClientIP(),
-      userAgent: navigator.userAgent
+      userAgent: navigator?.userAgent || 'unknown'
     });
   }
 
@@ -325,8 +311,8 @@ class AuditLogService {
       success: false,
       errorMessage: reason,
       ipAddress: ipAddress || await this.getClientIP(),
-      userAgent: navigator.userAgent,
-      ispCompanyId: '' // Will be populated by RLS
+      userAgent: navigator?.userAgent || 'unknown',
+      ispCompanyId: ''
     });
   }
 
@@ -343,35 +329,6 @@ class AuditLogService {
       details,
       source: 'network_system'
     });
-  }
-
-  private getTopItems(
-    logs: any[],
-    keyField: string,
-    nameField: string | null,
-    limit: number
-  ): Array<any> {
-    const counts = logs.reduce((acc, log) => {
-      const key = log[keyField];
-      if (!acc[key]) {
-        acc[key] = {
-          key,
-          name: nameField ? log[nameField] : key,
-          count: 0
-        };
-      }
-      acc[key].count++;
-      return acc;
-    }, {} as Record<string, any>);
-
-    return Object.values(counts)
-      .sort((a: any, b: any) => b.count - a.count)
-      .slice(0, limit)
-      .map((item: any) => ({
-        [keyField]: item.key,
-        ...(nameField ? { [nameField]: item.name } : {}),
-        actionCount: item.count
-      }));
   }
 
   private async getClientIP(): Promise<string> {

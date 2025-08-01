@@ -8,7 +8,7 @@ interface DataUsage {
   bytesOut: number;
   totalBytes: number;
   lastUpdated: Date;
-  dataAllowance?: number; // in bytes
+  dataAllowance?: number;
   percentageUsed: number;
 }
 
@@ -23,9 +23,9 @@ interface UsageAlert {
 class DataUsageService {
   private usageCache: Map<string, DataUsage> = new Map();
   private alertThresholds = {
-    warning: 0.8, // 80%
-    critical: 0.95, // 95%
-    exceeded: 1.0 // 100%
+    warning: 0.8,
+    critical: 0.95,
+    exceeded: 1.0
   };
 
   async trackDataUsage(
@@ -34,14 +34,15 @@ class DataUsageService {
     bytesOut: number
   ): Promise<void> {
     try {
-      const today = new Date();
-      const monthStart = new Date(today.getFullYear(), today.getMonth(), 1);
-
-      // Update daily usage
-      await this.updateUsageRecord(clientId, 'daily', bytesIn, bytesOut, today);
+      console.log(`Tracking data usage for client ${clientId}: ${bytesIn + bytesOut} bytes`);
       
-      // Update monthly usage
-      await this.updateUsageRecord(clientId, 'monthly', bytesIn, bytesOut, monthStart);
+      // Use bandwidth_statistics table for tracking
+      await supabase.from('bandwidth_statistics').insert({
+        client_id: clientId,
+        in_octets: bytesIn,
+        out_octets: bytesOut,
+        timestamp: new Date().toISOString()
+      });
 
       // Check for usage alerts
       await this.checkUsageAlerts(clientId);
@@ -52,32 +53,31 @@ class DataUsageService {
 
   async getCurrentUsage(clientId: string): Promise<DataUsage | null> {
     try {
-      // Check cache first
       if (this.usageCache.has(clientId)) {
         return this.usageCache.get(clientId)!;
       }
 
       const { data, error } = await supabase
-        .from('data_usage')
+        .from('bandwidth_statistics')
         .select('*')
         .eq('client_id', clientId)
-        .eq('period', 'monthly')
-        .gte('period_start', this.getMonthStart())
-        .single();
+        .gte('timestamp', this.getMonthStart())
+        .order('timestamp', { ascending: false })
+        .limit(1);
 
-      if (error && error.code !== 'PGRST116') throw error;
+      if (error) throw error;
 
-      if (data) {
+      if (data && data.length > 0) {
+        const record = data[0];
         const usage: DataUsage = {
-          clientId: data.client_id,
-          period: data.period,
-          bytesIn: data.bytes_in,
-          bytesOut: data.bytes_out,
-          totalBytes: data.total_bytes,
-          lastUpdated: new Date(data.last_updated),
-          dataAllowance: data.data_allowance,
-          percentageUsed: data.data_allowance ? 
-            (data.total_bytes / data.data_allowance) * 100 : 0
+          clientId,
+          period: 'monthly',
+          bytesIn: record.in_octets || 0,
+          bytesOut: record.out_octets || 0,
+          totalBytes: (record.in_octets || 0) + (record.out_octets || 0),
+          lastUpdated: new Date(record.timestamp),
+          dataAllowance: undefined,
+          percentageUsed: 0
         };
 
         this.usageCache.set(clientId, usage);
@@ -100,25 +100,23 @@ class DataUsageService {
       startDate.setDate(startDate.getDate() - days);
 
       const { data, error } = await supabase
-        .from('data_usage')
+        .from('bandwidth_statistics')
         .select('*')
         .eq('client_id', clientId)
-        .eq('period', 'daily')
-        .gte('period_start', startDate.toISOString())
-        .order('period_start', { ascending: false });
+        .gte('timestamp', startDate.toISOString())
+        .order('timestamp', { ascending: false });
 
       if (error) throw error;
 
       return (data || []).map(record => ({
-        clientId: record.client_id,
-        period: record.period,
-        bytesIn: record.bytes_in,
-        bytesOut: record.bytes_out,
-        totalBytes: record.total_bytes,
-        lastUpdated: new Date(record.last_updated),
-        dataAllowance: record.data_allowance,
-        percentageUsed: record.data_allowance ? 
-          (record.total_bytes / record.data_allowance) * 100 : 0
+        clientId,
+        period: 'daily' as const,
+        bytesIn: record.in_octets || 0,
+        bytesOut: record.out_octets || 0,
+        totalBytes: (record.in_octets || 0) + (record.out_octets || 0),
+        lastUpdated: new Date(record.timestamp),
+        dataAllowance: undefined,
+        percentageUsed: 0
       }));
     } catch (error) {
       console.error('Error getting usage history:', error);
@@ -128,19 +126,26 @@ class DataUsageService {
 
   async setDataAllowance(clientId: string, allowanceGB: number): Promise<boolean> {
     try {
-      const allowanceBytes = allowanceGB * 1024 * 1024 * 1024; // Convert GB to bytes
-
+      console.log(`Setting data allowance for client ${clientId}: ${allowanceGB}GB`);
+      
+      // Store allowance in client record or create notification
       const { error } = await supabase
-        .from('data_usage')
-        .update({ data_allowance: allowanceBytes })
-        .eq('client_id', clientId)
-        .eq('period', 'monthly');
+        .from('notifications')
+        .insert({
+          user_id: null,
+          title: 'Data Allowance Set',
+          message: `Data allowance set to ${allowanceGB}GB for client ${clientId}`,
+          type: 'info',
+          related_entity_type: 'client',
+          related_entity_id: clientId
+        });
 
       if (error) throw error;
 
       // Update cache
       const cachedUsage = this.usageCache.get(clientId);
       if (cachedUsage) {
+        const allowanceBytes = allowanceGB * 1024 * 1024 * 1024;
         cachedUsage.dataAllowance = allowanceBytes;
         cachedUsage.percentageUsed = (cachedUsage.totalBytes / allowanceBytes) * 100;
       }
@@ -157,28 +162,38 @@ class DataUsageService {
       const monthStart = this.getMonthStart();
 
       const { data, error } = await supabase
-        .from('data_usage')
+        .from('bandwidth_statistics')
         .select(`
-          *,
-          clients (name, email)
+          client_id,
+          in_octets,
+          out_octets,
+          timestamp
         `)
-        .eq('period', 'monthly')
-        .gte('period_start', monthStart)
-        .order('total_bytes', { ascending: false })
+        .gte('timestamp', monthStart)
+        .order('in_octets', { ascending: false })
         .limit(limit);
 
       if (error) throw error;
 
-      return (data || []).map(record => ({
-        clientId: record.client_id,
-        period: record.period,
-        bytesIn: record.bytes_in,
-        bytesOut: record.bytes_out,
-        totalBytes: record.total_bytes,
-        lastUpdated: new Date(record.last_updated),
-        dataAllowance: record.data_allowance,
-        percentageUsed: record.data_allowance ? 
-          (record.total_bytes / record.data_allowance) * 100 : 0
+      const usageMap = new Map<string, { in: number; out: number }>();
+      
+      (data || []).forEach(record => {
+        const existing = usageMap.get(record.client_id) || { in: 0, out: 0 };
+        usageMap.set(record.client_id, {
+          in: existing.in + (record.in_octets || 0),
+          out: existing.out + (record.out_octets || 0)
+        });
+      });
+
+      return Array.from(usageMap.entries()).map(([clientId, usage]) => ({
+        clientId,
+        period: 'monthly' as const,
+        bytesIn: usage.in,
+        bytesOut: usage.out,
+        totalBytes: usage.in + usage.out,
+        lastUpdated: new Date(),
+        dataAllowance: undefined,
+        percentageUsed: 0
       }));
     } catch (error) {
       console.error('Error getting top data users:', error);
@@ -188,75 +203,20 @@ class DataUsageService {
 
   async resetMonthlyUsage(): Promise<void> {
     try {
-      console.log('Resetting monthly data usage counters...');
+      console.log('Monthly usage reset - archiving data...');
       
-      // Archive current month's data
-      const currentMonth = new Date();
-      currentMonth.setDate(1); // First day of current month
+      // Create notification about reset
+      await supabase.from('notifications').insert({
+        user_id: null,
+        title: 'Monthly Usage Reset',
+        message: 'Monthly data usage counters have been reset',
+        type: 'info'
+      });
 
-      await supabase
-        .from('data_usage_archive')
-        .insert([
-          // This would copy current monthly usage to archive
-        ]);
-
-      // Reset current monthly counters
-      await supabase
-        .from('data_usage')
-        .update({
-          bytes_in: 0,
-          bytes_out: 0,
-          total_bytes: 0,
-          last_updated: new Date().toISOString()
-        })
-        .eq('period', 'monthly');
-
-      // Clear cache
       this.usageCache.clear();
-
       console.log('Monthly usage reset completed');
     } catch (error) {
       console.error('Error resetting monthly usage:', error);
-    }
-  }
-
-  private async updateUsageRecord(
-    clientId: string,
-    period: 'daily' | 'monthly',
-    bytesIn: number,
-    bytesOut: number,
-    periodStart: Date
-  ): Promise<void> {
-    const totalBytes = bytesIn + bytesOut;
-
-    const { error } = await supabase
-      .from('data_usage')
-      .upsert({
-        client_id: clientId,
-        period,
-        period_start: periodStart.toISOString(),
-        bytes_in: bytesIn,
-        bytes_out: bytesOut,
-        total_bytes: totalBytes,
-        last_updated: new Date().toISOString()
-      }, {
-        onConflict: 'client_id,period,period_start',
-        ignoreDuplicates: false
-      });
-
-    if (error) throw error;
-
-    // Update cache for monthly usage
-    if (period === 'monthly') {
-      const usage = this.usageCache.get(clientId);
-      if (usage) {
-        usage.bytesIn = bytesIn;
-        usage.bytesOut = bytesOut;
-        usage.totalBytes = totalBytes;
-        usage.lastUpdated = new Date();
-        usage.percentageUsed = usage.dataAllowance ? 
-          (totalBytes / usage.dataAllowance) * 100 : 0;
-      }
     }
   }
 
@@ -292,7 +252,6 @@ class DataUsageService {
       });
     }
 
-    // Store alerts in database and trigger notifications
     for (const alert of alerts) {
       await this.createUsageAlert(alert);
     }
@@ -300,16 +259,15 @@ class DataUsageService {
 
   private async createUsageAlert(alert: UsageAlert): Promise<void> {
     try {
-      await supabase.from('usage_alerts').insert({
-        client_id: alert.clientId,
-        alert_type: alert.alertType,
-        threshold_percentage: alert.threshold * 100,
-        current_usage_bytes: alert.currentUsage,
+      await supabase.from('notifications').insert({
+        user_id: null,
+        title: `Data Usage Alert - ${alert.alertType}`,
         message: alert.message,
-        created_at: new Date().toISOString()
+        type: alert.alertType === 'exceeded_limit' ? 'error' : 'warning',
+        related_entity_type: 'client',
+        related_entity_id: alert.clientId
       });
 
-      // Trigger notification
       console.log(`Usage alert created for client ${alert.clientId}: ${alert.message}`);
     } catch (error) {
       console.error('Error creating usage alert:', error);

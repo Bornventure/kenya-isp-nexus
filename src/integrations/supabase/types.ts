@@ -14,6 +14,65 @@ export type Database = {
   }
   public: {
     Tables: {
+      audit_logs: {
+        Row: {
+          action: string
+          changes: Json | null
+          created_at: string
+          error_message: string | null
+          id: string
+          ip_address: unknown | null
+          isp_company_id: string | null
+          resource: string
+          resource_id: string | null
+          success: boolean
+          timestamp: string
+          user_agent: string | null
+          user_email: string | null
+          user_id: string | null
+        }
+        Insert: {
+          action: string
+          changes?: Json | null
+          created_at?: string
+          error_message?: string | null
+          id?: string
+          ip_address?: unknown | null
+          isp_company_id?: string | null
+          resource: string
+          resource_id?: string | null
+          success?: boolean
+          timestamp?: string
+          user_agent?: string | null
+          user_email?: string | null
+          user_id?: string | null
+        }
+        Update: {
+          action?: string
+          changes?: Json | null
+          created_at?: string
+          error_message?: string | null
+          id?: string
+          ip_address?: unknown | null
+          isp_company_id?: string | null
+          resource?: string
+          resource_id?: string | null
+          success?: boolean
+          timestamp?: string
+          user_agent?: string | null
+          user_email?: string | null
+          user_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "audit_logs_isp_company_id_fkey"
+            columns: ["isp_company_id"]
+            isOneToOne: false
+            referencedRelation: "isp_companies"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       auto_notification_settings: {
         Row: {
           created_at: string | null
@@ -576,6 +635,63 @@ export type Database = {
           updated_at?: string
         }
         Relationships: []
+      }
+      data_usage: {
+        Row: {
+          bytes_in: number | null
+          bytes_out: number | null
+          client_id: string
+          created_at: string
+          data_allowance: number | null
+          id: string
+          isp_company_id: string | null
+          last_updated: string
+          period: string
+          period_start: string
+          total_bytes: number | null
+        }
+        Insert: {
+          bytes_in?: number | null
+          bytes_out?: number | null
+          client_id: string
+          created_at?: string
+          data_allowance?: number | null
+          id?: string
+          isp_company_id?: string | null
+          last_updated?: string
+          period: string
+          period_start: string
+          total_bytes?: number | null
+        }
+        Update: {
+          bytes_in?: number | null
+          bytes_out?: number | null
+          client_id?: string
+          created_at?: string
+          data_allowance?: number | null
+          id?: string
+          isp_company_id?: string | null
+          last_updated?: string
+          period?: string
+          period_start?: string
+          total_bytes?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "data_usage_client_id_fkey"
+            columns: ["client_id"]
+            isOneToOne: false
+            referencedRelation: "clients"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "data_usage_isp_company_id_fkey"
+            columns: ["isp_company_id"]
+            isOneToOne: false
+            referencedRelation: "isp_companies"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       departments: {
         Row: {
@@ -1982,6 +2098,60 @@ export type Database = {
         }
         Relationships: []
       }
+      network_device_stats: {
+        Row: {
+          connected_clients: number | null
+          cpu_usage: number | null
+          created_at: string
+          device_id: string
+          id: string
+          isp_company_id: string | null
+          last_updated: string
+          memory_usage: number | null
+          status: string
+          uptime: number | null
+        }
+        Insert: {
+          connected_clients?: number | null
+          cpu_usage?: number | null
+          created_at?: string
+          device_id: string
+          id?: string
+          isp_company_id?: string | null
+          last_updated?: string
+          memory_usage?: number | null
+          status: string
+          uptime?: number | null
+        }
+        Update: {
+          connected_clients?: number | null
+          cpu_usage?: number | null
+          created_at?: string
+          device_id?: string
+          id?: string
+          isp_company_id?: string | null
+          last_updated?: string
+          memory_usage?: number | null
+          status?: string
+          uptime?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "network_device_stats_device_id_fkey"
+            columns: ["device_id"]
+            isOneToOne: false
+            referencedRelation: "equipment"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "network_device_stats_isp_company_id_fkey"
+            columns: ["isp_company_id"]
+            isOneToOne: false
+            referencedRelation: "isp_companies"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       network_events: {
         Row: {
           client_id: string | null
@@ -2466,6 +2636,113 @@ export type Database = {
           },
         ]
       }
+      radius_sessions: {
+        Row: {
+          bytes_in: number | null
+          bytes_out: number | null
+          created_at: string
+          id: string
+          isp_company_id: string | null
+          nas_ip_address: unknown | null
+          session_id: string | null
+          start_time: string
+          status: string
+          username: string
+        }
+        Insert: {
+          bytes_in?: number | null
+          bytes_out?: number | null
+          created_at?: string
+          id?: string
+          isp_company_id?: string | null
+          nas_ip_address?: unknown | null
+          session_id?: string | null
+          start_time?: string
+          status?: string
+          username: string
+        }
+        Update: {
+          bytes_in?: number | null
+          bytes_out?: number | null
+          created_at?: string
+          id?: string
+          isp_company_id?: string | null
+          nas_ip_address?: unknown | null
+          session_id?: string | null
+          start_time?: string
+          status?: string
+          username?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "radius_sessions_isp_company_id_fkey"
+            columns: ["isp_company_id"]
+            isOneToOne: false
+            referencedRelation: "isp_companies"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      radius_users: {
+        Row: {
+          client_id: string
+          created_at: string
+          expiration: string | null
+          group_name: string | null
+          id: string
+          is_active: boolean
+          isp_company_id: string | null
+          max_download: string | null
+          max_upload: string | null
+          password: string
+          updated_at: string
+          username: string
+        }
+        Insert: {
+          client_id: string
+          created_at?: string
+          expiration?: string | null
+          group_name?: string | null
+          id?: string
+          is_active?: boolean
+          isp_company_id?: string | null
+          max_download?: string | null
+          max_upload?: string | null
+          password: string
+          updated_at?: string
+          username: string
+        }
+        Update: {
+          client_id?: string
+          created_at?: string
+          expiration?: string | null
+          group_name?: string | null
+          id?: string
+          is_active?: boolean
+          isp_company_id?: string | null
+          max_download?: string | null
+          max_upload?: string | null
+          password?: string
+          updated_at?: string
+          username?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "radius_users_client_id_fkey"
+            columns: ["client_id"]
+            isOneToOne: false
+            referencedRelation: "clients"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "radius_users_isp_company_id_fkey"
+            columns: ["isp_company_id"]
+            isOneToOne: false
+            referencedRelation: "isp_companies"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       service_packages: {
         Row: {
           connection_types: Database["public"]["Enums"]["connection_type"][]
@@ -2735,6 +3012,50 @@ export type Database = {
           },
           {
             foreignKeyName: "support_tickets_isp_company_id_fkey"
+            columns: ["isp_company_id"]
+            isOneToOne: false
+            referencedRelation: "isp_companies"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      system_logs: {
+        Row: {
+          category: string
+          created_at: string
+          details: Json | null
+          id: string
+          isp_company_id: string | null
+          level: string
+          message: string
+          source: string
+          timestamp: string
+        }
+        Insert: {
+          category: string
+          created_at?: string
+          details?: Json | null
+          id?: string
+          isp_company_id?: string | null
+          level: string
+          message: string
+          source: string
+          timestamp?: string
+        }
+        Update: {
+          category?: string
+          created_at?: string
+          details?: Json | null
+          id?: string
+          isp_company_id?: string | null
+          level?: string
+          message?: string
+          source?: string
+          timestamp?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "system_logs_isp_company_id_fkey"
             columns: ["isp_company_id"]
             isOneToOne: false
             referencedRelation: "isp_companies"
@@ -3013,6 +3334,57 @@ export type Database = {
             columns: ["ticket_id"]
             isOneToOne: false
             referencedRelation: "support_tickets"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      usage_alerts: {
+        Row: {
+          alert_type: string
+          client_id: string
+          created_at: string
+          current_usage_bytes: number | null
+          id: string
+          is_resolved: boolean | null
+          isp_company_id: string | null
+          message: string | null
+          threshold_percentage: number | null
+        }
+        Insert: {
+          alert_type: string
+          client_id: string
+          created_at?: string
+          current_usage_bytes?: number | null
+          id?: string
+          is_resolved?: boolean | null
+          isp_company_id?: string | null
+          message?: string | null
+          threshold_percentage?: number | null
+        }
+        Update: {
+          alert_type?: string
+          client_id?: string
+          created_at?: string
+          current_usage_bytes?: number | null
+          id?: string
+          is_resolved?: boolean | null
+          isp_company_id?: string | null
+          message?: string | null
+          threshold_percentage?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "usage_alerts_client_id_fkey"
+            columns: ["client_id"]
+            isOneToOne: false
+            referencedRelation: "clients"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "usage_alerts_isp_company_id_fkey"
+            columns: ["isp_company_id"]
+            isOneToOne: false
+            referencedRelation: "isp_companies"
             referencedColumns: ["id"]
           },
         ]

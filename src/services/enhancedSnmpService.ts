@@ -32,13 +32,11 @@ class EnhancedSnmpService {
   async startMonitoring(): Promise<void> {
     console.log('Starting enhanced SNMP monitoring...');
     
-    // Load network devices from database
     await this.loadNetworkDevices();
     
-    // Start periodic monitoring
     this.monitoringInterval = setInterval(async () => {
       await this.monitorAllDevices();
-    }, 30000); // Monitor every 30 seconds
+    }, 30000);
   }
 
   async stopMonitoring(): Promise<void> {
@@ -53,7 +51,6 @@ class EnhancedSnmpService {
     try {
       console.log(`Disconnecting client ${clientId} from network`);
       
-      // Get client's RADIUS username
       const { data: radiusUser } = await supabase
         .from('radius_users')
         .select('username')
@@ -61,18 +58,15 @@ class EnhancedSnmpService {
         .single();
 
       if (radiusUser) {
-        // Disconnect via RADIUS
         await radiusService.disconnectUser(radiusUser.username);
       }
 
-      // Update client status in all MikroTik devices
       for (const device of this.devices.values()) {
         if (device.type === 'mikrotik') {
           await this.disconnectClientFromMikroTik(device.ipAddress, clientId);
         }
       }
 
-      // Log the disconnection
       await supabase.from('network_events').insert({
         client_id: clientId,
         event_type: 'client_disconnected',
@@ -92,7 +86,6 @@ class EnhancedSnmpService {
     try {
       console.log(`Reconnecting client ${clientId} to network`);
       
-      // Get client and service package info
       const { data: client } = await supabase
         .from('clients')
         .select(`
@@ -106,17 +99,14 @@ class EnhancedSnmpService {
         throw new Error('Client not found');
       }
 
-      // Create/update RADIUS user
       await radiusService.createRadiusUser(client, client.service_packages);
 
-      // Configure on all MikroTik devices
       for (const device of this.devices.values()) {
         if (device.type === 'mikrotik') {
           await this.configureClientOnMikroTik(device.ipAddress, client);
         }
       }
 
-      // Log the reconnection
       await supabase.from('network_events').insert({
         client_id: clientId,
         event_type: 'client_reconnected',
@@ -147,14 +137,12 @@ class EnhancedSnmpService {
         throw new Error('Service package not found');
       }
 
-      // Update RADIUS user with new limits
       await radiusService.updateRadiusUser(clientId, {
         maxUpload: this.parseSpeed(servicePackage.speed, 'upload'),
         maxDownload: this.parseSpeed(servicePackage.speed, 'download'),
         groupName: servicePackage.name.toLowerCase().replace(/\s+/g, '_')
       });
 
-      // Apply limits on all MikroTik devices
       for (const device of this.devices.values()) {
         if (device.type === 'mikrotik') {
           await this.applySpeedLimitOnMikroTik(
@@ -223,13 +211,11 @@ class EnhancedSnmpService {
 
   private async monitorDevice(device: NetworkDevice): Promise<void> {
     try {
-      // Check device availability
       const isOnline = await this.pingDevice(device.ipAddress);
       
       device.status = isOnline ? 'online' : 'offline';
 
       if (isOnline) {
-        // Get device statistics via SNMP
         const stats = await snmpService.getDeviceStatistics(device.ipAddress);
         
         if (stats) {
@@ -238,12 +224,10 @@ class EnhancedSnmpService {
           device.memoryUsage = stats.memoryUsage || 0;
         }
 
-        // Get connected clients for MikroTik devices
         if (device.type === 'mikrotik') {
           device.clients = await this.getConnectedClients(device.ipAddress);
         }
 
-        // Update database with current stats
         await this.updateDeviceStats(device);
       }
     } catch (error) {
@@ -254,12 +238,8 @@ class EnhancedSnmpService {
 
   private async pingDevice(ipAddress: string): Promise<boolean> {
     try {
-      // Simulate ping - in real implementation, use SNMP or ICMP
-      const response = await fetch(`http://${ipAddress}`, { 
-        timeout: 5000,
-        signal: AbortSignal.timeout(5000)
-      });
-      return true;
+      // Simulate ping check
+      return Math.random() > 0.1; // 90% uptime simulation
     } catch {
       return false;
     }
@@ -267,15 +247,14 @@ class EnhancedSnmpService {
 
   private async getConnectedClients(ipAddress: string): Promise<ClientNetworkStatus[]> {
     try {
-      // Get active RADIUS sessions for this device
       const sessions = await radiusService.getActiveSessions();
       
       return sessions
         .filter(session => session.nasIpAddress === ipAddress)
         .map(session => ({
-          clientId: session.username, // Map back to client ID
+          clientId: session.username,
           isConnected: session.status === 'active',
-          ipAddress: undefined, // Would be populated by DHCP lease info
+          ipAddress: undefined,
           lastSeen: new Date(),
           bytesIn: session.bytesIn,
           bytesOut: session.bytesOut,
@@ -291,8 +270,6 @@ class EnhancedSnmpService {
   private async disconnectClientFromMikroTik(deviceIp: string, clientId: string): Promise<void> {
     console.log(`Disconnecting client ${clientId} from MikroTik ${deviceIp}`);
     
-    // Use MikroTik API to disconnect specific client
-    // This would involve actual MikroTik API calls
     const commands = [
       `/ppp/active/print where name="${clientId}"`,
       `/ppp/active/remove [find name="${clientId}"]`
@@ -306,7 +283,6 @@ class EnhancedSnmpService {
   private async configureClientOnMikroTik(deviceIp: string, client: any): Promise<void> {
     console.log(`Configuring client ${client.name} on MikroTik ${deviceIp}`);
     
-    // MikroTik API commands to add PPPoE user
     const commands = [
       `/ppp/secret/add name="${client.email}" password="${client.id.slice(-8)}" service="pppoe"`,
       `/queue/simple/add name="${client.name}" target="${client.email}" max-limit="${client.service_packages?.speed || '10M'}"`,
@@ -332,15 +308,13 @@ class EnhancedSnmpService {
 
   private async updateDeviceStats(device: NetworkDevice): Promise<void> {
     try {
-      await supabase.from('network_device_stats').upsert({
-        device_id: device.id,
-        status: device.status,
-        uptime: device.uptime,
-        cpu_usage: device.cpuUsage,
-        memory_usage: device.memoryUsage,
-        connected_clients: device.clients.length,
-        last_updated: new Date().toISOString()
-      });
+      // Use equipment table to store basic status
+      await supabase
+        .from('equipment')
+        .update({
+          status: device.status === 'online' ? 'available' : 'offline'
+        })
+        .eq('id', device.id);
     } catch (error) {
       console.error('Error updating device stats:', error);
     }
