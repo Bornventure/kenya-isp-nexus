@@ -51,7 +51,7 @@ serve(async (req) => {
     // Get client details
     const { data: client, error: clientError } = await supabase
       .from('clients')
-      .select('id, name, wallet_balance, balance, monthly_rate, isp_company_id, email, phone, id_number, status, subscription_end_date')
+      .select('id, name, wallet_balance, balance, monthly_rate, isp_company_id, email, phone, id_number, subscription_end_date')
       .eq('id', clientId)
       .single()
 
@@ -102,48 +102,51 @@ serve(async (req) => {
       console.log('Invoice created successfully:', invoice.id)
     }
 
-    // Create payment record with only fields that exist in the payments table schema
-    console.log('Creating payment record with validated fields...')
+    // Create payment record with only valid fields from the payments table schema
+    console.log('Creating payment record...')
     
-    const paymentData = {
+    // Define payment data with only fields that exist in the payments table
+    const paymentInsertData = {
       client_id: clientId,
-      invoice_id: invoice?.id,
+      invoice_id: invoice?.id || null,
       amount: amount,
       payment_method: paymentMethod,
       payment_date: new Date().toISOString(),
       reference_number: checkoutRequestId,
-      mpesa_receipt_number: mpesaReceiptNumber,
+      mpesa_receipt_number: mpesaReceiptNumber || null,
       notes: `Payment via ${paymentMethod} - Receipt: ${mpesaReceiptNumber || checkoutRequestId}`,
       isp_company_id: client.isp_company_id
     }
 
-    console.log('Payment data to insert:', paymentData)
+    console.log('Payment insert data:', paymentInsertData)
 
     const { data: paymentRecord, error: paymentError } = await supabase
       .from('payments')
-      .insert(paymentData)
+      .insert(paymentInsertData)
       .select()
       .single()
 
     if (paymentError) {
-      console.error('Error creating payment record:', paymentError)
+      console.error('Payment record creation failed:', paymentError)
       console.error('Payment error details:', JSON.stringify(paymentError, null, 2))
+      
       return new Response(
         JSON.stringify({
           success: false,
           error: 'Failed to record payment',
           code: 'PAYMENT_RECORD_ERROR',
           details: paymentError.message,
-          paymentData: paymentData
+          errorCode: paymentError.code,
+          hint: paymentError.hint
         }),
         { 
           status: 500, 
           headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
         }
       )
-    } else {
-      console.log('Payment record created successfully:', paymentRecord.id)
     }
+
+    console.log('Payment record created successfully:', paymentRecord.id)
 
     // Update client's wallet balance
     const currentBalance = parseFloat(client.wallet_balance || 0)
@@ -202,7 +205,7 @@ serve(async (req) => {
     const currentDate = new Date()
     const serviceExpired = !client.subscription_end_date || new Date(client.subscription_end_date) <= currentDate
     
-    if (newBalance >= client.monthly_rate && (client.status === 'suspended' || serviceExpired)) {
+    if (newBalance >= client.monthly_rate && serviceExpired) {
       console.log('Attempting automatic renewal...')
       try {
         const { data: renewalResult } = await supabase.rpc('process_subscription_renewal', {
