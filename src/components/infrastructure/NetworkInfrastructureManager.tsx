@@ -10,6 +10,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/u
 import { Textarea } from '@/components/ui/textarea';
 import { Plus, Router, Server, Wifi, Settings, MapPin, Activity } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
+import { useEquipment } from '@/hooks/useEquipment';
 
 interface NetworkDevice {
   id: string;
@@ -34,47 +35,16 @@ interface NetworkDevice {
 
 const NetworkInfrastructureManager = () => {
   const { toast } = useToast();
-  const [devices, setDevices] = useState<NetworkDevice[]>([
-    {
-      id: '1',
-      name: 'Core Router Main',
-      type: 'core_router',
-      brand: 'Cisco',
-      model: 'ISR4331',
-      ip_address: '192.168.1.1',
-      management_ip: '192.168.100.1',
-      location: 'Main Data Center',
-      status: 'active',
-      role: 'core',
-      uptime: 99.8,
-      cpu_usage: 15,
-      memory_usage: 45,
-      last_seen: new Date(),
-      interfaces_count: 8,
-      active_interfaces: 6
-    },
-    {
-      id: '2',
-      name: 'Distribution Switch',
-      type: 'switch',
-      brand: 'Cisco',
-      model: 'Catalyst 3850',
-      ip_address: '192.168.1.10',
-      location: 'Main Rack',
-      status: 'active',
-      role: 'distribution',
-      uptime: 99.9,
-      cpu_usage: 8,
-      memory_usage: 32,
-      last_seen: new Date(),
-      interfaces_count: 48,
-      active_interfaces: 24
-    }
-  ]);
+  const { equipment, createEquipment, updateEquipment, isLoading } = useEquipment();
+  
+  // Filter equipment to show only network infrastructure devices
+  const networkDevices = equipment.filter(device => 
+    ['core_router', 'edge_router', 'switch', 'firewall', 'load_balancer', 'access_point'].includes(device.type)
+  );
 
   const [isDialogOpen, setIsDialogOpen] = useState(false);
-  const [selectedDevice, setSelectedDevice] = useState<NetworkDevice | null>(null);
-  const [formData, setFormData] = useState<Partial<NetworkDevice>>({});
+  const [selectedDevice, setSelectedDevice] = useState<any | null>(null);
+  const [formData, setFormData] = useState<any>({});
 
   const deviceTypeIcons = {
     core_router: Router,
@@ -98,40 +68,65 @@ const NetworkInfrastructureManager = () => {
     setIsDialogOpen(true);
   };
 
-  const handleEditDevice = (device: NetworkDevice) => {
+  const handleEditDevice = (device: any) => {
     setSelectedDevice(device);
-    setFormData(device);
+    setFormData({
+      type: device.type,
+      brand: device.brand,
+      model: device.model,
+      serial_number: device.serial_number,
+      ip_address: device.ip_address,
+      snmp_community: device.snmp_community,
+      snmp_version: device.snmp_version,
+      status: device.status,
+      notes: device.notes
+    });
     setIsDialogOpen(true);
   };
 
   const handleSaveDevice = () => {
     if (selectedDevice) {
       // Update existing device
-      setDevices(devices.map(d => d.id === selectedDevice.id ? { ...selectedDevice, ...formData } : d));
-      toast({
-        title: "Device Updated",
-        description: "Network device has been updated successfully.",
+      updateEquipment({
+        id: selectedDevice.id,
+        updates: {
+          type: formData.type,
+          brand: formData.brand,
+          model: formData.model,
+          serial_number: formData.serial_number,
+          ip_address: formData.ip_address,
+          snmp_community: formData.snmp_community,
+          snmp_version: formData.snmp_version,
+          status: formData.status,
+          notes: formData.notes
+        }
       });
     } else {
       // Add new device
-      const newDevice: NetworkDevice = {
-        id: Date.now().toString(),
-        ...formData as NetworkDevice,
-        last_seen: new Date()
-      };
-      setDevices([...devices, newDevice]);
-      toast({
-        title: "Device Added",
-        description: "Network device has been added successfully.",
+      createEquipment({
+        type: formData.type,
+        brand: formData.brand,
+        model: formData.model,
+        serial_number: formData.serial_number || `${formData.type}-${Date.now()}`,
+        ip_address: formData.ip_address,
+        snmp_community: formData.snmp_community || 'public',
+        snmp_version: formData.snmp_version || 2,
+        status: formData.status || 'active',
+        notes: formData.notes,
+        approval_status: 'approved' // Auto-approve infrastructure devices
       });
     }
     setIsDialogOpen(false);
   };
 
-  const DeviceIcon = ({ type }: { type: NetworkDevice['type'] }) => {
-    const Icon = deviceTypeIcons[type] || Server;
+  const DeviceIcon = ({ type }: { type: string }) => {
+    const Icon = deviceTypeIcons[type as keyof typeof deviceTypeIcons] || Server;
     return <Icon className="h-4 w-4" />;
   };
+
+  if (isLoading) {
+    return <div className="flex justify-center p-8">Loading network infrastructure...</div>;
+  }
 
   return (
     <div className="space-y-6">
@@ -147,16 +142,16 @@ const NetworkInfrastructureManager = () => {
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-        {devices.map((device) => (
+        {networkDevices.map((device) => (
           <Card key={device.id} className="hover:shadow-lg transition-shadow cursor-pointer"
                 onClick={() => handleEditDevice(device)}>
             <CardHeader className="pb-3">
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2">
                   <DeviceIcon type={device.type} />
-                  <CardTitle className="text-lg">{device.name}</CardTitle>
+                  <CardTitle className="text-lg">{device.brand} {device.model}</CardTitle>
                 </div>
-                <Badge className={`text-white ${statusColors[device.status]}`}>
+                <Badge className={`text-white ${statusColors[device.status as keyof typeof statusColors] || 'bg-gray-500'}`}>
                   {device.status}
                 </Badge>
               </div>
@@ -168,10 +163,6 @@ const NetworkInfrastructureManager = () => {
                   <div className="font-medium capitalize">{device.type.replace('_', ' ')}</div>
                 </div>
                 <div>
-                  <span className="text-muted-foreground">Role:</span>
-                  <div className="font-medium capitalize">{device.role}</div>
-                </div>
-                <div>
                   <span className="text-muted-foreground">Brand:</span>
                   <div className="font-medium">{device.brand}</div>
                 </div>
@@ -179,27 +170,16 @@ const NetworkInfrastructureManager = () => {
                   <span className="text-muted-foreground">Model:</span>
                   <div className="font-medium">{device.model}</div>
                 </div>
-              </div>
-
-              <div className="space-y-1">
-                <div className="flex items-center gap-1 text-sm">
-                  <MapPin className="h-3 w-3 text-muted-foreground" />
-                  <span>{device.location}</span>
-                </div>
-                <div className="text-sm">
-                  <span className="text-muted-foreground">IP:</span> {device.ip_address}
+                <div>
+                  <span className="text-muted-foreground">Serial:</span>
+                  <div className="font-medium">{device.serial_number}</div>
                 </div>
               </div>
 
-              {device.uptime !== undefined && (
-                <div className="space-y-2">
-                  <div className="flex items-center justify-between text-xs">
-                    <span className="text-muted-foreground">Uptime</span>
-                    <span className="font-medium">{device.uptime}%</span>
-                  </div>
-                  <div className="flex items-center justify-between text-xs">
-                    <span className="text-muted-foreground">Interfaces</span>
-                    <span className="font-medium">{device.active_interfaces}/{device.interfaces_count}</span>
+              {device.ip_address && (
+                <div className="space-y-1">
+                  <div className="text-sm">
+                    <span className="text-muted-foreground">IP:</span> {device.ip_address}
                   </div>
                 </div>
               )}
@@ -207,7 +187,7 @@ const NetworkInfrastructureManager = () => {
               <div className="flex items-center gap-2 pt-2 border-t">
                 <Activity className="h-3 w-3 text-green-500" />
                 <span className="text-xs text-muted-foreground">
-                  Last seen: {device.last_seen?.toLocaleDateString()}
+                  Added: {new Date(device.created_at).toLocaleDateString()}
                 </span>
               </div>
             </CardContent>
@@ -226,20 +206,10 @@ const NetworkInfrastructureManager = () => {
 
           <div className="grid grid-cols-2 gap-4 space-y-4">
             <div>
-              <Label htmlFor="name">Device Name</Label>
-              <Input
-                id="name"
-                value={formData.name || ''}
-                onChange={(e) => setFormData(prev => ({ ...prev, name: e.target.value }))}
-                placeholder="Core Router Main"
-              />
-            </div>
-
-            <div>
               <Label htmlFor="type">Device Type</Label>
               <Select
                 value={formData.type || ''}
-                onValueChange={(value) => setFormData(prev => ({ ...prev, type: value as NetworkDevice['type'] }))}
+                onValueChange={(value) => setFormData(prev => ({ ...prev, type: value }))}
               >
                 <SelectTrigger>
                   <SelectValue placeholder="Select device type" />
@@ -276,6 +246,16 @@ const NetworkInfrastructureManager = () => {
             </div>
 
             <div>
+              <Label htmlFor="serial_number">Serial Number</Label>
+              <Input
+                id="serial_number"
+                value={formData.serial_number || ''}
+                onChange={(e) => setFormData(prev => ({ ...prev, serial_number: e.target.value }))}
+                placeholder="Device serial number"
+              />
+            </div>
+
+            <div>
               <Label htmlFor="ip_address">IP Address</Label>
               <Input
                 id="ip_address"
@@ -286,38 +266,10 @@ const NetworkInfrastructureManager = () => {
             </div>
 
             <div>
-              <Label htmlFor="management_ip">Management IP (Optional)</Label>
-              <Input
-                id="management_ip"
-                value={formData.management_ip || ''}
-                onChange={(e) => setFormData(prev => ({ ...prev, management_ip: e.target.value }))}
-                placeholder="192.168.100.1"
-              />
-            </div>
-
-            <div>
-              <Label htmlFor="role">Network Role</Label>
-              <Select
-                value={formData.role || ''}
-                onValueChange={(value) => setFormData(prev => ({ ...prev, role: value as NetworkDevice['role'] }))}
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder="Select role" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="core">Core</SelectItem>
-                  <SelectItem value="distribution">Distribution</SelectItem>
-                  <SelectItem value="access">Access</SelectItem>
-                  <SelectItem value="management">Management</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-
-            <div>
               <Label htmlFor="status">Status</Label>
               <Select
                 value={formData.status || 'active'}
-                onValueChange={(value) => setFormData(prev => ({ ...prev, status: value as NetworkDevice['status'] }))}
+                onValueChange={(value) => setFormData(prev => ({ ...prev, status: value }))}
               >
                 <SelectTrigger>
                   <SelectValue />
@@ -329,16 +281,6 @@ const NetworkInfrastructureManager = () => {
                   <SelectItem value="failed">Failed</SelectItem>
                 </SelectContent>
               </Select>
-            </div>
-
-            <div className="col-span-2">
-              <Label htmlFor="location">Location</Label>
-              <Input
-                id="location"
-                value={formData.location || ''}
-                onChange={(e) => setFormData(prev => ({ ...prev, location: e.target.value }))}
-                placeholder="Main Data Center, Tower Site A"
-              />
             </div>
 
             <div>
@@ -366,6 +308,17 @@ const NetworkInfrastructureManager = () => {
                   <SelectItem value="3">Version 3</SelectItem>
                 </SelectContent>
               </Select>
+            </div>
+
+            <div className="col-span-2">
+              <Label htmlFor="notes">Notes</Label>
+              <Textarea
+                id="notes"
+                value={formData.notes || ''}
+                onChange={(e) => setFormData(prev => ({ ...prev, notes: e.target.value }))}
+                placeholder="Additional notes about this device"
+                rows={3}
+              />
             </div>
           </div>
 
