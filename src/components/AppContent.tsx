@@ -1,4 +1,3 @@
-
 import React, { useMemo } from 'react';
 import { Routes, Route, Navigate } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
@@ -52,7 +51,7 @@ const AppContent: React.FC = () => {
     const isAdmin = ['super_admin', 'isp_admin'].includes(profile.role);
     const isSuperAdmin = profile.role === 'super_admin';
     
-    // Expanded list of roles that can access the dashboard
+    // Complete list of roles that can access the dashboard
     const dashboardRoles = [
       'super_admin',
       'isp_admin', 
@@ -71,6 +70,13 @@ const AppContent: React.FC = () => {
     ];
     
     const canAccessDashboard = dashboardRoles.includes(profile.role);
+    
+    console.log('User role check:', {
+      role: profile.role,
+      isAdmin,
+      canAccessDashboard,
+      isSuperAdmin
+    });
     
     return { isAdmin, canAccessDashboard, isSuperAdmin };
   }, [profile]);
@@ -126,6 +132,7 @@ const AppContent: React.FC = () => {
 
   // Show access denied if user doesn't have dashboard access
   if (!canAccessDashboard) {
+    console.log('Access denied for role:', profile?.role);
     return <AccessDenied />;
   }
 

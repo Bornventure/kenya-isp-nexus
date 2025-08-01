@@ -49,10 +49,29 @@ const Sidebar = () => {
   };
 
   const isAdmin = profile?.role === 'super_admin' || profile?.role === 'isp_admin';
+  
   const canAccessDashboard = [
-    'super_admin', 'isp_admin', 'billing_finance', 'customer_support', 
-    'sales_account_manager', 'network_operations', 'infrastructure_asset', 'hotspot_admin'
+    'super_admin', 
+    'isp_admin', 
+    'billing_admin',
+    'billing_finance', 
+    'customer_support', 
+    'sales_manager',
+    'sales_account_manager', 
+    'network_engineer',
+    'network_operations', 
+    'infrastructure_manager',
+    'infrastructure_asset', 
+    'hotspot_admin',
+    'technician',
+    'readonly'
   ].includes(profile?.role || '');
+
+  console.log('Sidebar role check:', {
+    role: profile?.role,
+    isAdmin,
+    canAccessDashboard
+  });
 
   const navigationItems = [
     { 
