@@ -17,7 +17,7 @@ export const useUserRoleUpdate = () => {
     mutationFn: async ({ userId, role }: UpdateUserRoleParams) => {
       const { data, error } = await supabase
         .from('profiles')
-        .update({ role: role as string })
+        .update({ role: role } as any)
         .eq('id', userId)
         .select()
         .single();
