@@ -1,3 +1,4 @@
+
 import React, { useMemo } from 'react';
 import { Routes, Route, Navigate } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
@@ -44,13 +45,32 @@ const AppContent: React.FC = () => {
     return 'authenticated';
   }, [user, profile, isLoading, profileError]);
 
-  // User role calculations
+  // User role calculations with expanded role support
   const { isAdmin, canAccessDashboard, isSuperAdmin } = useMemo(() => {
     if (!profile) return { isAdmin: false, canAccessDashboard: false, isSuperAdmin: false };
     
     const isAdmin = ['super_admin', 'isp_admin'].includes(profile.role);
     const isSuperAdmin = profile.role === 'super_admin';
-    const canAccessDashboard = ['super_admin', 'isp_admin', 'billing_finance', 'customer_support', 'sales_account_manager', 'network_operations', 'infrastructure_asset', 'hotspot_admin'].includes(profile.role);
+    
+    // Expanded list of roles that can access the dashboard
+    const dashboardRoles = [
+      'super_admin',
+      'isp_admin', 
+      'billing_admin',
+      'billing_finance',
+      'customer_support',
+      'sales_manager',
+      'sales_account_manager', 
+      'network_engineer',
+      'network_operations',
+      'infrastructure_manager',
+      'infrastructure_asset',
+      'hotspot_admin',
+      'technician',
+      'readonly'
+    ];
+    
+    const canAccessDashboard = dashboardRoles.includes(profile.role);
     
     return { isAdmin, canAccessDashboard, isSuperAdmin };
   }, [profile]);
@@ -104,6 +124,11 @@ const AppContent: React.FC = () => {
     );
   }
 
+  // Show access denied if user doesn't have dashboard access
+  if (!canAccessDashboard) {
+    return <AccessDenied />;
+  }
+
   // Authenticated routes
   return (
     <>
@@ -123,28 +148,24 @@ const AppContent: React.FC = () => {
               <Routes>
                 <Route path="/" element={<Navigate to="/dashboard" replace />} />
                 
-                {/* Dashboard Routes accessible to authenticated users */}
-                {canAccessDashboard && (
-                  <>
-                    <Route path="/dashboard" element={
-                      <LicenseGuard allowReadOnly={validation.isDeactivated}>
-                        <Dashboard />
-                      </LicenseGuard>
-                    } />
-                    <Route path="/profile" element={
-                      <LicenseGuard allowReadOnly={validation.isDeactivated}>
-                        <Profile />
-                      </LicenseGuard>
-                    } />
-                  </>
-                )}
+                {/* Dashboard Routes accessible to authenticated users with dashboard access */}
+                <Route path="/dashboard" element={
+                  <LicenseGuard allowReadOnly={validation?.isDeactivated}>
+                    <Dashboard />
+                  </LicenseGuard>
+                } />
+                <Route path="/profile" element={
+                  <LicenseGuard allowReadOnly={validation?.isDeactivated}>
+                    <Profile />
+                  </LicenseGuard>
+                } />
                 
                 {/* Admin Routes - only wrap with LicenseGuard if license has issues */}
                 {isAdmin && (
                   <>
                     <Route path="/clients" element={
-                      validation.isDeactivated || validation.isExpired ? (
-                        <LicenseGuard allowReadOnly={validation.isDeactivated}>
+                      validation?.isDeactivated || validation?.isExpired ? (
+                        <LicenseGuard allowReadOnly={validation?.isDeactivated}>
                           <Clients />
                         </LicenseGuard>
                       ) : (
@@ -152,8 +173,8 @@ const AppContent: React.FC = () => {
                       )
                     } />
                     <Route path="/billing" element={
-                      validation.isDeactivated || validation.isExpired ? (
-                        <LicenseGuard allowReadOnly={validation.isDeactivated}>
+                      validation?.isDeactivated || validation?.isExpired ? (
+                        <LicenseGuard allowReadOnly={validation?.isDeactivated}>
                           <Billing />
                         </LicenseGuard>
                       ) : (
@@ -161,8 +182,8 @@ const AppContent: React.FC = () => {
                       )
                     } />
                     <Route path="/invoices" element={
-                      validation.isDeactivated || validation.isExpired ? (
-                        <LicenseGuard allowReadOnly={validation.isDeactivated}>
+                      validation?.isDeactivated || validation?.isExpired ? (
+                        <LicenseGuard allowReadOnly={validation?.isDeactivated}>
                           <Invoices />
                         </LicenseGuard>
                       ) : (
@@ -170,8 +191,8 @@ const AppContent: React.FC = () => {
                       )
                     } />
                     <Route path="/analytics" element={
-                      validation.isDeactivated || validation.isExpired ? (
-                        <LicenseGuard allowReadOnly={validation.isDeactivated}>
+                      validation?.isDeactivated || validation?.isExpired ? (
+                        <LicenseGuard allowReadOnly={validation?.isDeactivated}>
                           <Analytics />
                         </LicenseGuard>
                       ) : (
@@ -179,8 +200,8 @@ const AppContent: React.FC = () => {
                       )
                     } />
                     <Route path="/equipment" element={
-                      validation.isDeactivated || validation.isExpired ? (
-                        <LicenseGuard allowReadOnly={validation.isDeactivated}>
+                      validation?.isDeactivated || validation?.isExpired ? (
+                        <LicenseGuard allowReadOnly={validation?.isDeactivated}>
                           <Equipment />
                         </LicenseGuard>
                       ) : (
@@ -188,8 +209,8 @@ const AppContent: React.FC = () => {
                       )
                     } />
                     <Route path="/network" element={
-                      validation.isDeactivated || validation.isExpired ? (
-                        <LicenseGuard allowReadOnly={validation.isDeactivated}>
+                      validation?.isDeactivated || validation?.isExpired ? (
+                        <LicenseGuard allowReadOnly={validation?.isDeactivated}>
                           <NetworkManagement />
                         </LicenseGuard>
                       ) : (
@@ -197,8 +218,8 @@ const AppContent: React.FC = () => {
                       )
                     } />
                     <Route path="/network-status" element={
-                      validation.isDeactivated || validation.isExpired ? (
-                        <LicenseGuard allowReadOnly={validation.isDeactivated}>
+                      validation?.isDeactivated || validation?.isExpired ? (
+                        <LicenseGuard allowReadOnly={validation?.isDeactivated}>
                           <NetworkStatus />
                         </LicenseGuard>
                       ) : (
@@ -206,8 +227,8 @@ const AppContent: React.FC = () => {
                       )
                     } />
                     <Route path="/network-map" element={
-                      validation.isDeactivated || validation.isExpired ? (
-                        <LicenseGuard allowReadOnly={validation.isDeactivated}>
+                      validation?.isDeactivated || validation?.isExpired ? (
+                        <LicenseGuard allowReadOnly={validation?.isDeactivated}>
                           <NetworkMap />
                         </LicenseGuard>
                       ) : (
@@ -215,8 +236,8 @@ const AppContent: React.FC = () => {
                       )
                     } />
                     <Route path="/inventory" element={
-                      validation.isDeactivated || validation.isExpired ? (
-                        <LicenseGuard allowReadOnly={validation.isDeactivated}>
+                      validation?.isDeactivated || validation?.isExpired ? (
+                        <LicenseGuard allowReadOnly={validation?.isDeactivated}>
                           <Inventory />
                         </LicenseGuard>
                       ) : (
@@ -224,8 +245,8 @@ const AppContent: React.FC = () => {
                       )
                     } />
                     <Route path="/messages" element={
-                      validation.isDeactivated || validation.isExpired ? (
-                        <LicenseGuard allowReadOnly={validation.isDeactivated}>
+                      validation?.isDeactivated || validation?.isExpired ? (
+                        <LicenseGuard allowReadOnly={validation?.isDeactivated}>
                           <Messages />
                         </LicenseGuard>
                       ) : (
@@ -233,8 +254,8 @@ const AppContent: React.FC = () => {
                       )
                     } />
                     <Route path="/support" element={
-                      validation.isDeactivated || validation.isExpired ? (
-                        <LicenseGuard allowReadOnly={validation.isDeactivated}>
+                      validation?.isDeactivated || validation?.isExpired ? (
+                        <LicenseGuard allowReadOnly={validation?.isDeactivated}>
                           <Support />
                         </LicenseGuard>
                       ) : (
@@ -242,8 +263,8 @@ const AppContent: React.FC = () => {
                       )
                     } />
                     <Route path="/hotspots" element={
-                      validation.isDeactivated || validation.isExpired ? (
-                        <LicenseGuard allowReadOnly={validation.isDeactivated}>
+                      validation?.isDeactivated || validation?.isExpired ? (
+                        <LicenseGuard allowReadOnly={validation?.isDeactivated}>
                           <HotspotManagement />
                         </LicenseGuard>
                       ) : (
@@ -251,8 +272,8 @@ const AppContent: React.FC = () => {
                       )
                     } />
                     <Route path="/packages" element={
-                      validation.isDeactivated || validation.isExpired ? (
-                        <LicenseGuard allowReadOnly={validation.isDeactivated}>
+                      validation?.isDeactivated || validation?.isExpired ? (
+                        <LicenseGuard allowReadOnly={validation?.isDeactivated}>
                           <PackageManagement />
                         </LicenseGuard>
                       ) : (
@@ -260,8 +281,8 @@ const AppContent: React.FC = () => {
                       )
                     } />
                     <Route path="/developer-portal" element={
-                      validation.isDeactivated || validation.isExpired ? (
-                        <LicenseGuard allowReadOnly={validation.isDeactivated}>
+                      validation?.isDeactivated || validation?.isExpired ? (
+                        <LicenseGuard allowReadOnly={validation?.isDeactivated}>
                           <DeveloperPortal />
                         </LicenseGuard>
                       ) : (
@@ -269,8 +290,8 @@ const AppContent: React.FC = () => {
                       )
                     } />
                     <Route path="/settings" element={
-                      validation.isDeactivated || validation.isExpired ? (
-                        <LicenseGuard allowReadOnly={validation.isDeactivated}>
+                      validation?.isDeactivated || validation?.isExpired ? (
+                        <LicenseGuard allowReadOnly={validation?.isDeactivated}>
                           <Settings />
                         </LicenseGuard>
                       ) : (
@@ -278,8 +299,8 @@ const AppContent: React.FC = () => {
                       )
                     } />
                     <Route path="/license-management" element={
-                      validation.isDeactivated || validation.isExpired ? (
-                        <LicenseGuard allowReadOnly={validation.isDeactivated}>
+                      validation?.isDeactivated || validation?.isExpired ? (
+                        <LicenseGuard allowReadOnly={validation?.isDeactivated}>
                           <LicenseManagement />
                         </LicenseGuard>
                       ) : (
@@ -318,17 +339,8 @@ const AppContent: React.FC = () => {
                   }
                 />
                 
-                {/* Catch all for other protected routes */}
-                <Route
-                  path="*"
-                  element={
-                    !canAccessDashboard ? (
-                      <AccessDenied />
-                    ) : (
-                      <NotFound />
-                    )
-                  }
-                />
+                {/* Catch all for other routes */}
+                <Route path="*" element={<NotFound />} />
               </Routes>
             </DashboardLayout>
           }

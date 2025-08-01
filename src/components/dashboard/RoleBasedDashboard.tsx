@@ -26,19 +26,28 @@ export const RoleBasedDashboard = () => {
         return <SuperAdminDashboard />;
       case 'isp_admin':
         return <SuperAdminDashboard />;
+      case 'billing_admin':
       case 'billing_finance':
         return <BillingFinanceDashboard />;
       case 'customer_support':
         return <CustomerSupportDashboard />;
+      case 'sales_manager':
       case 'sales_account_manager':
         return <SalesAccountManagerDashboard />;
+      case 'network_engineer':
       case 'network_operations':
         return <NetworkOperationsDashboard />;
+      case 'infrastructure_manager':
       case 'infrastructure_asset':
         return <InfrastructureAssetDashboard />;
       case 'hotspot_admin':
         return <HotspotAdminDashboard />;
+      case 'technician':
+        return <InfrastructureAssetDashboard />; // Technicians get infrastructure dashboard
+      case 'readonly':
+        return <SuperAdminDashboard />; // Read-only users get basic dashboard view
       default:
+        // For any unhandled roles, show a basic dashboard
         return <SuperAdminDashboard />;
     }
   };
