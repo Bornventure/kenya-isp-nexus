@@ -2046,6 +2046,7 @@ export type Database = {
       notification_logs: {
         Row: {
           channels: string[]
+          client_id: string | null
           created_at: string
           id: string
           isp_company_id: string | null
@@ -2057,6 +2058,7 @@ export type Database = {
         }
         Insert: {
           channels: string[]
+          client_id?: string | null
           created_at?: string
           id?: string
           isp_company_id?: string | null
@@ -2068,6 +2070,7 @@ export type Database = {
         }
         Update: {
           channels?: string[]
+          client_id?: string | null
           created_at?: string
           id?: string
           isp_company_id?: string | null
@@ -2078,6 +2081,13 @@ export type Database = {
           type?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "notification_logs_client_id_fkey"
+            columns: ["client_id"]
+            isOneToOne: false
+            referencedRelation: "clients"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "notification_logs_isp_company_id_fkey"
             columns: ["isp_company_id"]
