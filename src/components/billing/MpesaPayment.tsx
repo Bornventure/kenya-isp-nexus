@@ -56,7 +56,8 @@ const MpesaPayment: React.FC<MpesaPaymentProps> = ({
 
       console.log('STK Push response:', response);
 
-      if (response.success && response.CheckoutRequestID) {
+      // Fix TypeScript error by checking for ResponseCode instead of success
+      if (response && response.ResponseCode === '0' && response.CheckoutRequestID) {
         const paymentId = invoiceId || `wallet-topup-${Date.now()}`;
         
         console.log('Starting payment monitoring for:', { paymentId, checkoutRequestId: response.CheckoutRequestID });
@@ -91,7 +92,7 @@ const MpesaPayment: React.FC<MpesaPaymentProps> = ({
           amount
         );
       } else {
-        throw new Error(response.ResponseDescription || 'Failed to initiate payment');
+        throw new Error(response?.ResponseDescription || 'Failed to initiate payment');
       }
     } catch (error: any) {
       console.error('Payment initiation error:', error);

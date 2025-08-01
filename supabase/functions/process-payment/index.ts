@@ -1,5 +1,4 @@
 
-
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 
@@ -23,19 +22,20 @@ serve(async (req) => {
     return new Response('ok', { headers: corsHeaders })
   }
 
+  const supabaseUrl = Deno.env.get('SUPABASE_URL')!
+  const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
+  const supabase = createClient(supabaseUrl, supabaseServiceKey)
+
   try {
     console.log('=== Payment Processing Started ===')
 
-    const supabaseUrl = Deno.env.get('SUPABASE_URL')!
-    const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
-    const supabase = createClient(supabaseUrl, supabaseServiceKey)
-
     const requestBody: PaymentRequest = await req.json()
-    console.log('Processing payment:', requestBody)
+    console.log('Processing payment request:', requestBody)
 
     const { checkoutRequestId, clientId, amount, paymentMethod, mpesaReceiptNumber, phoneNumber } = requestBody
 
     if (!clientId || !amount || amount <= 0) {
+      console.error('Invalid request data:', { clientId, amount })
       return new Response(
         JSON.stringify({
           success: false,
@@ -49,15 +49,32 @@ serve(async (req) => {
       )
     }
 
-    // Get client details
+    // Get client details with proper error handling
+    console.log('Fetching client details for:', clientId)
     const { data: client, error: clientError } = await supabase
       .from('clients')
       .select('id, name, wallet_balance, balance, monthly_rate, isp_company_id, email, phone, id_number, subscription_end_date')
       .eq('id', clientId)
       .single()
 
-    if (clientError || !client) {
-      console.error('Client not found:', clientError)
+    if (clientError) {
+      console.error('Error fetching client:', clientError)
+      return new Response(
+        JSON.stringify({
+          success: false,
+          error: 'Failed to fetch client details',
+          code: 'CLIENT_FETCH_ERROR',
+          details: clientError.message
+        }),
+        { 
+          status: 500, 
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
+        }
+      )
+    }
+
+    if (!client) {
+      console.error('Client not found:', clientId)
       return new Response(
         JSON.stringify({
           success: false,
@@ -79,6 +96,7 @@ serve(async (req) => {
     const serviceStartDate = new Date()
     const serviceEndDate = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000) // 30 days from now
 
+    console.log('Creating invoice:', invoiceNumber)
     const { data: invoice, error: invoiceError } = await supabase
       .from('invoices')
       .insert({
@@ -99,17 +117,27 @@ serve(async (req) => {
 
     if (invoiceError) {
       console.error('Error creating invoice:', invoiceError)
-    } else {
-      console.log('Invoice created successfully:', invoice.id)
+      return new Response(
+        JSON.stringify({
+          success: false,
+          error: 'Failed to create invoice',
+          code: 'INVOICE_ERROR',
+          details: invoiceError.message
+        }),
+        { 
+          status: 500, 
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
+        }
+      )
     }
 
-    // Create payment record with only valid fields from the payments table schema
+    console.log('Invoice created successfully:', invoice.id)
+
+    // Create payment record
     console.log('Creating payment record...')
-    
-    // Define payment data with only fields that exist in the payments table
     const paymentInsertData = {
       client_id: clientId,
-      invoice_id: invoice?.id || null,
+      invoice_id: invoice.id,
       amount: amount,
       payment_method: paymentMethod,
       payment_date: new Date().toISOString(),
@@ -129,16 +157,12 @@ serve(async (req) => {
 
     if (paymentError) {
       console.error('Payment record creation failed:', paymentError)
-      console.error('Payment error details:', JSON.stringify(paymentError, null, 2))
-      
       return new Response(
         JSON.stringify({
           success: false,
           error: 'Failed to record payment',
           code: 'PAYMENT_RECORD_ERROR',
-          details: paymentError.message,
-          errorCode: paymentError.code,
-          hint: paymentError.hint
+          details: paymentError.message
         }),
         { 
           status: 500, 
@@ -169,7 +193,8 @@ serve(async (req) => {
         JSON.stringify({
           success: false,
           error: 'Failed to update wallet balance',
-          code: 'BALANCE_UPDATE_ERROR'
+          code: 'BALANCE_UPDATE_ERROR',
+          details: balanceUpdateError.message
         }),
         { 
           status: 500, 
@@ -197,6 +222,7 @@ serve(async (req) => {
 
     if (walletError) {
       console.error('Error recording wallet transaction:', walletError)
+      // Don't fail the entire payment for wallet transaction error
     } else {
       console.log('Wallet transaction recorded:', walletTransaction.id)
     }
@@ -209,42 +235,19 @@ serve(async (req) => {
     if (newBalance >= client.monthly_rate && serviceExpired) {
       console.log('Attempting automatic renewal...')
       try {
-        const { data: renewalResult } = await supabase.rpc('process_subscription_renewal', {
+        const { data: renewalResult, error: renewalError } = await supabase.rpc('process_subscription_renewal', {
           p_client_id: clientId
         })
         
-        if (renewalResult?.success) {
+        if (!renewalError && renewalResult?.success) {
           console.log('Auto-renewal successful')
           autoRenewed = true
-          
-          // Send renewal notification using safe method
-          try {
-            await sendNotificationSafely(supabase, clientId, 'service_renewal', {
-              amount: client.monthly_rate,
-              service_period_end: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(),
-              remaining_balance: newBalance - client.monthly_rate
-            })
-          } catch (notificationError) {
-            console.error('Renewal notification error:', notificationError)
-          }
+        } else {
+          console.log('Auto-renewal failed or not applicable:', renewalError?.message || renewalResult?.message)
         }
       } catch (renewalError) {
         console.error('Auto-renewal failed:', renewalError)
       }
-    }
-
-    // Send payment success notification using safe method
-    try {
-      await sendNotificationSafely(supabase, clientId, 'payment_success', {
-        amount: amount,
-        receipt_number: mpesaReceiptNumber || checkoutRequestId,
-        payment_method: paymentMethod,
-        new_balance: autoRenewed ? newBalance - client.monthly_rate : newBalance,
-        auto_renewed: autoRenewed
-      })
-      console.log('Payment success notification sent')
-    } catch (notificationError) {
-      console.error('Error sending notification:', notificationError)
     }
 
     console.log('Payment processing completed successfully')
@@ -254,7 +257,7 @@ serve(async (req) => {
         success: true,
         data: {
           payment_id: paymentRecord.id,
-          invoice_id: invoice?.id,
+          invoice_id: invoice.id,
           client_name: client.name,
           amount: amount,
           new_balance: autoRenewed ? newBalance - client.monthly_rate : newBalance,
@@ -284,19 +287,3 @@ serve(async (req) => {
     )
   }
 })
-
-// Safe notification helper function that won't break the payment flow
-async function sendNotificationSafely(supabase: any, clientId: string, type: string, data: any) {
-  try {
-    await supabase.functions.invoke('send-notifications', {
-      body: {
-        client_id: clientId,
-        type: type,
-        data: data
-      }
-    })
-  } catch (error) {
-    console.error('Safe notification failed (non-blocking):', error)
-    // Don't throw - this is intentionally non-blocking
-  }
-}
