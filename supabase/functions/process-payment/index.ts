@@ -120,11 +120,21 @@ serve(async (req) => {
 
     console.log('Payment insert data:', paymentInsertData)
 
+    // Disable the trigger temporarily to avoid notification issues
+    await supabase.rpc('execute', { 
+      query: 'ALTER TABLE payments DISABLE TRIGGER payment_notification_trigger' 
+    }).then(() => console.log('Trigger disabled')).catch(e => console.log('Trigger disable failed:', e))
+
     const { data: paymentRecord, error: paymentError } = await supabase
       .from('payments')
       .insert(paymentInsertData)
       .select()
       .single()
+
+    // Re-enable the trigger
+    await supabase.rpc('execute', { 
+      query: 'ALTER TABLE payments ENABLE TRIGGER payment_notification_trigger' 
+    }).then(() => console.log('Trigger re-enabled')).catch(e => console.log('Trigger enable failed:', e))
 
     if (paymentError) {
       console.error('Payment record creation failed:', paymentError)
@@ -216,25 +226,29 @@ serve(async (req) => {
           console.log('Auto-renewal successful')
           autoRenewed = true
           
-          // Send renewal notification
-          await supabase.functions.invoke('send-notifications', {
-            body: {
-              client_id: clientId,
-              type: 'service_renewal',
-              data: {
-                amount: client.monthly_rate,
-                service_period_end: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(),
-                remaining_balance: newBalance - client.monthly_rate
+          // Send renewal notification manually since trigger is problematic
+          try {
+            await supabase.functions.invoke('send-notifications', {
+              body: {
+                client_id: clientId,
+                type: 'service_renewal',
+                data: {
+                  amount: client.monthly_rate,
+                  service_period_end: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(),
+                  remaining_balance: newBalance - client.monthly_rate
+                }
               }
-            }
-          })
+            })
+          } catch (notificationError) {
+            console.error('Renewal notification error:', notificationError)
+          }
         }
       } catch (renewalError) {
         console.error('Auto-renewal failed:', renewalError)
       }
     }
 
-    // Send payment success notification
+    // Send payment success notification manually to avoid trigger issues
     try {
       await supabase.functions.invoke('send-notifications', {
         body: {
