@@ -1,21 +1,21 @@
 
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge';
-import { Smartphone, CheckCircle, Clock, AlertCircle } from 'lucide-react';
+import { Loader2, Smartphone, CheckCircle, AlertCircle } from 'lucide-react';
 import { useMpesa } from '@/hooks/useMpesa';
 import { usePaymentStatus } from '@/hooks/usePaymentStatus';
-import { validateMpesaNumber, formatMpesaNumber, formatKenyanCurrency } from '@/utils/kenyanValidation';
+import { useToast } from '@/hooks/use-toast';
+import PaymentErrorHandler from '@/components/payment/PaymentErrorHandler';
 
 interface MpesaPaymentProps {
   clientId: string;
   amount: number;
   invoiceId?: string;
   accountReference: string;
-  onPaymentComplete?: (paymentData: any) => void;
+  onPaymentComplete?: (data: any) => void;
 }
 
 const MpesaPayment: React.FC<MpesaPaymentProps> = ({
@@ -26,231 +26,190 @@ const MpesaPayment: React.FC<MpesaPaymentProps> = ({
   onPaymentComplete,
 }) => {
   const [phoneNumber, setPhoneNumber] = useState('');
-  const [paymentStatus, setPaymentStatus] = useState<'idle' | 'pending' | 'checking' | 'success' | 'failed'>('idle');
-  const [checkoutRequestID, setCheckoutRequestID] = useState<string>('');
-  const [errors, setErrors] = useState<Record<string, string>>({});
+  const [isProcessing, setIsProcessing] = useState(false);
+  const [paymentStatus, setPaymentStatus] = useState<'idle' | 'processing' | 'success' | 'failed'>('idle');
+  const [error, setError] = useState<string | null>(null);
 
-  const { initiateSTKPush, isLoading } = useMpesa();
-  const { startPaymentMonitoring } = usePaymentStatus();
-
-  const validateForm = () => {
-    const newErrors: Record<string, string> = {};
-    
-    if (!phoneNumber) {
-      newErrors.phoneNumber = 'Phone number is required';
-    } else if (!validateMpesaNumber(phoneNumber)) {
-      newErrors.phoneNumber = 'Invalid M-Pesa number format';
-    }
-
-    setErrors(newErrors);
-    return Object.keys(newErrors).length === 0;
-  };
+  const { initiateSTKPush } = useMpesa();
+  const { startPaymentMonitoring, isMonitoring } = usePaymentStatus();
+  const { toast } = useToast();
 
   const handlePayment = async () => {
-    if (!validateForm()) return;
+    if (!phoneNumber) {
+      setError('Please enter a valid phone number');
+      return;
+    }
 
-    console.log('Initiating M-Pesa STK Push:', { accountReference, amount, clientId });
+    setIsProcessing(true);
+    setPaymentStatus('processing');
+    setError(null);
 
-    const stkResponse = await initiateSTKPush({
-      phoneNumber,
-      amount,
-      accountReference,
-      transactionDesc: `Payment for ${accountReference}`,
-    });
+    try {
+      console.log('Initiating M-Pesa STK Push:', { accountReference, amount, clientId });
 
-    console.log('STK Push response:', stkResponse);
-
-    if (stkResponse && stkResponse.ResponseCode === '0') {
-      setCheckoutRequestID(stkResponse.CheckoutRequestID);
-      setPaymentStatus('pending');
-      
-      // For wallet top-ups, use a different payment ID format
-      const paymentId = accountReference === 'WALLET_TOPUP' 
-        ? `wallet-topup-${Date.now()}` 
-        : invoiceId || `payment-${Date.now()}`;
-      
-      console.log('Starting payment monitoring for:', {
-        paymentId,
-        checkoutRequestId: stkResponse.CheckoutRequestID
+      const response = await initiateSTKPush({
+        phoneNumber,
+        amount,
+        accountReference,
+        transactionDesc: `Payment for ${accountReference}`,
       });
 
-      startPaymentMonitoring(
-        paymentId,
-        stkResponse.CheckoutRequestID,
-        {
-          onSuccess: (statusData) => {
-            console.log('Payment monitoring success:', statusData);
-            setPaymentStatus('success');
-            
-            if (onPaymentComplete) {
-              onPaymentComplete({
-                client_id: clientId,
-                amount,
-                payment_method: 'mpesa',
-                payment_date: new Date().toISOString(),
-                reference_number: phoneNumber,
-                mpesa_receipt_number: stkResponse.CheckoutRequestID,
-                notes: `M-Pesa payment for ${accountReference}`,
-                invoice_id: invoiceId || null,
+      console.log('STK Push response:', response);
+
+      if (response.success && response.CheckoutRequestID) {
+        const paymentId = invoiceId || `wallet-topup-${Date.now()}`;
+        
+        console.log('Starting payment monitoring for:', { paymentId, checkoutRequestId: response.CheckoutRequestID });
+
+        await startPaymentMonitoring(
+          paymentId,
+          response.CheckoutRequestID,
+          {
+            onSuccess: (data) => {
+              setPaymentStatus('success');
+              setIsProcessing(false);
+              toast({
+                title: "Payment Successful",
+                description: `Your payment of KES ${amount} has been processed successfully.`,
               });
+              if (onPaymentComplete) {
+                onPaymentComplete(data);
+              }
+            },
+            onFailure: (data) => {
+              setPaymentStatus('failed');
+              setIsProcessing(false);
+              setError(`Payment failed: ${data.message || 'Unknown error'}`);
+            },
+            onTimeout: () => {
+              setPaymentStatus('failed');
+              setIsProcessing(false);
+              setError('Payment timeout. Please check your phone and try again, or contact support if you were charged.');
             }
           },
-          onFailure: (statusData) => {
-            console.log('Payment monitoring failure:', statusData);
-            setPaymentStatus('failed');
-          },
-          onTimeout: () => {
-            console.log('Payment monitoring timeout');
-            setPaymentStatus('failed');
-          }
-        },
-        clientId,
-        amount
-      );
-    } else {
-      console.error('STK Push failed:', stkResponse);
+          clientId,
+          amount
+        );
+      } else {
+        throw new Error(response.ResponseDescription || 'Failed to initiate payment');
+      }
+    } catch (error: any) {
+      console.error('Payment initiation error:', error);
       setPaymentStatus('failed');
+      setIsProcessing(false);
+      setError(error.message || 'Failed to initiate payment. Please try again.');
     }
   };
 
-  const getStatusDisplay = () => {
-    switch (paymentStatus) {
-      case 'pending':
-        return (
-          <div className="flex items-center gap-2 text-blue-600">
-            <Clock className="h-4 w-4 animate-spin" />
-            <span>Waiting for payment confirmation...</span>
-          </div>
-        );
-      case 'checking':
-        return (
-          <div className="flex items-center gap-2 text-yellow-600">
-            <Clock className="h-4 w-4 animate-spin" />
-            <span>Checking payment status...</span>
-          </div>
-        );
-      case 'success':
-        return (
-          <div className="flex items-center gap-2 text-green-600">
-            <CheckCircle className="h-4 w-4" />
-            <span>Payment successful!</span>
-          </div>
-        );
-      case 'failed':
-        return (
-          <div className="flex items-center gap-2 text-red-600">
-            <AlertCircle className="h-4 w-4" />
-            <span>Payment failed or cancelled</span>
-          </div>
-        );
-      default:
-        return null;
+  const handleRetry = () => {
+    setError(null);
+    setPaymentStatus('idle');
+    handlePayment();
+  };
+
+  const handleContactSupport = () => {
+    // In a real app, this would open a support ticket or contact form
+    toast({
+      title: "Contact Support",
+      description: "Please contact our support team for assistance with your payment.",
+    });
+  };
+
+  const formatPhoneNumber = (value: string) => {
+    // Remove all non-digits
+    const digits = value.replace(/\D/g, '');
+    
+    // Format as Kenyan number
+    if (digits.startsWith('254')) {
+      return `+${digits}`;
+    } else if (digits.startsWith('0')) {
+      return `+254${digits.slice(1)}`;
+    } else if (digits.length >= 9) {
+      return `+254${digits}`;
     }
+    
+    return value;
   };
 
   return (
-    <div className="space-y-4">
-      <div className="bg-green-50 p-4 rounded-lg">
-        <div className="flex justify-between items-center">
-          <span className="font-medium">Amount to Pay:</span>
-          <span className="text-xl font-bold text-green-600">
-            {formatKenyanCurrency(amount)}
-          </span>
+    <Card>
+      <CardHeader>
+        <CardTitle className="flex items-center gap-2">
+          <Smartphone className="h-5 w-5 text-green-600" />
+          M-Pesa Payment
+        </CardTitle>
+      </CardHeader>
+      <CardContent className="space-y-4">
+        <div className="space-y-2">
+          <Label htmlFor="phone">Phone Number</Label>
+          <Input
+            id="phone"
+            type="tel"
+            placeholder="e.g., 0712345678"
+            value={phoneNumber}
+            onChange={(e) => setPhoneNumber(formatPhoneNumber(e.target.value))}
+            disabled={isProcessing}
+          />
         </div>
-        <div className="flex justify-between items-center mt-2">
-          <span className="text-sm text-gray-600">Reference:</span>
-          <span className="text-sm font-medium">{accountReference}</span>
+
+        <div className="p-3 bg-muted rounded-lg">
+          <p className="text-sm text-muted-foreground">
+            Amount to pay: <span className="font-semibold">KES {amount}</span>
+          </p>
         </div>
-        {invoiceId && (
-          <div className="flex justify-between items-center mt-1">
-            <span className="text-sm text-gray-600">Invoice ID:</span>
-            <span className="text-sm font-medium">{invoiceId}</span>
-          </div>
-        )}
-      </div>
 
-      {paymentStatus === 'idle' && (
-        <div className="space-y-4">
-          <div>
-            <Label htmlFor="mpesaNumber">M-Pesa Phone Number</Label>
-            <Input
-              id="mpesaNumber"
-              value={phoneNumber}
-              onChange={(e) => setPhoneNumber(formatMpesaNumber(e.target.value))}
-              placeholder="e.g., +254712345678"
-              disabled={isLoading}
-            />
-            {errors.phoneNumber && (
-              <p className="text-sm text-red-600 mt-1">{errors.phoneNumber}</p>
-            )}
-          </div>
+        <PaymentErrorHandler
+          error={error}
+          onRetry={handleRetry}
+          onContactSupport={handleContactSupport}
+          isRetrying={isProcessing}
+        />
 
-          <Button 
-            onClick={handlePayment} 
-            disabled={isLoading || !phoneNumber}
-            className="w-full bg-green-600 hover:bg-green-700"
-          >
-            {isLoading ? 'Initiating Payment...' : 'Pay with M-Pesa'}
-          </Button>
-        </div>
-      )}
-
-      {paymentStatus !== 'idle' && (
-        <div className="space-y-4">
-          <div className="text-center">
-            <Badge variant={paymentStatus === 'success' ? 'default' : 'secondary'}>
-              {getStatusDisplay()}
-            </Badge>
-          </div>
-
-          {paymentStatus === 'pending' && (
-            <div className="text-center text-sm text-gray-600">
-              <p>Check your phone for the M-Pesa payment prompt.</p>
-              <p>Enter your M-Pesa PIN to complete the payment.</p>
-              <p className="text-xs mt-2 text-blue-600">
-                Payment processing may take a few seconds...
+        {paymentStatus === 'processing' && (
+          <div className="flex items-center justify-center p-4 bg-blue-50 rounded-lg">
+            <div className="text-center">
+              <Loader2 className="h-8 w-8 animate-spin mx-auto mb-2 text-blue-600" />
+              <p className="text-sm text-blue-600 font-medium">
+                {isMonitoring ? 'Processing payment...' : 'Initiating payment...'}
+              </p>
+              <p className="text-xs text-muted-foreground mt-1">
+                Please check your phone for the M-Pesa prompt
               </p>
             </div>
-          )}
+          </div>
+        )}
 
-          {paymentStatus === 'success' && (
+        {paymentStatus === 'success' && (
+          <div className="flex items-center justify-center p-4 bg-green-50 rounded-lg">
             <div className="text-center">
-              <div className="text-sm text-green-600 mb-3">
-                <p>✅ Payment processed successfully!</p>
-                <p>Your account has been updated.</p>
-              </div>
-              <Button 
-                variant="outline" 
-                onClick={() => {
-                  setPaymentStatus('idle');
-                  setPhoneNumber('');
-                  setCheckoutRequestID('');
-                }}
-              >
-                Make Another Payment
-              </Button>
+              <CheckCircle className="h-8 w-8 mx-auto mb-2 text-green-600" />
+              <p className="text-sm text-green-600 font-medium">Payment Successful!</p>
             </div>
-          )}
+          </div>
+        )}
 
-          {paymentStatus === 'failed' && (
-            <div className="text-center">
-              <div className="text-sm text-red-600 mb-3">
-                <p>Payment was not completed successfully.</p>
-                <p>Please try again or contact support.</p>
-              </div>
-              <Button 
-                variant="outline" 
-                onClick={() => {
-                  setPaymentStatus('idle');
-                }}
-              >
-                Try Again
-              </Button>
-            </div>
+        <Button
+          onClick={handlePayment}
+          disabled={!phoneNumber || isProcessing || paymentStatus === 'success'}
+          className="w-full"
+        >
+          {isProcessing ? (
+            <>
+              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+              Processing...
+            </>
+          ) : paymentStatus === 'success' ? (
+            'Payment Completed'
+          ) : (
+            `Pay KES ${amount}`
           )}
-        </div>
-      )}
-    </div>
+        </Button>
+
+        <p className="text-xs text-muted-foreground text-center">
+          You will receive an M-Pesa prompt on your phone to complete the payment
+        </p>
+      </CardContent>
+    </Card>
   );
 };
 

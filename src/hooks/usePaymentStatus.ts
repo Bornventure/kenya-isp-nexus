@@ -1,4 +1,5 @@
 
+
 import { useState, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
@@ -131,7 +132,12 @@ export const usePaymentStatus = () => {
   ) => {
     if (!clientId || !amount) {
       console.error('Missing clientId or amount for payment processing:', { clientId, amount });
-      throw new Error('Missing required parameters for payment processing');
+      toast({
+        title: "Payment Error",
+        description: "Missing payment information. Please contact support.",
+        variant: "destructive",
+      });
+      return;
     }
 
     try {
@@ -149,13 +155,44 @@ export const usePaymentStatus = () => {
 
       if (error) {
         console.error('Payment processing error:', error);
+        toast({
+          title: "Payment Processing Error",
+          description: "Payment was successful but there was an issue updating your account. Please contact support if your balance doesn't reflect the payment.",
+          variant: "destructive",
+        });
         throw error;
       }
 
+      if (!data?.success) {
+        console.error('Payment processing failed:', data);
+        toast({
+          title: "Payment Processing Failed",
+          description: data?.error || "There was an issue processing your payment. Please contact support.",
+          variant: "destructive",
+        });
+        throw new Error(data?.error || 'Payment processing failed');
+      }
+
       console.log('Payment processed successfully:', data);
+      
+      toast({
+        title: "Payment Successful",
+        description: `Your payment of KES ${amount} has been processed successfully. Your wallet has been updated.`,
+      });
+      
       return data;
     } catch (error) {
       console.error('Failed to process payment:', error);
+      
+      // Don't show duplicate toasts if we already showed one above
+      if (error.message !== 'Payment processing failed') {
+        toast({
+          title: "Payment Processing Error",
+          description: "There was an unexpected error processing your payment. Please check your wallet balance or contact support.",
+          variant: "destructive",
+        });
+      }
+      
       throw error;
     }
   };

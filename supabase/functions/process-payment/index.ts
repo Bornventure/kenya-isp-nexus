@@ -217,18 +217,12 @@ serve(async (req) => {
           console.log('Auto-renewal successful')
           autoRenewed = true
           
-          // Send renewal notification manually since trigger is problematic
+          // Send renewal notification using safe method
           try {
-            await supabase.functions.invoke('send-notifications', {
-              body: {
-                client_id: clientId,
-                type: 'service_renewal',
-                data: {
-                  amount: client.monthly_rate,
-                  service_period_end: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(),
-                  remaining_balance: newBalance - client.monthly_rate
-                }
-              }
+            await sendNotificationSafely(supabase, clientId, 'service_renewal', {
+              amount: client.monthly_rate,
+              service_period_end: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(),
+              remaining_balance: newBalance - client.monthly_rate
             })
           } catch (notificationError) {
             console.error('Renewal notification error:', notificationError)
@@ -239,20 +233,14 @@ serve(async (req) => {
       }
     }
 
-    // Send payment success notification manually to avoid trigger issues
+    // Send payment success notification using safe method
     try {
-      await supabase.functions.invoke('send-notifications', {
-        body: {
-          client_id: clientId,
-          type: 'payment_success',
-          data: {
-            amount: amount,
-            receipt_number: mpesaReceiptNumber || checkoutRequestId,
-            payment_method: paymentMethod,
-            new_balance: autoRenewed ? newBalance - client.monthly_rate : newBalance,
-            auto_renewed: autoRenewed
-          }
-        }
+      await sendNotificationSafely(supabase, clientId, 'payment_success', {
+        amount: amount,
+        receipt_number: mpesaReceiptNumber || checkoutRequestId,
+        payment_method: paymentMethod,
+        new_balance: autoRenewed ? newBalance - client.monthly_rate : newBalance,
+        auto_renewed: autoRenewed
       })
       console.log('Payment success notification sent')
     } catch (notificationError) {
@@ -297,3 +285,18 @@ serve(async (req) => {
   }
 })
 
+// Safe notification helper function that won't break the payment flow
+async function sendNotificationSafely(supabase: any, clientId: string, type: string, data: any) {
+  try {
+    await supabase.functions.invoke('send-notifications', {
+      body: {
+        client_id: clientId,
+        type: type,
+        data: data
+      }
+    })
+  } catch (error) {
+    console.error('Safe notification failed (non-blocking):', error)
+    // Don't throw - this is intentionally non-blocking
+  }
+}
