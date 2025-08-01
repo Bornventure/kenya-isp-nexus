@@ -26,8 +26,13 @@ export const useUserDeletion = () => {
   });
 
   const canDeleteUser = (userId: string, userRole: string) => {
-    // Only super-admin can delete users
-    if (profile?.role !== 'super_admin') {
+    // Only super_admin and isp_admin can delete users
+    if (profile?.role !== 'super_admin' && profile?.role !== 'isp_admin') {
+      return false;
+    }
+
+    // ISP admin can't delete super_admin users
+    if (profile?.role === 'isp_admin' && userRole === 'super_admin') {
       return false;
     }
 
@@ -46,8 +51,8 @@ export const useUserDeletion = () => {
 
   const deleteUserMutation = useMutation({
     mutationFn: async (userId: string) => {
-      if (profile?.role !== 'super_admin') {
-        throw new Error('Only super administrators can delete users');
+      if (profile?.role !== 'super_admin' && profile?.role !== 'isp_admin') {
+        throw new Error('Only administrators can delete users');
       }
 
       console.log('Initiating user deletion for:', userId);

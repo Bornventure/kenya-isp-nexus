@@ -21,6 +21,7 @@ import {
 import { MoreHorizontal, UserX, Edit, Lock, Unlock, Trash2, KeyRound } from 'lucide-react';
 import { useUserDeletion } from '@/hooks/useUserDeletion';
 import { useUserActivation } from '@/hooks/useUserActivation';
+import { useAuth } from '@/contexts/AuthContext';
 import EditUserDialog from './EditUserDialog';
 import ChangePasswordDialog from './ChangePasswordDialog';
 import type { SystemUser } from '@/types/user';
@@ -35,9 +36,13 @@ const UserActions: React.FC<UserActionsProps> = ({ user }) => {
   const [showPasswordDialog, setShowPasswordDialog] = useState(false);
   const { deleteUser, isDeletingUser, canDeleteUser } = useUserDeletion();
   const { toggleUserActivation, isUpdatingActivation } = useUserActivation();
+  const { profile } = useAuth();
 
+  // Check permissions
   const canDelete = canDeleteUser(user.id, user.role);
-  const canEdit = user.role !== 'super_admin' || canDeleteUser(user.id, user.role);
+  const canEdit = user.role !== 'super_admin' || profile?.role === 'super_admin';
+  const canManageActivation = profile?.role === 'super_admin' || 
+    (profile?.role === 'isp_admin' && user.role !== 'super_admin');
 
   const handleDelete = () => {
     console.log('Delete confirmed for user:', user.id, user.first_name, user.last_name);
@@ -79,7 +84,7 @@ const UserActions: React.FC<UserActionsProps> = ({ user }) => {
             </>
           )}
           
-          {canDelete && (
+          {canManageActivation && (
             <DropdownMenuItem 
               onClick={handleToggleActivation}
               disabled={isUpdatingActivation}

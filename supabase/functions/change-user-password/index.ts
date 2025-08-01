@@ -30,13 +30,7 @@ Deno.serve(async (req) => {
       }
     )
 
-    // Create regular client to verify user session
-    const supabaseClient = createClient(
-      Deno.env.get('SUPABASE_URL') ?? '',
-      Deno.env.get('SUPABASE_ANON_KEY') ?? ''
-    )
-
-    // Get the current user from the request using the regular client
+    // Get the authorization header
     const authHeader = req.headers.get('Authorization');
     if (!authHeader) {
       console.error('No authorization header provided');
@@ -51,16 +45,13 @@ Deno.serve(async (req) => {
 
     const token = authHeader.replace('Bearer ', '');
     
-    // Set the session for the regular client
-    const { data: sessionData, error: sessionError } = await supabaseClient.auth.setSession({
-      access_token: token,
-      refresh_token: '' // Not needed for this operation
-    });
+    // Verify the token using the admin client
+    const { data: { user }, error: userError } = await supabaseAdmin.auth.getUser(token);
 
-    if (sessionError || !sessionData.user) {
-      console.error('Session verification failed:', sessionError);
+    if (userError || !user) {
+      console.error('User verification failed:', userError);
       return new Response(
-        JSON.stringify({ error: 'Invalid session' }),
+        JSON.stringify({ error: 'Invalid token' }),
         { 
           status: 401, 
           headers: { ...corsHeaders, 'Content-Type': 'application/json' }
@@ -68,7 +59,7 @@ Deno.serve(async (req) => {
       );
     }
 
-    const currentUserId = sessionData.user.id;
+    const currentUserId = user.id;
     console.log('Current user ID:', currentUserId);
 
     // Get the requesting user's profile to check permissions
