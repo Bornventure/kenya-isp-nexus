@@ -1,4 +1,5 @@
 
+
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 
@@ -120,21 +121,11 @@ serve(async (req) => {
 
     console.log('Payment insert data:', paymentInsertData)
 
-    // Disable the trigger temporarily to avoid notification issues
-    await supabase.rpc('execute', { 
-      query: 'ALTER TABLE payments DISABLE TRIGGER payment_notification_trigger' 
-    }).then(() => console.log('Trigger disabled')).catch(e => console.log('Trigger disable failed:', e))
-
     const { data: paymentRecord, error: paymentError } = await supabase
       .from('payments')
       .insert(paymentInsertData)
       .select()
       .single()
-
-    // Re-enable the trigger
-    await supabase.rpc('execute', { 
-      query: 'ALTER TABLE payments ENABLE TRIGGER payment_notification_trigger' 
-    }).then(() => console.log('Trigger re-enabled')).catch(e => console.log('Trigger enable failed:', e))
 
     if (paymentError) {
       console.error('Payment record creation failed:', paymentError)
@@ -305,3 +296,4 @@ serve(async (req) => {
     )
   }
 })
+
