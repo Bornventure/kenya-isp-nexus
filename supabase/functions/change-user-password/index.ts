@@ -30,17 +30,18 @@ Deno.serve(async (req) => {
       }
     )
 
-    // Get the current user from the request
-    const authHeader = req.headers.get('Authorization')!;
-    const token = authHeader.replace('Bearer ', '');
-    
-    // Verify the requesting user is authenticated
-    const { data: { user }, error: authError } = await supabaseAdmin.auth.getUser(token);
-    
-    if (authError || !user) {
-      console.error('Authentication failed:', authError);
+    // Create regular client to verify user session
+    const supabaseClient = createClient(
+      Deno.env.get('SUPABASE_URL') ?? '',
+      Deno.env.get('SUPABASE_ANON_KEY') ?? ''
+    )
+
+    // Get the current user from the request using the regular client
+    const authHeader = req.headers.get('Authorization');
+    if (!authHeader) {
+      console.error('No authorization header provided');
       return new Response(
-        JSON.stringify({ error: 'Unauthorized' }),
+        JSON.stringify({ error: 'Authorization header required' }),
         { 
           status: 401, 
           headers: { ...corsHeaders, 'Content-Type': 'application/json' }
@@ -48,12 +49,36 @@ Deno.serve(async (req) => {
       );
     }
 
+    const token = authHeader.replace('Bearer ', '');
+    
+    // Set the session for the regular client
+    const { data: sessionData, error: sessionError } = await supabaseClient.auth.setSession({
+      access_token: token,
+      refresh_token: '' // Not needed for this operation
+    });
+
+    if (sessionError || !sessionData.user) {
+      console.error('Session verification failed:', sessionError);
+      return new Response(
+        JSON.stringify({ error: 'Invalid session' }),
+        { 
+          status: 401, 
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+        }
+      );
+    }
+
+    const currentUserId = sessionData.user.id;
+    console.log('Current user ID:', currentUserId);
+
     // Get the requesting user's profile to check permissions
     const { data: requestingUserProfile, error: profileError } = await supabaseAdmin
       .from('profiles')
       .select('role, isp_company_id')
-      .eq('id', user.id)
+      .eq('id', currentUserId)
       .single();
+
+    console.log('Requesting user profile:', requestingUserProfile);
 
     if (profileError || !requestingUserProfile) {
       console.error('Error fetching requesting user profile:', profileError);
@@ -68,6 +93,8 @@ Deno.serve(async (req) => {
 
     // Check if user has admin permissions
     const isAdmin = ['super_admin', 'isp_admin'].includes(requestingUserProfile.role);
+    console.log('Is admin check:', isAdmin, 'Role:', requestingUserProfile.role);
+    
     if (!isAdmin) {
       return new Response(
         JSON.stringify({ error: 'Insufficient permissions. Admin role required.' }),
@@ -106,11 +133,14 @@ Deno.serve(async (req) => {
     if (requestingUserProfile.role === 'isp_admin') {
       const { data: targetUserProfile, error: targetProfileError } = await supabaseAdmin
         .from('profiles')
-        .select('isp_company_id')
+        .select('isp_company_id, role')
         .eq('id', user_id)
         .single();
 
+      console.log('Target user profile:', targetUserProfile);
+
       if (targetProfileError || !targetUserProfile) {
+        console.error('Target user not found:', targetProfileError);
         return new Response(
           JSON.stringify({ error: 'Target user not found' }),
           { 
@@ -129,9 +159,22 @@ Deno.serve(async (req) => {
           }
         );
       }
+
+      // Prevent isp_admin from changing other super_admin passwords
+      if (targetUserProfile.role === 'super_admin') {
+        return new Response(
+          JSON.stringify({ error: 'ISP admins cannot change super admin passwords' }),
+          { 
+            status: 403, 
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+          }
+        );
+      }
     }
 
     // Update the user's password using admin API
+    console.log('Attempting to update password for user:', user_id);
+    
     const { data, error } = await supabaseAdmin.auth.admin.updateUserById(
       user_id,
       { password: new_password }
