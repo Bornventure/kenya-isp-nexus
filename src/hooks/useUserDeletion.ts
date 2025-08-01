@@ -50,39 +50,55 @@ export const useUserDeletion = () => {
         throw new Error('Only super administrators can delete users');
       }
 
+      console.log('Initiating user deletion for:', userId);
+
       // Call edge function to delete user completely
       const { data, error } = await supabase.functions.invoke('delete-user-account', {
         body: { userId }
       });
 
       if (error) {
+        console.error('Delete user edge function error:', error);
         throw new Error(`Failed to delete user: ${error.message}`);
       }
 
+      if (!data?.success) {
+        console.error('User deletion failed:', data);
+        throw new Error(data?.error || 'Failed to delete user account');
+      }
+
+      console.log('User deleted successfully:', data);
       return data;
     },
-    onSuccess: () => {
+    onSuccess: (data, userId) => {
       queryClient.invalidateQueries({ queryKey: ['system-users'] });
       queryClient.invalidateQueries({ queryKey: ['super-admin-count'] });
       toast({
-        title: "User Deleted",
+        title: "User Deleted Successfully",
         description: "User account and all associated data have been permanently deleted.",
       });
+      console.log('Delete operation completed for user:', userId);
     },
-    onError: (error) => {
-      console.error('Error deleting user:', error);
+    onError: (error, userId) => {
+      console.error('Error deleting user:', userId, error);
       toast({
-        title: "Error",
-        description: error instanceof Error ? error.message : 'Failed to delete user',
+        title: "Delete Failed",
+        description: error instanceof Error ? error.message : 'Failed to delete user. Please try again.',
         variant: "destructive",
       });
     },
   });
 
+  const deleteUser = (userId: string) => {
+    console.log('Delete user requested for:', userId);
+    deleteUserMutation.mutate(userId);
+  };
+
   return {
-    deleteUser: deleteUserMutation.mutate,
+    deleteUser,
     isDeletingUser: deleteUserMutation.isPending,
     canDeleteUser,
     superAdminCount,
+    deleteUserMutation, // Expose the mutation for more advanced usage
   };
 };

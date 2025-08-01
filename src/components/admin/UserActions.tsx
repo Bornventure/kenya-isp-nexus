@@ -18,7 +18,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
-import { MoreHorizontal, UserX, Edit, Lock, Unlock } from 'lucide-react';
+import { MoreHorizontal, UserX, Edit, Lock, Unlock, Trash2 } from 'lucide-react';
 import { useUserDeletion } from '@/hooks/useUserDeletion';
 import { useUserActivation } from '@/hooks/useUserActivation';
 import EditUserDialog from './EditUserDialog';
@@ -38,12 +38,20 @@ const UserActions: React.FC<UserActionsProps> = ({ user }) => {
   const canEdit = user.role !== 'super_admin' || canDeleteUser(user.id, user.role);
 
   const handleDelete = () => {
+    console.log('Delete confirmed for user:', user.id, user.first_name, user.last_name);
     deleteUser(user.id);
     setShowDeleteDialog(false);
   };
 
   const handleToggleActivation = () => {
     toggleUserActivation({ userId: user.id, isActive: !user.is_active });
+  };
+
+  const getDeleteWarningMessage = () => {
+    if (user.role === 'super_admin') {
+      return "Deleting a super administrator is a critical action that will permanently remove their access to all system functions.";
+    }
+    return "This action will permanently delete the user account and cannot be undone.";
   };
 
   return (
@@ -86,7 +94,7 @@ const UserActions: React.FC<UserActionsProps> = ({ user }) => {
                 onClick={() => setShowDeleteDialog(true)}
                 className="text-red-600 focus:text-red-600"
               >
-                <UserX className="h-4 w-4 mr-2" />
+                <Trash2 className="h-4 w-4 mr-2" />
                 Delete User
               </DropdownMenuItem>
             </>
@@ -98,26 +106,55 @@ const UserActions: React.FC<UserActionsProps> = ({ user }) => {
         <AlertDialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>
           <AlertDialogContent>
             <AlertDialogHeader>
-              <AlertDialogTitle>Delete User Account</AlertDialogTitle>
-              <AlertDialogDescription>
-                Are you sure you want to permanently delete {user.first_name} {user.last_name}'s account? 
-                This action cannot be undone and will remove all associated data including:
-                <ul className="list-disc list-inside mt-2 space-y-1">
-                  <li>User profile and credentials</li>
-                  <li>All created tickets and comments</li>
-                  <li>Message history</li>
-                  <li>Activity logs</li>
-                </ul>
+              <AlertDialogTitle className="flex items-center gap-2">
+                <UserX className="h-5 w-5 text-red-600" />
+                Delete User Account
+              </AlertDialogTitle>
+              <AlertDialogDescription className="space-y-3">
+                <p className="font-medium">
+                  Are you sure you want to permanently delete {user.first_name} {user.last_name}'s account?
+                </p>
+                
+                <p className="text-sm text-amber-600 font-medium">
+                  {getDeleteWarningMessage()}
+                </p>
+                
+                <div className="bg-red-50 p-3 rounded-md">
+                  <p className="text-sm font-medium text-red-800 mb-2">This action will remove:</p>
+                  <ul className="list-disc list-inside text-sm text-red-700 space-y-1">
+                    <li>User profile and credentials</li>
+                    <li>All created tickets and comments</li>
+                    <li>Message history</li>
+                    <li>Activity logs and audit trails</li>
+                    <li>Any assigned permissions and roles</li>
+                  </ul>
+                </div>
+                
+                <p className="text-sm font-bold text-red-600">
+                  This action cannot be undone.
+                </p>
               </AlertDialogDescription>
             </AlertDialogHeader>
             <AlertDialogFooter>
-              <AlertDialogCancel>Cancel</AlertDialogCancel>
+              <AlertDialogCancel disabled={isDeletingUser}>
+                Cancel
+              </AlertDialogCancel>
               <AlertDialogAction 
                 onClick={handleDelete}
                 disabled={isDeletingUser}
-                className="bg-red-600 hover:bg-red-700"
+                className="bg-red-600 hover:bg-red-700 focus:ring-red-500"
               >
-                {isDeletingUser ? 'Deleting...' : 'Delete User'}
+                {isDeletingUser ? (
+                  <>
+                    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
+                    Deleting...
+                  </>
+                ) : (
+                  <>
+                    <Trash2 className="h-4 w-4 mr-2" />
+                    Delete User
+                  </>
+                )}
               </AlertDialogAction>
             </AlertDialogFooter>
           </AlertDialogContent>
