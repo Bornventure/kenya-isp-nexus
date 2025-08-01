@@ -31,6 +31,27 @@ import LicenseGuard from '@/components/license/LicenseGuard';
 import RealtimeNotifications from '@/components/dashboard/RealtimeNotifications';
 import { useLicenseValidation } from '@/hooks/useLicenseValidation';
 
+interface RolePermissions {
+  clients: boolean;
+  billing: boolean;
+  invoices: boolean;
+  analytics: boolean;
+  equipment: boolean;
+  inventory: boolean;
+  network: boolean;
+  networkStatus: boolean;
+  networkMap: boolean;
+  messages: boolean;
+  support: boolean;
+  hotspots: boolean;
+  packages: boolean;
+  developerPortal: boolean;
+  settings: boolean;
+  licenseManagement: boolean;
+  dataMigration: boolean;
+  licenseActivation: boolean;
+}
+
 const AppContent: React.FC = () => {
   const { user, profile, isLoading, profileError } = useAuth();
   const { validation } = useLicenseValidation();
@@ -46,7 +67,33 @@ const AppContent: React.FC = () => {
 
   // User role calculations with role-based permissions
   const { isAdmin, canAccessDashboard, isSuperAdmin, rolePermissions } = useMemo(() => {
-    if (!profile) return { isAdmin: false, canAccessDashboard: false, isSuperAdmin: false, rolePermissions: {} };
+    const defaultPermissions: RolePermissions = {
+      clients: false,
+      billing: false,
+      invoices: false,
+      analytics: false,
+      equipment: false,
+      inventory: false,
+      network: false,
+      networkStatus: false,
+      networkMap: false,
+      messages: false,
+      support: false,
+      hotspots: false,
+      packages: false,
+      developerPortal: false,
+      settings: false,
+      licenseManagement: false,
+      dataMigration: false,
+      licenseActivation: false
+    };
+
+    if (!profile) return { 
+      isAdmin: false, 
+      canAccessDashboard: false, 
+      isSuperAdmin: false, 
+      rolePermissions: defaultPermissions 
+    };
     
     const isAdmin = ['super_admin', 'isp_admin'].includes(profile.role);
     const isSuperAdmin = profile.role === 'super_admin';
@@ -72,7 +119,7 @@ const AppContent: React.FC = () => {
     const canAccessDashboard = dashboardRoles.includes(profile.role);
     
     // Define role-based permissions
-    const rolePermissions = {
+    const rolePermissions: RolePermissions = {
       // Admin routes - full access
       clients: isAdmin || ['customer_support', 'sales_manager', 'sales_account_manager'].includes(profile.role),
       billing: isAdmin || ['billing_admin', 'billing_finance'].includes(profile.role),
