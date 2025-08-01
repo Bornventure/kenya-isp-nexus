@@ -1,0 +1,194 @@
+
+import { supabase } from '@/integrations/supabase/client';
+
+export interface RadiusUser {
+  username: string;
+  password: string;
+  clientId: string;
+  groupName: string;
+  maxUpload: string;
+  maxDownload: string;
+  expiration: Date;
+  isActive: boolean;
+}
+
+export interface RadiusSession {
+  username: string;
+  nasIpAddress: string;
+  sessionId: string;
+  startTime: Date;
+  bytesIn: number;
+  bytesOut: number;
+  status: 'active' | 'stopped';
+}
+
+class RadiusService {
+  private radiusServerUrl = 'http://localhost:1812'; // FreeRADIUS server
+
+  async createRadiusUser(client: any, servicePackage: any): Promise<boolean> {
+    try {
+      const radiusUser: RadiusUser = {
+        username: client.email || client.phone,
+        password: this.generatePassword(),
+        clientId: client.id,
+        groupName: servicePackage.name.toLowerCase().replace(/\s+/g, '_'),
+        maxUpload: this.parseSpeed(servicePackage.speed, 'upload'),
+        maxDownload: this.parseSpeed(servicePackage.speed, 'download'),
+        expiration: new Date(client.subscription_end_date),
+        isActive: client.status === 'active'
+      };
+
+      // Store RADIUS user credentials in database
+      const { error } = await supabase
+        .from('radius_users')
+        .insert({
+          client_id: client.id,
+          username: radiusUser.username,
+          password: radiusUser.password,
+          group_name: radiusUser.groupName,
+          max_upload: radiusUser.maxUpload,
+          max_download: radiusUser.maxDownload,
+          expiration: radiusUser.expiration,
+          is_active: radiusUser.isActive,
+          isp_company_id: client.isp_company_id
+        });
+
+      if (error) throw error;
+
+      // Configure on FreeRADIUS server
+      await this.configureRadiusServer(radiusUser);
+
+      console.log(`RADIUS user created for client: ${client.name}`);
+      return true;
+    } catch (error) {
+      console.error('Error creating RADIUS user:', error);
+      return false;
+    }
+  }
+
+  async updateRadiusUser(clientId: string, updates: Partial<RadiusUser>): Promise<boolean> {
+    try {
+      const { error } = await supabase
+        .from('radius_users')
+        .update(updates)
+        .eq('client_id', clientId);
+
+      if (error) throw error;
+
+      // Update on FreeRADIUS server
+      const { data: radiusUser } = await supabase
+        .from('radius_users')
+        .select('*')
+        .eq('client_id', clientId)
+        .single();
+
+      if (radiusUser) {
+        await this.configureRadiusServer(radiusUser);
+      }
+
+      return true;
+    } catch (error) {
+      console.error('Error updating RADIUS user:', error);
+      return false;
+    }
+  }
+
+  async deleteRadiusUser(clientId: string): Promise<boolean> {
+    try {
+      const { data: radiusUser } = await supabase
+        .from('radius_users')
+        .select('username')
+        .eq('client_id', clientId)
+        .single();
+
+      if (radiusUser) {
+        // Remove from FreeRADIUS
+        await this.removeFromRadiusServer(radiusUser.username);
+      }
+
+      const { error } = await supabase
+        .from('radius_users')
+        .delete()
+        .eq('client_id', clientId);
+
+      if (error) throw error;
+      return true;
+    } catch (error) {
+      console.error('Error deleting RADIUS user:', error);
+      return false;
+    }
+  }
+
+  async getActiveSessions(): Promise<RadiusSession[]> {
+    try {
+      const { data, error } = await supabase
+        .from('radius_sessions')
+        .select('*')
+        .eq('status', 'active');
+
+      if (error) throw error;
+      return data || [];
+    } catch (error) {
+      console.error('Error fetching RADIUS sessions:', error);
+      return [];
+    }
+  }
+
+  async disconnectUser(username: string): Promise<boolean> {
+    try {
+      // Send disconnect message to RADIUS server
+      const response = await fetch(`${this.radiusServerUrl}/disconnect`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ username })
+      });
+
+      return response.ok;
+    } catch (error) {
+      console.error('Error disconnecting RADIUS user:', error);
+      return false;
+    }
+  }
+
+  private async configureRadiusServer(user: RadiusUser): Promise<void> {
+    // Configure FreeRADIUS with user attributes
+    const radiusConfig = {
+      username: user.username,
+      password: user.password,
+      groupName: user.groupName,
+      'Mikrotik-Rate-Limit': `${user.maxUpload}/${user.maxDownload}`,
+      'Session-Timeout': this.calculateSessionTimeout(user.expiration),
+      'Expiration': user.expiration.toISOString()
+    };
+
+    console.log('Configuring RADIUS server with:', radiusConfig);
+    
+    // In production, this would make actual API calls to FreeRADIUS
+    // For now, we simulate the configuration
+  }
+
+  private async removeFromRadiusServer(username: string): Promise<void> {
+    console.log(`Removing ${username} from RADIUS server`);
+    // Implementation for removing user from FreeRADIUS
+  }
+
+  private generatePassword(): string {
+    return Math.random().toString(36).slice(-8);
+  }
+
+  private parseSpeed(speed: string, type: 'upload' | 'download'): string {
+    const match = speed.match(/(\d+)/);
+    const speedValue = match ? parseInt(match[1]) : 10;
+    
+    // Assume upload is 80% of download speed
+    return type === 'upload' ? `${Math.floor(speedValue * 0.8)}M` : `${speedValue}M`;
+  }
+
+  private calculateSessionTimeout(expiration: Date): number {
+    const now = new Date();
+    const timeDiff = expiration.getTime() - now.getTime();
+    return Math.max(0, Math.floor(timeDiff / 1000)); // Return seconds
+  }
+}
+
+export const radiusService = new RadiusService();
