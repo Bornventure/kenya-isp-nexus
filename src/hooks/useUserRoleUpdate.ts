@@ -1,48 +1,49 @@
 
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
-import { toast } from 'sonner';
-import type { UserRole } from '@/types/user';
+import { useToast } from '@/hooks/use-toast';
+import { UserRole } from '@/types/index';
 
-interface UpdateUserRoleParams {
+export interface UpdateUserRoleParams {
   userId: string;
-  role: UserRole;
+  newRole: UserRole;
 }
 
 export const useUserRoleUpdate = () => {
   const queryClient = useQueryClient();
-  
-  return useMutation({
-    mutationFn: async ({ userId, role }: UpdateUserRoleParams) => {
-      console.log('Updating user role:', { userId, role });
-      
+  const { toast } = useToast();
+
+  const updateUserRole = useMutation({
+    mutationFn: async ({ userId, newRole }: UpdateUserRoleParams) => {
       const { data, error } = await supabase
         .from('profiles')
-        .update({ 
-          role: role as UserRole,
-          updated_at: new Date().toISOString()
-        })
+        .update({ role: newRole })
         .eq('id', userId)
         .select()
         .single();
 
-      if (error) {
-        console.error('Role update error:', error);
-        throw error;
-      }
-
+      if (error) throw error;
       return data;
     },
-    onSuccess: (data) => {
-      // Invalidate and refetch user queries
+    onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['users'] });
-      queryClient.invalidateQueries({ queryKey: ['user', data.id] });
-      
-      toast.success(`User role updated to ${data.role}`);
+      toast({
+        title: "Success",
+        description: "User role updated successfully",
+      });
     },
-    onError: (error: any) => {
-      console.error('Failed to update user role:', error);
-      toast.error(`Failed to update user role: ${error.message}`);
+    onError: (error) => {
+      console.error('Error updating user role:', error);
+      toast({
+        title: "Error",
+        description: "Failed to update user role",
+        variant: "destructive",
+      });
     },
   });
+
+  return {
+    updateUserRole: updateUserRole.mutate,
+    isUpdatingRole: updateUserRole.isPending,
+  };
 };
