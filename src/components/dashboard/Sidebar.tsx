@@ -1,3 +1,4 @@
+
 import React, { useState } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { 
@@ -26,7 +27,8 @@ import {
   Key,
   Activity,
   LogOut,
-  Database
+  Database,
+  Server
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useAuth } from '@/contexts/AuthContext';
@@ -75,6 +77,7 @@ const Sidebar = () => {
     network: isAdmin || ['network_engineer', 'network_operations'].includes(profile?.role || ''),
     networkStatus: isAdmin || ['network_engineer', 'network_operations'].includes(profile?.role || ''),
     networkMap: isAdmin || ['network_engineer', 'network_operations'].includes(profile?.role || ''),
+    systemInfrastructure: isAdmin || ['network_engineer', 'network_operations', 'infrastructure_manager', 'infrastructure_asset', 'technician'].includes(profile?.role || ''),
     hotspots: isAdmin || ['hotspot_admin', 'network_engineer'].includes(profile?.role || ''),
     billing: isAdmin || ['billing_admin', 'billing_finance'].includes(profile?.role || ''),
     invoices: isAdmin || ['billing_admin', 'billing_finance'].includes(profile?.role || ''),
@@ -131,6 +134,12 @@ const Sidebar = () => {
       path: '/network-status', 
       icon: Activity,
       show: hasPermission.networkStatus
+    },
+    { 
+      name: 'System Infrastructure', 
+      path: '/system-infrastructure', 
+      icon: Server,
+      show: hasPermission.systemInfrastructure
     },
     { 
       name: 'Hotspots', 

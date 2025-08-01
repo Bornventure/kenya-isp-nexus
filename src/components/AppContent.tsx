@@ -1,3 +1,4 @@
+
 import React, { useMemo } from 'react';
 import { Routes, Route, Navigate } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
@@ -24,6 +25,7 @@ import Invoices from '@/pages/Invoices';
 import Analytics from '@/pages/Analytics';
 import DeveloperPortal from '@/pages/DeveloperPortal';
 import DataMigration from '@/pages/DataMigration';
+import SystemInfrastructure from '@/pages/SystemInfrastructure';
 import NotFound from '@/pages/NotFound';
 import AccessDenied from '@/components/AccessDenied';
 import DashboardLayout from '@/components/dashboard/DashboardLayout';
@@ -50,6 +52,7 @@ interface RolePermissions {
   licenseManagement: boolean;
   dataMigration: boolean;
   licenseActivation: boolean;
+  systemInfrastructure: boolean;
 }
 
 const AppContent: React.FC = () => {
@@ -85,7 +88,8 @@ const AppContent: React.FC = () => {
       settings: false,
       licenseManagement: false,
       dataMigration: false,
-      licenseActivation: false
+      licenseActivation: false,
+      systemInfrastructure: false
     };
 
     if (!profile) return { 
@@ -134,6 +138,9 @@ const AppContent: React.FC = () => {
       network: isAdmin || ['network_engineer', 'network_operations'].includes(profile.role),
       networkStatus: isAdmin || ['network_engineer', 'network_operations'].includes(profile.role),
       networkMap: isAdmin || ['network_engineer', 'network_operations'].includes(profile.role),
+      
+      // System Infrastructure - accessible to network engineers and infrastructure managers
+      systemInfrastructure: isAdmin || ['network_engineer', 'network_operations', 'infrastructure_manager', 'infrastructure_asset', 'technician'].includes(profile.role),
       
       // Communication
       messages: canAccessDashboard, // All dashboard users can access messages
@@ -353,6 +360,18 @@ const AppContent: React.FC = () => {
                       </LicenseGuard>
                     ) : (
                       <NetworkMap />
+                    )
+                  } />
+                )}
+                
+                {rolePermissions.systemInfrastructure && (
+                  <Route path="/system-infrastructure" element={
+                    validation?.isDeactivated || validation?.isExpired ? (
+                      <LicenseGuard allowReadOnly={validation?.isDeactivated}>
+                        <SystemInfrastructure />
+                      </LicenseGuard>
+                    ) : (
+                      <SystemInfrastructure />
                     )
                   } />
                 )}
