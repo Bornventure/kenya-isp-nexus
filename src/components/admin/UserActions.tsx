@@ -18,10 +18,11 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
-import { MoreHorizontal, UserX, Edit, Lock, Unlock, Trash2 } from 'lucide-react';
+import { MoreHorizontal, UserX, Edit, Lock, Unlock, Trash2, KeyRound } from 'lucide-react';
 import { useUserDeletion } from '@/hooks/useUserDeletion';
 import { useUserActivation } from '@/hooks/useUserActivation';
 import EditUserDialog from './EditUserDialog';
+import ChangePasswordDialog from './ChangePasswordDialog';
 import type { SystemUser } from '@/types/user';
 
 interface UserActionsProps {
@@ -31,6 +32,7 @@ interface UserActionsProps {
 const UserActions: React.FC<UserActionsProps> = ({ user }) => {
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
   const [showEditDialog, setShowEditDialog] = useState(false);
+  const [showPasswordDialog, setShowPasswordDialog] = useState(false);
   const { deleteUser, isDeletingUser, canDeleteUser } = useUserDeletion();
   const { toggleUserActivation, isUpdatingActivation } = useUserActivation();
 
@@ -64,11 +66,19 @@ const UserActions: React.FC<UserActionsProps> = ({ user }) => {
         </DropdownMenuTrigger>
         <DropdownMenuContent align="end">
           {canEdit && (
-            <DropdownMenuItem onClick={() => setShowEditDialog(true)}>
-              <Edit className="h-4 w-4 mr-2" />
-              Edit User
-            </DropdownMenuItem>
+            <>
+              <DropdownMenuItem onClick={() => setShowEditDialog(true)}>
+                <Edit className="h-4 w-4 mr-2" />
+                Edit User
+              </DropdownMenuItem>
+              
+              <DropdownMenuItem onClick={() => setShowPasswordDialog(true)}>
+                <KeyRound className="h-4 w-4 mr-2" />
+                Change Password
+              </DropdownMenuItem>
+            </>
           )}
+          
           {canDelete && (
             <DropdownMenuItem 
               onClick={handleToggleActivation}
@@ -87,6 +97,7 @@ const UserActions: React.FC<UserActionsProps> = ({ user }) => {
               )}
             </DropdownMenuItem>
           )}
+          
           {canDelete && (
             <>
               <DropdownMenuSeparator />
@@ -162,11 +173,19 @@ const UserActions: React.FC<UserActionsProps> = ({ user }) => {
       )}
 
       {canEdit && (
-        <EditUserDialog 
-          user={user}
-          open={showEditDialog}
-          onOpenChange={setShowEditDialog}
-        />
+        <>
+          <EditUserDialog 
+            user={user}
+            open={showEditDialog}
+            onOpenChange={setShowEditDialog}
+          />
+          
+          <ChangePasswordDialog 
+            user={user}
+            open={showPasswordDialog}
+            onOpenChange={setShowPasswordDialog}
+          />
+        </>
       )}
     </>
   );
