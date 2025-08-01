@@ -59,13 +59,22 @@ const ChangePasswordDialog: React.FC<ChangePasswordDialogProps> = ({
     setIsChanging(true);
 
     try {
-      // Use the admin auth API to update the user's password
-      const { error } = await supabase.auth.admin.updateUserById(
-        user.id,
-        { password: newPassword }
-      );
+      // Use the edge function to update the user's password
+      const { data, error } = await supabase.functions.invoke('change-user-password', {
+        body: {
+          user_id: user.id,
+          new_password: newPassword,
+        },
+      });
 
-      if (error) throw error;
+      if (error) {
+        console.error('Error changing password:', error);
+        throw new Error(error.message || 'Failed to change password');
+      }
+
+      if (!data?.success) {
+        throw new Error(data?.error || 'Failed to change password');
+      }
 
       toast({
         title: "Password Changed",
