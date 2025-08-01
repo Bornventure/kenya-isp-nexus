@@ -67,10 +67,26 @@ const Sidebar = () => {
     'readonly'
   ].includes(profile?.role || '');
 
+  // Define role-based permissions for navigation
+  const hasPermission = {
+    clients: isAdmin || ['customer_support', 'sales_manager', 'sales_account_manager'].includes(profile?.role || ''),
+    equipment: isAdmin || ['network_engineer', 'network_operations', 'infrastructure_manager', 'infrastructure_asset', 'technician'].includes(profile?.role || ''),
+    inventory: isAdmin || ['infrastructure_manager', 'infrastructure_asset', 'technician'].includes(profile?.role || ''),
+    network: isAdmin || ['network_engineer', 'network_operations'].includes(profile?.role || ''),
+    networkStatus: isAdmin || ['network_engineer', 'network_operations'].includes(profile?.role || ''),
+    networkMap: isAdmin || ['network_engineer', 'network_operations'].includes(profile?.role || ''),
+    hotspots: isAdmin || ['hotspot_admin', 'network_engineer'].includes(profile?.role || ''),
+    billing: isAdmin || ['billing_admin', 'billing_finance'].includes(profile?.role || ''),
+    invoices: isAdmin || ['billing_admin', 'billing_finance'].includes(profile?.role || ''),
+    support: isAdmin || ['customer_support'].includes(profile?.role || ''),
+    analytics: isAdmin || ['billing_admin', 'billing_finance', 'sales_manager'].includes(profile?.role || ''),
+  };
+
   console.log('Sidebar role check:', {
     role: profile?.role,
     isAdmin,
-    canAccessDashboard
+    canAccessDashboard,
+    hasPermission
   });
 
   const navigationItems = [
@@ -84,73 +100,73 @@ const Sidebar = () => {
       name: 'Clients', 
       path: '/clients', 
       icon: Users,
-      show: canAccessDashboard
+      show: hasPermission.clients
     },
     { 
       name: 'Equipment', 
       path: '/equipment', 
       icon: Monitor,
-      show: canAccessDashboard
+      show: hasPermission.equipment
     },
     { 
       name: 'Inventory', 
       path: '/inventory', 
       icon: Archive,
-      show: canAccessDashboard
+      show: hasPermission.inventory
     },
     { 
       name: 'Network', 
       path: '/network', 
       icon: Network,
-      show: canAccessDashboard
+      show: hasPermission.network
     },
     { 
       name: 'Network Map', 
       path: '/network-map', 
       icon: MapPin,
-      show: canAccessDashboard
+      show: hasPermission.networkMap
     },
     { 
       name: 'Network Status', 
       path: '/network-status', 
       icon: Activity,
-      show: canAccessDashboard
+      show: hasPermission.networkStatus
     },
     { 
       name: 'Hotspots', 
       path: '/hotspots', 
       icon: Radio,
-      show: canAccessDashboard
+      show: hasPermission.hotspots
     },
     { 
       name: 'Billing', 
       path: '/billing', 
       icon: CreditCard,
-      show: canAccessDashboard
+      show: hasPermission.billing
     },
     { 
       name: 'Invoices', 
       path: '/invoices', 
       icon: FileText,
-      show: canAccessDashboard
+      show: hasPermission.invoices
     },
     { 
       name: 'Support', 
       path: '/support', 
       icon: Headphones,
-      show: canAccessDashboard
+      show: hasPermission.support
     },
     { 
       name: 'Messages', 
       path: '/messages', 
       icon: MessageSquare,
-      show: canAccessDashboard
+      show: canAccessDashboard // All dashboard users can access messages
     },
     { 
       name: 'Analytics', 
       path: '/analytics', 
       icon: BarChart3,
-      show: canAccessDashboard
+      show: hasPermission.analytics
     },
     { 
       name: 'Packages', 

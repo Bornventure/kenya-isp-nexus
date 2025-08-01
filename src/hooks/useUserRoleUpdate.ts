@@ -3,7 +3,6 @@ import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/contexts/AuthContext';
-import type { SystemUser } from '@/types/user';
 
 export const useUserRoleUpdate = () => {
   const { profile } = useAuth();
@@ -11,7 +10,7 @@ export const useUserRoleUpdate = () => {
   const queryClient = useQueryClient();
 
   const updateUserRoleMutation = useMutation({
-    mutationFn: async ({ userId, newRole }: { userId: string; newRole: SystemUser['role'] }) => {
+    mutationFn: async ({ userId, newRole }: { userId: string; newRole: string }) => {
       if (profile?.role !== 'super_admin') {
         throw new Error('Only super administrators can change user roles');
       }

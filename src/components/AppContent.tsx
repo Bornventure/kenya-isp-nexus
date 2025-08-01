@@ -44,9 +44,9 @@ const AppContent: React.FC = () => {
     return 'authenticated';
   }, [user, profile, isLoading, profileError]);
 
-  // User role calculations with expanded role support
-  const { isAdmin, canAccessDashboard, isSuperAdmin } = useMemo(() => {
-    if (!profile) return { isAdmin: false, canAccessDashboard: false, isSuperAdmin: false };
+  // User role calculations with role-based permissions
+  const { isAdmin, canAccessDashboard, isSuperAdmin, rolePermissions } = useMemo(() => {
+    if (!profile) return { isAdmin: false, canAccessDashboard: false, isSuperAdmin: false, rolePermissions: {} };
     
     const isAdmin = ['super_admin', 'isp_admin'].includes(profile.role);
     const isSuperAdmin = profile.role === 'super_admin';
@@ -71,14 +71,48 @@ const AppContent: React.FC = () => {
     
     const canAccessDashboard = dashboardRoles.includes(profile.role);
     
+    // Define role-based permissions
+    const rolePermissions = {
+      // Admin routes - full access
+      clients: isAdmin || ['customer_support', 'sales_manager', 'sales_account_manager'].includes(profile.role),
+      billing: isAdmin || ['billing_admin', 'billing_finance'].includes(profile.role),
+      invoices: isAdmin || ['billing_admin', 'billing_finance'].includes(profile.role),
+      analytics: isAdmin || ['billing_admin', 'billing_finance', 'sales_manager'].includes(profile.role),
+      
+      // Equipment and infrastructure
+      equipment: isAdmin || ['network_engineer', 'network_operations', 'infrastructure_manager', 'infrastructure_asset', 'technician'].includes(profile.role),
+      inventory: isAdmin || ['infrastructure_manager', 'infrastructure_asset', 'technician'].includes(profile.role),
+      
+      // Network management
+      network: isAdmin || ['network_engineer', 'network_operations'].includes(profile.role),
+      networkStatus: isAdmin || ['network_engineer', 'network_operations'].includes(profile.role),
+      networkMap: isAdmin || ['network_engineer', 'network_operations'].includes(profile.role),
+      
+      // Communication
+      messages: canAccessDashboard, // All dashboard users can access messages
+      support: isAdmin || ['customer_support'].includes(profile.role),
+      
+      // Hotspots
+      hotspots: isAdmin || ['hotspot_admin', 'network_engineer'].includes(profile.role),
+      
+      // Admin-only routes
+      packages: isAdmin,
+      developerPortal: isAdmin,
+      settings: isAdmin,
+      licenseManagement: isAdmin,
+      dataMigration: isAdmin,
+      licenseActivation: isAdmin
+    };
+    
     console.log('User role check:', {
       role: profile.role,
       isAdmin,
       canAccessDashboard,
-      isSuperAdmin
+      isSuperAdmin,
+      rolePermissions
     });
     
-    return { isAdmin, canAccessDashboard, isSuperAdmin };
+    return { isAdmin, canAccessDashboard, isSuperAdmin, rolePermissions };
   }, [profile]);
 
   // Loading initial auth state
@@ -167,156 +201,206 @@ const AppContent: React.FC = () => {
                   </LicenseGuard>
                 } />
                 
-                {/* Admin Routes - only wrap with LicenseGuard if license has issues */}
-                {isAdmin && (
-                  <>
-                    <Route path="/clients" element={
-                      validation?.isDeactivated || validation?.isExpired ? (
-                        <LicenseGuard allowReadOnly={validation?.isDeactivated}>
-                          <Clients />
-                        </LicenseGuard>
-                      ) : (
+                {/* Role-based access routes */}
+                {rolePermissions.clients && (
+                  <Route path="/clients" element={
+                    validation?.isDeactivated || validation?.isExpired ? (
+                      <LicenseGuard allowReadOnly={validation?.isDeactivated}>
                         <Clients />
-                      )
-                    } />
-                    <Route path="/billing" element={
-                      validation?.isDeactivated || validation?.isExpired ? (
-                        <LicenseGuard allowReadOnly={validation?.isDeactivated}>
-                          <Billing />
-                        </LicenseGuard>
-                      ) : (
+                      </LicenseGuard>
+                    ) : (
+                      <Clients />
+                    )
+                  } />
+                )}
+                
+                {rolePermissions.billing && (
+                  <Route path="/billing" element={
+                    validation?.isDeactivated || validation?.isExpired ? (
+                      <LicenseGuard allowReadOnly={validation?.isDeactivated}>
                         <Billing />
-                      )
-                    } />
-                    <Route path="/invoices" element={
-                      validation?.isDeactivated || validation?.isExpired ? (
-                        <LicenseGuard allowReadOnly={validation?.isDeactivated}>
-                          <Invoices />
-                        </LicenseGuard>
-                      ) : (
+                      </LicenseGuard>
+                    ) : (
+                      <Billing />
+                    )
+                  } />
+                )}
+                
+                {rolePermissions.invoices && (
+                  <Route path="/invoices" element={
+                    validation?.isDeactivated || validation?.isExpired ? (
+                      <LicenseGuard allowReadOnly={validation?.isDeactivated}>
                         <Invoices />
-                      )
-                    } />
-                    <Route path="/analytics" element={
-                      validation?.isDeactivated || validation?.isExpired ? (
-                        <LicenseGuard allowReadOnly={validation?.isDeactivated}>
-                          <Analytics />
-                        </LicenseGuard>
-                      ) : (
+                      </LicenseGuard>
+                    ) : (
+                      <Invoices />
+                    )
+                  } />
+                )}
+                
+                {rolePermissions.analytics && (
+                  <Route path="/analytics" element={
+                    validation?.isDeactivated || validation?.isExpired ? (
+                      <LicenseGuard allowReadOnly={validation?.isDeactivated}>
                         <Analytics />
-                      )
-                    } />
-                    <Route path="/equipment" element={
-                      validation?.isDeactivated || validation?.isExpired ? (
-                        <LicenseGuard allowReadOnly={validation?.isDeactivated}>
-                          <Equipment />
-                        </LicenseGuard>
-                      ) : (
+                      </LicenseGuard>
+                    ) : (
+                      <Analytics />
+                    )
+                  } />
+                )}
+                
+                {rolePermissions.equipment && (
+                  <Route path="/equipment" element={
+                    validation?.isDeactivated || validation?.isExpired ? (
+                      <LicenseGuard allowReadOnly={validation?.isDeactivated}>
                         <Equipment />
-                      )
-                    } />
-                    <Route path="/network" element={
-                      validation?.isDeactivated || validation?.isExpired ? (
-                        <LicenseGuard allowReadOnly={validation?.isDeactivated}>
-                          <NetworkManagement />
-                        </LicenseGuard>
-                      ) : (
-                        <NetworkManagement />
-                      )
-                    } />
-                    <Route path="/network-status" element={
-                      validation?.isDeactivated || validation?.isExpired ? (
-                        <LicenseGuard allowReadOnly={validation?.isDeactivated}>
-                          <NetworkStatus />
-                        </LicenseGuard>
-                      ) : (
-                        <NetworkStatus />
-                      )
-                    } />
-                    <Route path="/network-map" element={
-                      validation?.isDeactivated || validation?.isExpired ? (
-                        <LicenseGuard allowReadOnly={validation?.isDeactivated}>
-                          <NetworkMap />
-                        </LicenseGuard>
-                      ) : (
-                        <NetworkMap />
-                      )
-                    } />
-                    <Route path="/inventory" element={
-                      validation?.isDeactivated || validation?.isExpired ? (
-                        <LicenseGuard allowReadOnly={validation?.isDeactivated}>
-                          <Inventory />
-                        </LicenseGuard>
-                      ) : (
+                      </LicenseGuard>
+                    ) : (
+                      <Equipment />
+                    )
+                  } />
+                )}
+                
+                {rolePermissions.inventory && (
+                  <Route path="/inventory" element={
+                    validation?.isDeactivated || validation?.isExpired ? (
+                      <LicenseGuard allowReadOnly={validation?.isDeactivated}>
                         <Inventory />
-                      )
-                    } />
-                    <Route path="/messages" element={
-                      validation?.isDeactivated || validation?.isExpired ? (
-                        <LicenseGuard allowReadOnly={validation?.isDeactivated}>
-                          <Messages />
-                        </LicenseGuard>
-                      ) : (
+                      </LicenseGuard>
+                    ) : (
+                      <Inventory />
+                    )
+                  } />
+                )}
+                
+                {rolePermissions.network && (
+                  <Route path="/network" element={
+                    validation?.isDeactivated || validation?.isExpired ? (
+                      <LicenseGuard allowReadOnly={validation?.isDeactivated}>
+                        <NetworkManagement />
+                      </LicenseGuard>
+                    ) : (
+                      <NetworkManagement />
+                    )
+                  } />
+                )}
+                
+                {rolePermissions.networkStatus && (
+                  <Route path="/network-status" element={
+                    validation?.isDeactivated || validation?.isExpired ? (
+                      <LicenseGuard allowReadOnly={validation?.isDeactivated}>
+                        <NetworkStatus />
+                      </LicenseGuard>
+                    ) : (
+                      <NetworkStatus />
+                    )
+                  } />
+                )}
+                
+                {rolePermissions.networkMap && (
+                  <Route path="/network-map" element={
+                    validation?.isDeactivated || validation?.isExpired ? (
+                      <LicenseGuard allowReadOnly={validation?.isDeactivated}>
+                        <NetworkMap />
+                      </LicenseGuard>
+                    ) : (
+                      <NetworkMap />
+                    )
+                  } />
+                )}
+                
+                {rolePermissions.messages && (
+                  <Route path="/messages" element={
+                    validation?.isDeactivated || validation?.isExpired ? (
+                      <LicenseGuard allowReadOnly={validation?.isDeactivated}>
                         <Messages />
-                      )
-                    } />
-                    <Route path="/support" element={
-                      validation?.isDeactivated || validation?.isExpired ? (
-                        <LicenseGuard allowReadOnly={validation?.isDeactivated}>
-                          <Support />
-                        </LicenseGuard>
-                      ) : (
+                      </LicenseGuard>
+                    ) : (
+                      <Messages />
+                    )
+                  } />
+                )}
+                
+                {rolePermissions.support && (
+                  <Route path="/support" element={
+                    validation?.isDeactivated || validation?.isExpired ? (
+                      <LicenseGuard allowReadOnly={validation?.isDeactivated}>
                         <Support />
-                      )
-                    } />
-                    <Route path="/hotspots" element={
-                      validation?.isDeactivated || validation?.isExpired ? (
-                        <LicenseGuard allowReadOnly={validation?.isDeactivated}>
-                          <HotspotManagement />
-                        </LicenseGuard>
-                      ) : (
+                      </LicenseGuard>
+                    ) : (
+                      <Support />
+                    )
+                  } />
+                )}
+                
+                {rolePermissions.hotspots && (
+                  <Route path="/hotspots" element={
+                    validation?.isDeactivated || validation?.isExpired ? (
+                      <LicenseGuard allowReadOnly={validation?.isDeactivated}>
                         <HotspotManagement />
-                      )
-                    } />
-                    <Route path="/packages" element={
-                      validation?.isDeactivated || validation?.isExpired ? (
-                        <LicenseGuard allowReadOnly={validation?.isDeactivated}>
-                          <PackageManagement />
-                        </LicenseGuard>
-                      ) : (
+                      </LicenseGuard>
+                    ) : (
+                      <HotspotManagement />
+                    )
+                  } />
+                )}
+                
+                {/* Admin-only routes */}
+                {rolePermissions.packages && (
+                  <Route path="/packages" element={
+                    validation?.isDeactivated || validation?.isExpired ? (
+                      <LicenseGuard allowReadOnly={validation?.isDeactivated}>
                         <PackageManagement />
-                      )
-                    } />
-                    <Route path="/developer-portal" element={
-                      validation?.isDeactivated || validation?.isExpired ? (
-                        <LicenseGuard allowReadOnly={validation?.isDeactivated}>
-                          <DeveloperPortal />
-                        </LicenseGuard>
-                      ) : (
+                      </LicenseGuard>
+                    ) : (
+                      <PackageManagement />
+                    )
+                  } />
+                )}
+                
+                {rolePermissions.developerPortal && (
+                  <Route path="/developer-portal" element={
+                    validation?.isDeactivated || validation?.isExpired ? (
+                      <LicenseGuard allowReadOnly={validation?.isDeactivated}>
                         <DeveloperPortal />
-                      )
-                    } />
-                    <Route path="/settings" element={
-                      validation?.isDeactivated || validation?.isExpired ? (
-                        <LicenseGuard allowReadOnly={validation?.isDeactivated}>
-                          <Settings />
-                        </LicenseGuard>
-                      ) : (
+                      </LicenseGuard>
+                    ) : (
+                      <DeveloperPortal />
+                    )
+                  } />
+                )}
+                
+                {rolePermissions.settings && (
+                  <Route path="/settings" element={
+                    validation?.isDeactivated || validation?.isExpired ? (
+                      <LicenseGuard allowReadOnly={validation?.isDeactivated}>
                         <Settings />
-                      )
-                    } />
-                    <Route path="/license-management" element={
-                      validation?.isDeactivated || validation?.isExpired ? (
-                        <LicenseGuard allowReadOnly={validation?.isDeactivated}>
-                          <LicenseManagement />
-                        </LicenseGuard>
-                      ) : (
+                      </LicenseGuard>
+                    ) : (
+                      <Settings />
+                    )
+                  } />
+                )}
+                
+                {rolePermissions.licenseManagement && (
+                  <Route path="/license-management" element={
+                    validation?.isDeactivated || validation?.isExpired ? (
+                      <LicenseGuard allowReadOnly={validation?.isDeactivated}>
                         <LicenseManagement />
-                      )
-                    } />
-                    <Route path="/data-migration" element={<DataMigration />} />
-                    <Route path="/license-activation" element={<LicenseActivation />} />
-                  </>
+                      </LicenseGuard>
+                    ) : (
+                      <LicenseManagement />
+                    )
+                  } />
+                )}
+                
+                {rolePermissions.dataMigration && (
+                  <Route path="/data-migration" element={<DataMigration />} />
+                )}
+                
+                {rolePermissions.licenseActivation && (
+                  <Route path="/license-activation" element={<LicenseActivation />} />
                 )}
                 
                 {/* Super Admin Only Routes - no license restrictions */}
