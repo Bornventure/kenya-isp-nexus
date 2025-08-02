@@ -38,7 +38,7 @@ class RadiusService {
         isActive: client.status === 'active'
       };
 
-      // Store RADIUS user credentials in database
+      // Store RADIUS user credentials in database with proper field mapping
       const { error } = await supabase
         .from('radius_users')
         .insert({
@@ -48,7 +48,7 @@ class RadiusService {
           group_name: radiusUser.groupName,
           max_upload: radiusUser.maxUpload,
           max_download: radiusUser.maxDownload,
-          expiration: radiusUser.expiration,
+          expiration: radiusUser.expiration.toISOString(),
           is_active: radiusUser.isActive,
           isp_company_id: client.isp_company_id
         });
@@ -68,9 +68,19 @@ class RadiusService {
 
   async updateRadiusUser(clientId: string, updates: Partial<RadiusUser>): Promise<boolean> {
     try {
+      // Convert interface fields to database fields
+      const dbUpdates: any = {};
+      if (updates.username) dbUpdates.username = updates.username;
+      if (updates.password) dbUpdates.password = updates.password;
+      if (updates.groupName) dbUpdates.group_name = updates.groupName;
+      if (updates.maxUpload) dbUpdates.max_upload = updates.maxUpload;
+      if (updates.maxDownload) dbUpdates.max_download = updates.maxDownload;
+      if (updates.expiration) dbUpdates.expiration = updates.expiration.toISOString();
+      if (updates.isActive !== undefined) dbUpdates.is_active = updates.isActive;
+
       const { error } = await supabase
         .from('radius_users')
-        .update(updates)
+        .update(dbUpdates)
         .eq('client_id', clientId);
 
       if (error) throw error;
@@ -83,7 +93,18 @@ class RadiusService {
         .single();
 
       if (radiusUser) {
-        await this.configureRadiusServer(radiusUser);
+        // Convert database record to interface format
+        const userInterface: RadiusUser = {
+          username: radiusUser.username,
+          password: radiusUser.password,
+          clientId: radiusUser.client_id,
+          groupName: radiusUser.group_name || '',
+          maxUpload: radiusUser.max_upload || '',
+          maxDownload: radiusUser.max_download || '',
+          expiration: new Date(radiusUser.expiration || Date.now()),
+          isActive: radiusUser.is_active
+        };
+        await this.configureRadiusServer(userInterface);
       }
 
       return true;
@@ -127,7 +148,17 @@ class RadiusService {
         .eq('status', 'active');
 
       if (error) throw error;
-      return data || [];
+      
+      // Convert database records to interface format
+      return (data || []).map(record => ({
+        username: record.username,
+        nasIpAddress: record.nas_ip_address || '',
+        sessionId: record.session_id || '',
+        startTime: new Date(record.start_time),
+        bytesIn: record.bytes_in || 0,
+        bytesOut: record.bytes_out || 0,
+        status: record.status as 'active' | 'stopped'
+      }));
     } catch (error) {
       console.error('Error fetching RADIUS sessions:', error);
       return [];

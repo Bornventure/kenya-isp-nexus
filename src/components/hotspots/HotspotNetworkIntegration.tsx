@@ -3,24 +3,28 @@ import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
+import { Wifi, Users, Activity, Settings } from 'lucide-react';
 import { enhancedSnmpService } from '@/services/enhancedSnmpService';
-import { Activity, Wifi, Users, AlertCircle } from 'lucide-react';
 
 interface NetworkDevice {
   id: string;
   type: 'mikrotik' | 'switch' | 'access_point';
   ipAddress: string;
   status: 'online' | 'offline' | 'warning';
-  clients: any[];
+  clients: Array<{
+    clientId: string;
+    isConnected: boolean;
+    bytesIn: number;
+    bytesOut: number;
+  }>;
   uptime: number;
   cpuUsage: number;
   memoryUsage: number;
 }
 
-const HotspotNetworkIntegration = () => {
+const HotspotNetworkIntegration: React.FC = () => {
   const [devices, setDevices] = useState<NetworkDevice[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [monitoring, setMonitoring] = useState(false);
+  const [isMonitoring, setIsMonitoring] = useState(false);
 
   useEffect(() => {
     loadDevices();
@@ -28,131 +32,166 @@ const HotspotNetworkIntegration = () => {
 
   const loadDevices = async () => {
     try {
-      setLoading(true);
-      const networkDevices = await enhancedSnmpService.getDeviceStatus();
-      setDevices(networkDevices);
+      const deviceList = await enhancedSnmpService.getDeviceStatus();
+      setDevices(deviceList);
     } catch (error) {
-      console.error('Failed to load devices:', error);
-    } finally {
-      setLoading(false);
+      console.error('Error loading devices:', error);
     }
   };
 
   const startMonitoring = async () => {
-    try {
-      setMonitoring(true);
-      await enhancedSnmpService.startMonitoring();
-      // Refresh devices every 30 seconds
-      const interval = setInterval(loadDevices, 30000);
-      return () => clearInterval(interval);
-    } catch (error) {
-      console.error('Failed to start monitoring:', error);
-      setMonitoring(false);
-    }
+    setIsMonitoring(true);
+    await enhancedSnmpService.startMonitoring();
+    // Refresh device list periodically
+    const interval = setInterval(loadDevices, 30000);
+    return () => clearInterval(interval);
   };
 
   const stopMonitoring = async () => {
-    try {
-      await enhancedSnmpService.stopMonitoring();
-      setMonitoring(false);
-    } catch (error) {
-      console.error('Failed to stop monitoring:', error);
-    }
+    setIsMonitoring(false);
+    await enhancedSnmpService.stopMonitoring();
   };
 
-  const getStatusColor = (status: string) => {
-    switch (status) {
-      case 'online': return 'bg-green-500';
-      case 'warning': return 'bg-yellow-500';
-      case 'offline': return 'bg-red-500';
-      default: return 'bg-gray-500';
-    }
+  const formatUptime = (seconds: number) => {
+    const hours = Math.floor(seconds / 3600);
+    const minutes = Math.floor((seconds % 3600) / 60);
+    return `${hours}h ${minutes}m`;
   };
 
-  const getStatusIcon = (type: string) => {
-    switch (type) {
-      case 'mikrotik': return <Wifi className="h-4 w-4" />;
-      case 'switch': return <Activity className="h-4 w-4" />;
-      case 'access_point': return <Users className="h-4 w-4" />;
-      default: return <AlertCircle className="h-4 w-4" />;
-    }
+  const formatBytes = (bytes: number) => {
+    if (bytes === 0) return '0 B';
+    const k = 1024;
+    const sizes = ['B', 'KB', 'MB', 'GB'];
+    const i = Math.floor(Math.log(bytes) / Math.log(k));
+    return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
   };
-
-  if (loading) {
-    return (
-      <Card>
-        <CardHeader>
-          <CardTitle>Network Integration</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="text-center py-4">Loading network devices...</div>
-        </CardContent>
-      </Card>
-    );
-  }
 
   return (
     <div className="space-y-6">
+      <div className="flex items-center justify-between">
+        <h2 className="text-2xl font-bold">Network Integration</h2>
+        <div className="flex space-x-2">
+          <Button
+            variant={isMonitoring ? "destructive" : "default"}
+            onClick={isMonitoring ? stopMonitoring : startMonitoring}
+          >
+            <Activity className="h-4 w-4 mr-2" />
+            {isMonitoring ? 'Stop Monitoring' : 'Start Monitoring'}
+          </Button>
+          <Button variant="outline" onClick={loadDevices}>
+            Refresh
+          </Button>
+        </div>
+      </div>
+
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Total Devices</CardTitle>
+            <Settings className="h-4 w-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">{devices.length}</div>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Online Devices</CardTitle>
+            <Wifi className="h-4 w-4 text-green-600" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold text-green-600">
+              {devices.filter(d => d.status === 'online').length}
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Connected Clients</CardTitle>
+            <Users className="h-4 w-4 text-blue-600" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold text-blue-600">
+              {devices.reduce((total, device) => total + device.clients.length, 0)}
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+
       <Card>
-        <CardHeader className="flex flex-row items-center justify-between">
-          <CardTitle>Network Device Monitoring</CardTitle>
-          <div className="flex gap-2">
-            <Button 
-              onClick={monitoring ? stopMonitoring : startMonitoring}
-              variant={monitoring ? "destructive" : "default"}
-            >
-              {monitoring ? 'Stop Monitoring' : 'Start Monitoring'}
-            </Button>
-            <Button onClick={loadDevices} variant="outline">
-              Refresh
-            </Button>
-          </div>
+        <CardHeader>
+          <CardTitle>Network Devices</CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-            {devices.map((device) => (
-              <Card key={device.id} className="p-4">
-                <div className="flex items-center justify-between mb-2">
-                  <div className="flex items-center gap-2">
-                    {getStatusIcon(device.type)}
-                    <span className="font-medium">{device.type.toUpperCase()}</span>
+          <div className="space-y-4">
+            {devices.length === 0 ? (
+              <div className="text-center text-muted-foreground py-8">
+                No network devices found. Add equipment to start monitoring.
+              </div>
+            ) : (
+              devices.map((device) => (
+                <div key={device.id} className="p-4 border rounded-lg">
+                  <div className="flex items-center justify-between mb-3">
+                    <div className="flex items-center space-x-3">
+                      <div className="flex flex-col">
+                        <span className="font-medium">{device.type.toUpperCase()}</span>
+                        <span className="text-sm text-muted-foreground">{device.ipAddress}</span>
+                      </div>
+                      <Badge 
+                        variant={device.status === 'online' ? 'default' : 
+                               device.status === 'warning' ? 'destructive' : 'secondary'}
+                      >
+                        {device.status}
+                      </Badge>
+                    </div>
                   </div>
-                  <Badge className={getStatusColor(device.status)}>
-                    {device.status}
-                  </Badge>
+
+                  <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
+                    <div>
+                      <span className="text-muted-foreground">Uptime:</span>
+                      <div className="font-medium">{formatUptime(device.uptime)}</div>
+                    </div>
+                    <div>
+                      <span className="text-muted-foreground">CPU:</span>
+                      <div className="font-medium">{device.cpuUsage.toFixed(1)}%</div>
+                    </div>
+                    <div>
+                      <span className="text-muted-foreground">Memory:</span>
+                      <div className="font-medium">{device.memoryUsage.toFixed(1)}%</div>
+                    </div>
+                    <div>
+                      <span className="text-muted-foreground">Clients:</span>
+                      <div className="font-medium">{device.clients.length}</div>
+                    </div>
+                  </div>
+
+                  {device.clients.length > 0 && (
+                    <div className="mt-4">
+                      <h4 className="text-sm font-medium mb-2">Connected Clients:</h4>
+                      <div className="space-y-2">
+                        {device.clients.slice(0, 3).map((client, index) => (
+                          <div key={index} className="flex items-center justify-between text-sm bg-muted p-2 rounded">
+                            <span>{client.clientId}</span>
+                            <div className="flex space-x-4 text-xs text-muted-foreground">
+                              <span>↓ {formatBytes(client.bytesIn)}</span>
+                              <span>↑ {formatBytes(client.bytesOut)}</span>
+                            </div>
+                          </div>
+                        ))}
+                        {device.clients.length > 3 && (
+                          <div className="text-xs text-muted-foreground">
+                            +{device.clients.length - 3} more clients
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  )}
                 </div>
-                
-                <div className="text-sm text-gray-600 mb-2">
-                  IP: {device.ipAddress}
-                </div>
-                
-                <div className="grid grid-cols-2 gap-2 text-xs">
-                  <div>
-                    <span className="text-gray-500">Uptime:</span>
-                    <div className="font-medium">{Math.floor(device.uptime / 3600)}h</div>
-                  </div>
-                  <div>
-                    <span className="text-gray-500">CPU:</span>
-                    <div className="font-medium">{device.cpuUsage}%</div>
-                  </div>
-                  <div>
-                    <span className="text-gray-500">Memory:</span>
-                    <div className="font-medium">{device.memoryUsage}%</div>
-                  </div>
-                  <div>
-                    <span className="text-gray-500">Clients:</span>
-                    <div className="font-medium">{device.clients.length}</div>
-                  </div>
-                </div>
-              </Card>
-            ))}
+              ))
+            )}
           </div>
-          
-          {devices.length === 0 && (
-            <div className="text-center py-8 text-gray-500">
-              No network devices found. Add equipment with IP addresses to start monitoring.
-            </div>
-          )}
         </CardContent>
       </Card>
     </div>

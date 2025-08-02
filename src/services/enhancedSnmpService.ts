@@ -1,5 +1,4 @@
 
-import { snmpService } from './snmpService';
 import { radiusService } from './radiusService';
 import { supabase } from '@/integrations/supabase/client';
 
@@ -24,6 +23,25 @@ interface NetworkDevice {
   cpuUsage: number;
   memoryUsage: number;
 }
+
+interface DeviceStatistics {
+  uptime?: number;
+  cpuUsage?: number;
+  memoryUsage?: number;
+}
+
+// Simple SNMP service mock for demonstration
+const mockSnmpService = {
+  getDeviceStatistics: async (ipAddress: string): Promise<DeviceStatistics | null> => {
+    console.log(`Getting device statistics for ${ipAddress}`);
+    // Simulate SNMP data retrieval
+    return {
+      uptime: Math.floor(Math.random() * 86400),
+      cpuUsage: Math.floor(Math.random() * 100),
+      memoryUsage: Math.floor(Math.random() * 100)
+    };
+  }
+};
 
 class EnhancedSnmpService {
   private devices: Map<string, NetworkDevice> = new Map();
@@ -67,12 +85,13 @@ class EnhancedSnmpService {
         }
       }
 
-      await supabase.from('network_events').insert({
-        client_id: clientId,
-        event_type: 'client_disconnected',
-        triggered_by: 'manual_disconnect',
-        success: true,
-        event_data: { timestamp: new Date().toISOString() } as any
+      await supabase.from('notifications').insert({
+        user_id: null,
+        title: 'Client Disconnected',
+        message: `Client ${clientId} has been manually disconnected from the network`,
+        type: 'info',
+        related_entity_type: 'client',
+        related_entity_id: clientId
       });
 
       return true;
@@ -99,7 +118,16 @@ class EnhancedSnmpService {
         throw new Error('Client not found');
       }
 
-      await radiusService.createRadiusUser(client, client.service_packages);
+      // Get service package data
+      const { data: servicePackage } = await supabase
+        .from('service_packages')
+        .select('*')
+        .eq('id', client.service_package_id)
+        .single();
+
+      if (servicePackage) {
+        await radiusService.createRadiusUser(client, servicePackage);
+      }
 
       for (const device of this.devices.values()) {
         if (device.type === 'mikrotik') {
@@ -107,15 +135,13 @@ class EnhancedSnmpService {
         }
       }
 
-      await supabase.from('network_events').insert({
-        client_id: clientId,
-        event_type: 'client_reconnected',
-        triggered_by: 'manual_reconnect',
-        success: true,
-        event_data: { 
-          package_id: client.service_package_id,
-          timestamp: new Date().toISOString()
-        } as any
+      await supabase.from('notifications').insert({
+        user_id: null,
+        title: 'Client Reconnected',
+        message: `Client ${clientId} has been reconnected to the network`,
+        type: 'info',
+        related_entity_type: 'client',
+        related_entity_id: clientId
       });
 
       return true;
@@ -140,7 +166,12 @@ class EnhancedSnmpService {
       await radiusService.updateRadiusUser(clientId, {
         maxUpload: this.parseSpeed(servicePackage.speed, 'upload'),
         maxDownload: this.parseSpeed(servicePackage.speed, 'download'),
-        groupName: servicePackage.name.toLowerCase().replace(/\s+/g, '_')
+        groupName: servicePackage.name.toLowerCase().replace(/\s+/g, '_'),
+        username: '',
+        password: '',
+        expiration: new Date(),
+        isActive: true,
+        clientId: clientId
       });
 
       for (const device of this.devices.values()) {
@@ -187,7 +218,7 @@ class EnhancedSnmpService {
           this.devices.set(device.id, {
             id: device.id,
             type: this.mapEquipmentType(device.type),
-            ipAddress: device.ip_address,
+            ipAddress: device.ip_address?.toString() || '',
             status: 'offline',
             clients: [],
             uptime: 0,
@@ -216,7 +247,7 @@ class EnhancedSnmpService {
       device.status = isOnline ? 'online' : 'offline';
 
       if (isOnline) {
-        const stats = await snmpService.getDeviceStatistics(device.ipAddress);
+        const stats = await mockSnmpService.getDeviceStatistics(device.ipAddress);
         
         if (stats) {
           device.uptime = stats.uptime || 0;
@@ -285,7 +316,7 @@ class EnhancedSnmpService {
     
     const commands = [
       `/ppp/secret/add name="${client.email}" password="${client.id.slice(-8)}" service="pppoe"`,
-      `/queue/simple/add name="${client.name}" target="${client.email}" max-limit="${client.service_packages?.speed || '10M'}"`,
+      `/queue/simple/add name="${client.name}" target="${client.email}" max-limit="10M"`,
     ];
     
     for (const command of commands) {

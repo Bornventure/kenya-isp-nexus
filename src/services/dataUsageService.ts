@@ -1,4 +1,3 @@
-
 import { supabase } from '@/integrations/supabase/client';
 
 interface DataUsage {
@@ -31,14 +30,16 @@ class DataUsageService {
   async trackDataUsage(
     clientId: string, 
     bytesIn: number, 
-    bytesOut: number
+    bytesOut: number,
+    equipmentId: string = 'unknown'
   ): Promise<void> {
     try {
       console.log(`Tracking data usage for client ${clientId}: ${bytesIn + bytesOut} bytes`);
       
-      // Use bandwidth_statistics table for tracking
+      // Use bandwidth_statistics table for tracking with required equipment_id
       await supabase.from('bandwidth_statistics').insert({
         client_id: clientId,
+        equipment_id: equipmentId, // Required field
         in_octets: bytesIn,
         out_octets: bytesOut,
         timestamp: new Date().toISOString()
