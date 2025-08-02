@@ -60,5 +60,5 @@ export const servicePackages: ServicePackage[] = [
   }
 ];
 
-// All mock client data removed - now using real database data
+// All mock client data removed - now using real database data exclusively
 export const mockClients: any[] = [];
