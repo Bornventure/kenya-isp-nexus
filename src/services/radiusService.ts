@@ -149,10 +149,10 @@ class RadiusService {
 
       if (error) throw error;
       
-      // Convert database records to interface format
+      // Convert database records to interface format with proper type handling
       return (data || []).map(record => ({
         username: record.username,
-        nasIpAddress: record.nas_ip_address || '',
+        nasIpAddress: (record.nas_ip_address as string) || '',
         sessionId: record.session_id || '',
         startTime: new Date(record.start_time),
         bytesIn: record.bytes_in || 0,

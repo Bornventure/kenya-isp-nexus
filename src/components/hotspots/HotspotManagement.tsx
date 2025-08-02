@@ -144,7 +144,7 @@ const HotspotManagement = () => {
         </TabsContent>
 
         <TabsContent value="analytics">
-          <AdvancedHotspotAnalytics selectedHotspot={selectedHotspot} />
+          <AdvancedHotspotAnalytics />
         </TabsContent>
 
         <TabsContent value="advanced">
