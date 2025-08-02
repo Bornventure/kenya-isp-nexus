@@ -1,3 +1,4 @@
+
 import { supabase } from '@/integrations/supabase/client';
 
 interface DataUsage {
@@ -31,18 +32,32 @@ class DataUsageService {
     clientId: string, 
     bytesIn: number, 
     bytesOut: number,
-    equipmentId: string = 'unknown'
+    equipmentId: string
   ): Promise<void> {
     try {
       console.log(`Tracking data usage for client ${clientId}: ${bytesIn + bytesOut} bytes`);
       
-      // Use bandwidth_statistics table for tracking with required equipment_id
+      // Get the user's company ID for proper row-level security
+      const { data: userProfile } = await supabase
+        .from('profiles')
+        .select('isp_company_id')
+        .eq('id', (await supabase.auth.getUser()).data.user?.id)
+        .single();
+
+      if (!userProfile?.isp_company_id) {
+        throw new Error('User company ID not found');
+      }
+
+      // Use bandwidth_statistics table for tracking with all required fields
       await supabase.from('bandwidth_statistics').insert({
         client_id: clientId,
-        equipment_id: equipmentId, // Required field
+        equipment_id: equipmentId,
         in_octets: bytesIn,
         out_octets: bytesOut,
-        timestamp: new Date().toISOString()
+        in_packets: 0, // Default value since we're tracking bytes
+        out_packets: 0, // Default value since we're tracking bytes
+        timestamp: new Date().toISOString(),
+        isp_company_id: userProfile.isp_company_id
       });
 
       // Check for usage alerts
@@ -63,20 +78,23 @@ class DataUsageService {
         .select('*')
         .eq('client_id', clientId)
         .gte('timestamp', this.getMonthStart())
-        .order('timestamp', { ascending: false })
-        .limit(1);
+        .order('timestamp', { ascending: false });
 
       if (error) throw error;
 
       if (data && data.length > 0) {
-        const record = data[0];
+        // Aggregate the data for the month
+        const totalBytesIn = data.reduce((sum, record) => sum + (record.in_octets || 0), 0);
+        const totalBytesOut = data.reduce((sum, record) => sum + (record.out_octets || 0), 0);
+        const latestRecord = data[0];
+
         const usage: DataUsage = {
           clientId,
           period: 'monthly',
-          bytesIn: record.in_octets || 0,
-          bytesOut: record.out_octets || 0,
-          totalBytes: (record.in_octets || 0) + (record.out_octets || 0),
-          lastUpdated: new Date(record.timestamp),
+          bytesIn: totalBytesIn,
+          bytesOut: totalBytesOut,
+          totalBytes: totalBytesIn + totalBytesOut,
+          lastUpdated: new Date(latestRecord.timestamp),
           dataAllowance: undefined,
           percentageUsed: 0
         };
@@ -109,13 +127,27 @@ class DataUsageService {
 
       if (error) throw error;
 
-      return (data || []).map(record => ({
+      // Group by date and aggregate
+      const dailyUsage = new Map<string, { bytesIn: number; bytesOut: number; timestamp: string }>();
+      
+      (data || []).forEach(record => {
+        const dateKey = new Date(record.timestamp).toISOString().split('T')[0];
+        const existing = dailyUsage.get(dateKey) || { bytesIn: 0, bytesOut: 0, timestamp: record.timestamp };
+        
+        dailyUsage.set(dateKey, {
+          bytesIn: existing.bytesIn + (record.in_octets || 0),
+          bytesOut: existing.bytesOut + (record.out_octets || 0),
+          timestamp: existing.timestamp
+        });
+      });
+
+      return Array.from(dailyUsage.values()).map(usage => ({
         clientId,
         period: 'daily' as const,
-        bytesIn: record.in_octets || 0,
-        bytesOut: record.out_octets || 0,
-        totalBytes: (record.in_octets || 0) + (record.out_octets || 0),
-        lastUpdated: new Date(record.timestamp),
+        bytesIn: usage.bytesIn,
+        bytesOut: usage.bytesOut,
+        totalBytes: usage.bytesIn + usage.bytesOut,
+        lastUpdated: new Date(usage.timestamp),
         dataAllowance: undefined,
         percentageUsed: 0
       }));
@@ -171,31 +203,34 @@ class DataUsageService {
           timestamp
         `)
         .gte('timestamp', monthStart)
-        .order('in_octets', { ascending: false })
-        .limit(limit);
+        .order('in_octets', { ascending: false });
 
       if (error) throw error;
 
-      const usageMap = new Map<string, { in: number; out: number }>();
+      const usageMap = new Map<string, { in: number; out: number; timestamp: string }>();
       
       (data || []).forEach(record => {
-        const existing = usageMap.get(record.client_id) || { in: 0, out: 0 };
+        const existing = usageMap.get(record.client_id) || { in: 0, out: 0, timestamp: record.timestamp };
         usageMap.set(record.client_id, {
           in: existing.in + (record.in_octets || 0),
-          out: existing.out + (record.out_octets || 0)
+          out: existing.out + (record.out_octets || 0),
+          timestamp: existing.timestamp
         });
       });
 
-      return Array.from(usageMap.entries()).map(([clientId, usage]) => ({
-        clientId,
-        period: 'monthly' as const,
-        bytesIn: usage.in,
-        bytesOut: usage.out,
-        totalBytes: usage.in + usage.out,
-        lastUpdated: new Date(),
-        dataAllowance: undefined,
-        percentageUsed: 0
-      }));
+      return Array.from(usageMap.entries())
+        .sort((a, b) => (b[1].in + b[1].out) - (a[1].in + a[1].out))
+        .slice(0, limit)
+        .map(([clientId, usage]) => ({
+          clientId,
+          period: 'monthly' as const,
+          bytesIn: usage.in,
+          bytesOut: usage.out,
+          totalBytes: usage.in + usage.out,
+          lastUpdated: new Date(usage.timestamp),
+          dataAllowance: undefined,
+          percentageUsed: 0
+        }));
     } catch (error) {
       console.error('Error getting top data users:', error);
       return [];

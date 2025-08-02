@@ -151,13 +151,13 @@ class RadiusService {
       
       // Convert database records to interface format with proper type handling
       return (data || []).map(record => ({
-        username: record.username,
-        nasIpAddress: (record.nas_ip_address as string) || '',
+        username: record.username || '',
+        nasIpAddress: String(record.nas_ip_address || ''),
         sessionId: record.session_id || '',
         startTime: new Date(record.start_time),
         bytesIn: record.bytes_in || 0,
         bytesOut: record.bytes_out || 0,
-        status: record.status as 'active' | 'stopped'
+        status: (record.status as 'active' | 'stopped') || 'stopped'
       }));
     } catch (error) {
       console.error('Error fetching RADIUS sessions:', error);

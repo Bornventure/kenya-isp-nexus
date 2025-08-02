@@ -36,6 +36,12 @@ interface BandwidthStats {
   timestamp: Date;
 }
 
+interface DeviceStatistics {
+  uptime?: number;
+  cpuUsage?: number;
+  memoryUsage?: number;
+}
+
 // Enhanced SNMP service with comprehensive ISP functionality
 export class SNMPService {
   private devices: Map<string, SNMPDevice> = new Map();
@@ -55,6 +61,33 @@ export class SNMPService {
     console.log('SNMP service initialization complete');
   }
 
+  async getDeviceStatistics(ipAddress: string): Promise<DeviceStatistics | null> {
+    console.log(`Getting device statistics for ${ipAddress}`);
+    
+    try {
+      // Find the device by IP address
+      const device = Array.from(this.devices.values()).find(d => d.ip === ipAddress);
+      
+      if (!device) {
+        console.warn(`Device not found for IP: ${ipAddress}`);
+        return null;
+      }
+
+      // Simulate SNMP data retrieval based on device capabilities
+      const stats: DeviceStatistics = {
+        uptime: Math.floor(Math.random() * 86400), // Random uptime in seconds
+        cpuUsage: Math.floor(Math.random() * 100), // Random CPU usage percentage
+        memoryUsage: Math.floor(Math.random() * 100) // Random memory usage percentage
+      };
+
+      console.log(`Retrieved statistics for ${device.name}:`, stats);
+      return stats;
+    } catch (error) {
+      console.error(`Error getting device statistics for ${ipAddress}:`, error);
+      return null;
+    }
+  }
+
   async loadDeviceConfiguration() {
     try {
       // Load equipment with enhanced SNMP configuration
@@ -70,8 +103,8 @@ export class SNMPService {
         this.devices.set(device.id, {
           id: device.id,
           name: `${device.brand} ${device.model}`,
-          type: device.type as any,
-          ip: device.ip_address as string,
+          type: this.mapEquipmentType(device.type),
+          ip: device.ip_address?.toString() || '',
           community: device.snmp_community || 'public',
           version: device.snmp_version || 2,
           status: device.status === 'active' ? 'online' : 'offline',
@@ -116,6 +149,14 @@ export class SNMPService {
     }
 
     return capabilities;
+  }
+
+  private mapEquipmentType(type: string): 'router' | 'switch' | 'access_point' | 'other' {
+    const lowerType = type.toLowerCase();
+    if (lowerType.includes('router')) return 'router';
+    if (lowerType.includes('switch')) return 'switch';
+    if (lowerType.includes('access_point') || lowerType.includes('ap')) return 'access_point';
+    return 'other';
   }
 
   async startComprehensiveMonitoring() {
@@ -231,7 +272,6 @@ export class SNMPService {
         const interfaces = await this.getDeviceInterfaces(device);
         this.interfaces.set(deviceId, interfaces);
 
-        // For now, we'll just log interface stats since the table might not be in types yet
         console.log(`Collected interface stats for ${device.name}:`, interfaces);
       } catch (error) {
         console.error(`Error collecting interface stats for ${device.name}:`, error);
@@ -281,7 +321,6 @@ export class SNMPService {
           deviceStats.shift();
         }
 
-        // For now, we'll just log bandwidth stats since the table might not be in types yet
         console.log(`Bandwidth stats for ${device.name}:`, stats);
 
       } catch (error) {

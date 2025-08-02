@@ -1,6 +1,7 @@
 
 import { radiusService } from './radiusService';
 import { supabase } from '@/integrations/supabase/client';
+import { snmpService } from './snmpService';
 
 interface ClientNetworkStatus {
   clientId: string;
@@ -23,25 +24,6 @@ interface NetworkDevice {
   cpuUsage: number;
   memoryUsage: number;
 }
-
-interface DeviceStatistics {
-  uptime?: number;
-  cpuUsage?: number;
-  memoryUsage?: number;
-}
-
-// Simple SNMP service mock for demonstration
-const mockSnmpService = {
-  getDeviceStatistics: async (ipAddress: string): Promise<DeviceStatistics | null> => {
-    console.log(`Getting device statistics for ${ipAddress}`);
-    // Simulate SNMP data retrieval
-    return {
-      uptime: Math.floor(Math.random() * 86400),
-      cpuUsage: Math.floor(Math.random() * 100),
-      memoryUsage: Math.floor(Math.random() * 100)
-    };
-  }
-};
 
 class EnhancedSnmpService {
   private devices: Map<string, NetworkDevice> = new Map();
@@ -247,7 +229,7 @@ class EnhancedSnmpService {
       device.status = isOnline ? 'online' : 'offline';
 
       if (isOnline) {
-        const stats = await mockSnmpService.getDeviceStatistics(device.ipAddress);
+        const stats = await snmpService.getDeviceStatistics(device.ipAddress);
         
         if (stats) {
           device.uptime = stats.uptime || 0;

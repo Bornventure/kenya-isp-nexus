@@ -1,6 +1,6 @@
 
 import React from 'react';
-import { useClients } from '@/hooks/useClients';
+import { useClientsWithNetworkManagement } from '@/hooks/useClientsWithNetworkManagement';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -9,7 +9,12 @@ import { enhancedSnmpService } from '@/services/enhancedSnmpService';
 import { dataUsageService } from '@/services/dataUsageService';
 
 const ProductionNetworkPanel = () => {
-  const { clients: clientsData, isLoading, error } = useClients();
+  const networkHook = useClientsWithNetworkManagement();
+  
+  // Get clients data from the network management hook
+  const clients = networkHook.clients || [];
+  const isLoading = networkHook.isLoading;
+  const error = networkHook.error;
 
   const handleDisconnectClient = async (clientId: string) => {
     const success = await enhancedSnmpService.disconnectClient(clientId);
@@ -26,7 +31,7 @@ const ProductionNetworkPanel = () => {
   };
 
   const handleDataUsageTracking = async (clientId: string) => {
-    // Track some sample data usage
+    // Track some sample data usage with a default equipment ID
     await dataUsageService.trackDataUsage(clientId, 1024000, 512000, 'default-equipment');
   };
 
@@ -50,7 +55,7 @@ const ProductionNetworkPanel = () => {
     );
   }
 
-  const activeClients = clientsData.filter(client => client.status === 'active');
+  const activeClients = clients.filter(client => client.status === 'active');
 
   return (
     <div className="space-y-6">
@@ -61,7 +66,7 @@ const ProductionNetworkPanel = () => {
             <Users className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{clientsData.length}</div>
+            <div className="text-2xl font-bold">{clients.length}</div>
           </CardContent>
         </Card>
 
@@ -82,7 +87,7 @@ const ProductionNetworkPanel = () => {
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold text-red-600">
-              {clientsData.length - activeClients.length}
+              {clients.length - activeClients.length}
             </div>
           </CardContent>
         </Card>
@@ -104,7 +109,7 @@ const ProductionNetworkPanel = () => {
         </CardHeader>
         <CardContent>
           <div className="space-y-4">
-            {clientsData.slice(0, 10).map((client) => (
+            {clients.slice(0, 10).map((client) => (
               <div key={client.id} className="flex items-center justify-between p-4 border rounded-lg">
                 <div className="flex items-center space-x-4">
                   <div className="flex flex-col">
