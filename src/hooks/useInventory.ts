@@ -475,21 +475,28 @@ export const useLowStockItems = () => {
         return [];
       }
 
+      // First get all items with both quantity_in_stock and reorder_level not null
       const { data, error } = await supabase
         .from('inventory_items')
         .select('*')
         .eq('isp_company_id', profile.isp_company_id)
         .not('quantity_in_stock', 'is', null)
-        .not('reorder_level', 'is', null)
-        .filter('quantity_in_stock', 'lte', 'reorder_level');
+        .not('reorder_level', 'is', null);
 
       if (error) {
         console.error('useLowStockItems - Error fetching:', error);
         throw error;
       }
 
-      console.log('useLowStockItems - Found:', data?.length || 0, 'low stock items');
-      return data as InventoryItem[];
+      // Filter client-side to avoid PostgreSQL syntax issues
+      const lowStockItems = data?.filter(item => 
+        item.quantity_in_stock !== null && 
+        item.reorder_level !== null &&
+        item.quantity_in_stock <= item.reorder_level
+      ) || [];
+
+      console.log('useLowStockItems - Found:', lowStockItems.length, 'low stock items');
+      return lowStockItems as InventoryItem[];
     },
     enabled: !!profile?.isp_company_id,
     retry: 2,
