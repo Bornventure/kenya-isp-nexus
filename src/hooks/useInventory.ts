@@ -8,35 +8,73 @@ export interface InventoryItem {
   id: string;
   created_at: string;
   isp_company_id: string;
-  name: string;
-  description: string;
+  name: string | null;
   category: string;
-  quantity: number;
   status: string;
-  serial_number?: string;
-  location?: string;
-  type?: string;
-  model?: string;
-  manufacturer?: string;
-  item_id?: string;
-  assigned_customer_id?: string;
-  assignment_date?: string;
-  mac_address?: string;
+  serial_number?: string | null;
+  location?: string | null;
+  type: string;
+  model?: string | null;
+  manufacturer?: string | null;
+  item_id?: string | null;
+  assigned_customer_id?: string | null;
+  assignment_date?: string | null;
+  mac_address?: string | null;
+  purchase_date?: string | null;
+  warranty_expiry_date?: string | null;
+  supplier?: string | null;
+  cost?: number | null;
+  notes?: text | null;
+  item_sku?: string | null;
+  quantity_in_stock?: number | null;
+  reorder_level?: number | null;
+  unit_cost?: number | null;
+  capacity?: string | null;
+  installation_date?: string | null;
+  ip_address?: string | null;
+  subnet_mask?: string | null;
+  is_network_equipment?: boolean;
+  equipment_id?: string | null;
+  assigned_device_id?: string | null;
+  location_start_lat?: number | null;
+  location_start_lng?: number | null;
+  location_end_lat?: number | null;
+  location_end_lng?: number | null;
+  length_meters?: number | null;
+  last_maintenance_date?: string | null;
+  updated_at: string;
+  // Client relation when joined
+  clients?: {
+    id: string;
+    name: string;
+    phone: string;
+  } | null;
 }
 
 interface InventoryItemInput {
-  name: string;
-  description: string;
+  name?: string;
   category: string;
-  quantity: number;
   status: string;
   serial_number?: string;
   location?: string;
-  type?: string;
+  type: string;
   model?: string;
   manufacturer?: string;
   item_id?: string;
   mac_address?: string;
+  purchase_date?: string;
+  warranty_expiry_date?: string;
+  supplier?: string;
+  cost?: number;
+  notes?: string;
+  item_sku?: string;
+  quantity_in_stock?: number;
+  reorder_level?: number;
+  unit_cost?: number;
+  capacity?: string;
+  installation_date?: string;
+  ip_address?: string;
+  subnet_mask?: string;
 }
 
 export const useInventoryItems = (filters?: {
@@ -55,7 +93,10 @@ export const useInventoryItems = (filters?: {
 
       let query = supabase
         .from('inventory_items')
-        .select('*')
+        .select(`
+          *,
+          clients:assigned_customer_id(id, name, phone)
+        `)
         .eq('isp_company_id', profile.isp_company_id)
         .order('created_at', { ascending: false });
 
@@ -138,7 +179,9 @@ export const useUpdateInventoryItem = () => {
   const { toast } = useToast();
 
   return useMutation({
-    mutationFn: async ({ id, ...updates }: { id: string } & Partial<InventoryItemInput>) => {
+    mutationFn: async (params: { id: string } & Partial<InventoryItemInput>) => {
+      const { id, ...updates } = params;
+      
       const { data, error } = await supabase
         .from('inventory_items')
         .update(updates)
@@ -314,7 +357,16 @@ export const usePromoteToNetworkEquipment = () => {
   const { toast } = useToast();
 
   return useMutation({
-    mutationFn: async (itemId: string) => {
+    mutationFn: async (params: {
+      inventoryItemId: string;
+      equipmentData: {
+        equipment_type_id: string;
+        ip_address: string;
+        snmp_community: string;
+        snmp_version: number;
+        notes: string;
+      };
+    }) => {
       // This would promote inventory item to network equipment
       // For now, just return success
       return { success: true };
@@ -343,7 +395,10 @@ export const useInventoryItem = (id: string) => {
     queryFn: async () => {
       const { data, error } = await supabase
         .from('inventory_items')
-        .select('*')
+        .select(`
+          *,
+          clients:assigned_customer_id(id, name, phone)
+        `)
         .eq('id', id)
         .single();
 

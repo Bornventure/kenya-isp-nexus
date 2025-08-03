@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
@@ -74,7 +73,8 @@ const EditInventoryItemDialog: React.FC<EditInventoryItemDialogProps> = ({
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     
-    const updates: any = {
+    const updateParams = {
+      id: itemId,
       name: formData.name || null,
       manufacturer: formData.manufacturer || null,
       model: formData.model || null,
@@ -91,23 +91,23 @@ const EditInventoryItemDialog: React.FC<EditInventoryItemDialogProps> = ({
 
     // Add category-specific fields
     if (formData.category === 'Consumable') {
-      updates.item_sku = formData.item_sku || null;
-      updates.quantity_in_stock = formData.quantity_in_stock ? parseInt(formData.quantity_in_stock) : null;
-      updates.reorder_level = formData.reorder_level ? parseInt(formData.reorder_level) : null;
-      updates.unit_cost = formData.unit_cost ? parseFloat(formData.unit_cost) : null;
+      updateParams.item_sku = formData.item_sku || null;
+      updateParams.quantity_in_stock = formData.quantity_in_stock ? parseInt(formData.quantity_in_stock) : null;
+      updateParams.reorder_level = formData.reorder_level ? parseInt(formData.reorder_level) : null;
+      updateParams.unit_cost = formData.unit_cost ? parseFloat(formData.unit_cost) : null;
     }
 
     if (formData.category === 'Infrastructure') {
-      updates.capacity = formData.capacity || null;
-      updates.installation_date = formData.installation_date || null;
+      updateParams.capacity = formData.capacity || null;
+      updateParams.installation_date = formData.installation_date || null;
     }
 
     if (formData.category === 'Logical Resource') {
-      updates.ip_address = formData.ip_address || null;
-      updates.subnet_mask = formData.subnet_mask || null;
+      updateParams.ip_address = formData.ip_address || null;
+      updateParams.subnet_mask = formData.subnet_mask || null;
     }
 
-    updateItem({ id: itemId, updates }, {
+    updateItem(updateParams, {
       onSuccess: () => {
         onOpenChange(false);
       },

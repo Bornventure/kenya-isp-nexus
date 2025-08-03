@@ -67,11 +67,9 @@ const InventoryItemDetail: React.FC<InventoryItemDetailProps> = ({ item: itemId,
   const handleAssignToClient = ({ clientId }: { itemId: string; clientId: string }) => {
     updateItem({
       id: item.id,
-      updates: {
-        assigned_customer_id: clientId,
-        assignment_date: new Date().toISOString(),
-        status: 'Deployed'
-      }
+      assigned_customer_id: clientId,
+      assignment_date: new Date().toISOString(),
+      status: 'Deployed'
     });
     setShowAssignDialog(false);
   };

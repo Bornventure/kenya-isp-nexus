@@ -71,7 +71,7 @@ const InventoryListView: React.FC<InventoryListViewProps> = ({
         setEditingItem(itemId);
         break;
       case 'assign':
-        setAssigningItem({ id: itemId, name: item.name });
+        setAssigningItem({ id: itemId, name: item.name || item.model || 'Unnamed Item' });
         break;
       case 'delete':
         // Handle delete - you might want to add a confirmation dialog
@@ -161,7 +161,7 @@ const InventoryListView: React.FC<InventoryListViewProps> = ({
             <Card key={item.id}>
               <CardHeader className="pb-3">
                 <div className="flex justify-between items-start">
-                  <CardTitle className="text-lg">{item.name}</CardTitle>
+                  <CardTitle className="text-lg">{item.name || item.model || 'Unnamed Item'}</CardTitle>
                   <div className="flex gap-1">
                     <Button
                       variant="ghost"
@@ -209,8 +209,8 @@ const InventoryListView: React.FC<InventoryListViewProps> = ({
                 </div>
                 
                 <div className="flex justify-between items-center">
-                  <span className="text-sm text-muted-foreground">Quantity:</span>
-                  <span className="font-medium">{item.quantity || 0}</span>
+                  <span className="text-sm text-muted-foreground">Stock Qty:</span>
+                  <span className="font-medium">{item.quantity_in_stock || 1}</span>
                 </div>
                 
                 {item.serial_number && (
@@ -227,9 +227,9 @@ const InventoryListView: React.FC<InventoryListViewProps> = ({
                   </div>
                 )}
                 
-                {item.description && (
+                {item.notes && (
                   <p className="text-xs text-muted-foreground mt-2 line-clamp-2">
-                    {item.description}
+                    {item.notes}
                   </p>
                 )}
               </CardContent>
@@ -281,8 +281,8 @@ const InventoryListView: React.FC<InventoryListViewProps> = ({
         <AssignEquipmentDialog
           open={!!assigningItem}
           onOpenChange={() => setAssigningItem(null)}
-          inventoryItemId={assigningItem.id}
-          inventoryItemName={assigningItem.name}
+          clientId=""
+          clientName=""
         />
       )}
     </div>
