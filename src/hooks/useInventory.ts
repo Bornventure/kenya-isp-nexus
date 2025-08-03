@@ -1,3 +1,4 @@
+
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
@@ -14,6 +15,12 @@ export interface InventoryItem {
   status: string;
   serial_number?: string;
   location?: string;
+  type?: string;
+  model?: string;
+  manufacturer?: string;
+  item_id?: string;
+  assigned_customer_id?: string;
+  assignment_date?: string;
 }
 
 interface InventoryItemInput {
@@ -41,7 +48,7 @@ export const useInventoryItems = (filters?: {
       }
 
       let query = supabase
-        .from('inventory')
+        .from('inventory_items')
         .select('*')
         .eq('isp_company_id', profile.isp_company_id)
         .order('created_at', { ascending: false });
@@ -56,7 +63,7 @@ export const useInventoryItems = (filters?: {
       }
 
       if (filters?.search) {
-        query = query.or(`name.ilike.%${filters.search}%,description.ilike.%${filters.search}%,serial_number.ilike.%${filters.search}%`);
+        query = query.or(`name.ilike.%${filters.search}%,type.ilike.%${filters.search}%,serial_number.ilike.%${filters.search}%`);
       }
 
       const { data, error } = await query;
@@ -84,7 +91,7 @@ export const useAddInventoryItem = () => {
       }
 
       const { data, error } = await supabase
-        .from('inventory')
+        .from('inventory_items')
         .insert({
           ...item,
           isp_company_id: profile.isp_company_id,
@@ -117,6 +124,9 @@ export const useAddInventoryItem = () => {
   });
 };
 
+// Export alias for backward compatibility
+export const useCreateInventoryItem = useAddInventoryItem;
+
 export const useUpdateInventoryItem = () => {
   const queryClient = useQueryClient();
   const { toast } = useToast();
@@ -124,7 +134,7 @@ export const useUpdateInventoryItem = () => {
   return useMutation({
     mutationFn: async ({ id, ...updates }: { id: string } & InventoryItemInput) => {
       const { data, error } = await supabase
-        .from('inventory')
+        .from('inventory_items')
         .update(updates)
         .eq('id', id)
         .select()
@@ -155,12 +165,54 @@ export const useUpdateInventoryItem = () => {
   });
 };
 
+export const useUnassignEquipmentFromClient = () => {
+  const queryClient = useQueryClient();
+  const { toast } = useToast();
+
+  return useMutation({
+    mutationFn: async (itemId: string) => {
+      const { data, error } = await supabase
+        .from('inventory_items')
+        .update({
+          assigned_customer_id: null,
+          assignment_date: null,
+          status: 'In Stock'
+        })
+        .eq('id', itemId)
+        .select()
+        .single();
+
+      if (error) {
+        console.error('Error unassigning equipment:', error);
+        throw error;
+      }
+
+      return data;
+    },
+    onSuccess: () => {
+      toast({
+        title: "Success",
+        description: "Equipment has been returned and is now available.",
+      });
+      queryClient.invalidateQueries({ queryKey: ['inventory-items'] });
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Error",
+        description: "Failed to return equipment. Please try again.",
+        variant: "destructive",
+      });
+      console.error('Error unassigning equipment:', error);
+    },
+  });
+};
+
 export const useInventoryItem = (id: string) => {
   return useQuery({
     queryKey: ['inventory-item', id],
     queryFn: async () => {
       const { data, error } = await supabase
-        .from('inventory')
+        .from('inventory_items')
         .select('*')
         .eq('id', id)
         .single();

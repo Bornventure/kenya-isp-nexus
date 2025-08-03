@@ -32,9 +32,9 @@ const AssignedEquipmentSection: React.FC<AssignedEquipmentSectionProps> = ({
   const [showAssignDialog, setShowAssignDialog] = useState(false);
   const { mutate: unassignEquipment, isPending: isUnassigning } = useUnassignEquipmentFromClient();
   
-  // Get equipment assigned to this client from both systems
-  const { data: inventoryEquipment = [] } = useInventoryItems({});
-  const clientInventoryEquipment = inventoryEquipment.filter(
+  // Get equipment assigned to this client from inventory
+  const { data: inventoryItems = [] } = useInventoryItems({});
+  const clientInventoryEquipment = inventoryItems.filter(
     item => item.assigned_customer_id === clientId
   );
 
@@ -127,10 +127,12 @@ const AssignedEquipmentSection: React.FC<AssignedEquipmentSectionProps> = ({
                   </TableCell>
                   <TableCell>
                     <div>
-                      <div className="font-medium">{item.type}</div>
-                      <div className="text-sm text-muted-foreground">
-                        ID: {item.item_id}
-                      </div>
+                      <div className="font-medium">{item.type || item.name}</div>
+                      {item.item_id && (
+                        <div className="text-sm text-muted-foreground">
+                          ID: {item.item_id}
+                        </div>
+                      )}
                     </div>
                   </TableCell>
                   <TableCell>
