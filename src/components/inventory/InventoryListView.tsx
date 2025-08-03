@@ -28,8 +28,6 @@ const InventoryListView: React.FC<InventoryListViewProps> = ({
   // Set initial filters when component mounts or initialFilter changes
   React.useEffect(() => {
     if (initialFilter && initialFilter !== '') {
-      console.log('InventoryListView - Setting initial filter:', initialFilter);
-      
       // Check if it's a status filter
       const statuses = ['In Stock', 'Deployed', 'Maintenance', 'Out of Stock'];
       if (statuses.includes(initialFilter)) {
@@ -212,7 +210,7 @@ const InventoryListView: React.FC<InventoryListViewProps> = ({
                 
                 <div className="flex justify-between items-center">
                   <span className="text-sm text-muted-foreground">Quantity:</span>
-                  <span className="font-medium">{item.quantity}</span>
+                  <span className="font-medium">{item.quantity || 0}</span>
                 </div>
                 
                 {item.serial_number && (
@@ -268,21 +266,21 @@ const InventoryListView: React.FC<InventoryListViewProps> = ({
       {/* Dialogs */}
       <AddInventoryItemDialog
         open={showAddDialog}
-        onClose={() => setShowAddDialog(false)}
+        onOpenChange={setShowAddDialog}
       />
 
       {editingItem && (
         <EditInventoryItemDialog
           itemId={editingItem}
           open={!!editingItem}
-          onClose={() => setEditingItem(null)}
+          onOpenChange={() => setEditingItem(null)}
         />
       )}
 
       {assigningItem && (
         <AssignEquipmentDialog
           open={!!assigningItem}
-          onClose={() => setAssigningItem(null)}
+          onOpenChange={() => setAssigningItem(null)}
           inventoryItemId={assigningItem.id}
           inventoryItemName={assigningItem.name}
         />

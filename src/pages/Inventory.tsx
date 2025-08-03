@@ -7,14 +7,19 @@ import LowStockManagement from '@/components/inventory/LowStockManagement';
 import { useAuth } from '@/contexts/AuthContext';
 
 const Inventory = () => {
-  const { profile, authLoading } = useAuth();
+  const { profile } = useAuth();
   const [activeTab, setActiveTab] = useState('dashboard');
 
   const handleFilterByStatus = (status: string) => {
     setActiveTab(status);
   };
 
-  if (authLoading) {
+  const handleViewItem = (itemId: string) => {
+    console.log('View item:', itemId);
+    // You can implement item detail view here
+  };
+
+  if (!profile) {
     return <div>Loading...</div>;
   }
 
@@ -38,7 +43,10 @@ const Inventory = () => {
         </TabsList>
 
         <TabsContent value="dashboard" className="space-y-6">
-          <InventoryDashboard onFilterByStatus={handleFilterByStatus} />
+          <InventoryDashboard 
+            onFilterByStatus={handleFilterByStatus} 
+            onViewItem={handleViewItem}
+          />
         </TabsContent>
 
         <TabsContent value="Total Items">
@@ -58,7 +66,7 @@ const Inventory = () => {
         </TabsContent>
 
         <TabsContent value="low-stock" className="space-y-6">
-          <LowStockManagement />
+          <LowStockManagement onViewItem={handleViewItem} />
         </TabsContent>
       </Tabs>
     </div>

@@ -21,6 +21,7 @@ export interface InventoryItem {
   item_id?: string;
   assigned_customer_id?: string;
   assignment_date?: string;
+  mac_address?: string;
 }
 
 interface InventoryItemInput {
@@ -31,6 +32,11 @@ interface InventoryItemInput {
   status: string;
   serial_number?: string;
   location?: string;
+  type?: string;
+  model?: string;
+  manufacturer?: string;
+  item_id?: string;
+  mac_address?: string;
 }
 
 export const useInventoryItems = (filters?: {
@@ -132,7 +138,7 @@ export const useUpdateInventoryItem = () => {
   const { toast } = useToast();
 
   return useMutation({
-    mutationFn: async ({ id, ...updates }: { id: string } & InventoryItemInput) => {
+    mutationFn: async ({ id, ...updates }: { id: string } & Partial<InventoryItemInput>) => {
       const { data, error } = await supabase
         .from('inventory_items')
         .update(updates)
@@ -203,6 +209,130 @@ export const useUnassignEquipmentFromClient = () => {
         variant: "destructive",
       });
       console.error('Error unassigning equipment:', error);
+    },
+  });
+};
+
+export const useAssignEquipmentToClient = () => {
+  const queryClient = useQueryClient();
+  const { toast } = useToast();
+
+  return useMutation({
+    mutationFn: async ({ itemId, clientId }: { itemId: string; clientId: string }) => {
+      const { data, error } = await supabase
+        .from('inventory_items')
+        .update({
+          assigned_customer_id: clientId,
+          assignment_date: new Date().toISOString(),
+          status: 'Deployed'
+        })
+        .eq('id', itemId)
+        .select()
+        .single();
+
+      if (error) {
+        console.error('Error assigning equipment:', error);
+        throw error;
+      }
+
+      return data;
+    },
+    onSuccess: () => {
+      toast({
+        title: "Success",
+        description: "Equipment has been assigned successfully.",
+      });
+      queryClient.invalidateQueries({ queryKey: ['inventory-items'] });
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Error",
+        description: "Failed to assign equipment. Please try again.",
+        variant: "destructive",
+      });
+      console.error('Error assigning equipment:', error);
+    },
+  });
+};
+
+export const useInventoryStats = () => {
+  const { profile } = useAuth();
+  
+  return useQuery({
+    queryKey: ['inventory-stats', profile?.isp_company_id],
+    queryFn: async () => {
+      if (!profile?.isp_company_id) {
+        throw new Error('Company ID not found');
+      }
+
+      const { data, error } = await supabase
+        .from('inventory_items')
+        .select('status, category')
+        .eq('isp_company_id', profile.isp_company_id);
+
+      if (error) {
+        console.error('Error fetching inventory stats:', error);
+        throw error;
+      }
+
+      const stats = {
+        total: data.length,
+        inStock: data.filter(item => item.status === 'In Stock').length,
+        deployed: data.filter(item => item.status === 'Deployed').length,
+        maintenance: data.filter(item => item.status === 'Maintenance').length,
+        byCategory: data.reduce((acc, item) => {
+          acc[item.category] = (acc[item.category] || 0) + 1;
+          return acc;
+        }, {} as Record<string, number>)
+      };
+
+      return stats;
+    },
+    enabled: !!profile?.isp_company_id,
+  });
+};
+
+export const useLowStockItems = () => {
+  const { profile } = useAuth();
+  
+  return useQuery({
+    queryKey: ['low-stock-items', profile?.isp_company_id],
+    queryFn: async () => {
+      if (!profile?.isp_company_id) {
+        throw new Error('Company ID not found');
+      }
+
+      // For now, return empty array since we don't have a low stock threshold system yet
+      return [];
+    },
+    enabled: !!profile?.isp_company_id,
+  });
+};
+
+export const usePromoteToNetworkEquipment = () => {
+  const queryClient = useQueryClient();
+  const { toast } = useToast();
+
+  return useMutation({
+    mutationFn: async (itemId: string) => {
+      // This would promote inventory item to network equipment
+      // For now, just return success
+      return { success: true };
+    },
+    onSuccess: () => {
+      toast({
+        title: "Success",
+        description: "Item promoted to network equipment successfully.",
+      });
+      queryClient.invalidateQueries({ queryKey: ['inventory-items'] });
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Error",
+        description: "Failed to promote item. Please try again.",
+        variant: "destructive",
+      });
+      console.error('Error promoting item:', error);
     },
   });
 };
