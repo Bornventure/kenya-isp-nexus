@@ -11,7 +11,12 @@ const Inventory = () => {
   const [activeTab, setActiveTab] = useState('dashboard');
 
   const handleFilterByStatus = (status: string) => {
-    setActiveTab(status);
+    // Map the status to the appropriate tab
+    if (status === '') {
+      setActiveTab('all-items');
+    } else {
+      setActiveTab(status);
+    }
   };
 
   const handleViewItem = (itemId: string) => {
@@ -35,7 +40,7 @@ const Inventory = () => {
       <Tabs value={activeTab} onValueChange={setActiveTab}>
         <TabsList className="grid w-full grid-cols-6">
           <TabsTrigger value="dashboard">Dashboard</TabsTrigger>
-          <TabsTrigger value="Total Items">Total Items</TabsTrigger>
+          <TabsTrigger value="all-items">All Items</TabsTrigger>
           <TabsTrigger value="In Stock">In Stock</TabsTrigger>
           <TabsTrigger value="Deployed">Deployed</TabsTrigger>
           <TabsTrigger value="Maintenance">Maintenance</TabsTrigger>
@@ -49,7 +54,7 @@ const Inventory = () => {
           />
         </TabsContent>
 
-        <TabsContent value="Total Items">
+        <TabsContent value="all-items">
           <InventoryListView initialFilter="" />
         </TabsContent>
 

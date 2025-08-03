@@ -1,4 +1,3 @@
-
 import React from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -19,23 +18,10 @@ const InventoryDashboard: React.FC<InventoryDashboardProps> = ({
   const { data: recentItems = [], isLoading: itemsLoading, error: itemsError } = useInventoryItems({});
   const { data: lowStockItems = [], isLoading: lowStockLoading, error: lowStockError } = useLowStockItems();
 
-  console.log('InventoryDashboard - Render state:', {
-    stats,
-    statsLoading,
-    statsError: statsError?.message,
-    recentItemsCount: recentItems.length,
-    itemsLoading,
-    itemsError: itemsError?.message,
-    lowStockCount: lowStockItems.length,
-    lowStockLoading,
-    lowStockError: lowStockError?.message
-  });
-
   const isLoading = statsLoading || itemsLoading || lowStockLoading;
   const hasError = statsError || itemsError || lowStockError;
 
   if (hasError) {
-    console.error('InventoryDashboard - Error state:', { statsError, itemsError, lowStockError });
     return (
       <div className="space-y-6">
         <div className="text-center py-12">
