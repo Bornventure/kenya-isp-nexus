@@ -1,3 +1,4 @@
+
 import React, { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -17,7 +18,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { Search, Eye, Edit, Trash2, Package, Network, User } from 'lucide-react';
+import { Search, Eye, Edit, Package, Network, User } from 'lucide-react';
 import { useInventoryItems, useUnassignEquipmentFromClient } from '@/hooks/useInventory';
 import AddInventoryItemDialog from './AddInventoryItemDialog';
 import EditInventoryItemDialog from './EditInventoryItemDialog';
@@ -68,6 +69,11 @@ const InventoryListView: React.FC<InventoryListViewProps> = ({
   console.log('Loading state:', isLoading);
   console.log('Error state:', error);
 
+  // Log raw data for debugging
+  React.useEffect(() => {
+    console.log('Raw inventory items data:', inventoryItems);
+  }, [inventoryItems]);
+
   const handleUnassign = (itemId: string) => {
     if (confirm('Are you sure you want to unassign this equipment?')) {
       unassignEquipment(itemId);
@@ -100,6 +106,13 @@ const InventoryListView: React.FC<InventoryListViewProps> = ({
           <Package className="h-12 w-12 mx-auto mb-4 opacity-50 text-destructive" />
           <p className="text-destructive">Error loading inventory items</p>
           <p className="text-sm text-muted-foreground">{error.message}</p>
+          <Button 
+            variant="outline" 
+            className="mt-4"
+            onClick={() => window.location.reload()}
+          >
+            Refresh Page
+          </Button>
         </div>
       </div>
     );
@@ -108,7 +121,12 @@ const InventoryListView: React.FC<InventoryListViewProps> = ({
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
-        <h2 className="text-2xl font-bold">Inventory Items</h2>
+        <div>
+          <h2 className="text-2xl font-bold">Inventory Items</h2>
+          <p className="text-sm text-muted-foreground">
+            {isLoading ? 'Loading...' : `${inventoryItems.length} items found`}
+          </p>
+        </div>
         <Button onClick={() => setShowAddDialog(true)}>
           <Package className="h-4 w-4 mr-2" />
           Add Item
@@ -178,7 +196,7 @@ const InventoryListView: React.FC<InventoryListViewProps> = ({
               {inventoryItems.map((item) => (
                 <TableRow key={item.id}>
                   <TableCell className="font-mono text-sm">
-                    {item.item_id}
+                    {item.item_id || item.id.slice(0, 8)}
                   </TableCell>
                   <TableCell>
                     <div>
@@ -285,7 +303,25 @@ const InventoryListView: React.FC<InventoryListViewProps> = ({
           <div className="p-6 text-center text-muted-foreground">
             <Package className="h-12 w-12 mx-auto mb-4 opacity-50" />
             <p>No inventory items found</p>
-            <p className="text-sm">Try adjusting your search or filters</p>
+            <p className="text-sm">
+              {search || categoryFilter || statusFilter 
+                ? 'Try adjusting your search or filters'
+                : 'Click "Add Item" to get started'
+              }
+            </p>
+            {(search || categoryFilter || statusFilter) && (
+              <Button
+                variant="outline"
+                className="mt-4"
+                onClick={() => {
+                  setSearch('');
+                  setCategoryFilter('');
+                  setStatusFilter('');
+                }}
+              >
+                Clear Filters
+              </Button>
+            )}
           </div>
         )}
       </div>

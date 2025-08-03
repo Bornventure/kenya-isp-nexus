@@ -303,7 +303,13 @@ export const useInventoryItems = (filters?: { category?: string; status?: string
   return useQuery({
     queryKey: ['inventory-items', profile?.isp_company_id, filters],
     queryFn: async () => {
-      if (!profile?.isp_company_id) return [];
+      console.log('Fetching inventory items with filters:', filters);
+      console.log('Current user profile:', profile);
+      
+      if (!profile?.isp_company_id) {
+        console.log('No ISP company ID found');
+        return [];
+      }
 
       let query = supabase
         .from('inventory_items')
@@ -328,7 +334,12 @@ export const useInventoryItems = (filters?: { category?: string; status?: string
 
       const { data, error } = await query.order('created_at', { ascending: false });
 
-      if (error) throw error;
+      if (error) {
+        console.error('Error fetching inventory items:', error);
+        throw error;
+      }
+
+      console.log('Fetched inventory items:', data);
       return data as InventoryItem[];
     },
     enabled: !!profile?.isp_company_id,
@@ -341,6 +352,12 @@ export const useInventoryItem = (id: string) => {
   return useQuery({
     queryKey: ['inventory-item', id],
     queryFn: async () => {
+      console.log('Fetching inventory item:', id);
+      
+      if (!id || !profile?.isp_company_id) {
+        return null;
+      }
+
       const { data, error } = await supabase
         .from('inventory_items')
         .select(`
@@ -351,10 +368,15 @@ export const useInventoryItem = (id: string) => {
           )
         `)
         .eq('id', id)
-        .eq('isp_company_id', profile?.isp_company_id)
+        .eq('isp_company_id', profile.isp_company_id)
         .single();
 
-      if (error) throw error;
+      if (error) {
+        console.error('Error fetching inventory item:', error);
+        throw error;
+      }
+
+      console.log('Fetched inventory item:', data);
       return data as InventoryItem;
     },
     enabled: !!profile?.isp_company_id && !!id,
@@ -367,14 +389,24 @@ export const useInventoryStats = () => {
   return useQuery({
     queryKey: ['inventory-stats', profile?.isp_company_id],
     queryFn: async () => {
-      if (!profile?.isp_company_id) return { total: 0, inStock: 0, deployed: 0, maintenance: 0, byCategory: {} };
+      console.log('Fetching inventory stats');
+      
+      if (!profile?.isp_company_id) {
+        console.log('No ISP company ID for stats');
+        return { total: 0, inStock: 0, deployed: 0, maintenance: 0, byCategory: {} };
+      }
 
       const { data, error } = await supabase
         .from('inventory_items')
         .select('status, category')
         .eq('isp_company_id', profile.isp_company_id);
 
-      if (error) throw error;
+      if (error) {
+        console.error('Error fetching inventory stats:', error);
+        throw error;
+      }
+
+      console.log('Raw inventory stats data:', data);
 
       const stats = data.reduce(
         (acc, item) => {
@@ -401,6 +433,7 @@ export const useInventoryStats = () => {
         { total: 0, inStock: 0, deployed: 0, maintenance: 0, byCategory: {} as Record<string, number> }
       );
 
+      console.log('Processed inventory stats:', stats);
       return stats as InventoryStats;
     },
     enabled: !!profile?.isp_company_id,
@@ -413,7 +446,12 @@ export const useLowStockItems = () => {
   return useQuery({
     queryKey: ['low-stock-items', profile?.isp_company_id],
     queryFn: async () => {
-      if (!profile?.isp_company_id) return [];
+      console.log('Fetching low stock items');
+      
+      if (!profile?.isp_company_id) {
+        console.log('No ISP company ID for low stock');
+        return [];
+      }
 
       const { data, error } = await supabase
         .from('inventory_items')
@@ -423,7 +461,12 @@ export const useLowStockItems = () => {
         .not('reorder_level', 'is', null)
         .filter('quantity_in_stock', 'lte', 'reorder_level');
 
-      if (error) throw error;
+      if (error) {
+        console.error('Error fetching low stock items:', error);
+        throw error;
+      }
+
+      console.log('Fetched low stock items:', data);
       return data as InventoryItem[];
     },
     enabled: !!profile?.isp_company_id,
