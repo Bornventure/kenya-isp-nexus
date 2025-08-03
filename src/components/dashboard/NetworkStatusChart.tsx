@@ -19,15 +19,13 @@ const chartConfig = {
 
 const NetworkStatusChart = () => {
   const { data: hotspots = [], isLoading: hotspotsLoading } = useHotspots();
-  const { data: clients = [], isLoading: clientsLoading } = useClients();
+  const { clients = [], isLoading: clientsLoading } = useClients();
 
   // Transform real data for the chart
   const chartData = hotspots.map(hotspot => {
     // Count active clients for this location (simplified - you may need to adjust based on your data structure)
     const locationClients = clients.filter(client => 
-      client.status === 'active' && 
-      // You might need to add location matching logic here based on your data structure
-      true
+      client.status === 'active'
     ).length;
 
     return {

@@ -1,7 +1,6 @@
 
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { 
   TrendingUp, 
@@ -9,7 +8,6 @@ import {
   Users, 
   Wifi, 
   DollarSign,
-  Clock,
   BarChart3,
   PieChart
 } from 'lucide-react';
@@ -22,7 +20,6 @@ interface AdvancedHotspotAnalyticsProps {
 
 const AdvancedHotspotAnalytics: React.FC<AdvancedHotspotAnalyticsProps> = ({ selectedHotspot }) => {
   const { data: analyticsData, isLoading } = useHotspotAnalytics();
-  const [timeRange, setTimeRange] = useState('7d');
   const [viewType, setViewType] = useState('overview');
 
   // Filter data by selected hotspot if specified
