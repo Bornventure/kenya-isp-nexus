@@ -22,7 +22,11 @@ interface NetworkDevice {
   memoryUsage: number;
 }
 
-const HotspotNetworkIntegration: React.FC = () => {
+interface HotspotNetworkIntegrationProps {
+  selectedHotspot: string | null;
+}
+
+const HotspotNetworkIntegration: React.FC<HotspotNetworkIntegrationProps> = ({ selectedHotspot }) => {
   const [devices, setDevices] = useState<NetworkDevice[]>([]);
   const [isMonitoring, setIsMonitoring] = useState(false);
 
