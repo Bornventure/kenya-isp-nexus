@@ -1,5 +1,5 @@
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
@@ -36,7 +36,7 @@ const InventoryListView: React.FC<InventoryListViewProps> = ({
   initialFilter = '',
 }) => {
   const [search, setSearch] = useState('');
-  const [categoryFilter, setCategoryFilter] = useState(initialFilter);
+  const [categoryFilter, setCategoryFilter] = useState('');
   const [statusFilter, setStatusFilter] = useState('');
   const [showAddDialog, setShowAddDialog] = useState(false);
   const [editingItem, setEditingItem] = useState<string | null>(null);
@@ -44,6 +44,22 @@ const InventoryListView: React.FC<InventoryListViewProps> = ({
   const [promotingItem, setPromotingItem] = useState<any>(null);
 
   const { mutate: unassignEquipment, isPending: isUnassigning } = useUnassignEquipmentFromClient();
+
+  // Set initial filter when component mounts or initialFilter changes
+  useEffect(() => {
+    console.log('InventoryListView - Setting initial filter:', initialFilter);
+    if (initialFilter) {
+      // Check if initialFilter is a status or category
+      const statuses = ['In Stock', 'Deployed', 'Maintenance', 'Out of Stock'];
+      if (statuses.includes(initialFilter)) {
+        setStatusFilter(initialFilter);
+        setCategoryFilter('');
+      } else {
+        setCategoryFilter(initialFilter);
+        setStatusFilter('');
+      }
+    }
+  }, [initialFilter]);
 
   // Build filters object
   const filters = React.useMemo(() => {
@@ -59,17 +75,21 @@ const InventoryListView: React.FC<InventoryListViewProps> = ({
       filterObj.search = search;
     }
     
+    console.log('InventoryListView - Built filters:', filterObj);
     return filterObj;
   }, [categoryFilter, statusFilter, search]);
 
   const { data: inventoryItems = [], isLoading, error } = useInventoryItems(filters);
 
-  console.log('InventoryListView - Render with:', {
+  console.log('InventoryListView - Render state:', {
     itemsCount: inventoryItems.length,
     isLoading,
     error: error?.message,
     filters,
-    initialFilter
+    initialFilter,
+    categoryFilter,
+    statusFilter,
+    search
   });
 
   const handleUnassign = (itemId: string) => {
@@ -128,6 +148,16 @@ const InventoryListView: React.FC<InventoryListViewProps> = ({
           <Package className="h-4 w-4 mr-2" />
           Add Item
         </Button>
+      </div>
+
+      {/* Debug Info */}
+      <div className="bg-gray-50 p-4 rounded-lg text-sm">
+        <p><strong>Debug Info:</strong></p>
+        <p>Loading: {isLoading ? 'Yes' : 'No'}</p>
+        <p>Items Count: {inventoryItems.length}</p>
+        <p>Error: {error ? error.message : 'None'}</p>
+        <p>Filters: {JSON.stringify(filters)}</p>
+        <p>Initial Filter: {initialFilter}</p>
       </div>
 
       {/* Filters */}

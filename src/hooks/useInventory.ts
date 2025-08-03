@@ -59,7 +59,193 @@ export interface InventoryStats {
 // Type for creating inventory items (excludes auto-generated fields)
 type CreateInventoryItemData = Omit<InventoryItem, 'id' | 'created_at' | 'updated_at' | 'item_id' | 'clients'>;
 
-// Main hook for inventory operations with simplified logic
+// Simplified hook for inventory items with better error handling and debugging
+export const useInventoryItems = (filters?: { category?: string; status?: string; search?: string }) => {
+  const { profile } = useAuth();
+
+  return useQuery({
+    queryKey: ['inventory-items', profile?.isp_company_id, filters],
+    queryFn: async () => {
+      console.log('useInventoryItems - Starting fetch');
+      console.log('useInventoryItems - Profile:', profile);
+      console.log('useInventoryItems - Filters:', filters);
+      console.log('useInventoryItems - Company ID:', profile?.isp_company_id);
+      
+      if (!profile?.isp_company_id) {
+        console.log('useInventoryItems - No company ID, returning empty array');
+        return [];
+      }
+
+      try {
+        console.log('useInventoryItems - Building query...');
+        let query = supabase
+          .from('inventory_items')
+          .select(`
+            *,
+            clients:assigned_customer_id (
+              name,
+              phone
+            )
+          `)
+          .eq('isp_company_id', profile.isp_company_id);
+
+        // Apply filters only if they have values
+        if (filters?.category && filters.category.trim()) {
+          console.log('useInventoryItems - Applying category filter:', filters.category);
+          query = query.eq('category', filters.category);
+        }
+        if (filters?.status && filters.status.trim()) {
+          console.log('useInventoryItems - Applying status filter:', filters.status);
+          query = query.eq('status', filters.status);
+        }
+        if (filters?.search && filters.search.trim()) {
+          console.log('useInventoryItems - Applying search filter:', filters.search);
+          query = query.or(`name.ilike.%${filters.search}%,model.ilike.%${filters.search}%,serial_number.ilike.%${filters.search}%,type.ilike.%${filters.search}%`);
+        }
+
+        console.log('useInventoryItems - Executing query...');
+        const { data, error } = await query.order('created_at', { ascending: false });
+
+        if (error) {
+          console.error('useInventoryItems - Query error:', error);
+          throw error;
+        }
+
+        console.log('useInventoryItems - Query successful');
+        console.log('useInventoryItems - Raw data:', data);
+        console.log('useInventoryItems - Data length:', data?.length || 0);
+
+        return data as InventoryItem[];
+      } catch (error) {
+        console.error('useInventoryItems - Catch block error:', error);
+        throw error;
+      }
+    },
+    enabled: !!profile?.isp_company_id,
+    retry: 2,
+    retryDelay: 1000,
+  });
+};
+
+export const useInventoryStats = () => {
+  const { profile } = useAuth();
+
+  return useQuery({
+    queryKey: ['inventory-stats', profile?.isp_company_id],
+    queryFn: async () => {
+      console.log('useInventoryStats - Starting fetch');
+      console.log('useInventoryStats - Company ID:', profile?.isp_company_id);
+      
+      if (!profile?.isp_company_id) {
+        console.log('useInventoryStats - No company ID, returning default stats');
+        return { total: 0, inStock: 0, deployed: 0, maintenance: 0, byCategory: {} };
+      }
+
+      try {
+        console.log('useInventoryStats - Executing query...');
+        const { data, error } = await supabase
+          .from('inventory_items')
+          .select('status, category')
+          .eq('isp_company_id', profile.isp_company_id);
+
+        if (error) {
+          console.error('useInventoryStats - Query error:', error);
+          throw error;
+        }
+
+        console.log('useInventoryStats - Raw data:', data);
+        console.log('useInventoryStats - Data length:', data?.length || 0);
+
+        const stats = (data || []).reduce(
+          (acc, item) => {
+            acc.total++;
+            switch (item.status) {
+              case 'In Stock':
+                acc.inStock++;
+                break;
+              case 'Deployed':
+                acc.deployed++;
+                break;
+              case 'Maintenance':
+                acc.maintenance++;
+                break;
+            }
+            
+            // Count by category
+            if (item.category) {
+              acc.byCategory[item.category] = (acc.byCategory[item.category] || 0) + 1;
+            }
+            
+            return acc;
+          },
+          { total: 0, inStock: 0, deployed: 0, maintenance: 0, byCategory: {} as Record<string, number> }
+        );
+
+        console.log('useInventoryStats - Processed stats:', stats);
+        return stats as InventoryStats;
+      } catch (error) {
+        console.error('useInventoryStats - Catch block error:', error);
+        throw error;
+      }
+    },
+    enabled: !!profile?.isp_company_id,
+    retry: 2,
+    retryDelay: 1000,
+  });
+};
+
+export const useLowStockItems = () => {
+  const { profile } = useAuth();
+
+  return useQuery({
+    queryKey: ['low-stock-items', profile?.isp_company_id],
+    queryFn: async () => {
+      console.log('useLowStockItems - Starting fetch');
+      console.log('useLowStockItems - Company ID:', profile?.isp_company_id);
+      
+      if (!profile?.isp_company_id) {
+        console.log('useLowStockItems - No company ID, returning empty array');
+        return [];
+      }
+
+      try {
+        console.log('useLowStockItems - Executing query...');
+        // First get all items with both quantity_in_stock and reorder_level not null
+        const { data, error } = await supabase
+          .from('inventory_items')
+          .select('*')
+          .eq('isp_company_id', profile.isp_company_id)
+          .not('quantity_in_stock', 'is', null)
+          .not('reorder_level', 'is', null);
+
+        if (error) {
+          console.error('useLowStockItems - Query error:', error);
+          throw error;
+        }
+
+        console.log('useLowStockItems - Raw data:', data);
+        console.log('useLowStockItems - Data length:', data?.length || 0);
+
+        // Filter client-side to avoid PostgreSQL syntax issues
+        const lowStockItems = (data || []).filter(item => 
+          item.quantity_in_stock !== null && 
+          item.reorder_level !== null &&
+          item.quantity_in_stock <= item.reorder_level
+        );
+
+        console.log('useLowStockItems - Filtered low stock items:', lowStockItems.length);
+        return lowStockItems as InventoryItem[];
+      } catch (error) {
+        console.error('useLowStockItems - Catch block error:', error);
+        throw error;
+      }
+    },
+    enabled: !!profile?.isp_company_id,
+    retry: 2,
+    retryDelay: 1000,
+  });
+};
+
 export const useInventory = () => {
   const { profile } = useAuth();
   const { toast } = useToast();
@@ -310,62 +496,6 @@ export const useInventory = () => {
   };
 };
 
-// Simplified hook for inventory items with better error handling
-export const useInventoryItems = (filters?: { category?: string; status?: string; search?: string }) => {
-  const { profile } = useAuth();
-
-  return useQuery({
-    queryKey: ['inventory-items', profile?.isp_company_id, filters],
-    queryFn: async () => {
-      console.log('useInventoryItems - Fetching with filters:', filters);
-      console.log('useInventoryItems - Company ID:', profile?.isp_company_id);
-      
-      if (!profile?.isp_company_id) {
-        console.log('useInventoryItems - No company ID, returning empty array');
-        return [];
-      }
-
-      let query = supabase
-        .from('inventory_items')
-        .select(`
-          *,
-          clients:assigned_customer_id (
-            name,
-            phone
-          )
-        `)
-        .eq('isp_company_id', profile.isp_company_id);
-
-      // Apply filters only if they have values
-      if (filters?.category && filters.category.trim()) {
-        console.log('useInventoryItems - Applying category filter:', filters.category);
-        query = query.eq('category', filters.category);
-      }
-      if (filters?.status && filters.status.trim()) {
-        console.log('useInventoryItems - Applying status filter:', filters.status);
-        query = query.eq('status', filters.status);
-      }
-      if (filters?.search && filters.search.trim()) {
-        console.log('useInventoryItems - Applying search filter:', filters.search);
-        query = query.or(`name.ilike.%${filters.search}%,model.ilike.%${filters.search}%,serial_number.ilike.%${filters.search}%,type.ilike.%${filters.search}%`);
-      }
-
-      const { data, error } = await query.order('created_at', { ascending: false });
-
-      if (error) {
-        console.error('useInventoryItems - Error fetching:', error);
-        throw error;
-      }
-
-      console.log('useInventoryItems - Successfully fetched:', data?.length || 0, 'items');
-      return data as InventoryItem[];
-    },
-    enabled: !!profile?.isp_company_id,
-    retry: 2,
-    retryDelay: 1000,
-  });
-};
-
 export const useInventoryItem = (id: string) => {
   const { profile } = useAuth();
 
@@ -400,107 +530,6 @@ export const useInventoryItem = (id: string) => {
       return data as InventoryItem;
     },
     enabled: !!profile?.isp_company_id && !!id,
-  });
-};
-
-export const useInventoryStats = () => {
-  const { profile } = useAuth();
-
-  return useQuery({
-    queryKey: ['inventory-stats', profile?.isp_company_id],
-    queryFn: async () => {
-      console.log('useInventoryStats - Fetching stats for company:', profile?.isp_company_id);
-      
-      if (!profile?.isp_company_id) {
-        console.log('useInventoryStats - No company ID, returning default stats');
-        return { total: 0, inStock: 0, deployed: 0, maintenance: 0, byCategory: {} };
-      }
-
-      const { data, error } = await supabase
-        .from('inventory_items')
-        .select('status, category')
-        .eq('isp_company_id', profile.isp_company_id);
-
-      if (error) {
-        console.error('useInventoryStats - Error fetching:', error);
-        throw error;
-      }
-
-      console.log('useInventoryStats - Raw data:', data?.length || 0, 'items');
-
-      const stats = data.reduce(
-        (acc, item) => {
-          acc.total++;
-          switch (item.status) {
-            case 'In Stock':
-              acc.inStock++;
-              break;
-            case 'Deployed':
-              acc.deployed++;
-              break;
-            case 'Maintenance':
-              acc.maintenance++;
-              break;
-          }
-          
-          // Count by category
-          if (item.category) {
-            acc.byCategory[item.category] = (acc.byCategory[item.category] || 0) + 1;
-          }
-          
-          return acc;
-        },
-        { total: 0, inStock: 0, deployed: 0, maintenance: 0, byCategory: {} as Record<string, number> }
-      );
-
-      console.log('useInventoryStats - Processed stats:', stats);
-      return stats as InventoryStats;
-    },
-    enabled: !!profile?.isp_company_id,
-    retry: 2,
-    retryDelay: 1000,
-  });
-};
-
-export const useLowStockItems = () => {
-  const { profile } = useAuth();
-
-  return useQuery({
-    queryKey: ['low-stock-items', profile?.isp_company_id],
-    queryFn: async () => {
-      console.log('useLowStockItems - Fetching for company:', profile?.isp_company_id);
-      
-      if (!profile?.isp_company_id) {
-        console.log('useLowStockItems - No company ID, returning empty array');
-        return [];
-      }
-
-      // First get all items with both quantity_in_stock and reorder_level not null
-      const { data, error } = await supabase
-        .from('inventory_items')
-        .select('*')
-        .eq('isp_company_id', profile.isp_company_id)
-        .not('quantity_in_stock', 'is', null)
-        .not('reorder_level', 'is', null);
-
-      if (error) {
-        console.error('useLowStockItems - Error fetching:', error);
-        throw error;
-      }
-
-      // Filter client-side to avoid PostgreSQL syntax issues
-      const lowStockItems = data?.filter(item => 
-        item.quantity_in_stock !== null && 
-        item.reorder_level !== null &&
-        item.quantity_in_stock <= item.reorder_level
-      ) || [];
-
-      console.log('useLowStockItems - Found:', lowStockItems.length, 'low stock items');
-      return lowStockItems as InventoryItem[];
-    },
-    enabled: !!profile?.isp_company_id,
-    retry: 2,
-    retryDelay: 1000,
   });
 };
 
