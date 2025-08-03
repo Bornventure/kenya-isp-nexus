@@ -36,8 +36,8 @@ const InventoryListView: React.FC<InventoryListViewProps> = ({
   initialFilter = '',
 }) => {
   const [search, setSearch] = useState('');
-  const [categoryFilter, setCategoryFilter] = useState('');
-  const [statusFilter, setStatusFilter] = useState('');
+  const [categoryFilter, setCategoryFilter] = useState('all');
+  const [statusFilter, setStatusFilter] = useState('all');
   const [showAddDialog, setShowAddDialog] = useState(false);
   const [editingItem, setEditingItem] = useState<string | null>(null);
   const [assigningItem, setAssigningItem] = useState<{ id: string; name: string } | null>(null);
@@ -53,22 +53,22 @@ const InventoryListView: React.FC<InventoryListViewProps> = ({
       const statuses = ['In Stock', 'Deployed', 'Maintenance', 'Out of Stock'];
       if (statuses.includes(initialFilter)) {
         setStatusFilter(initialFilter);
-        setCategoryFilter('');
+        setCategoryFilter('all');
       } else {
         setCategoryFilter(initialFilter);
-        setStatusFilter('');
+        setStatusFilter('all');
       }
     }
   }, [initialFilter]);
 
-  // Build filters object
+  // Build filters object - only include non-"all" values
   const filters = React.useMemo(() => {
     const filterObj: { category?: string; status?: string; search?: string } = {};
     
-    if (categoryFilter && categoryFilter.trim()) {
+    if (categoryFilter && categoryFilter !== 'all') {
       filterObj.category = categoryFilter;
     }
-    if (statusFilter && statusFilter.trim()) {
+    if (statusFilter && statusFilter !== 'all') {
       filterObj.status = statusFilter;
     }
     if (search && search.trim()) {
@@ -158,6 +158,8 @@ const InventoryListView: React.FC<InventoryListViewProps> = ({
         <p>Error: {error ? error.message : 'None'}</p>
         <p>Filters: {JSON.stringify(filters)}</p>
         <p>Initial Filter: {initialFilter}</p>
+        <p>Category Filter: {categoryFilter}</p>
+        <p>Status Filter: {statusFilter}</p>
       </div>
 
       {/* Filters */}
@@ -176,7 +178,7 @@ const InventoryListView: React.FC<InventoryListViewProps> = ({
             <SelectValue placeholder="All Categories" />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value="">All Categories</SelectItem>
+            <SelectItem value="all">All Categories</SelectItem>
             {categories.map((category) => (
               <SelectItem key={category} value={category}>
                 {category}
@@ -189,7 +191,7 @@ const InventoryListView: React.FC<InventoryListViewProps> = ({
             <SelectValue placeholder="All Statuses" />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value="">All Statuses</SelectItem>
+            <SelectItem value="all">All Statuses</SelectItem>
             {statuses.map((status) => (
               <SelectItem key={status} value={status}>
                 {status}
@@ -331,18 +333,18 @@ const InventoryListView: React.FC<InventoryListViewProps> = ({
             <Package className="h-12 w-12 mx-auto mb-4 opacity-50" />
             <h3 className="text-lg font-medium mb-2">No inventory items found</h3>
             <p className="text-sm text-muted-foreground mb-4">
-              {search || categoryFilter || statusFilter 
+              {search || categoryFilter !== 'all' || statusFilter !== 'all'
                 ? 'Try adjusting your search or filters'
                 : 'Click "Add Item" to get started'
               }
             </p>
-            {(search || categoryFilter || statusFilter) && (
+            {(search || categoryFilter !== 'all' || statusFilter !== 'all') && (
               <Button
                 variant="outline"
                 onClick={() => {
                   setSearch('');
-                  setCategoryFilter('');
-                  setStatusFilter('');
+                  setCategoryFilter('all');
+                  setStatusFilter('all');
                 }}
               >
                 Clear Filters
