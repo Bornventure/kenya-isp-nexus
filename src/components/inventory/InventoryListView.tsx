@@ -1,38 +1,21 @@
 
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Badge } from '@/components/ui/badge';
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from '@/components/ui/table';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select';
-import { Search, Eye, Edit, Package, Network, User, AlertTriangle } from 'lucide-react';
-import { useInventoryItems, useUnassignEquipmentFromClient } from '@/hooks/useInventory';
+import { useInventoryItems } from '@/hooks/useInventory';
+import { Package, Search, Plus, Edit, Settings, Trash2 } from 'lucide-react';
 import AddInventoryItemDialog from './AddInventoryItemDialog';
 import EditInventoryItemDialog from './EditInventoryItemDialog';
 import AssignEquipmentDialog from './AssignEquipmentDialog';
-import PromoteToEquipmentDialog from './PromoteToEquipmentDialog';
-import { format } from 'date-fns';
 
 interface InventoryListViewProps {
-  onViewItem: (itemId: string) => void;
   initialFilter?: string;
 }
 
-const InventoryListView: React.FC<InventoryListViewProps> = ({
-  onViewItem,
+const InventoryListView: React.FC<InventoryListViewProps> = ({ 
   initialFilter = '',
 }) => {
   const [search, setSearch] = useState('');
@@ -41,15 +24,13 @@ const InventoryListView: React.FC<InventoryListViewProps> = ({
   const [showAddDialog, setShowAddDialog] = useState(false);
   const [editingItem, setEditingItem] = useState<string | null>(null);
   const [assigningItem, setAssigningItem] = useState<{ id: string; name: string } | null>(null);
-  const [promotingItem, setPromotingItem] = useState<any>(null);
 
-  const { mutate: unassignEquipment, isPending: isUnassigning } = useUnassignEquipmentFromClient();
-
-  // Set initial filter when component mounts or initialFilter changes
-  useEffect(() => {
-    console.log('InventoryListView - Setting initial filter:', initialFilter);
-    if (initialFilter) {
-      // Check if initialFilter is a status or category
+  // Set initial filters when component mounts or initialFilter changes
+  React.useEffect(() => {
+    if (initialFilter && initialFilter !== '') {
+      console.log('InventoryListView - Setting initial filter:', initialFilter);
+      
+      // Check if it's a status filter
       const statuses = ['In Stock', 'Deployed', 'Maintenance', 'Out of Stock'];
       if (statuses.includes(initialFilter)) {
         setStatusFilter(initialFilter);
@@ -72,107 +53,51 @@ const InventoryListView: React.FC<InventoryListViewProps> = ({
       filterObj.status = statusFilter;
     }
     if (search && search.trim()) {
-      filterObj.search = search;
+      filterObj.search = search.trim();
     }
     
-    console.log('InventoryListView - Built filters:', filterObj);
     return filterObj;
   }, [categoryFilter, statusFilter, search]);
 
-  const { data: inventoryItems = [], isLoading, error } = useInventoryItems(filters);
+  const { data: items, isLoading, error } = useInventoryItems(filters);
 
-  console.log('InventoryListView - Render state:', {
-    itemsCount: inventoryItems.length,
-    isLoading,
-    error: error?.message,
-    filters,
-    initialFilter,
-    categoryFilter,
-    statusFilter,
-    search
-  });
-
-  const handleUnassign = (itemId: string) => {
-    if (confirm('Are you sure you want to unassign this equipment?')) {
-      unassignEquipment(itemId);
-    }
-  };
-
-  const getStatusColor = (status: string) => {
-    switch (status) {
-      case 'In Stock':
-        return 'default';
-      case 'Deployed':
-        return 'secondary';
-      case 'Maintenance':
-        return 'destructive';
-      case 'Out of Stock':
-        return 'outline';
-      default:
-        return 'outline';
-    }
-  };
-
-  const categories = ['Network Hardware', 'CPE', 'Infrastructure', 'Logical Resource', 'Consumable'];
+  const categories = ['Routers', 'Switches', 'Cables', 'Antennas', 'Power Supplies', 'Accessories'];
   const statuses = ['In Stock', 'Deployed', 'Maintenance', 'Out of Stock'];
 
-  if (error) {
-    console.error('InventoryListView - Error rendering:', error);
-    return (
-      <div className="space-y-6">
-        <div className="text-center py-8">
-          <AlertTriangle className="h-12 w-12 mx-auto mb-4 text-destructive" />
-          <h3 className="text-lg font-semibold mb-2">Error Loading Inventory</h3>
-          <p className="text-sm text-muted-foreground mb-4">{error.message}</p>
-          <Button 
-            variant="outline" 
-            onClick={() => window.location.reload()}
-          >
-            Refresh Page
-          </Button>
-        </div>
-      </div>
-    );
-  }
+  const handleItemAction = (itemId: string, action: 'edit' | 'assign' | 'delete') => {
+    const item = items?.find(i => i.id === itemId);
+    if (!item) return;
+
+    switch (action) {
+      case 'edit':
+        setEditingItem(itemId);
+        break;
+      case 'assign':
+        setAssigningItem({ id: itemId, name: item.name });
+        break;
+      case 'delete':
+        // Handle delete - you might want to add a confirmation dialog
+        console.log('Delete item:', itemId);
+        break;
+    }
+  };
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <h2 className="text-2xl font-bold">Inventory Items</h2>
-          <p className="text-sm text-muted-foreground">
-            {isLoading ? 'Loading...' : `${inventoryItems.length} items found`}
-          </p>
-        </div>
-        <Button onClick={() => setShowAddDialog(true)}>
-          <Package className="h-4 w-4 mr-2" />
-          Add Item
-        </Button>
-      </div>
-
-      {/* Debug Info */}
-      <div className="bg-gray-50 p-4 rounded-lg text-sm">
-        <p><strong>Debug Info:</strong></p>
-        <p>Loading: {isLoading ? 'Yes' : 'No'}</p>
-        <p>Items Count: {inventoryItems.length}</p>
-        <p>Error: {error ? error.message : 'None'}</p>
-        <p>Filters: {JSON.stringify(filters)}</p>
-        <p>Initial Filter: {initialFilter}</p>
-        <p>Category Filter: {categoryFilter}</p>
-        <p>Status Filter: {statusFilter}</p>
-      </div>
-
       {/* Filters */}
-      <div className="flex gap-4 items-center">
-        <div className="relative flex-1">
-          <Search className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
-          <Input
-            placeholder="Search inventory items..."
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            className="pl-10"
-          />
+      <div className="flex flex-col sm:flex-row gap-4">
+        <div className="flex-1">
+          <div className="relative">
+            <Search className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
+            <Input
+              placeholder="Search inventory items..."
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              className="pl-10"
+            />
+          </div>
         </div>
+        
         <Select value={categoryFilter} onValueChange={setCategoryFilter}>
           <SelectTrigger className="w-48">
             <SelectValue placeholder="All Categories" />
@@ -186,6 +111,7 @@ const InventoryListView: React.FC<InventoryListViewProps> = ({
             ))}
           </SelectContent>
         </Select>
+
         <Select value={statusFilter} onValueChange={setStatusFilter}>
           <SelectTrigger className="w-48">
             <SelectValue placeholder="All Statuses" />
@@ -199,137 +125,122 @@ const InventoryListView: React.FC<InventoryListViewProps> = ({
             ))}
           </SelectContent>
         </Select>
+
+        <Button onClick={() => setShowAddDialog(true)}>
+          <Plus className="h-4 w-4 mr-2" />
+          Add Item
+        </Button>
       </div>
 
-      {/* Items Table */}
-      <div className="border rounded-lg">
-        {isLoading ? (
-          <div className="p-12 text-center">
-            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto mb-4"></div>
-            <p className="text-muted-foreground">Loading inventory items...</p>
-          </div>
-        ) : inventoryItems.length > 0 ? (
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Item ID</TableHead>
-                <TableHead>Name/Type</TableHead>
-                <TableHead>Category</TableHead>
-                <TableHead>Status</TableHead>
-                <TableHead>Location</TableHead>
-                <TableHead>Assigned To</TableHead>
-                <TableHead>Actions</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {inventoryItems.map((item) => (
-                <TableRow key={item.id}>
-                  <TableCell className="font-mono text-sm">
-                    {item.item_id || item.id.slice(0, 8)}
-                  </TableCell>
-                  <TableCell>
-                    <div>
-                      <div className="font-medium">{item.name || item.type}</div>
-                      {item.manufacturer && item.model && (
-                        <div className="text-sm text-muted-foreground">
-                          {item.manufacturer} {item.model}
-                        </div>
-                      )}
-                      {item.serial_number && (
-                        <div className="text-xs text-muted-foreground font-mono">
-                          S/N: {item.serial_number}
-                        </div>
-                      )}
-                    </div>
-                  </TableCell>
-                  <TableCell>
-                    <Badge variant="outline">{item.category}</Badge>
-                  </TableCell>
-                  <TableCell>
-                    <Badge variant={getStatusColor(item.status)}>
-                      {item.status}
-                    </Badge>
-                  </TableCell>
-                  <TableCell>{item.location || '-'}</TableCell>
-                  <TableCell>
-                    {item.clients ? (
-                      <div>
-                        <div className="font-medium">{item.clients.name}</div>
-                        <div className="text-sm text-muted-foreground">
-                          {item.clients.phone}
-                        </div>
-                        {item.assignment_date && (
-                          <div className="text-xs text-muted-foreground">
-                            Assigned: {format(new Date(item.assignment_date), 'PPP')}
-                          </div>
-                        )}
-                      </div>
-                    ) : (
-                      '-'
-                    )}
-                  </TableCell>
-                  <TableCell>
-                    <div className="flex gap-2">
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        onClick={() => onViewItem(item.id)}
-                      >
-                        <Eye className="h-4 w-4" />
-                      </Button>
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        onClick={() => setEditingItem(item.id)}
-                      >
-                        <Edit className="h-4 w-4" />
-                      </Button>
-                      
-                      {/* Promote to Equipment button for eligible items */}
-                      {(item.category === 'Network Hardware' || item.category === 'CPE') && 
-                       !item.is_network_equipment && (
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          onClick={() => setPromotingItem(item)}
-                          title="Promote to Network Equipment"
-                        >
-                          <Network className="h-4 w-4" />
-                        </Button>
-                      )}
-
-                      {/* Assignment actions */}
-                      {item.status === 'In Stock' && item.category === 'CPE' && (
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          onClick={() => setAssigningItem({
-                            id: item.id,
-                            name: item.name || item.type || 'Equipment'
-                          })}
-                        >
-                          <User className="h-4 w-4" />
-                        </Button>
-                      )}
-                      
-                      {item.assigned_customer_id && (
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          onClick={() => handleUnassign(item.id)}
-                          disabled={isUnassigning}
-                        >
-                          Unassign
-                        </Button>
-                      )}
-                    </div>
-                  </TableCell>
-                </TableRow>
-              ))}
-            </TableBody>
-          </Table>
-        ) : (
-          <div className="p-12 text-center">
+      {/* Items Grid */}
+      {isLoading ? (
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+          {[...Array(6)].map((_, i) => (
+            <Card key={i}>
+              <CardContent className="p-6">
+                <div className="animate-pulse space-y-4">
+                  <div className="h-4 bg-gray-200 rounded w-3/4"></div>
+                  <div className="h-3 bg-gray-200 rounded w-1/2"></div>
+                  <div className="h-3 bg-gray-200 rounded w-full"></div>
+                </div>
+              </CardContent>
+            </Card>
+          ))}
+        </div>
+      ) : error ? (
+        <Card>
+          <CardContent className="p-6 text-center">
+            <Package className="h-12 w-12 mx-auto mb-4 text-destructive opacity-50" />
+            <h3 className="text-lg font-medium mb-2">Error Loading Inventory</h3>
+            <p className="text-sm text-muted-foreground">
+              {error.message}
+            </p>
+          </CardContent>
+        </Card>
+      ) : items && items.length > 0 ? (
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+          {items.map((item) => (
+            <Card key={item.id}>
+              <CardHeader className="pb-3">
+                <div className="flex justify-between items-start">
+                  <CardTitle className="text-lg">{item.name}</CardTitle>
+                  <div className="flex gap-1">
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => handleItemAction(item.id, 'edit')}
+                    >
+                      <Edit className="h-4 w-4" />
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => handleItemAction(item.id, 'assign')}
+                    >
+                      <Settings className="h-4 w-4" />
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => handleItemAction(item.id, 'delete')}
+                      className="text-destructive hover:text-destructive"
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </Button>
+                  </div>
+                </div>
+              </CardHeader>
+              <CardContent className="space-y-3">
+                <div className="flex justify-between items-center">
+                  <span className="text-sm text-muted-foreground">Category:</span>
+                  <Badge variant="outline">{item.category}</Badge>
+                </div>
+                
+                <div className="flex justify-between items-center">
+                  <span className="text-sm text-muted-foreground">Status:</span>
+                  <Badge 
+                    variant={
+                      item.status === 'In Stock' ? 'default' :
+                      item.status === 'Deployed' ? 'secondary' :
+                      item.status === 'Maintenance' ? 'destructive' :
+                      'outline'
+                    }
+                  >
+                    {item.status}
+                  </Badge>
+                </div>
+                
+                <div className="flex justify-between items-center">
+                  <span className="text-sm text-muted-foreground">Quantity:</span>
+                  <span className="font-medium">{item.quantity}</span>
+                </div>
+                
+                {item.serial_number && (
+                  <div className="flex justify-between items-center">
+                    <span className="text-sm text-muted-foreground">Serial:</span>
+                    <span className="text-sm font-mono">{item.serial_number}</span>
+                  </div>
+                )}
+                
+                {item.location && (
+                  <div className="flex justify-between items-center">
+                    <span className="text-sm text-muted-foreground">Location:</span>
+                    <span className="text-sm">{item.location}</span>
+                  </div>
+                )}
+                
+                {item.description && (
+                  <p className="text-xs text-muted-foreground mt-2 line-clamp-2">
+                    {item.description}
+                  </p>
+                )}
+              </CardContent>
+            </Card>
+          ))}
+        </div>
+      ) : (
+        <Card>
+          <CardContent className="p-12 text-center">
             <Package className="h-12 w-12 mx-auto mb-4 opacity-50" />
             <h3 className="text-lg font-medium mb-2">No inventory items found</h3>
             <p className="text-sm text-muted-foreground mb-4">
@@ -350,38 +261,30 @@ const InventoryListView: React.FC<InventoryListViewProps> = ({
                 Clear Filters
               </Button>
             )}
-          </div>
-        )}
-      </div>
+          </CardContent>
+        </Card>
+      )}
 
       {/* Dialogs */}
       <AddInventoryItemDialog
         open={showAddDialog}
-        onOpenChange={setShowAddDialog}
+        onClose={() => setShowAddDialog(false)}
       />
 
       {editingItem && (
         <EditInventoryItemDialog
           itemId={editingItem}
           open={!!editingItem}
-          onOpenChange={(open) => !open && setEditingItem(null)}
+          onClose={() => setEditingItem(null)}
         />
       )}
 
       {assigningItem && (
         <AssignEquipmentDialog
           open={!!assigningItem}
-          onOpenChange={(open) => !open && setAssigningItem(null)}
-          clientId=""
-          clientName=""
-        />
-      )}
-
-      {promotingItem && (
-        <PromoteToEquipmentDialog
-          open={!!promotingItem}
-          onOpenChange={(open) => !open && setPromotingItem(null)}
-          inventoryItem={promotingItem}
+          onClose={() => setAssigningItem(null)}
+          inventoryItemId={assigningItem.id}
+          inventoryItemName={assigningItem.name}
         />
       )}
     </div>

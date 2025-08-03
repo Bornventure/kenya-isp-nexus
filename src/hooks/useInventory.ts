@@ -5,520 +5,164 @@ import { useToast } from '@/hooks/use-toast';
 
 export interface InventoryItem {
   id: string;
-  item_id: string;
-  name: string | null;
-  category: string;
-  type: string;
-  manufacturer: string | null;
-  model: string | null;
-  serial_number: string | null;
-  mac_address: string | null;
-  status: string;
-  location: string | null;
-  supplier: string | null;
-  cost: number | null;
-  purchase_date: string | null;
-  warranty_expiry_date: string | null;
-  notes: string | null;
-  quantity_in_stock: number | null;
-  reorder_level: number | null;
-  unit_cost: number | null;
-  item_sku: string | null;
-  assigned_customer_id: string | null;
-  assigned_device_id: string | null;
-  assignment_date: string | null;
-  capacity: string | null;
-  ip_address: string | null;
-  subnet_mask: string | null;
-  location_start_lat: number | null;
-  location_start_lng: number | null;
-  location_end_lat: number | null;
-  location_end_lng: number | null;
-  length_meters: number | null;
-  installation_date: string | null;
-  last_maintenance_date: string | null;
-  is_network_equipment: boolean | null;
-  equipment_id: string | null;
-  isp_company_id: string | null;
   created_at: string;
-  updated_at: string;
-  clients?: {
-    name: string;
-    phone: string;
-  };
+  isp_company_id: string;
+  name: string;
+  description: string;
+  category: string;
+  quantity: number;
+  status: string;
+  serial_number?: string;
+  location?: string;
 }
 
-export interface InventoryStats {
-  total: number;
-  inStock: number;
-  deployed: number;
-  maintenance: number;
-  byCategory: Record<string, number>;
+interface InventoryItemInput {
+  name: string;
+  description: string;
+  category: string;
+  quantity: number;
+  status: string;
+  serial_number?: string;
+  location?: string;
 }
 
-// Type for creating inventory items (excludes auto-generated fields)
-type CreateInventoryItemData = Omit<InventoryItem, 'id' | 'created_at' | 'updated_at' | 'item_id' | 'clients'>;
-
-// Simplified hook for inventory items with better error handling and debugging
-export const useInventoryItems = (filters?: { category?: string; status?: string; search?: string }) => {
+export const useInventoryItems = (filters?: {
+  category?: string;
+  status?: string;
+  search?: string;
+}) => {
   const { profile } = useAuth();
 
   return useQuery({
     queryKey: ['inventory-items', profile?.isp_company_id, filters],
     queryFn: async () => {
-      console.log('useInventoryItems - Starting fetch');
-      console.log('useInventoryItems - Profile:', profile);
-      console.log('useInventoryItems - Filters:', filters);
-      console.log('useInventoryItems - Company ID:', profile?.isp_company_id);
-      
       if (!profile?.isp_company_id) {
-        console.log('useInventoryItems - No company ID, returning empty array');
-        return [];
+        throw new Error('Company ID not found');
       }
 
-      try {
-        console.log('useInventoryItems - Building query...');
-        let query = supabase
-          .from('inventory_items')
-          .select(`
-            *,
-            clients:assigned_customer_id (
-              name,
-              phone
-            )
-          `)
-          .eq('isp_company_id', profile.isp_company_id);
-
-        // Apply filters only if they have values
-        if (filters?.category && filters.category.trim()) {
-          console.log('useInventoryItems - Applying category filter:', filters.category);
-          query = query.eq('category', filters.category);
-        }
-        if (filters?.status && filters.status.trim()) {
-          console.log('useInventoryItems - Applying status filter:', filters.status);
-          query = query.eq('status', filters.status);
-        }
-        if (filters?.search && filters.search.trim()) {
-          console.log('useInventoryItems - Applying search filter:', filters.search);
-          query = query.or(`name.ilike.%${filters.search}%,model.ilike.%${filters.search}%,serial_number.ilike.%${filters.search}%,type.ilike.%${filters.search}%`);
-        }
-
-        console.log('useInventoryItems - Executing query...');
-        const { data, error } = await query.order('created_at', { ascending: false });
-
-        if (error) {
-          console.error('useInventoryItems - Query error:', error);
-          throw error;
-        }
-
-        console.log('useInventoryItems - Query successful');
-        console.log('useInventoryItems - Raw data:', data);
-        console.log('useInventoryItems - Data length:', data?.length || 0);
-
-        return data as InventoryItem[];
-      } catch (error) {
-        console.error('useInventoryItems - Catch block error:', error);
-        throw error;
-      }
-    },
-    enabled: !!profile?.isp_company_id,
-    retry: 2,
-    retryDelay: 1000,
-  });
-};
-
-export const useInventoryStats = () => {
-  const { profile } = useAuth();
-
-  return useQuery({
-    queryKey: ['inventory-stats', profile?.isp_company_id],
-    queryFn: async () => {
-      console.log('useInventoryStats - Starting fetch');
-      console.log('useInventoryStats - Company ID:', profile?.isp_company_id);
-      
-      if (!profile?.isp_company_id) {
-        console.log('useInventoryStats - No company ID, returning default stats');
-        return { total: 0, inStock: 0, deployed: 0, maintenance: 0, byCategory: {} };
-      }
-
-      try {
-        console.log('useInventoryStats - Executing query...');
-        const { data, error } = await supabase
-          .from('inventory_items')
-          .select('status, category')
-          .eq('isp_company_id', profile.isp_company_id);
-
-        if (error) {
-          console.error('useInventoryStats - Query error:', error);
-          throw error;
-        }
-
-        console.log('useInventoryStats - Raw data:', data);
-        console.log('useInventoryStats - Data length:', data?.length || 0);
-
-        const stats = (data || []).reduce(
-          (acc, item) => {
-            acc.total++;
-            switch (item.status) {
-              case 'In Stock':
-                acc.inStock++;
-                break;
-              case 'Deployed':
-                acc.deployed++;
-                break;
-              case 'Maintenance':
-                acc.maintenance++;
-                break;
-            }
-            
-            // Count by category
-            if (item.category) {
-              acc.byCategory[item.category] = (acc.byCategory[item.category] || 0) + 1;
-            }
-            
-            return acc;
-          },
-          { total: 0, inStock: 0, deployed: 0, maintenance: 0, byCategory: {} as Record<string, number> }
-        );
-
-        console.log('useInventoryStats - Processed stats:', stats);
-        return stats as InventoryStats;
-      } catch (error) {
-        console.error('useInventoryStats - Catch block error:', error);
-        throw error;
-      }
-    },
-    enabled: !!profile?.isp_company_id,
-    retry: 2,
-    retryDelay: 1000,
-  });
-};
-
-export const useLowStockItems = () => {
-  const { profile } = useAuth();
-
-  return useQuery({
-    queryKey: ['low-stock-items', profile?.isp_company_id],
-    queryFn: async () => {
-      console.log('useLowStockItems - Starting fetch');
-      console.log('useLowStockItems - Company ID:', profile?.isp_company_id);
-      
-      if (!profile?.isp_company_id) {
-        console.log('useLowStockItems - No company ID, returning empty array');
-        return [];
-      }
-
-      try {
-        console.log('useLowStockItems - Executing query...');
-        // First get all items with both quantity_in_stock and reorder_level not null
-        const { data, error } = await supabase
-          .from('inventory_items')
-          .select('*')
-          .eq('isp_company_id', profile.isp_company_id)
-          .not('quantity_in_stock', 'is', null)
-          .not('reorder_level', 'is', null);
-
-        if (error) {
-          console.error('useLowStockItems - Query error:', error);
-          throw error;
-        }
-
-        console.log('useLowStockItems - Raw data:', data);
-        console.log('useLowStockItems - Data length:', data?.length || 0);
-
-        // Filter client-side to avoid PostgreSQL syntax issues
-        const lowStockItems = (data || []).filter(item => 
-          item.quantity_in_stock !== null && 
-          item.reorder_level !== null &&
-          item.quantity_in_stock <= item.reorder_level
-        );
-
-        console.log('useLowStockItems - Filtered low stock items:', lowStockItems.length);
-        return lowStockItems as InventoryItem[];
-      } catch (error) {
-        console.error('useLowStockItems - Catch block error:', error);
-        throw error;
-      }
-    },
-    enabled: !!profile?.isp_company_id,
-    retry: 2,
-    retryDelay: 1000,
-  });
-};
-
-export const useInventory = () => {
-  const { profile } = useAuth();
-  const { toast } = useToast();
-  const queryClient = useQueryClient();
-
-  console.log('useInventory - Current profile:', profile);
-
-  const { data: inventoryItems = [], isLoading, error } = useQuery({
-    queryKey: ['inventory', profile?.isp_company_id],
-    queryFn: async () => {
-      console.log('Fetching inventory data for company:', profile?.isp_company_id);
-      
-      if (!profile?.isp_company_id) {
-        console.log('No ISP company ID found');
-        return [];
-      }
-
-      const { data, error } = await supabase
-        .from('inventory_items')
-        .select(`
-          *,
-          clients:assigned_customer_id (
-            name,
-            phone
-          )
-        `)
+      let query = supabase
+        .from('inventory')
+        .select('*')
         .eq('isp_company_id', profile.isp_company_id)
         .order('created_at', { ascending: false });
 
+      // Apply filters
+      if (filters?.category) {
+        query = query.eq('category', filters.category);
+      }
+
+      if (filters?.status) {
+        query = query.eq('status', filters.status);
+      }
+
+      if (filters?.search) {
+        query = query.or(`name.ilike.%${filters.search}%,description.ilike.%${filters.search}%,serial_number.ilike.%${filters.search}%`);
+      }
+
+      const { data, error } = await query;
+      
       if (error) {
         console.error('Error fetching inventory items:', error);
         throw error;
       }
 
-      console.log('Successfully fetched inventory items:', data?.length || 0);
-      return data as InventoryItem[];
+      return data;
     },
     enabled: !!profile?.isp_company_id,
-    retry: 2,
-    retryDelay: 1000,
   });
+};
 
-  const createItemMutation = useMutation({
-    mutationFn: async (itemData: CreateInventoryItemData) => {
+export const useAddInventoryItem = () => {
+  const { profile } = useAuth();
+  const queryClient = useQueryClient();
+  const { toast } = useToast();
+
+  return useMutation({
+    mutationFn: async (item: InventoryItemInput) => {
       if (!profile?.isp_company_id) {
-        throw new Error('No ISP company associated with user');
+        throw new Error('Company ID not found');
       }
 
-      // Create the item data without auto-generated fields, but include item_id as null for the trigger
-      const insertData = {
-        item_id: null, // Will be auto-generated by trigger
-        name: itemData.name,
-        category: itemData.category,
-        type: itemData.type,
-        manufacturer: itemData.manufacturer,
-        model: itemData.model,
-        serial_number: itemData.serial_number,
-        mac_address: itemData.mac_address,
-        status: itemData.status || 'In Stock',
-        location: itemData.location,
-        supplier: itemData.supplier,
-        cost: itemData.cost,
-        purchase_date: itemData.purchase_date,
-        warranty_expiry_date: itemData.warranty_expiry_date,
-        notes: itemData.notes,
-        quantity_in_stock: itemData.quantity_in_stock,
-        reorder_level: itemData.reorder_level,
-        unit_cost: itemData.unit_cost,
-        item_sku: itemData.item_sku,
-        assigned_customer_id: itemData.assigned_customer_id,
-        assigned_device_id: itemData.assigned_device_id,
-        assignment_date: itemData.assignment_date,
-        capacity: itemData.capacity,
-        ip_address: itemData.ip_address,
-        subnet_mask: itemData.subnet_mask,
-        location_start_lat: itemData.location_start_lat,
-        location_start_lng: itemData.location_start_lng,
-        location_end_lat: itemData.location_end_lat,
-        location_end_lng: itemData.location_end_lng,
-        length_meters: itemData.length_meters,
-        installation_date: itemData.installation_date,
-        last_maintenance_date: itemData.last_maintenance_date,
-        is_network_equipment: itemData.is_network_equipment,
-        equipment_id: itemData.equipment_id,
-        isp_company_id: profile.isp_company_id,
-      };
-
       const { data, error } = await supabase
-        .from('inventory_items')
-        .insert(insertData)
+        .from('inventory')
+        .insert({
+          ...item,
+          isp_company_id: profile.isp_company_id,
+        })
         .select()
         .single();
 
-      if (error) throw error;
+      if (error) {
+        console.error('Error adding inventory item:', error);
+        throw error;
+      }
+
       return data;
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['inventory'] });
       toast({
         title: "Success",
-        description: "Inventory item created successfully",
+        description: "Inventory item added successfully.",
       });
+      queryClient.invalidateQueries({ queryKey: ['inventory-items'] });
     },
-    onError: (error) => {
-      console.error('Error creating inventory item:', error);
+    onError: (error: any) => {
       toast({
         title: "Error",
-        description: "Failed to create inventory item",
+        description: "Failed to add inventory item. Please try again.",
         variant: "destructive",
       });
+      console.error('Error adding inventory item:', error);
     },
   });
+};
 
-  const updateItemMutation = useMutation({
-    mutationFn: async ({ id, updates }: { id: string; updates: Partial<InventoryItem> }) => {
+export const useUpdateInventoryItem = () => {
+  const queryClient = useQueryClient();
+  const { toast } = useToast();
+
+  return useMutation({
+    mutationFn: async ({ id, ...updates }: { id: string } & InventoryItemInput) => {
       const { data, error } = await supabase
-        .from('inventory_items')
+        .from('inventory')
         .update(updates)
         .eq('id', id)
         .select()
         .single();
 
-      if (error) throw error;
+      if (error) {
+        console.error('Error updating inventory item:', error);
+        throw error;
+      }
+
       return data;
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['inventory'] });
       toast({
         title: "Success",
-        description: "Inventory item updated successfully",
+        description: "Inventory item updated successfully.",
       });
+      queryClient.invalidateQueries({ queryKey: ['inventory-items'] });
     },
-    onError: (error) => {
+    onError: (error: any) => {
+      toast({
+        title: "Error",
+        description: "Failed to update inventory item. Please try again.",
+        variant: "destructive",
+      });
       console.error('Error updating inventory item:', error);
-      toast({
-        title: "Error",
-        description: "Failed to update inventory item",
-        variant: "destructive",
-      });
     },
   });
-
-  const deleteItemMutation = useMutation({
-    mutationFn: async (id: string) => {
-      const { error } = await supabase
-        .from('inventory_items')
-        .delete()
-        .eq('id', id);
-
-      if (error) throw error;
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['inventory'] });
-      toast({
-        title: "Success",
-        description: "Inventory item deleted successfully",
-      });
-    },
-    onError: (error) => {
-      console.error('Error deleting inventory item:', error);
-      toast({
-        title: "Error",
-        description: "Failed to delete inventory item",
-        variant: "destructive",
-      });
-    },
-  });
-
-  const assignToClientMutation = useMutation({
-    mutationFn: async ({ itemId, clientId }: { itemId: string; clientId: string }) => {
-      const { data, error } = await supabase
-        .from('inventory_items')
-        .update({
-          assigned_customer_id: clientId,
-          assignment_date: new Date().toISOString(),
-          status: 'Deployed'
-        })
-        .eq('id', itemId)
-        .select()
-        .single();
-
-      if (error) throw error;
-      return data;
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['inventory'] });
-      toast({
-        title: "Success",
-        description: "Equipment assigned to client successfully",
-      });
-    },
-    onError: (error) => {
-      console.error('Error assigning equipment:', error);
-      toast({
-        title: "Error",
-        description: "Failed to assign equipment to client",
-        variant: "destructive",
-      });
-    },
-  });
-
-  const promoteToEquipmentMutation = useMutation({
-    mutationFn: async ({ inventoryItemId, equipmentData }: { 
-      inventoryItemId: string; 
-      equipmentData: any;
-    }) => {
-      const { data, error } = await supabase
-        .rpc('promote_inventory_to_equipment', {
-          inventory_item_id: inventoryItemId,
-          equipment_data: equipmentData
-        });
-
-      if (error) throw error;
-      return data;
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['inventory'] });
-      queryClient.invalidateQueries({ queryKey: ['equipment'] });
-      toast({
-        title: "Success",
-        description: "Item promoted to network equipment successfully",
-      });
-    },
-    onError: (error) => {
-      console.error('Error promoting to equipment:', error);
-      toast({
-        title: "Error",
-        description: "Failed to promote item to network equipment",
-        variant: "destructive",
-      });
-    },
-  });
-
-  return {
-    inventoryItems,
-    isLoading,
-    error,
-    createItem: createItemMutation.mutate,
-    updateItem: updateItemMutation.mutate,
-    deleteItem: deleteItemMutation.mutate,
-    assignToClient: assignToClientMutation.mutate,
-    promoteToEquipment: promoteToEquipmentMutation.mutate,
-    isCreating: createItemMutation.isPending,
-    isUpdating: updateItemMutation.isPending,
-    isDeleting: deleteItemMutation.isPending,
-    isAssigning: assignToClientMutation.isPending,
-    isPromoting: promoteToEquipmentMutation.isPending,
-  };
 };
 
 export const useInventoryItem = (id: string) => {
-  const { profile } = useAuth();
-
   return useQuery({
     queryKey: ['inventory-item', id],
     queryFn: async () => {
-      console.log('Fetching inventory item:', id);
-      
-      if (!id || !profile?.isp_company_id) {
-        return null;
-      }
-
       const { data, error } = await supabase
-        .from('inventory_items')
-        .select(`
-          *,
-          clients:assigned_customer_id (
-            name,
-            phone
-          )
-        `)
+        .from('inventory')
+        .select('*')
         .eq('id', id)
-        .eq('isp_company_id', profile.isp_company_id)
         .single();
 
       if (error) {
@@ -526,223 +170,8 @@ export const useInventoryItem = (id: string) => {
         throw error;
       }
 
-      console.log('Fetched inventory item:', data);
-      return data as InventoryItem;
-    },
-    enabled: !!profile?.isp_company_id && !!id,
-  });
-};
-
-export const useCreateInventoryItem = () => {
-  const { profile } = useAuth();
-  const { toast } = useToast();
-  const queryClient = useQueryClient();
-
-  return useMutation({
-    mutationFn: async (itemData: CreateInventoryItemData) => {
-      if (!profile?.isp_company_id) {
-        throw new Error('No ISP company associated with user');
-      }
-
-      // Create the item data without auto-generated fields, but include item_id as null for the trigger
-      const insertData = {
-        item_id: null, // Will be auto-generated by trigger
-        name: itemData.name,
-        category: itemData.category,
-        type: itemData.type,
-        manufacturer: itemData.manufacturer,
-        model: itemData.model,
-        serial_number: itemData.serial_number,
-        mac_address: itemData.mac_address,
-        status: itemData.status || 'In Stock',
-        location: itemData.location,
-        supplier: itemData.supplier,
-        cost: itemData.cost,
-        purchase_date: itemData.purchase_date,
-        warranty_expiry_date: itemData.warranty_expiry_date,
-        notes: itemData.notes,
-        quantity_in_stock: itemData.quantity_in_stock,
-        reorder_level: itemData.reorder_level,
-        unit_cost: itemData.unit_cost,
-        item_sku: itemData.item_sku,
-        isp_company_id: profile.isp_company_id,
-      };
-
-      const { data, error } = await supabase
-        .from('inventory_items')
-        .insert(insertData)
-        .select()
-        .single();
-
-      if (error) throw error;
       return data;
     },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['inventory'] });
-      queryClient.invalidateQueries({ queryKey: ['inventory-items'] });
-      toast({
-        title: "Success",
-        description: "Inventory item created successfully",
-      });
-    },
-    onError: (error) => {
-      console.error('Error creating inventory item:', error);
-      toast({
-        title: "Error",
-        description: "Failed to create inventory item",
-        variant: "destructive",
-      });
-    },
-  });
-};
-
-export const useUpdateInventoryItem = () => {
-  const { toast } = useToast();
-  const queryClient = useQueryClient();
-
-  return useMutation({
-    mutationFn: async ({ id, updates }: { id: string; updates: Partial<InventoryItem> }) => {
-      const { data, error } = await supabase
-        .from('inventory_items')
-        .update(updates)
-        .eq('id', id)
-        .select()
-        .single();
-
-      if (error) throw error;
-      return data;
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['inventory'] });
-      queryClient.invalidateQueries({ queryKey: ['inventory-items'] });
-      queryClient.invalidateQueries({ queryKey: ['inventory-item'] });
-      toast({
-        title: "Success",
-        description: "Inventory item updated successfully",
-      });
-    },
-    onError: (error) => {
-      console.error('Error updating inventory item:', error);
-      toast({
-        title: "Error",
-        description: "Failed to update inventory item",
-        variant: "destructive",
-      });
-    },
-  });
-};
-
-export const useAssignEquipmentToClient = () => {
-  const { toast } = useToast();
-  const queryClient = useQueryClient();
-
-  return useMutation({
-    mutationFn: async ({ itemId, clientId }: { itemId: string; clientId: string }) => {
-      const { data, error } = await supabase
-        .from('inventory_items')
-        .update({
-          assigned_customer_id: clientId,
-          assignment_date: new Date().toISOString(),
-          status: 'Deployed'
-        })
-        .eq('id', itemId)
-        .select()
-        .single();
-
-      if (error) throw error;
-      return data;
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['inventory'] });
-      queryClient.invalidateQueries({ queryKey: ['inventory-items'] });
-      toast({
-        title: "Success",
-        description: "Equipment assigned to client successfully",
-      });
-    },
-    onError: (error) => {
-      console.error('Error assigning equipment:', error);
-      toast({
-        title: "Error",
-        description: "Failed to assign equipment to client",
-        variant: "destructive",
-      });
-    },
-  });
-};
-
-export const useUnassignEquipmentFromClient = () => {
-  const { toast } = useToast();
-  const queryClient = useQueryClient();
-
-  return useMutation({
-    mutationFn: async (itemId: string) => {
-      const { data, error } = await supabase
-        .from('inventory_items')
-        .update({
-          assigned_customer_id: null,
-          assignment_date: null,
-          status: 'In Stock'
-        })
-        .eq('id', itemId)
-        .select()
-        .single();
-
-      if (error) throw error;
-      return data;
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['inventory'] });
-      queryClient.invalidateQueries({ queryKey: ['inventory-items'] });
-      toast({
-        title: "Success",
-        description: "Equipment unassigned successfully",
-      });
-    },
-    onError: (error) => {
-      console.error('Error unassigning equipment:', error);
-      toast({
-        title: "Error",
-        description: "Failed to unassign equipment",
-        variant: "destructive",
-      });
-    },
-  });
-};
-
-export const usePromoteToNetworkEquipment = () => {
-  const { toast } = useToast();
-  const queryClient = useQueryClient();
-
-  return useMutation({
-    mutationFn: async ({ inventoryItemId, equipmentData }: { 
-      inventoryItemId: string; 
-      equipmentData: any;
-    }) => {
-      const { data, error } = await supabase
-        .rpc('promote_inventory_to_equipment', {
-          inventory_item_id: inventoryItemId,
-          equipment_data: equipmentData
-        });
-
-      if (error) throw error;
-      return data;
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['inventory'] });
-      queryClient.invalidateQueries({ queryKey: ['equipment'] });
-      toast({
-        title: "Success",
-        description: "Item promoted to network equipment successfully",
-      });
-    },
-    onError: (error) => {
-      console.error('Error promoting to equipment:', error);
-      toast({
-        title: "Error",
-        description: "Failed to promote item to network equipment",
-        variant: "destructive",
-      });
-    },
+    enabled: !!id,
   });
 };
