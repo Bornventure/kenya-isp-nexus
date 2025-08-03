@@ -59,16 +59,23 @@ export interface InventoryStats {
 // Type for creating inventory items (excludes auto-generated fields)
 type CreateInventoryItemData = Omit<InventoryItem, 'id' | 'created_at' | 'updated_at' | 'item_id' | 'clients'>;
 
-// Main hook for inventory operations
+// Main hook for inventory operations with simplified logic
 export const useInventory = () => {
   const { profile } = useAuth();
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
+  console.log('useInventory - Current profile:', profile);
+
   const { data: inventoryItems = [], isLoading, error } = useQuery({
     queryKey: ['inventory', profile?.isp_company_id],
     queryFn: async () => {
-      if (!profile?.isp_company_id) return [];
+      console.log('Fetching inventory data for company:', profile?.isp_company_id);
+      
+      if (!profile?.isp_company_id) {
+        console.log('No ISP company ID found');
+        return [];
+      }
 
       const { data, error } = await supabase
         .from('inventory_items')
@@ -82,10 +89,17 @@ export const useInventory = () => {
         .eq('isp_company_id', profile.isp_company_id)
         .order('created_at', { ascending: false });
 
-      if (error) throw error;
+      if (error) {
+        console.error('Error fetching inventory items:', error);
+        throw error;
+      }
+
+      console.log('Successfully fetched inventory items:', data?.length || 0);
       return data as InventoryItem[];
     },
     enabled: !!profile?.isp_company_id,
+    retry: 2,
+    retryDelay: 1000,
   });
 
   const createItemMutation = useMutation({
@@ -296,18 +310,18 @@ export const useInventory = () => {
   };
 };
 
-// Individual hooks for specific operations
+// Simplified hook for inventory items with better error handling
 export const useInventoryItems = (filters?: { category?: string; status?: string; search?: string }) => {
   const { profile } = useAuth();
 
   return useQuery({
     queryKey: ['inventory-items', profile?.isp_company_id, filters],
     queryFn: async () => {
-      console.log('Fetching inventory items with filters:', filters);
-      console.log('Current user profile:', profile);
+      console.log('useInventoryItems - Fetching with filters:', filters);
+      console.log('useInventoryItems - Company ID:', profile?.isp_company_id);
       
       if (!profile?.isp_company_id) {
-        console.log('No ISP company ID found');
+        console.log('useInventoryItems - No company ID, returning empty array');
         return [];
       }
 
@@ -322,27 +336,33 @@ export const useInventoryItems = (filters?: { category?: string; status?: string
         `)
         .eq('isp_company_id', profile.isp_company_id);
 
-      if (filters?.category) {
+      // Apply filters only if they have values
+      if (filters?.category && filters.category.trim()) {
+        console.log('useInventoryItems - Applying category filter:', filters.category);
         query = query.eq('category', filters.category);
       }
-      if (filters?.status) {
+      if (filters?.status && filters.status.trim()) {
+        console.log('useInventoryItems - Applying status filter:', filters.status);
         query = query.eq('status', filters.status);
       }
-      if (filters?.search) {
-        query = query.or(`name.ilike.%${filters.search}%,model.ilike.%${filters.search}%,serial_number.ilike.%${filters.search}%`);
+      if (filters?.search && filters.search.trim()) {
+        console.log('useInventoryItems - Applying search filter:', filters.search);
+        query = query.or(`name.ilike.%${filters.search}%,model.ilike.%${filters.search}%,serial_number.ilike.%${filters.search}%,type.ilike.%${filters.search}%`);
       }
 
       const { data, error } = await query.order('created_at', { ascending: false });
 
       if (error) {
-        console.error('Error fetching inventory items:', error);
+        console.error('useInventoryItems - Error fetching:', error);
         throw error;
       }
 
-      console.log('Fetched inventory items:', data);
+      console.log('useInventoryItems - Successfully fetched:', data?.length || 0, 'items');
       return data as InventoryItem[];
     },
     enabled: !!profile?.isp_company_id,
+    retry: 2,
+    retryDelay: 1000,
   });
 };
 
@@ -389,10 +409,10 @@ export const useInventoryStats = () => {
   return useQuery({
     queryKey: ['inventory-stats', profile?.isp_company_id],
     queryFn: async () => {
-      console.log('Fetching inventory stats');
+      console.log('useInventoryStats - Fetching stats for company:', profile?.isp_company_id);
       
       if (!profile?.isp_company_id) {
-        console.log('No ISP company ID for stats');
+        console.log('useInventoryStats - No company ID, returning default stats');
         return { total: 0, inStock: 0, deployed: 0, maintenance: 0, byCategory: {} };
       }
 
@@ -402,11 +422,11 @@ export const useInventoryStats = () => {
         .eq('isp_company_id', profile.isp_company_id);
 
       if (error) {
-        console.error('Error fetching inventory stats:', error);
+        console.error('useInventoryStats - Error fetching:', error);
         throw error;
       }
 
-      console.log('Raw inventory stats data:', data);
+      console.log('useInventoryStats - Raw data:', data?.length || 0, 'items');
 
       const stats = data.reduce(
         (acc, item) => {
@@ -433,10 +453,12 @@ export const useInventoryStats = () => {
         { total: 0, inStock: 0, deployed: 0, maintenance: 0, byCategory: {} as Record<string, number> }
       );
 
-      console.log('Processed inventory stats:', stats);
+      console.log('useInventoryStats - Processed stats:', stats);
       return stats as InventoryStats;
     },
     enabled: !!profile?.isp_company_id,
+    retry: 2,
+    retryDelay: 1000,
   });
 };
 
@@ -446,10 +468,10 @@ export const useLowStockItems = () => {
   return useQuery({
     queryKey: ['low-stock-items', profile?.isp_company_id],
     queryFn: async () => {
-      console.log('Fetching low stock items');
+      console.log('useLowStockItems - Fetching for company:', profile?.isp_company_id);
       
       if (!profile?.isp_company_id) {
-        console.log('No ISP company ID for low stock');
+        console.log('useLowStockItems - No company ID, returning empty array');
         return [];
       }
 
@@ -462,14 +484,16 @@ export const useLowStockItems = () => {
         .filter('quantity_in_stock', 'lte', 'reorder_level');
 
       if (error) {
-        console.error('Error fetching low stock items:', error);
+        console.error('useLowStockItems - Error fetching:', error);
         throw error;
       }
 
-      console.log('Fetched low stock items:', data);
+      console.log('useLowStockItems - Found:', data?.length || 0, 'low stock items');
       return data as InventoryItem[];
     },
     enabled: !!profile?.isp_company_id,
+    retry: 2,
+    retryDelay: 1000,
   });
 };
 

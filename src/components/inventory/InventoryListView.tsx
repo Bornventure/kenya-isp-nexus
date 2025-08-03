@@ -18,7 +18,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { Search, Eye, Edit, Package, Network, User } from 'lucide-react';
+import { Search, Eye, Edit, Package, Network, User, AlertTriangle } from 'lucide-react';
 import { useInventoryItems, useUnassignEquipmentFromClient } from '@/hooks/useInventory';
 import AddInventoryItemDialog from './AddInventoryItemDialog';
 import EditInventoryItemDialog from './EditInventoryItemDialog';
@@ -45,7 +45,7 @@ const InventoryListView: React.FC<InventoryListViewProps> = ({
 
   const { mutate: unassignEquipment, isPending: isUnassigning } = useUnassignEquipmentFromClient();
 
-  // Build filters object, only including non-empty values
+  // Build filters object
   const filters = React.useMemo(() => {
     const filterObj: { category?: string; status?: string; search?: string } = {};
     
@@ -59,20 +59,18 @@ const InventoryListView: React.FC<InventoryListViewProps> = ({
       filterObj.search = search;
     }
     
-    console.log('Applied filters:', filterObj);
     return filterObj;
   }, [categoryFilter, statusFilter, search]);
 
   const { data: inventoryItems = [], isLoading, error } = useInventoryItems(filters);
 
-  console.log('Inventory items loaded:', inventoryItems.length, 'items');
-  console.log('Loading state:', isLoading);
-  console.log('Error state:', error);
-
-  // Log raw data for debugging
-  React.useEffect(() => {
-    console.log('Raw inventory items data:', inventoryItems);
-  }, [inventoryItems]);
+  console.log('InventoryListView - Render with:', {
+    itemsCount: inventoryItems.length,
+    isLoading,
+    error: error?.message,
+    filters,
+    initialFilter
+  });
 
   const handleUnassign = (itemId: string) => {
     if (confirm('Are you sure you want to unassign this equipment?')) {
@@ -99,16 +97,15 @@ const InventoryListView: React.FC<InventoryListViewProps> = ({
   const statuses = ['In Stock', 'Deployed', 'Maintenance', 'Out of Stock'];
 
   if (error) {
-    console.error('Error loading inventory:', error);
+    console.error('InventoryListView - Error rendering:', error);
     return (
       <div className="space-y-6">
         <div className="text-center py-8">
-          <Package className="h-12 w-12 mx-auto mb-4 opacity-50 text-destructive" />
-          <p className="text-destructive">Error loading inventory items</p>
-          <p className="text-sm text-muted-foreground">{error.message}</p>
+          <AlertTriangle className="h-12 w-12 mx-auto mb-4 text-destructive" />
+          <h3 className="text-lg font-semibold mb-2">Error Loading Inventory</h3>
+          <p className="text-sm text-muted-foreground mb-4">{error.message}</p>
           <Button 
             variant="outline" 
-            className="mt-4"
             onClick={() => window.location.reload()}
           >
             Refresh Page
@@ -175,9 +172,9 @@ const InventoryListView: React.FC<InventoryListViewProps> = ({
       {/* Items Table */}
       <div className="border rounded-lg">
         {isLoading ? (
-          <div className="p-6 text-center">
-            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto mb-2"></div>
-            <p>Loading inventory items...</p>
+          <div className="p-12 text-center">
+            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto mb-4"></div>
+            <p className="text-muted-foreground">Loading inventory items...</p>
           </div>
         ) : inventoryItems.length > 0 ? (
           <Table>
@@ -300,10 +297,10 @@ const InventoryListView: React.FC<InventoryListViewProps> = ({
             </TableBody>
           </Table>
         ) : (
-          <div className="p-6 text-center text-muted-foreground">
+          <div className="p-12 text-center">
             <Package className="h-12 w-12 mx-auto mb-4 opacity-50" />
-            <p>No inventory items found</p>
-            <p className="text-sm">
+            <h3 className="text-lg font-medium mb-2">No inventory items found</h3>
+            <p className="text-sm text-muted-foreground mb-4">
               {search || categoryFilter || statusFilter 
                 ? 'Try adjusting your search or filters'
                 : 'Click "Add Item" to get started'
@@ -312,7 +309,6 @@ const InventoryListView: React.FC<InventoryListViewProps> = ({
             {(search || categoryFilter || statusFilter) && (
               <Button
                 variant="outline"
-                className="mt-4"
                 onClick={() => {
                   setSearch('');
                   setCategoryFilter('');

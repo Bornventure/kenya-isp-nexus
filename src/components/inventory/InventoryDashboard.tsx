@@ -15,15 +15,47 @@ const InventoryDashboard: React.FC<InventoryDashboardProps> = ({
   onFilterByStatus,
   onViewItem,
 }) => {
-  const { data: stats, isLoading: statsLoading } = useInventoryStats();
-  const { data: recentItems = [], isLoading: itemsLoading } = useInventoryItems({});
-  const { data: lowStockItems = [], isLoading: lowStockLoading } = useLowStockItems();
+  const { data: stats, isLoading: statsLoading, error: statsError } = useInventoryStats();
+  const { data: recentItems = [], isLoading: itemsLoading, error: itemsError } = useInventoryItems({});
+  const { data: lowStockItems = [], isLoading: lowStockLoading, error: lowStockError } = useLowStockItems();
 
-  console.log('Inventory Dashboard - Stats:', stats);
-  console.log('Inventory Dashboard - Recent Items:', recentItems);
-  console.log('Inventory Dashboard - Low Stock:', lowStockItems);
+  console.log('InventoryDashboard - Render state:', {
+    stats,
+    statsLoading,
+    statsError: statsError?.message,
+    recentItemsCount: recentItems.length,
+    itemsLoading,
+    itemsError: itemsError?.message,
+    lowStockCount: lowStockItems.length,
+    lowStockLoading,
+    lowStockError: lowStockError?.message
+  });
 
-  if (statsLoading && itemsLoading && lowStockLoading) {
+  const isLoading = statsLoading || itemsLoading || lowStockLoading;
+  const hasError = statsError || itemsError || lowStockError;
+
+  if (hasError) {
+    console.error('InventoryDashboard - Error state:', { statsError, itemsError, lowStockError });
+    return (
+      <div className="space-y-6">
+        <div className="text-center py-12">
+          <AlertTriangle className="h-12 w-12 mx-auto mb-4 text-destructive" />
+          <h3 className="text-lg font-semibold mb-2">Error Loading Dashboard</h3>
+          <p className="text-sm text-muted-foreground mb-4">
+            {statsError?.message || itemsError?.message || lowStockError?.message}
+          </p>
+          <Button 
+            variant="outline" 
+            onClick={() => window.location.reload()}
+          >
+            Refresh Dashboard
+          </Button>
+        </div>
+      </div>
+    );
+  }
+
+  if (isLoading) {
     return (
       <div className="space-y-6">
         <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
@@ -31,8 +63,24 @@ const InventoryDashboard: React.FC<InventoryDashboardProps> = ({
             <Card key={i}>
               <CardContent className="p-6">
                 <div className="animate-pulse space-y-4">
-                  <div className="h-4 bg-gray-200 rounded w-3/4"></div>
-                  <div className="h-8 bg-gray-200 rounded w-1/2"></div>
+                  <div className="h-4 bg-muted rounded w-3/4"></div>
+                  <div className="h-8 bg-muted rounded w-1/2"></div>
+                </div>
+              </CardContent>
+            </Card>
+          ))}
+        </div>
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          {[...Array(2)].map((_, i) => (
+            <Card key={i}>
+              <CardHeader>
+                <div className="h-6 bg-muted rounded w-1/3 animate-pulse"></div>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-4">
+                  {[...Array(3)].map((_, j) => (
+                    <div key={j} className="h-16 bg-muted rounded animate-pulse"></div>
+                  ))}
                 </div>
               </CardContent>
             </Card>
@@ -182,7 +230,7 @@ const InventoryDashboard: React.FC<InventoryDashboardProps> = ({
           <CardContent>
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
               {Object.entries(stats.byCategory).map(([category, count]) => (
-                <div key={category} className="text-center p-4 border rounded-lg">
+                <div key={category} className="text-center p-4 border rounded-lg hover:bg-muted/50 transition-colors cursor-pointer" onClick={() => onFilterByStatus('')}>
                   <div className="text-2xl font-bold">{count}</div>
                   <div className="text-sm text-muted-foreground">{category}</div>
                 </div>
