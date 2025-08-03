@@ -16,7 +16,7 @@ import {
   Info,
   User
 } from 'lucide-react';
-import { useInventoryItem, useUpdateInventoryItem } from '@/hooks/useInventory';
+import { useInventoryItem, useUpdateInventoryItem, InventoryItem } from '@/hooks/useInventory';
 import EditInventoryItemDialog from './EditInventoryItemDialog';
 import UnifiedEquipmentAssignmentDialog from './UnifiedEquipmentAssignmentDialog';
 import PromoteToEquipmentDialog from './PromoteToEquipmentDialog';
@@ -294,7 +294,7 @@ const InventoryItemDetail: React.FC<InventoryItemDetailProps> = ({ item: itemId,
       <PromoteToEquipmentDialog
         open={showPromoteDialog}
         onOpenChange={setShowPromoteDialog}
-        inventoryItem={item}
+        inventoryItem={item as InventoryItem}
       />
     </div>
   );

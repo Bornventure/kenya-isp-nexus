@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
@@ -87,25 +88,15 @@ const EditInventoryItemDialog: React.FC<EditInventoryItemDialogProps> = ({
       location: formData.location || null,
       status: formData.status,
       notes: formData.notes || null,
+      item_sku: formData.item_sku || null,
+      quantity_in_stock: formData.quantity_in_stock ? parseInt(formData.quantity_in_stock) : null,
+      reorder_level: formData.reorder_level ? parseInt(formData.reorder_level) : null,
+      unit_cost: formData.unit_cost ? parseFloat(formData.unit_cost) : null,
+      capacity: formData.capacity || null,
+      installation_date: formData.installation_date || null,
+      ip_address: formData.ip_address || null,
+      subnet_mask: formData.subnet_mask || null,
     };
-
-    // Add category-specific fields
-    if (formData.category === 'Consumable') {
-      updateParams.item_sku = formData.item_sku || null;
-      updateParams.quantity_in_stock = formData.quantity_in_stock ? parseInt(formData.quantity_in_stock) : null;
-      updateParams.reorder_level = formData.reorder_level ? parseInt(formData.reorder_level) : null;
-      updateParams.unit_cost = formData.unit_cost ? parseFloat(formData.unit_cost) : null;
-    }
-
-    if (formData.category === 'Infrastructure') {
-      updateParams.capacity = formData.capacity || null;
-      updateParams.installation_date = formData.installation_date || null;
-    }
-
-    if (formData.category === 'Logical Resource') {
-      updateParams.ip_address = formData.ip_address || null;
-      updateParams.subnet_mask = formData.subnet_mask || null;
-    }
 
     updateItem(updateParams, {
       onSuccess: () => {
