@@ -1,4 +1,3 @@
-
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
@@ -24,7 +23,7 @@ export interface InventoryItem {
   warranty_expiry_date?: string | null;
   supplier?: string | null;
   cost?: number | null;
-  notes?: text | null;
+  notes?: string | null;
   item_sku?: string | null;
   quantity_in_stock?: number | null;
   reorder_level?: number | null;
@@ -75,6 +74,8 @@ interface InventoryItemInput {
   installation_date?: string;
   ip_address?: string;
   subnet_mask?: string;
+  assigned_customer_id?: string;
+  assignment_date?: string;
 }
 
 export const useInventoryItems = (filters?: {
