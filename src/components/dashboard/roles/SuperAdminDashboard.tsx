@@ -1,245 +1,140 @@
-
-import React from 'react';
+import React, { useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge';
-import { 
-  Shield, 
-  Users, 
-  DollarSign, 
-  TrendingUp,
-  Activity,
-  Settings,
-  BarChart3,
-  Database
-} from 'lucide-react';
-import { useClients } from '@/hooks/useClients';
-import { usePayments } from '@/hooks/usePayments';
-import { useInvoices } from '@/hooks/useInvoices';
-import { formatKenyanCurrency } from '@/utils/kenyanValidation';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Users, Building2, Shield, Settings, BarChart3, FileText, Database, TestTube } from 'lucide-react';
+import UserManagement from '@/components/admin/UserManagement';
+import SuperAdminLicenseOverview from '@/components/license/SuperAdminLicenseOverview';
+import CompanyRegistrationManager from '@/components/admin/CompanyRegistrationManager';
+import LicenseTypeManager from '@/components/admin/LicenseTypeManager';
+import SuperAdminInvoiceManager from '@/components/admin/SuperAdminInvoiceManager';
+import MigrationRunner from '@/components/admin/MigrationRunner';
+import SMSTesting from '@/components/admin/SMSTesting';
 
 const SuperAdminDashboard = () => {
-  const { clients, getClientStats } = useClients();
-  const { payments } = usePayments();
-  const { invoices } = useInvoices();
+  const [activeView, setActiveView] = useState('overview');
 
-  const clientStats = getClientStats();
-  
-  const todaysPayments = payments.filter(p => 
-    new Date(p.payment_date).toDateString() === new Date().toDateString()
-  );
-  const todaysRevenue = todaysPayments.reduce((sum, p) => sum + p.amount, 0);
-  
-  const thisMonthPayments = payments.filter(p => {
-    const paymentDate = new Date(p.payment_date);
-    const now = new Date();
-    return paymentDate.getMonth() === now.getMonth() && paymentDate.getFullYear() === now.getFullYear();
-  });
-  const monthlyRevenue = thisMonthPayments.reduce((sum, p) => sum + p.amount, 0);
-
-  const pendingInvoices = invoices.filter(inv => inv.status === 'pending');
+  const renderContent = () => {
+    switch (activeView) {
+      case 'overview':
+        return (
+          <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-4">
+            <Card>
+              <CardHeader>
+                <CardTitle>Total Users</CardTitle>
+                {/* <CardDescription>Total number of registered users</CardDescription> */}
+              </CardHeader>
+              <CardContent>
+                <div className="text-2xl font-bold">143</div>
+              </CardContent>
+            </Card>
+            <Card>
+              <CardHeader>
+                <CardTitle>Active Licenses</CardTitle>
+                {/* <CardDescription>Number of currently active licenses</CardDescription> */}
+              </CardHeader>
+              <CardContent>
+                <div className="text-2xl font-bold">89</div>
+              </CardContent>
+            </Card>
+            <Card>
+              <CardHeader>
+                <CardTitle>Total Companies</CardTitle>
+                {/* <CardDescription>Number of registered companies</CardDescription> */}
+              </CardHeader>
+              <CardContent>
+                <div className="text-2xl font-bold">24</div>
+              </CardContent>
+            </Card>
+            <Card>
+              <CardHeader>
+                <CardTitle>Pending Invoices</CardTitle>
+                {/* <CardDescription>Number of invoices awaiting payment</CardDescription> */}
+              </CardHeader>
+              <CardContent>
+                <div className="text-2xl font-bold">5</div>
+              </CardContent>
+            </Card>
+          </div>
+        );
+      case 'users':
+        return <UserManagement />;
+      case 'licenses':
+        return <SuperAdminLicenseOverview />;
+      case 'companies':
+        return <CompanyRegistrationManager />;
+      case 'license-types':
+        return <LicenseTypeManager />;
+      case 'invoices':
+        return <SuperAdminInvoiceManager />;
+      case 'migrations':
+        return <MigrationRunner />;
+      case 'sms-testing':
+        return <SMSTesting />;
+      default:
+        return <div>Select a view</div>;
+    }
+  };
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center gap-2">
-        <Shield className="h-6 w-6 text-slate-600" />
-        <h1 className="text-3xl font-bold">System Administrator Dashboard</h1>
+      <div>
+        <h1 className="text-3xl font-bold tracking-tight">Super Admin Dashboard</h1>
+        <p className="text-muted-foreground">
+          Monitor and manage all aspects of the system as a super administrator.
+        </p>
       </div>
 
-      {/* System Overview */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-        <Card className="border-l-4 border-l-slate-500">
-          <CardContent className="p-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm font-medium text-muted-foreground">Total Clients</p>
-                <p className="text-2xl font-bold text-slate-600">{clientStats.totalClients}</p>
-              </div>
-              <Users className="h-8 w-8 text-slate-600" />
-            </div>
-          </CardContent>
-        </Card>
+      <Tabs value={activeView} onValueChange={setActiveView} className="space-y-4">
+        <TabsList className="grid w-full grid-cols-4 lg:grid-cols-8">
+          <TabsTrigger value="overview" className="flex items-center gap-2">
+            <BarChart3 className="h-4 w-4" />
+            <span className="hidden sm:inline">Overview</span>
+          </TabsTrigger>
+          <TabsTrigger value="users" className="flex items-center gap-2">
+            <Users className="h-4 w-4" />
+            <span className="hidden sm:inline">Users</span>
+          </TabsTrigger>
+          <TabsTrigger value="licenses" className="flex items-center gap-2">
+            <Shield className="h-4 w-4" />
+            <span className="hidden sm:inline">Licenses</span>
+          </TabsTrigger>
+          <TabsTrigger value="companies" className="flex items-center gap-2">
+            <Building2 className="h-4 w-4" />
+            <span className="hidden sm:inline">Companies</span>
+          </TabsTrigger>
+          <TabsTrigger value="license-types" className="flex items-center gap-2">
+            <Settings className="h-4 w-4" />
+            <span className="hidden sm:inline">Types</span>
+          </TabsTrigger>
+          <TabsTrigger value="invoices" className="flex items-center gap-2">
+            <FileText className="h-4 w-4" />
+            <span className="hidden sm:inline">Invoices</span>
+          </TabsTrigger>
+          <TabsTrigger value="migrations" className="flex items-center gap-2">
+            <Database className="h-4 w-4" />
+            <span className="hidden sm:inline">Migrations</span>
+          </TabsTrigger>
+          <TabsTrigger value="sms-testing" className="flex items-center gap-2">
+            <TestTube className="h-4 w-4" />
+            <span className="hidden sm:inline">SMS Test</span>
+          </TabsTrigger>
+        </TabsList>
 
-        <Card className="border-l-4 border-l-green-500">
-          <CardContent className="p-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm font-medium text-muted-foreground">Today's Revenue</p>
-                <p className="text-2xl font-bold text-green-600">{formatKenyanCurrency(todaysRevenue)}</p>
-              </div>
-              <DollarSign className="h-8 w-8 text-green-600" />
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card className="border-l-4 border-l-blue-500">
-          <CardContent className="p-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm font-medium text-muted-foreground">Monthly Revenue</p>
-                <p className="text-2xl font-bold text-blue-600">{formatKenyanCurrency(monthlyRevenue)}</p>
-              </div>
-              <TrendingUp className="h-8 w-8 text-blue-600" />
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card className="border-l-4 border-l-orange-500">
-          <CardContent className="p-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm font-medium text-muted-foreground">Pending Invoices</p>
-                <p className="text-2xl font-bold text-orange-600">{pendingInvoices.length}</p>
-              </div>
-              <BarChart3 className="h-8 w-8 text-orange-600" />
-            </div>
-          </CardContent>
-        </Card>
-      </div>
-
-      {/* System Status */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <Activity className="h-5 w-5 text-slate-600" />
-            System Health & Status
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            <div className="flex items-center gap-3 p-3 bg-slate-50 rounded-lg border border-slate-100">
-              <div className="w-3 h-3 bg-green-500 rounded-full"></div>
-              <div>
-                <p className="font-medium">Database</p>
-                <p className="text-sm text-muted-foreground">Operational</p>
-              </div>
-            </div>
-            <div className="flex items-center gap-3 p-3 bg-slate-50 rounded-lg border border-slate-100">
-              <div className="w-3 h-3 bg-green-500 rounded-full"></div>
-              <div>
-                <p className="font-medium">Payment Gateway</p>
-                <p className="text-sm text-muted-foreground">Operational</p>
-              </div>
-            </div>
-            <div className="flex items-center gap-3 p-3 bg-slate-50 rounded-lg border border-slate-100">
-              <div className="w-3 h-3 bg-green-500 rounded-full"></div>
-              <div>
-                <p className="font-medium">Network Monitoring</p>
-                <p className="text-sm text-muted-foreground">Operational</p>
-              </div>
-            </div>
-          </div>
-        </CardContent>
-      </Card>
-
-      {/* Client Overview */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <Users className="h-5 w-5 text-slate-600" />
-            Client Distribution
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-            <div className="text-center p-4 bg-slate-50 rounded-lg border border-slate-100">
-              <div className="w-12 h-12 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-2">
-                <Activity className="h-6 w-6 text-green-600" />
-              </div>
-              <p className="text-2xl font-bold text-green-600">{clientStats.activeClients}</p>
-              <p className="text-sm text-muted-foreground">Active Clients</p>
-            </div>
-            <div className="text-center p-4 bg-slate-50 rounded-lg border border-slate-100">
-              <div className="w-12 h-12 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-2">
-                <Users className="h-6 w-6 text-red-600" />
-              </div>
-              <p className="text-2xl font-bold text-red-600">{clientStats.suspendedClients}</p>
-              <p className="text-sm text-muted-foreground">Suspended</p>
-            </div>
-            <div className="text-center p-4 bg-slate-50 rounded-lg border border-slate-100">
-              <div className="w-12 h-12 bg-yellow-100 rounded-full flex items-center justify-center mx-auto mb-2">
-                <Users className="h-6 w-6 text-yellow-600" />
-              </div>
-              <p className="text-2xl font-bold text-yellow-600">{clientStats.pendingClients}</p>
-              <p className="text-sm text-muted-foreground">Pending</p>
-            </div>
-            <div className="text-center p-4 bg-slate-50 rounded-lg border border-slate-100">
-              <div className="w-12 h-12 bg-blue-100 rounded-full flex items-center justify-center mx-auto mb-2">
-                <DollarSign className="h-6 w-6 text-blue-600" />
-              </div>
-              <p className="text-2xl font-bold text-blue-600">{formatKenyanCurrency(clientStats.totalRevenue)}</p>
-              <p className="text-sm text-muted-foreground">Total Wallet Value</p>
-            </div>
-          </div>
-        </CardContent>
-      </Card>
-
-      {/* Recent Activity */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <Database className="h-5 w-5 text-slate-600" />
-              Recent System Activity
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-3">
-              <div className="flex items-center gap-3 p-3 bg-slate-50 rounded-lg border border-slate-100">
-                <div className="w-2 h-2 bg-green-500 rounded-full"></div>
-                <div>
-                  <p className="text-sm font-medium">New client registration</p>
-                  <p className="text-xs text-muted-foreground">5 minutes ago</p>
-                </div>
-              </div>
-              <div className="flex items-center gap-3 p-3 bg-slate-50 rounded-lg border border-slate-100">
-                <div className="w-2 h-2 bg-blue-500 rounded-full"></div>
-                <div>
-                  <p className="text-sm font-medium">Payment processed</p>
-                  <p className="text-xs text-muted-foreground">12 minutes ago</p>
-                </div>
-              </div>
-              <div className="flex items-center gap-3 p-3 bg-slate-50 rounded-lg border border-slate-100">
-                <div className="w-2 h-2 bg-purple-500 rounded-full"></div>
-                <div>
-                  <p className="text-sm font-medium">System backup completed</p>
-                  <p className="text-xs text-muted-foreground">1 hour ago</p>
-                </div>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <Settings className="h-5 w-5 text-slate-600" />
-              System Configuration
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-3">
-              <div className="flex items-center justify-between p-3 bg-slate-50 rounded-lg border border-slate-100">
-                <span className="text-sm font-medium">Auto Backup</span>
-                <Badge variant="secondary" className="bg-slate-100 text-slate-800 border-slate-200">
-                  Enabled
-                </Badge>
-              </div>
-              <div className="flex items-center justify-between p-3 bg-slate-50 rounded-lg border border-slate-100">
-                <span className="text-sm font-medium">SMS Notifications</span>
-                <Badge variant="secondary" className="bg-slate-100 text-slate-800 border-slate-200">
-                  Active
-                </Badge>
-              </div>
-              <div className="flex items-center justify-between p-3 bg-slate-50 rounded-lg border border-slate-100">
-                <span className="text-sm font-medium">Payment Gateway</span>
-                <Badge variant="secondary" className="bg-slate-100 text-slate-800 border-slate-200">
-                  Connected
-                </Badge>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-      </div>
+        {Object.keys({
+          overview: null,
+          users: null,
+          licenses: null,
+          companies: null,
+          'license-types': null,
+          invoices: null,
+          migrations: null,
+          'sms-testing': null
+        }).map(key => (
+          <TabsContent key={key} value={key} className="space-y-4">
+            {renderContent()}
+          </TabsContent>
+        ))}
+      </Tabs>
     </div>
   );
 };
