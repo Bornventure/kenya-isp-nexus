@@ -72,6 +72,10 @@ const RealNetworkManagementPanel = () => {
     return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
   };
 
+  const handleAddDevice = async (ip: string, community: string, version: number) => {
+    await addDevice(ip, community, version);
+  };
+
   return (
     <div className="space-y-6">
       <Card>
@@ -208,15 +212,15 @@ const RealNetworkManagementPanel = () => {
                       <div>
                         <h6 className="text-sm font-medium mb-2">Network Interfaces</h6>
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
-                          {device.interfaces.slice(0, 4).map((interface) => (
-                            <div key={interface.index} className="flex items-center justify-between p-2 bg-muted rounded text-sm">
-                              <span className="font-medium">{interface.name}</span>
+                          {device.interfaces.slice(0, 4).map((networkInterface) => (
+                            <div key={networkInterface.index} className="flex items-center justify-between p-2 bg-muted rounded text-sm">
+                              <span className="font-medium">{networkInterface.name}</span>
                               <div className="flex items-center gap-2">
-                                <Badge variant={interface.status === 'up' ? 'default' : 'secondary'}>
-                                  {interface.status}
+                                <Badge variant={networkInterface.status === 'up' ? 'default' : 'secondary'}>
+                                  {networkInterface.status}
                                 </Badge>
                                 <span className="text-xs text-muted-foreground">
-                                  {formatBytes(interface.bytesIn + interface.bytesOut)}
+                                  {formatBytes(networkInterface.bytesIn + networkInterface.bytesOut)}
                                 </span>
                               </div>
                             </div>
@@ -261,7 +265,7 @@ const RealNetworkManagementPanel = () => {
       <AddSNMPDeviceDialog
         open={showAddDialog}
         onOpenChange={setShowAddDialog}
-        onDeviceAdded={addDevice}
+        onDeviceAdded={handleAddDevice}
         onTestConnection={testConnection}
         isLoading={isLoading}
       />

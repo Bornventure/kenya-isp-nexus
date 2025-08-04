@@ -50,6 +50,10 @@ const RealNetworkInfrastructureManager = () => {
     return <Icon className="h-4 w-4" />;
   };
 
+  const handleAddDevice = async (ip: string, community: string, version: number) => {
+    await addDevice(ip, community, version);
+  };
+
   return (
     <div className="space-y-6">
       <div className="flex justify-between items-center">
@@ -243,7 +247,7 @@ const RealNetworkInfrastructureManager = () => {
       <AddSNMPDeviceDialog
         open={showAddDialog}
         onOpenChange={setShowAddDialog}
-        onDeviceAdded={addDevice}
+        onDeviceAdded={handleAddDevice}
         onTestConnection={testConnection}
         isLoading={snmpLoading}
       />

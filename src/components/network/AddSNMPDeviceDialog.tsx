@@ -5,8 +5,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Loader2, Wifi, TestTube } from 'lucide-react';
+import { Loader2, TestTube, Plus } from 'lucide-react';
 
 interface AddSNMPDeviceDialogProps {
   open: boolean;
@@ -23,161 +22,118 @@ const AddSNMPDeviceDialog: React.FC<AddSNMPDeviceDialogProps> = ({
   onTestConnection,
   isLoading
 }) => {
-  const [formData, setFormData] = useState({
-    ip: '',
-    community: 'public',
-    version: '2'
-  });
-  const [testResult, setTestResult] = useState<{ tested: boolean; success: boolean } | null>(null);
+  const [ip, setIp] = useState('');
+  const [community, setCommunity] = useState('public');
+  const [version, setVersion] = useState(2);
+  const [isTestingConnection, setIsTestingConnection] = useState(false);
 
   const handleTestConnection = async () => {
-    if (!formData.ip) {
-      return;
+    if (!ip.trim()) return;
+    
+    setIsTestingConnection(true);
+    try {
+      await onTestConnection(ip, community, version);
+    } finally {
+      setIsTestingConnection(false);
     }
-
-    const success = await onTestConnection(
-      formData.ip,
-      formData.community,
-      parseInt(formData.version)
-    );
-
-    setTestResult({ tested: true, success });
   };
 
   const handleAddDevice = async () => {
-    if (!formData.ip) {
-      return;
-    }
-
+    if (!ip.trim()) return;
+    
     try {
-      await onDeviceAdded(
-        formData.ip,
-        formData.community,
-        parseInt(formData.version)
-      );
-
-      // Reset form and close dialog
-      setFormData({ ip: '', community: 'public', version: '2' });
-      setTestResult(null);
+      await onDeviceAdded(ip, community, version);
+      // Reset form
+      setIp('');
+      setCommunity('public');
+      setVersion(2);
       onOpenChange(false);
     } catch (error) {
-      // Error is handled in the hook
+      // Error handling is done in the hook
     }
-  };
-
-  const handleInputChange = (field: string, value: string) => {
-    setFormData(prev => ({ ...prev, [field]: value }));
-    // Reset test result when form changes
-    setTestResult(null);
   };
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-md">
         <DialogHeader>
-          <DialogTitle className="flex items-center gap-2">
-            <Wifi className="h-5 w-5" />
-            Add SNMP Network Device
-          </DialogTitle>
+          <DialogTitle>Add SNMP Network Device</DialogTitle>
         </DialogHeader>
+        
+        <div className="space-y-4">
+          <div>
+            <Label htmlFor="ip">Device IP Address</Label>
+            <Input
+              id="ip"
+              placeholder="192.168.1.1"
+              value={ip}
+              onChange={(e) => setIp(e.target.value)}
+            />
+            <p className="text-xs text-muted-foreground mt-1">
+              Enter the IP address of your router, switch, or access point
+            </p>
+          </div>
 
-        <div className="space-y-6">
-          <Card>
-            <CardHeader>
-              <CardTitle className="text-sm">Device Information</CardTitle>
-              <CardDescription>
-                Enter the IP address and SNMP settings for your router, switch, or access point.
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div>
-                <Label htmlFor="ip">IP Address *</Label>
-                <Input
-                  id="ip"
-                  placeholder="192.168.1.1"
-                  value={formData.ip}
-                  onChange={(e) => handleInputChange('ip', e.target.value)}
-                />
-                <p className="text-xs text-muted-foreground mt-1">
-                  Enter the gateway IP or management IP of the device
-                </p>
-              </div>
+          <div>
+            <Label htmlFor="community">SNMP Community String</Label>
+            <Input
+              id="community"
+              placeholder="public"
+              value={community}
+              onChange={(e) => setCommunity(e.target.value)}
+            />
+          </div>
 
-              <div>
-                <Label htmlFor="community">SNMP Community</Label>
-                <Input
-                  id="community"
-                  placeholder="public"
-                  value={formData.community}
-                  onChange={(e) => handleInputChange('community', e.target.value)}
-                />
-                <p className="text-xs text-muted-foreground mt-1">
-                  Usually 'public' for read-only access
-                </p>
-              </div>
+          <div>
+            <Label>SNMP Version</Label>
+            <Select value={version.toString()} onValueChange={(value) => setVersion(parseInt(value))}>
+              <SelectTrigger>
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="1">SNMP v1</SelectItem>
+                <SelectItem value="2">SNMP v2c</SelectItem>
+                <SelectItem value="3">SNMP v3</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
 
-              <div>
-                <Label htmlFor="version">SNMP Version</Label>
-                <Select
-                  value={formData.version}
-                  onValueChange={(value) => handleInputChange('version', value)}
-                >
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="1">Version 1</SelectItem>
-                    <SelectItem value="2">Version 2c (Recommended)</SelectItem>
-                    <SelectItem value="3">Version 3</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-            </CardContent>
-          </Card>
-
-          {testResult && (
-            <Card className={testResult.success ? "border-green-200" : "border-red-200"}>
-              <CardContent className="pt-6">
-                <div className={`text-sm ${testResult.success ? "text-green-700" : "text-red-700"}`}>
-                  {testResult.success ? (
-                    <>✅ Connection successful! Device is responding to SNMP requests.</>
-                  ) : (
-                    <>❌ Connection failed. Please check the IP address, SNMP community, and device configuration.</>
-                  )}
-                </div>
-              </CardContent>
-            </Card>
-          )}
-
-          <div className="flex gap-2">
+          <div className="flex gap-2 pt-4">
             <Button
               variant="outline"
               onClick={handleTestConnection}
-              disabled={!formData.ip || isLoading}
+              disabled={!ip.trim() || isTestingConnection || isLoading}
               className="flex-1"
             >
-              {isLoading ? (
-                <Loader2 className="h-4 w-4 animate-spin mr-2" />
+              {isTestingConnection ? (
+                <>
+                  <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                  Testing...
+                </>
               ) : (
-                <TestTube className="h-4 w-4 mr-2" />
+                <>
+                  <TestTube className="h-4 w-4 mr-2" />
+                  Test Connection
+                </>
               )}
-              Test Connection
             </Button>
-
             <Button
               onClick={handleAddDevice}
-              disabled={!formData.ip || isLoading || (testResult?.tested && !testResult.success)}
+              disabled={!ip.trim() || isLoading || isTestingConnection}
               className="flex-1"
             >
               {isLoading ? (
-                <Loader2 className="h-4 w-4 animate-spin mr-2" />
-              ) : null}
-              Add Device
+                <>
+                  <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                  Adding...
+                </>
+              ) : (
+                <>
+                  <Plus className="h-4 w-4 mr-2" />
+                  Add Device
+                </>
+              )}
             </Button>
-          </div>
-
-          <div className="text-xs text-muted-foreground">
-            <p><strong>Note:</strong> Make sure SNMP is enabled on your device and the community string is configured correctly.</p>
           </div>
         </div>
       </DialogContent>
