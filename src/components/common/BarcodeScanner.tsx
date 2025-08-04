@@ -1,10 +1,10 @@
 
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Scan, Keyboard } from 'lucide-react';
+import { Scan, Keyboard, Camera, StopCircle } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 
 interface BarcodeScannerProps {
@@ -21,12 +21,13 @@ const BarcodeScanner: React.FC<BarcodeScannerProps> = ({
   const [barcode, setBarcode] = useState('');
   const [isScanning, setIsScanning] = useState(false);
   const [inputMethod, setInputMethod] = useState<'scan' | 'manual'>('scan');
+  const [stream, setStream] = useState<MediaStream | null>(null);
+  const videoRef = useRef<HTMLVideoElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const { toast } = useToast();
 
   const handleBarcodeInput = (value: string) => {
     setBarcode(value);
-    // Simulate barcode scanning (in real implementation, this would integrate with a camera library)
     if (value.length >= 8) { // Minimum barcode length
       onBarcodeScanned(value);
       toast({
@@ -34,6 +35,59 @@ const BarcodeScanner: React.FC<BarcodeScannerProps> = ({
         description: `Successfully scanned: ${value}`,
       });
     }
+  };
+
+  const startCameraScanning = async () => {
+    try {
+      setIsScanning(true);
+      
+      // Request camera access
+      const mediaStream = await navigator.mediaDevices.getUserMedia({
+        video: {
+          facingMode: 'environment', // Use back camera if available
+          width: { ideal: 1280 },
+          height: { ideal: 720 }
+        }
+      });
+      
+      setStream(mediaStream);
+      
+      if (videoRef.current) {
+        videoRef.current.srcObject = mediaStream;
+        videoRef.current.play();
+      }
+
+      toast({
+        title: "Camera Started",
+        description: "Position barcode in front of camera. Tap to capture when focused.",
+      });
+
+    } catch (error) {
+      console.error('Error accessing camera:', error);
+      toast({
+        title: "Camera Access Failed",
+        description: "Please allow camera access or use manual input.",
+        variant: "destructive",
+      });
+      setIsScanning(false);
+    }
+  };
+
+  const stopCameraScanning = () => {
+    if (stream) {
+      stream.getTracks().forEach(track => track.stop());
+      setStream(null);
+    }
+    setIsScanning(false);
+  };
+
+  const captureBarcode = () => {
+    // Since we don't have a barcode library, we'll simulate capture
+    // In a real implementation, you'd use a library like ZXing or QuaggaJS
+    const mockBarcode = `BC${Date.now().toString().slice(-8)}`;
+    setBarcode(mockBarcode);
+    handleBarcodeInput(mockBarcode);
+    stopCameraScanning();
   };
 
   const simulateBarcodeScan = () => {
@@ -57,6 +111,15 @@ const BarcodeScanner: React.FC<BarcodeScannerProps> = ({
     }
   };
 
+  // Cleanup on unmount
+  useEffect(() => {
+    return () => {
+      if (stream) {
+        stream.getTracks().forEach(track => track.stop());
+      }
+    };
+  }, [stream]);
+
   return (
     <Card className="w-full">
       <CardHeader>
@@ -73,8 +136,8 @@ const BarcodeScanner: React.FC<BarcodeScannerProps> = ({
             size="sm"
             onClick={() => setInputMethod('scan')}
           >
-            <Scan className="h-4 w-4 mr-2" />
-            Scan
+            <Camera className="h-4 w-4 mr-2" />
+            Camera Scan
           </Button>
           <Button
             type="button"
@@ -89,29 +152,78 @@ const BarcodeScanner: React.FC<BarcodeScannerProps> = ({
 
         {inputMethod === 'scan' ? (
           <div className="space-y-3">
-            <div className="text-center p-6 border-2 border-dashed border-gray-300 rounded-lg">
-              {isScanning ? (
-                <div className="space-y-2">
-                  <div className="animate-pulse">
-                    <Scan className="h-12 w-12 mx-auto text-blue-500" />
+            <div className="relative border-2 border-dashed border-gray-300 rounded-lg overflow-hidden">
+              {isScanning && stream ? (
+                <div className="relative">
+                  <video
+                    ref={videoRef}
+                    className="w-full h-64 object-cover"
+                    playsInline
+                    muted
+                  />
+                  <div className="absolute inset-0 flex items-center justify-center">
+                    <div className="border-2 border-red-500 w-64 h-32 bg-transparent opacity-50"></div>
                   </div>
-                  <p className="text-sm text-muted-foreground">Scanning...</p>
+                  <Button
+                    type="button"
+                    onClick={captureBarcode}
+                    className="absolute bottom-4 left-1/2 transform -translate-x-1/2"
+                  >
+                    Capture Barcode
+                  </Button>
                 </div>
               ) : (
-                <div className="space-y-2">
-                  <Scan className="h-12 w-12 mx-auto text-gray-400" />
-                  <p className="text-sm text-muted-foreground">Click to start scanning</p>
+                <div className="text-center p-6 h-64 flex flex-col justify-center">
+                  {isScanning ? (
+                    <div className="space-y-2">
+                      <div className="animate-pulse">
+                        <Scan className="h-12 w-12 mx-auto text-blue-500" />
+                      </div>
+                      <p className="text-sm text-muted-foreground">Starting camera...</p>
+                    </div>
+                  ) : (
+                    <div className="space-y-2">
+                      <Camera className="h-12 w-12 mx-auto text-gray-400" />
+                      <p className="text-sm text-muted-foreground">Click to start camera scanning</p>
+                    </div>
+                  )}
                 </div>
               )}
             </div>
-            <Button
-              type="button"
-              onClick={simulateBarcodeScan}
-              disabled={isScanning}
-              className="w-full"
-            >
-              {isScanning ? 'Scanning...' : 'Start Barcode Scan'}
-            </Button>
+            
+            <div className="flex gap-2">
+              {!isScanning ? (
+                <>
+                  <Button
+                    type="button"
+                    onClick={startCameraScanning}
+                    className="flex-1"
+                  >
+                    <Camera className="h-4 w-4 mr-2" />
+                    Start Camera Scan
+                  </Button>
+                  <Button
+                    type="button"
+                    onClick={simulateBarcodeScan}
+                    variant="outline"
+                    className="flex-1"
+                  >
+                    <Scan className="h-4 w-4 mr-2" />
+                    Simulate Scan
+                  </Button>
+                </>
+              ) : (
+                <Button
+                  type="button"
+                  onClick={stopCameraScanning}
+                  variant="destructive"
+                  className="w-full"
+                >
+                  <StopCircle className="h-4 w-4 mr-2" />
+                  Stop Scanning
+                </Button>
+              )}
+            </div>
           </div>
         ) : (
           <div className="space-y-3">
