@@ -104,11 +104,11 @@ export const useClientRegistrationForm = ({ onClose, onSave }: UseClientRegistra
     console.log('Form submission started');
     
     // Check if user profile exists
-    if (!profile) {
-      console.error('No user profile found');
+    if (!profile?.isp_company_id) {
+      console.error('No user profile or company ID found');
       toast({
         title: "Error",
-        description: "User profile not found. Please log in again.",
+        description: "User profile or company not found. Please log in again.",
         variant: "destructive",
       });
       return;
@@ -124,6 +124,11 @@ export const useClientRegistrationForm = ({ onClose, onSave }: UseClientRegistra
     
     if (!validateForm()) {
       console.log('Form validation failed');
+      toast({
+        title: "Validation Error",
+        description: "Please fix the errors in the form before submitting.",
+        variant: "destructive",
+      });
       return;
     }
 
@@ -132,41 +137,56 @@ export const useClientRegistrationForm = ({ onClose, onSave }: UseClientRegistra
     try {
       // Prepare client data
       const clientData = {
-        ...formData,
-        isp_company_id: profile?.isp_company_id,
+        name: formData.name,
+        email: formData.email || null,
+        phone: formData.phone,
+        id_number: formData.id_number,
+        kra_pin_number: formData.kra_pin_number || null,
+        mpesa_number: formData.mpesa_number || formData.phone,
+        address: formData.address,
+        county: formData.county,
+        sub_county: formData.sub_county,
+        latitude: formData.latitude,
+        longitude: formData.longitude,
+        service_package_id: formData.service_package_id,
+        monthly_rate: formData.monthly_rate,
+        connection_type: formData.connection_type,
+        client_type: formData.client_type,
+        installation_date: formData.installation_date || null,
+        isp_company_id: profile.isp_company_id,
         status: 'pending' as const,
         balance: 0,
         wallet_balance: 0,
         is_active: true,
-        installation_date: formData.installation_date || null,
-        mpesa_number: formData.mpesa_number || formData.phone,
-        submitted_by: profile?.id,
+        submitted_by: profile.id,
       };
 
       console.log('Submitting client data:', clientData);
-
-      // Validate required fields one more time
-      if (!clientData.isp_company_id) {
-        throw new Error('No ISP company ID found in user profile');
-      }
 
       // Create client record
       const { data: client, error: clientError } = await supabase
         .from('clients')
         .insert(clientData)
-        .select()
+        .select(`
+          *,
+          service_packages (
+            name,
+            speed,
+            monthly_rate
+          )
+        `)
         .single();
 
       if (clientError) {
         console.error('Error creating client:', clientError);
-        throw clientError;
+        throw new Error(clientError.message);
       }
 
       console.log('Client created successfully:', client);
 
       toast({
         title: "Success",
-        description: "Client registered successfully!",
+        description: `Client ${client.name} registered successfully and is pending approval!`,
       });
 
       onSave(client);
@@ -175,7 +195,7 @@ export const useClientRegistrationForm = ({ onClose, onSave }: UseClientRegistra
       console.error('Error during client registration:', error);
       const errorMessage = error instanceof Error ? error.message : 'Failed to register client. Please try again.';
       toast({
-        title: "Error",
+        title: "Registration Failed",
         description: errorMessage,
         variant: "destructive",
       });
