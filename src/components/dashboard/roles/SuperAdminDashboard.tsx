@@ -7,7 +7,7 @@ import SuperAdminLicenseOverview from '@/components/license/SuperAdminLicenseOve
 import CompanyRegistrationManager from '@/components/admin/CompanyRegistrationManager';
 import LicenseTypeManager from '@/components/admin/LicenseTypeManager';
 import SuperAdminInvoiceManager from '@/components/admin/SuperAdminInvoiceManager';
-import MigrationRunner from '@/components/admin/MigrationRunner';
+import { MigrationRunner } from '@/components/admin/MigrationRunner';
 import SMSTesting from '@/components/admin/SMSTesting';
 
 const SuperAdminDashboard = () => {
