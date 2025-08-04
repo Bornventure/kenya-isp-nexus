@@ -13,6 +13,10 @@ serve(async (req) => {
     return new Response(null, { headers: corsHeaders });
   }
 
+  console.log('=== Family Bank C2B Callback Received ===');
+  console.log('Request method:', req.method);
+  console.log('Request headers:', Object.fromEntries(req.headers.entries()));
+
   try {
     const supabase = createClient(
       Deno.env.get('SUPABASE_URL') ?? '',
@@ -20,64 +24,127 @@ serve(async (req) => {
     );
 
     const body = await req.json();
-    console.log("Family Bank C2B IPN RECEIVED:", JSON.stringify(body, null, 2));
+    console.log("Family Bank C2B Callback RECEIVED:", JSON.stringify(body, null, 2));
 
-    // Store the C2B payment in database
-    const { error } = await supabase
+    // Extract key fields from the callback
+    const resultCode = body.ResultCode;
+    const resultDesc = body.ResultDesc;
+    const transactionType = body.TransactionType;
+    const transID = body.TransID;
+    const transTime = body.TransTime;
+    const transAmount = parseFloat(body.TransAmount || 0);
+    const businessShortCode = body.BusinessShortCode;
+    const billRefNumber = body.BillRefNumber;
+    const invoiceNumber = body.InvoiceNumber;
+    const orgAccountBalance = body.OrgAccountBalance ? parseFloat(body.OrgAccountBalance) : null;
+    const msisdn = body.MSISDN;
+    const kycName = body.KYCName;
+    const checkoutRequestId = body.CheckoutRequestID;
+
+    console.log('Extracted callback data:', {
+      resultCode,
+      resultDesc,
+      transID,
+      transAmount,
+      msisdn,
+      checkoutRequestId
+    });
+
+    // Store the C2B payment callback in database for audit trail
+    const { error: insertError } = await supabase
       .from('family_bank_payments')
       .insert({
-        trans_id: body.TransID,
-        trans_time: body.TransTime,
-        transaction_type: body.TransactionType,
-        trans_amount: parseFloat(body.TransAmount),
-        business_shortcode: body.BusinessShortCode,
-        bill_ref_number: body.BillRefNumber,
-        invoice_number: body.InvoiceNumber,
-        org_account_balance: body.OrgAccountBalance ? parseFloat(body.OrgAccountBalance) : null,
-        third_party_trans_id: body.ThirdPartyTransID,
-        msisdn: body.MSISDN,
-        kyc_info: body.KYCInfo,
-        first_name: body.FirstName,
-        middle_name: body.MiddleName,
-        last_name: body.LastName,
+        trans_id: transID,
+        trans_time: transTime,
+        transaction_type: transactionType,
+        trans_amount: transAmount,
+        business_shortcode: businessShortCode,
+        bill_ref_number: billRefNumber,
+        invoice_number: invoiceNumber,
+        org_account_balance: orgAccountBalance,
+        third_party_trans_id: checkoutRequestId,
+        msisdn: msisdn,
+        kyc_info: kycName,
         callback_raw: body,
-        status: 'received'
+        status: resultCode === '0' ? 'completed' : 'failed'
       });
 
-    if (error) {
-      console.error('Error storing Family Bank payment:', error);
+    if (insertError) {
+      console.error('Error storing Family Bank payment:', insertError);
+    } else {
+      console.log('Family Bank payment callback stored successfully');
     }
 
-    // Process the payment (similar to M-Pesa processing)
-    if (body.BillRefNumber) {
-      // Try to find matching client/invoice by reference
-      const { data: client } = await supabase
-        .from('clients')
-        .select('id, isp_company_id')
-        .eq('phone', body.MSISDN)
-        .single();
-
-      if (client) {
-        // Call payment processor
-        await supabase.functions.invoke('process-payment', {
-          body: {
-            checkoutRequestId: body.TransID,
-            clientId: client.id,
-            amount: parseFloat(body.TransAmount),
-            paymentMethod: 'family_bank',
-            familyBankReceiptNumber: body.TransID
-          }
-        });
+    // Process successful payments
+    if (resultCode === '0' && transAmount > 0) {
+      console.log('Processing successful payment of KES', transAmount);
+      
+      // Try to find matching client by phone number
+      let client = null;
+      
+      // Clean phone number for search
+      let cleanPhone = msisdn.toString();
+      if (cleanPhone.startsWith('254')) {
+        cleanPhone = '0' + cleanPhone.substring(3);
       }
+
+      console.log('Searching for client with phone:', cleanPhone, 'or', msisdn);
+
+      const { data: clients } = await supabase
+        .from('clients')
+        .select('id, isp_company_id, name, wallet_balance, monthly_rate')
+        .or(`phone.eq.${cleanPhone},phone.eq.${msisdn},mpesa_number.eq.${msisdn}`)
+        .limit(1);
+
+      if (clients && clients.length > 0) {
+        client = clients[0];
+        console.log('Found matching client:', client.name, 'ID:', client.id);
+
+        // Process payment through the payment processor
+        try {
+          const { data: processResult, error: processError } = await supabase.functions.invoke('process-payment', {
+            body: {
+              checkoutRequestId: checkoutRequestId,
+              clientId: client.id,
+              amount: transAmount,
+              paymentMethod: 'family_bank',
+              familyBankReceiptNumber: transID,
+              phoneNumber: msisdn
+            }
+          });
+
+          if (processError) {
+            console.error('Error processing payment:', processError);
+          } else if (processResult?.success) {
+            console.log('Payment processed successfully:', processResult);
+          } else {
+            console.log('Payment processing completed with warnings:', processResult);
+          }
+        } catch (processError) {
+          console.error('Exception during payment processing:', processError);
+        }
+      } else {
+        console.log('No matching client found for phone number:', msisdn);
+      }
+    } else if (resultCode !== '0') {
+      console.log('Payment failed or cancelled. ResultCode:', resultCode, 'Description:', resultDesc);
+    } else {
+      console.log('Zero amount transaction, skipping payment processing');
     }
+
+    // Return success acknowledgment to Family Bank
+    const acknowledgment = {
+      "ResultCode": "0",
+      "ResultDesc": "Success. Transaction received and processed",
+      "TransactionID": transID,
+      "ConversationID": checkoutRequestId,
+      "OriginatorConversationID": invoiceNumber
+    };
+
+    console.log('Sending acknowledgment to Family Bank:', acknowledgment);
 
     return new Response(
-      JSON.stringify({
-        status_code: "PAYMENT_ACK",
-        status_description: "Payment Transaction Received Successfully",
-        payment_ref: `PAYREF-${Date.now()}`,
-        date_time: new Date().toISOString()
-      }),
+      JSON.stringify(acknowledgment),
       {
         status: 200,
         headers: { ...corsHeaders, "Content-Type": "application/json" }
@@ -85,14 +152,16 @@ serve(async (req) => {
     );
 
   } catch (error) {
-    console.error('Family Bank C2B callback error:', error);
+    console.error('Family Bank C2B callback processing error:', error);
     
+    // Return error acknowledgment
+    const errorAck = {
+      "ResultCode": "1",
+      "ResultDesc": "Error processing transaction: " + error.message
+    };
+
     return new Response(
-      JSON.stringify({
-        status_code: "PAYMENT_ERROR",
-        status_description: "Payment processing failed",
-        error: error.message
-      }),
+      JSON.stringify(errorAck),
       {
         status: 500,
         headers: { ...corsHeaders, "Content-Type": "application/json" }
