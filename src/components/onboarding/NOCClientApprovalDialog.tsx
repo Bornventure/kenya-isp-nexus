@@ -97,15 +97,19 @@ const NOCClientApprovalDialog: React.FC<NOCClientApprovalDialogProps> = ({
     try {
       console.log('Rejecting client:', client.id);
       
+      // Update client status to suspended and record approval details
       await updateClient({
         id: client.id,
         updates: {
           status: 'suspended',
           approved_by: profile.id,
-          approved_at: new Date().toISOString(),
-          notes: notes.trim()
+          approved_at: new Date().toISOString()
         }
       });
+
+      // Note: The rejection reason is stored in the notes state but not persisted 
+      // since the DatabaseClient type doesn't have a notes field
+      console.log('Rejection reason:', notes.trim());
 
       toast({
         title: "Client Rejected",
