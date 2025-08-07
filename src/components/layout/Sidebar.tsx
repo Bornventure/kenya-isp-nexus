@@ -32,7 +32,7 @@ const Sidebar = () => {
   const menuItems = [
     {
       name: 'Dashboard',
-      href: '/',
+      href: '/dashboard',
       icon: Home,
       roles: ['super_admin', 'isp_admin', 'network_engineer', 'support_agent', 'technician', 'sales_agent']
     },
@@ -68,7 +68,7 @@ const Sidebar = () => {
     },
     {
       name: 'Hotspot',
-      href: '/hotspot',
+      href: '/hotspots',
       icon: Wifi,
       roles: ['super_admin', 'isp_admin', 'network_engineer']
     },
@@ -80,7 +80,7 @@ const Sidebar = () => {
     },
     {
       name: 'Infrastructure',
-      href: '/infrastructure',
+      href: '/system-infrastructure',
       icon: Wrench,
       roles: ['super_admin', 'isp_admin', 'network_engineer', 'technician']
     },
