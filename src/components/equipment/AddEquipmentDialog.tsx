@@ -65,6 +65,7 @@ const AddEquipmentDialog: React.FC<AddEquipmentDialogProps> = ({ open, onOpenCha
         notes: formData.notes || null,
         status: 'pending',
         approval_status: 'pending',
+        auto_discovered: false,
       });
 
       toast({
@@ -145,7 +146,7 @@ const AddEquipmentDialog: React.FC<AddEquipmentDialogProps> = ({ open, onOpenCha
               onSubmit={handleSubmit}
               onCancel={() => onOpenChange(false)}
               isCreating={isCreating}
-              canSubmit={canSubmit}
+              canSubmit={!!canSubmit}
             />
           </TabsContent>
         </Tabs>
