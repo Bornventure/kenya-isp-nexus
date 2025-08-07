@@ -1,4 +1,3 @@
-
 import React, { useMemo } from 'react';
 import { Routes, Route, Navigate } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
@@ -26,6 +25,7 @@ import Analytics from '@/pages/Analytics';
 import DeveloperPortal from '@/pages/DeveloperPortal';
 import DataMigration from '@/pages/DataMigration';
 import SystemInfrastructure from '@/pages/SystemInfrastructure';
+import SystemTest from '@/pages/SystemTest';
 import NotFound from '@/pages/NotFound';
 import AccessDenied from '@/components/AccessDenied';
 import DashboardLayout from '@/components/dashboard/DashboardLayout';
@@ -254,6 +254,19 @@ const AppContent: React.FC = () => {
                     <Profile />
                   </LicenseGuard>
                 } />
+                
+                {/* System Test Route - accessible to super_admin, isp_admin, and network_engineer */}
+                {(profile?.role === 'super_admin' || profile?.role === 'isp_admin' || profile?.role === 'network_engineer') && (
+                  <Route path="/system-test" element={
+                    validation?.isDeactivated || validation?.isExpired ? (
+                      <LicenseGuard allowReadOnly={validation?.isDeactivated}>
+                        <SystemTest />
+                      </LicenseGuard>
+                    ) : (
+                      <SystemTest />
+                    )
+                  } />
+                )}
                 
                 {/* Role-based access routes */}
                 {rolePermissions.clients && (
