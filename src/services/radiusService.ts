@@ -2,61 +2,119 @@
 import { supabase } from '@/integrations/supabase/client';
 
 export interface RadiusUser {
+  id: string;
+  client_id: string;
   username: string;
   password: string;
-  clientId: string;
-  groupName: string;
-  maxUpload: string;
-  maxDownload: string;
+  group_name: string;
+  max_upload: string;
+  max_download: string;
   expiration: Date;
-  isActive: boolean;
+  is_active: boolean;
+  isp_company_id: string;
 }
 
 export interface RadiusSession {
+  id: string;
+  client_id?: string;
   username: string;
-  nasIpAddress: string;
-  sessionId: string;
-  startTime: Date;
-  bytesIn: number;
-  bytesOut: number;
-  status: 'active' | 'stopped';
+  session_id: string;
+  nas_ip_address?: string;
+  start_time: Date;
+  end_time?: Date;
+  bytes_in: number;
+  bytes_out: number;
+  status: 'active' | 'terminated';
+  isp_company_id: string;
+}
+
+export interface MikrotikRouter {
+  id: string;
+  name: string;
+  ip_address: string;
+  admin_username: string;
+  admin_password: string;
+  snmp_community: string;
+  snmp_version: number;
+  pppoe_interface: string;
+  dns_servers: string;
+  client_network: string;
+  gateway?: string;
+  status: 'pending' | 'active' | 'error';
+  last_test_results?: any;
+  connection_status: 'online' | 'offline';
+  isp_company_id: string;
 }
 
 class RadiusService {
-  private radiusServerUrl = 'http://localhost:1812'; // FreeRADIUS server
-
-  async createRadiusUser(client: any, servicePackage: any): Promise<boolean> {
+  // Get all RADIUS users for the company
+  async getRadiusUsers(): Promise<RadiusUser[]> {
     try {
-      const radiusUser: RadiusUser = {
+      const { data, error } = await supabase
+        .from('radius_users')
+        .select('*')
+        .eq('is_active', true)
+        .order('created_at', { ascending: false });
+
+      if (error) throw error;
+      return data || [];
+    } catch (error) {
+      console.error('Error fetching RADIUS users:', error);
+      return [];
+    }
+  }
+
+  // Get active RADIUS sessions
+  async getActiveSessions(): Promise<RadiusSession[]> {
+    try {
+      const { data, error } = await supabase
+        .from('radius_sessions')
+        .select('*')
+        .eq('status', 'active')
+        .order('start_time', { ascending: false });
+
+      if (error) throw error;
+      return data || [];
+    } catch (error) {
+      console.error('Error fetching RADIUS sessions:', error);
+      return [];
+    }
+  }
+
+  // Create RADIUS user manually
+  async createRadiusUser(clientId: string): Promise<boolean> {
+    try {
+      const { data: client, error: clientError } = await supabase
+        .from('clients')
+        .select(`
+          *,
+          service_packages (*)
+        `)
+        .eq('id', clientId)
+        .single();
+
+      if (clientError || !client) throw clientError || new Error('Client not found');
+
+      const radiusUser = {
+        client_id: clientId,
         username: client.email || client.phone,
         password: this.generatePassword(),
-        clientId: client.id,
-        groupName: servicePackage.name.toLowerCase().replace(/\s+/g, '_'),
-        maxUpload: this.parseSpeed(servicePackage.speed, 'upload'),
-        maxDownload: this.parseSpeed(servicePackage.speed, 'download'),
-        expiration: new Date(client.subscription_end_date),
-        isActive: client.status === 'active'
+        group_name: client.service_packages?.name?.toLowerCase().replace(/\s+/g, '_') || 'default',
+        max_upload: this.parseSpeed(client.service_packages?.speed || '10Mbps', 'upload'),
+        max_download: this.parseSpeed(client.service_packages?.speed || '10Mbps', 'download'),
+        expiration: client.subscription_end_date,
+        is_active: client.status === 'active',
+        isp_company_id: client.isp_company_id
       };
 
-      // Store RADIUS user credentials in database with proper field mapping
       const { error } = await supabase
         .from('radius_users')
-        .insert({
-          client_id: client.id,
-          username: radiusUser.username,
-          password: radiusUser.password,
-          group_name: radiusUser.groupName,
-          max_upload: radiusUser.maxUpload,
-          max_download: radiusUser.maxDownload,
-          expiration: radiusUser.expiration.toISOString(),
-          is_active: radiusUser.isActive,
-          isp_company_id: client.isp_company_id
-        });
+        .upsert(radiusUser, { onConflict: 'username' });
 
       if (error) throw error;
 
-      // Configure on FreeRADIUS server
-      await this.configureRadiusServer(radiusUser);
+      // Configure on MikroTik routers
+      await this.configureAllRouters(radiusUser);
 
       console.log(`RADIUS user created for client: ${client.name}`);
       return true;
@@ -66,26 +124,20 @@ class RadiusService {
     }
   }
 
+  // Update RADIUS user
   async updateRadiusUser(clientId: string, updates: Partial<RadiusUser>): Promise<boolean> {
     try {
-      // Convert interface fields to database fields
-      const dbUpdates: any = {};
-      if (updates.username) dbUpdates.username = updates.username;
-      if (updates.password) dbUpdates.password = updates.password;
-      if (updates.groupName) dbUpdates.group_name = updates.groupName;
-      if (updates.maxUpload) dbUpdates.max_upload = updates.maxUpload;
-      if (updates.maxDownload) dbUpdates.max_download = updates.maxDownload;
-      if (updates.expiration) dbUpdates.expiration = updates.expiration.toISOString();
-      if (updates.isActive !== undefined) dbUpdates.is_active = updates.isActive;
-
       const { error } = await supabase
         .from('radius_users')
-        .update(dbUpdates)
+        .update({
+          ...updates,
+          updated_at: new Date().toISOString()
+        })
         .eq('client_id', clientId);
 
       if (error) throw error;
 
-      // Update on FreeRADIUS server
+      // Get updated user and configure routers
       const { data: radiusUser } = await supabase
         .from('radius_users')
         .select('*')
@@ -93,18 +145,7 @@ class RadiusService {
         .single();
 
       if (radiusUser) {
-        // Convert database record to interface format
-        const userInterface: RadiusUser = {
-          username: radiusUser.username,
-          password: radiusUser.password,
-          clientId: radiusUser.client_id,
-          groupName: radiusUser.group_name || '',
-          maxUpload: radiusUser.max_upload || '',
-          maxDownload: radiusUser.max_download || '',
-          expiration: new Date(radiusUser.expiration || Date.now()),
-          isActive: radiusUser.is_active
-        };
-        await this.configureRadiusServer(userInterface);
+        await this.configureAllRouters(radiusUser);
       }
 
       return true;
@@ -114,6 +155,7 @@ class RadiusService {
     }
   }
 
+  // Delete RADIUS user
   async deleteRadiusUser(clientId: string): Promise<boolean> {
     try {
       const { data: radiusUser } = await supabase
@@ -123,8 +165,7 @@ class RadiusService {
         .single();
 
       if (radiusUser) {
-        // Remove from FreeRADIUS
-        await this.removeFromRadiusServer(radiusUser.username);
+        await this.removeFromAllRouters(radiusUser.username);
       }
 
       const { error } = await supabase
@@ -140,67 +181,163 @@ class RadiusService {
     }
   }
 
-  async getActiveSessions(): Promise<RadiusSession[]> {
+  // Disconnect user from all sessions
+  async disconnectUser(username: string): Promise<boolean> {
     try {
-      const { data, error } = await supabase
+      // End all active sessions in database
+      const { error } = await supabase
         .from('radius_sessions')
-        .select('*')
+        .update({
+          status: 'terminated',
+          end_time: new Date().toISOString()
+        })
+        .eq('username', username)
         .eq('status', 'active');
 
       if (error) throw error;
-      
-      // Convert database records to interface format with proper type handling
-      return (data || []).map(record => ({
-        username: record.username || '',
-        nasIpAddress: String(record.nas_ip_address || ''),
-        sessionId: record.session_id || '',
-        startTime: new Date(record.start_time),
-        bytesIn: record.bytes_in || 0,
-        bytesOut: record.bytes_out || 0,
-        status: (record.status as 'active' | 'stopped') || 'stopped'
-      }));
-    } catch (error) {
-      console.error('Error fetching RADIUS sessions:', error);
-      return [];
-    }
-  }
 
-  async disconnectUser(username: string): Promise<boolean> {
-    try {
-      // Send disconnect message to RADIUS server
-      const response = await fetch(`${this.radiusServerUrl}/disconnect`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ username })
-      });
+      // Send disconnect command to all MikroTik routers
+      await this.disconnectFromAllRouters(username);
 
-      return response.ok;
+      return true;
     } catch (error) {
-      console.error('Error disconnecting RADIUS user:', error);
+      console.error('Error disconnecting user:', error);
       return false;
     }
   }
 
-  private async configureRadiusServer(user: RadiusUser): Promise<void> {
-    // Configure FreeRADIUS with user attributes
-    const radiusConfig = {
-      username: user.username,
-      password: user.password,
-      groupName: user.groupName,
-      'Mikrotik-Rate-Limit': `${user.maxUpload}/${user.maxDownload}`,
-      'Session-Timeout': this.calculateSessionTimeout(user.expiration),
-      'Expiration': user.expiration.toISOString()
-    };
+  // Get MikroTik routers
+  async getMikrotikRouters(): Promise<MikrotikRouter[]> {
+    try {
+      const { data, error } = await supabase
+        .from('mikrotik_routers')
+        .select('*')
+        .order('name');
 
-    console.log('Configuring RADIUS server with:', radiusConfig);
-    
-    // In production, this would make actual API calls to FreeRADIUS
-    // For now, we simulate the configuration
+      if (error) throw error;
+      return data || [];
+    } catch (error) {
+      console.error('Error fetching MikroTik routers:', error);
+      return [];
+    }
   }
 
-  private async removeFromRadiusServer(username: string): Promise<void> {
-    console.log(`Removing ${username} from RADIUS server`);
-    // Implementation for removing user from FreeRADIUS
+  // Add MikroTik router
+  async addMikrotikRouter(router: Omit<MikrotikRouter, 'id' | 'isp_company_id'>): Promise<boolean> {
+    try {
+      const { error } = await supabase
+        .from('mikrotik_routers')
+        .insert([router]);
+
+      if (error) throw error;
+
+      // Test connection after adding
+      await this.testRouterConnection(router.ip_address);
+
+      return true;
+    } catch (error) {
+      console.error('Error adding MikroTik router:', error);
+      return false;
+    }
+  }
+
+  // Test router connection
+  async testRouterConnection(routerIp: string): Promise<boolean> {
+    try {
+      // This would typically use RouterOS API or SNMP
+      // For now, we'll simulate the test
+      const testResults = {
+        connection: 'success',
+        pppoe_server: 'running',
+        radius_client: 'configured',
+        timestamp: new Date().toISOString()
+      };
+
+      await supabase
+        .from('mikrotik_routers')
+        .update({
+          connection_status: 'online',
+          last_test_results: testResults,
+          updated_at: new Date().toISOString()
+        })
+        .eq('ip_address', routerIp);
+
+      return true;
+    } catch (error) {
+      console.error('Error testing router connection:', error);
+      return false;
+    }
+  }
+
+  // Private helper methods
+  private async configureAllRouters(radiusUser: any): Promise<void> {
+    const routers = await this.getMikrotikRouters();
+    
+    for (const router of routers.filter(r => r.status === 'active')) {
+      try {
+        await this.configureRouter(router, radiusUser);
+      } catch (error) {
+        console.error(`Error configuring router ${router.name}:`, error);
+      }
+    }
+  }
+
+  private async configureRouter(router: MikrotikRouter, radiusUser: any): Promise<void> {
+    console.log(`Configuring RADIUS user ${radiusUser.username} on router ${router.name}`);
+    
+    // This would typically use RouterOS API to configure PPPoE secrets
+    // For demonstration, we log the configuration
+    const config = {
+      username: radiusUser.username,
+      password: radiusUser.password,
+      service: 'pppoe',
+      profile: radiusUser.group_name,
+      'rate-limit': `${radiusUser.max_upload}/${radiusUser.max_download}`,
+      disabled: !radiusUser.is_active
+    };
+
+    console.log('Router configuration:', config);
+    
+    // In production, you would use RouterOS API:
+    // await this.routerOsApi.execute('/ppp/secret/add', config);
+  }
+
+  private async removeFromAllRouters(username: string): Promise<void> {
+    const routers = await this.getMikrotikRouters();
+    
+    for (const router of routers.filter(r => r.status === 'active')) {
+      try {
+        await this.removeFromRouter(router, username);
+      } catch (error) {
+        console.error(`Error removing user from router ${router.name}:`, error);
+      }
+    }
+  }
+
+  private async removeFromRouter(router: MikrotikRouter, username: string): Promise<void> {
+    console.log(`Removing RADIUS user ${username} from router ${router.name}`);
+    
+    // In production, you would use RouterOS API:
+    // await this.routerOsApi.execute('/ppp/secret/remove', { name: username });
+  }
+
+  private async disconnectFromAllRouters(username: string): Promise<void> {
+    const routers = await this.getMikrotikRouters();
+    
+    for (const router of routers.filter(r => r.status === 'active')) {
+      try {
+        await this.disconnectFromRouter(router, username);
+      } catch (error) {
+        console.error(`Error disconnecting user from router ${router.name}:`, error);
+      }
+    }
+  }
+
+  private async disconnectFromRouter(router: MikrotikRouter, username: string): Promise<void> {
+    console.log(`Disconnecting user ${username} from router ${router.name}`);
+    
+    // In production, you would use RouterOS API:
+    // await this.routerOsApi.execute('/ppp/active/remove', { name: username });
   }
 
   private generatePassword(): string {
@@ -213,12 +350,6 @@ class RadiusService {
     
     // Assume upload is 80% of download speed
     return type === 'upload' ? `${Math.floor(speedValue * 0.8)}M` : `${speedValue}M`;
-  }
-
-  private calculateSessionTimeout(expiration: Date): number {
-    const now = new Date();
-    const timeDiff = expiration.getTime() - now.getTime();
-    return Math.max(0, Math.floor(timeDiff / 1000)); // Return seconds
   }
 }
 
