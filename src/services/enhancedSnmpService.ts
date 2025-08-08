@@ -1,229 +1,295 @@
 
 import { supabase } from '@/integrations/supabase/client';
-import { RadiusSession } from '@/hooks/useRadiusSessions';
 
-interface SnmpCredentials {
-  community: string;
-  version: number;
-  port?: number;
+export interface DeviceStatus {
+  routerId: string;
+  name: string;
+  ip: string;
+  status: 'online' | 'offline';
+  uptime: string;
+  cpuUsage: number;
+  memoryUsage: number;
+  connectedClients: number;
 }
 
-interface InterfaceStatistics {
-  interfaceName: string;
-  interfaceIndex: number;
-  inOctets: number;
-  outOctets: number;
-  inPackets: number;
-  outPackets: number;
-  speed: number;
-  status: 'up' | 'down';
-  utilization: number;
-  errors: number;
-}
-
-interface ClientSession {
+export interface ClientSession {
   username: string;
-  sessionId: string;
   ipAddress: string;
-  startTime: string;
+  macAddress: string;
+  startTime: Date;
   bytesIn: number;
   bytesOut: number;
-  status: 'active' | 'terminated';
+  status: 'active' | 'disconnected';
 }
 
 class EnhancedSnmpService {
-  private readonly defaultCredentials: SnmpCredentials = {
-    community: 'public',
-    version: 2,
-    port: 161
-  };
+  private monitoringInterval: NodeJS.Timeout | null = null;
+  private isMonitoring = false;
 
-  async getInterfaceStatistics(deviceIp: string, credentials?: SnmpCredentials): Promise<InterfaceStatistics[]> {
-    const creds = { ...this.defaultCredentials, ...credentials };
-    
+  async disconnectClient(clientId: string): Promise<boolean> {
     try {
-      // Simulate SNMP polling - in production, use net-snmp library
-      console.log(`Polling SNMP data from ${deviceIp} with community: ${creds.community}`);
+      console.log(`Disconnecting client: ${clientId}`);
       
-      // Mock interface data that would come from SNMP OIDs
-      const interfaces: InterfaceStatistics[] = [
-        {
-          interfaceName: 'ether1',
-          interfaceIndex: 1,
-          inOctets: Math.floor(Math.random() * 1000000000),
-          outOctets: Math.floor(Math.random() * 1000000000),
-          inPackets: Math.floor(Math.random() * 1000000),
-          outPackets: Math.floor(Math.random() * 1000000),
-          speed: 1000000000, // 1Gbps
-          status: Math.random() > 0.1 ? 'up' : 'down',
-          utilization: Math.random() * 100,
-          errors: Math.floor(Math.random() * 100)
-        },
-        {
-          interfaceName: 'wlan1',
-          interfaceIndex: 2,
-          inOctets: Math.floor(Math.random() * 500000000),
-          outOctets: Math.floor(Math.random() * 500000000),
-          inPackets: Math.floor(Math.random() * 500000),
-          outPackets: Math.floor(Math.random() * 500000),
-          speed: 54000000, // 54Mbps
-          status: Math.random() > 0.2 ? 'up' : 'down',
-          utilization: Math.random() * 80,
-          errors: Math.floor(Math.random() * 50)
-        }
-      ];
+      // Get client information
+      const { data: client, error: clientError } = await supabase
+        .from('clients' as any)
+        .select('*')
+        .eq('id', clientId)
+        .single();
 
-      return interfaces;
-    } catch (error) {
-      console.error(`Error polling SNMP data from ${deviceIp}:`, error);
-      return [];
-    }
-  }
-
-  async storeInterfaceStatistics(equipmentId: string, deviceIp: string, ispCompanyId: string): Promise<void> {
-    try {
-      const interfaces = await this.getInterfaceStatistics(deviceIp);
-      
-      for (const iface of interfaces) {
-        await supabase
-          .from('interface_statistics' as any)
-          .insert({
-            equipment_id: equipmentId,
-            interface_name: iface.interfaceName,
-            interface_index: iface.interfaceIndex,
-            speed: iface.speed,
-            status: iface.status,
-            utilization: iface.utilization,
-            errors: iface.errors,
-            isp_company_id: ispCompanyId,
-            timestamp: new Date().toISOString()
-          });
+      if (clientError || !client) {
+        console.error('Client not found:', clientError);
+        return false;
       }
 
-      console.log(`Stored interface statistics for equipment ${equipmentId}`);
-    } catch (error) {
-      console.error('Error storing interface statistics:', error);
-    }
-  }
-
-  async getActiveSessions(deviceIp: string, credentials?: SnmpCredentials): Promise<ClientSession[]> {
-    const creds = { ...this.defaultCredentials, ...credentials };
-    
-    try {
-      console.log(`Getting active sessions from ${deviceIp}`);
-      
-      // In production, this would query PPPoE session tables via SNMP
-      // For now, we'll get sessions from our database
-      const { data: sessions } = await supabase
+      // Get all active RADIUS sessions for this client
+      const { data: sessions, error: sessionError } = await supabase
         .from('radius_sessions' as any)
         .select('*')
+        .eq('client_id', clientId)
         .eq('status', 'active');
 
-      return (sessions || []).map((session: any) => ({
-        username: session.username,
-        sessionId: session.session_id,
-        ipAddress: session.nas_ip_address || deviceIp,
-        startTime: session.start_time,
-        bytesIn: session.bytes_in,
-        bytesOut: session.bytes_out,
-        status: session.status
+      if (sessionError) {
+        console.error('Error fetching sessions:', sessionError);
+        return false;
+      }
+
+      const radiusSessions = (sessions || []) as any[];
+
+      // Disconnect from all MikroTik devices
+      for (const session of radiusSessions) {
+        try {
+          await this.disconnectFromMikroTik(session.nas_ip_address, session.username);
+          
+          // Update session status
+          await supabase
+            .from('radius_sessions' as any)
+            .update({
+              status: 'disconnected',
+              stop_time: new Date().toISOString(),
+              updated_at: new Date().toISOString()
+            } as any)
+            .eq('id', session.id);
+        } catch (error) {
+          console.error(`Error disconnecting from ${session.nas_ip_address}:`, error);
+        }
+      }
+
+      // Update client status
+      await supabase
+        .from('clients' as any)
+        .update({
+          status: 'suspended',
+          updated_at: new Date().toISOString()
+        } as any)
+        .eq('id', clientId);
+
+      return true;
+    } catch (error) {
+      console.error('Error in disconnectClient:', error);
+      return false;
+    }
+  }
+
+  async reconnectClient(clientId: string): Promise<boolean> {
+    try {
+      console.log(`Reconnecting client: ${clientId}`);
+      
+      // Update client status to active
+      await supabase
+        .from('clients' as any)
+        .update({
+          status: 'active',
+          updated_at: new Date().toISOString()
+        } as any)
+        .eq('id', clientId);
+
+      // The client will need to reconnect through normal authentication
+      // This just enables them to authenticate again
+      return true;
+    } catch (error) {
+      console.error('Error in reconnectClient:', error);
+      return false;
+    }
+  }
+
+  async applySpeedLimit(clientId: string, packageId: string): Promise<boolean> {
+    try {
+      console.log(`Applying speed limit for client: ${clientId}, package: ${packageId}`);
+      
+      // Get client and package information
+      const { data: client, error: clientError } = await supabase
+        .from('clients' as any)
+        .select(`
+          *,
+          service_packages(*)
+        `)
+        .eq('id', clientId)
+        .single();
+
+      if (clientError || !client) {
+        console.error('Client not found:', clientError);
+        return false;
+      }
+
+      const clientData = client as any;
+
+      // Get active sessions for this client
+      const { data: sessions, error: sessionError } = await supabase
+        .from('radius_sessions' as any)
+        .select('*')
+        .eq('client_id', clientId)
+        .eq('status', 'active');
+
+      if (sessionError) {
+        console.error('Error fetching sessions:', sessionError);
+        return false;
+      }
+
+      const radiusSessions = (sessions || []) as any[];
+
+      // Apply speed limits on all active sessions
+      for (const session of radiusSessions) {
+        try {
+          await this.applySpeedLimitToMikroTik(
+            session.nas_ip_address,
+            session.username,
+            clientData.service_packages?.speed || '10M/10M'
+          );
+        } catch (error) {
+          console.error(`Error applying speed limit on ${session.nas_ip_address}:`, error);
+        }
+      }
+
+      return true;
+    } catch (error) {
+      console.error('Error in applySpeedLimit:', error);
+      return false;
+    }
+  }
+
+  async getDeviceStatus(): Promise<DeviceStatus[]> {
+    try {
+      const { data: routers, error } = await supabase
+        .from('mikrotik_routers' as any)
+        .select('*');
+
+      if (error) {
+        console.error('Error fetching routers:', error);
+        return [];
+      }
+
+      const routerData = (routers || []) as any[];
+
+      return routerData.map(router => ({
+        routerId: router.id,
+        name: router.name,
+        ip: router.ip_address,
+        status: router.connection_status || 'offline',
+        uptime: this.calculateUptime(router.last_test_results?.timestamp),
+        cpuUsage: Math.random() * 100, // Simulated
+        memoryUsage: Math.random() * 100, // Simulated
+        connectedClients: Math.floor(Math.random() * 50) // Simulated
       }));
     } catch (error) {
-      console.error(`Error getting sessions from ${deviceIp}:`, error);
+      console.error('Error getting device status:', error);
       return [];
     }
   }
 
-  async updateBandwidthStatistics(equipmentId: string, deviceIp: string, ispCompanyId: string): Promise<void> {
-    try {
-      const sessions = await this.getActiveSessions(deviceIp);
-      
-      for (const session of sessions) {
-        // Get client_id from session username
-        const { data: radiusUser } = await supabase
-          .from('radius_users' as any)
-          .select('client_id')
-          .eq('username', session.username)
-          .single();
-
-        if (radiusUser) {
-          await supabase
-            .from('bandwidth_statistics' as any)
-            .insert({
-              equipment_id: equipmentId,
-              client_id: radiusUser.client_id,
-              in_octets: session.bytesIn,
-              out_octets: session.bytesOut,
-              in_packets: 0, // Would be populated from SNMP
-              out_packets: 0, // Would be populated from SNMP
-              isp_company_id: ispCompanyId,
-              timestamp: new Date().toISOString()
-            });
-        }
+  startMonitoring(): void {
+    if (this.isMonitoring) return;
+    
+    this.isMonitoring = true;
+    console.log('Started network monitoring');
+    
+    this.monitoringInterval = setInterval(async () => {
+      try {
+        await this.performMonitoringCheck();
+      } catch (error) {
+        console.error('Monitoring check failed:', error);
       }
+    }, 30000); // Monitor every 30 seconds
+  }
 
-      console.log(`Updated bandwidth statistics for equipment ${equipmentId}`);
-    } catch (error) {
-      console.error('Error updating bandwidth statistics:', error);
+  stopMonitoring(): void {
+    if (this.monitoringInterval) {
+      clearInterval(this.monitoringInterval);
+      this.monitoringInterval = null;
+    }
+    this.isMonitoring = false;
+    console.log('Stopped network monitoring');
+  }
+
+  private async disconnectFromMikroTik(nasIp: string, username: string): Promise<void> {
+    // Simulate MikroTik API call to disconnect user
+    console.log(`Disconnecting ${username} from MikroTik ${nasIp}`);
+    // In real implementation, this would use MikroTik API
+    await new Promise(resolve => setTimeout(resolve, 100));
+  }
+
+  private async applySpeedLimitToMikroTik(nasIp: string, username: string, speed: string): Promise<void> {
+    // Simulate MikroTik API call to apply speed limit
+    console.log(`Applying speed limit ${speed} to ${username} on MikroTik ${nasIp}`);
+    // In real implementation, this would use MikroTik API
+    await new Promise(resolve => setTimeout(resolve, 100));
+  }
+
+  private calculateUptime(lastTestTimestamp?: string): string {
+    if (!lastTestTimestamp) return 'Unknown';
+    
+    const now = new Date();
+    const lastTest = new Date(lastTestTimestamp);
+    const diffMs = now.getTime() - lastTest.getTime();
+    const diffHours = Math.floor(diffMs / (1000 * 60 * 60));
+    const diffDays = Math.floor(diffHours / 24);
+    
+    if (diffDays > 0) {
+      return `${diffDays} days`;
+    } else if (diffHours > 0) {
+      return `${diffHours} hours`;
+    } else {
+      return '< 1 hour';
     }
   }
 
-  async syncWithRadiusSessions(ispCompanyId: string): Promise<void> {
-    try {
-      // Get all active RADIUS sessions
-      const { data: radiusSessions } = await supabase
-        .from('radius_sessions' as any)
-        .select('*')
-        .eq('status', 'active')
-        .eq('isp_company_id', ispCompanyId);
+  private async performMonitoringCheck(): Promise<void> {
+    // Get active sessions and check their status
+    const { data: sessions } = await supabase
+      .from('radius_sessions' as any)
+      .select('*')
+      .eq('status', 'active');
 
-      if (!radiusSessions) return;
+    const activeSessions = (sessions || []) as any[];
 
-      for (const session of radiusSessions) {
-        const radiusSession = session as RadiusSession;
-        
-        // Store session data in our bandwidth statistics
+    for (const session of activeSessions) {
+      // Simulate checking session status
+      const sessionData = session as any;
+      const isStillActive = Math.random() > 0.1; // 90% chance session is still active
+      
+      if (!isStillActive) {
+        // Mark session as disconnected
         await supabase
-          .from('bandwidth_statistics' as any)
-          .insert({
-            client_id: radiusSession.client_id,
-            in_octets: radiusSession.bytes_in,
-            out_octets: radiusSession.bytes_out,
-            in_packets: 0,
-            out_packets: 0,
-            isp_company_id: ispCompanyId,
-            timestamp: radiusSession.start_time
-          });
-      }
-
-      console.log('Synchronized RADIUS sessions with bandwidth statistics');
-    } catch (error) {
-      console.error('Error syncing RADIUS sessions:', error);
-    }
-  }
-
-  async testDeviceConnectivity(deviceIp: string, credentials?: SnmpCredentials): Promise<boolean> {
-    try {
-      const creds = { ...this.defaultCredentials, ...credentials };
-      console.log(`Testing connectivity to ${deviceIp} with SNMP community: ${creds.community}`);
-      
-      // Simulate SNMP connectivity test
-      // In production, this would attempt to query system information
-      const isReachable = Math.random() > 0.1; // 90% success rate for simulation
-      
-      if (isReachable) {
-        console.log(`✓ Device ${deviceIp} is reachable via SNMP`);
+          .from('radius_sessions' as any)
+          .update({
+            status: 'disconnected',
+            stop_time: new Date().toISOString(),
+            bytes_in: sessionData.bytes_in + Math.floor(Math.random() * 1000000),
+            bytes_out: sessionData.bytes_out + Math.floor(Math.random() * 1000000)
+          } as any)
+          .eq('id', sessionData.id);
       } else {
-        console.log(`✗ Device ${deviceIp} is not reachable via SNMP`);
+        // Update session with new data usage
+        await supabase
+          .from('radius_sessions' as any)
+          .update({
+            bytes_in: sessionData.bytes_in + Math.floor(Math.random() * 100000),
+            bytes_out: sessionData.bytes_out + Math.floor(Math.random() * 100000)
+          } as any)
+          .eq('id', sessionData.id);
       }
-      
-      return isReachable;
-    } catch (error) {
-      console.error(`Error testing connectivity to ${deviceIp}:`, error);
-      return false;
     }
   }
 }
 
 export const enhancedSnmpService = new EnhancedSnmpService();
-export type { InterfaceStatistics, ClientSession, SnmpCredentials };
