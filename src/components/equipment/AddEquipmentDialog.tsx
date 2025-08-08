@@ -1,49 +1,43 @@
 
 import React, { useState } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { useToast } from '@/hooks/use-toast';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Textarea } from '@/components/ui/textarea';
 import { useEquipment } from '@/hooks/useEquipment';
-import BarcodeScanner from '@/components/common/BarcodeScanner';
-import EquipmentTypeForm from './EquipmentTypeForm';
-import EquipmentDetailsForm from './EquipmentDetailsForm';
+import { useToast } from '@/hooks/use-toast';
 
 interface AddEquipmentDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
 }
 
-const AddEquipmentDialog: React.FC<AddEquipmentDialogProps> = ({ open, onOpenChange }) => {
-  const [selectedType, setSelectedType] = useState('');
-  const [selectedBrand, setSelectedBrand] = useState('');
-  const [selectedModel, setSelectedModel] = useState('');
+const AddEquipmentDialog = ({ open, onOpenChange }: AddEquipmentDialogProps) => {
+  const { createEquipment, isCreating } = useEquipment();
+  const { toast } = useToast();
+  
   const [formData, setFormData] = useState({
+    type: '',
+    brand: '',
+    model: '',
     serial_number: '',
-    barcode: '',
     mac_address: '',
     ip_address: '',
     snmp_community: 'public',
-    snmp_version: '2',
-    port_number: '',
-    vlan_id: '',
-    client_id: '',
+    snmp_version: 2,
     notes: '',
+    status: 'available'
   });
-
-  const { toast } = useToast();
-  const { createEquipment, isCreating } = useEquipment();
-
-  const handleBarcodeScanned = (scannedBarcode: string) => {
-    setFormData(prev => ({ ...prev, barcode: scannedBarcode }));
-  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
-    if (!selectedType || !formData.serial_number) {
+    if (!formData.type || !formData.serial_number) {
       toast({
-        title: "Missing Required Fields",
-        description: "Please select equipment type and enter serial number.",
+        title: "Validation Error",
+        description: "Equipment type and serial number are required.",
         variant: "destructive",
       });
       return;
@@ -51,105 +45,162 @@ const AddEquipmentDialog: React.FC<AddEquipmentDialogProps> = ({ open, onOpenCha
 
     try {
       await createEquipment({
-        type: selectedType,
-        brand: selectedBrand || null,
-        model: selectedModel || null,
-        serial_number: formData.serial_number,
-        mac_address: formData.mac_address || null,
-        ip_address: formData.ip_address || null,
-        snmp_community: formData.snmp_community,
-        snmp_version: parseInt(formData.snmp_version),
-        port_number: formData.port_number ? parseInt(formData.port_number) : null,
-        vlan_id: formData.vlan_id ? parseInt(formData.vlan_id) : null,
-        client_id: formData.client_id || null,
-        notes: formData.notes || null,
-        status: 'pending',
-        approval_status: 'pending',
-        auto_discovered: false,
+        ...formData,
+        approval_status: 'pending'
       });
-
-      toast({
-        title: "Equipment Added",
-        description: "Equipment has been added and is pending approval.",
+      
+      // Reset form
+      setFormData({
+        type: '',
+        brand: '',
+        model: '',
+        serial_number: '',
+        mac_address: '',
+        ip_address: '',
+        snmp_community: 'public',
+        snmp_version: 2,
+        notes: '',
+        status: 'available'
       });
-
+      
       onOpenChange(false);
-      resetForm();
     } catch (error) {
       console.error('Error adding equipment:', error);
-      toast({
-        title: "Error",
-        description: "Failed to add equipment. Please try again.",
-        variant: "destructive",
-      });
     }
   };
 
-  const resetForm = () => {
-    setSelectedType('');
-    setSelectedBrand('');
-    setSelectedModel('');
-    setFormData({
-      serial_number: '',
-      barcode: '',
-      mac_address: '',
-      ip_address: '',
-      snmp_community: 'public',
-      snmp_version: '2',
-      port_number: '',
-      vlan_id: '',
-      client_id: '',
-      notes: '',
-    });
+  const handleInputChange = (field: string, value: any) => {
+    setFormData(prev => ({
+      ...prev,
+      [field]: value
+    }));
   };
-
-  const canSubmit = selectedType && formData.serial_number?.trim();
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-4xl max-h-[700px] overflow-y-auto">
+      <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>Add New Equipment</DialogTitle>
         </DialogHeader>
+        
+        <form onSubmit={handleSubmit} className="space-y-4">
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <Label htmlFor="type">Equipment Type *</Label>
+              <Select value={formData.type} onValueChange={(value) => handleInputChange('type', value)}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Select equipment type" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="Router">Router</SelectItem>
+                  <SelectItem value="Switch">Switch</SelectItem>
+                  <SelectItem value="Access Point">Access Point</SelectItem>
+                  <SelectItem value="Modem">Modem</SelectItem>
+                  <SelectItem value="Firewall">Firewall</SelectItem>
+                  <SelectItem value="Server">Server</SelectItem>
+                  <SelectItem value="Antenna">Antenna</SelectItem>
+                  <SelectItem value="Cable">Cable</SelectItem>
+                  <SelectItem value="Other">Other</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
 
-        <Tabs defaultValue="barcode" className="space-y-4">
-          <TabsList className="grid w-full grid-cols-3">
-            <TabsTrigger value="barcode">Barcode Scanner</TabsTrigger>
-            <TabsTrigger value="type">Equipment Type</TabsTrigger>
-            <TabsTrigger value="details">Details</TabsTrigger>
-          </TabsList>
+            <div>
+              <Label htmlFor="serial_number">Serial Number *</Label>
+              <Input
+                id="serial_number"
+                value={formData.serial_number}
+                onChange={(e) => handleInputChange('serial_number', e.target.value)}
+                placeholder="Enter serial number"
+                required
+              />
+            </div>
 
-          <TabsContent value="barcode">
-            <BarcodeScanner
-              onBarcodeScanned={handleBarcodeScanned}
-              placeholder="Scan equipment barcode..."
-              label="Equipment Barcode Scanner"
+            <div>
+              <Label htmlFor="brand">Brand</Label>
+              <Input
+                id="brand"
+                value={formData.brand}
+                onChange={(e) => handleInputChange('brand', e.target.value)}
+                placeholder="Enter brand"
+              />
+            </div>
+
+            <div>
+              <Label htmlFor="model">Model</Label>
+              <Input
+                id="model"
+                value={formData.model}
+                onChange={(e) => handleInputChange('model', e.target.value)}
+                placeholder="Enter model"
+              />
+            </div>
+
+            <div>
+              <Label htmlFor="mac_address">MAC Address</Label>
+              <Input
+                id="mac_address"
+                value={formData.mac_address}
+                onChange={(e) => handleInputChange('mac_address', e.target.value)}
+                placeholder="00:00:00:00:00:00"
+              />
+            </div>
+
+            <div>
+              <Label htmlFor="ip_address">IP Address</Label>
+              <Input
+                id="ip_address"
+                value={formData.ip_address}
+                onChange={(e) => handleInputChange('ip_address', e.target.value)}
+                placeholder="192.168.1.1"
+              />
+            </div>
+
+            <div>
+              <Label htmlFor="snmp_community">SNMP Community</Label>
+              <Input
+                id="snmp_community"
+                value={formData.snmp_community}
+                onChange={(e) => handleInputChange('snmp_community', e.target.value)}
+                placeholder="public"
+              />
+            </div>
+
+            <div>
+              <Label htmlFor="snmp_version">SNMP Version</Label>
+              <Select value={formData.snmp_version.toString()} onValueChange={(value) => handleInputChange('snmp_version', parseInt(value))}>
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="1">v1</SelectItem>
+                  <SelectItem value="2">v2c</SelectItem>
+                  <SelectItem value="3">v3</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+
+          <div>
+            <Label htmlFor="notes">Notes</Label>
+            <Textarea
+              id="notes"
+              value={formData.notes}
+              onChange={(e) => handleInputChange('notes', e.target.value)}
+              placeholder="Additional notes about this equipment..."
+              rows={3}
             />
-          </TabsContent>
+          </div>
 
-          <TabsContent value="type">
-            <EquipmentTypeForm
-              selectedType={selectedType}
-              selectedBrand={selectedBrand}
-              selectedModel={selectedModel}
-              onTypeChange={setSelectedType}
-              onBrandChange={setSelectedBrand}
-              onModelChange={setSelectedModel}
-            />
-          </TabsContent>
-
-          <TabsContent value="details">
-            <EquipmentDetailsForm
-              formData={formData}
-              setFormData={setFormData}
-              selectedType={selectedType}
-              onSubmit={handleSubmit}
-              onCancel={() => onOpenChange(false)}
-              isCreating={isCreating}
-              canSubmit={!!canSubmit}
-            />
-          </TabsContent>
-        </Tabs>
+          <div className="flex justify-end gap-2 pt-4">
+            <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
+              Cancel
+            </Button>
+            <Button type="submit" disabled={isCreating}>
+              {isCreating ? 'Adding...' : 'Add Equipment'}
+            </Button>
+          </div>
+        </form>
       </DialogContent>
     </Dialog>
   );

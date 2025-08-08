@@ -1,213 +1,169 @@
 
 import React, { useState } from 'react';
-import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Plus, Settings, CheckCircle, XCircle, Clock, Eye } from 'lucide-react';
-import { useEquipment } from '@/hooks/useEquipment';
-import { useAuth } from '@/contexts/AuthContext';
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
+import { useEquipment, Equipment } from '@/hooks/useEquipment';
+import { Trash2, Edit, CheckCircle, XCircle, Clock, Plus } from 'lucide-react';
 import AddEquipmentDialog from './AddEquipmentDialog';
-import EquipmentApprovalDialog from './EquipmentApprovalDialog';
 
-const EquipmentActions: React.FC = () => {
-  const [showAddDialog, setShowAddDialog] = useState(false);
-  const [showApprovalDialog, setShowApprovalDialog] = useState(false);
-  const [selectedEquipment, setSelectedEquipment] = useState(null);
-  
-  const { equipment, approveEquipment, rejectEquipment, isApproving, isRejecting } = useEquipment();
-  const { profile } = useAuth();
+const EquipmentActions = () => {
+  const { equipment, isLoading, updateEquipment, approveEquipment, rejectEquipment } = useEquipment();
+  const [selectedEquipment, setSelectedEquipment] = useState<Equipment | null>(null);
+  const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
 
-  // Filter equipment by approval status
-  const pendingEquipment = equipment.filter(eq => eq.approval_status === 'pending');
-  const approvedEquipment = equipment.filter(eq => eq.approval_status === 'approved');
-  const rejectedEquipment = equipment.filter(eq => eq.approval_status === 'rejected');
-
-  const canApprove = profile?.role === 'super_admin' || profile?.role === 'isp_admin';
-
-  const handleApprove = (id: string, notes?: string) => {
-    approveEquipment({ id, notes });
-  };
-
-  const handleReject = (id: string, notes: string) => {
-    rejectEquipment({ id, notes });
-  };
-
-  const openApprovalDialog = (equipment: any) => {
-    setSelectedEquipment(equipment);
-    setShowApprovalDialog(true);
-  };
-
-  const getStatusIcon = (status: string) => {
-    switch (status) {
-      case 'approved':
-        return <CheckCircle className="h-4 w-4 text-green-500" />;
-      case 'rejected':
-        return <XCircle className="h-4 w-4 text-red-500" />;
-      default:
-        return <Clock className="h-4 w-4 text-yellow-500" />;
+  const handleDelete = async (equipmentId: string) => {
+    try {
+      await updateEquipment({
+        id: equipmentId,
+        updates: {
+          status: 'decommissioned'
+        }
+      });
+    } catch (error) {
+      console.error('Error deleting equipment:', error);
     }
   };
 
-  const getStatusColor = (status: string) => {
-    switch (status) {
-      case 'approved':
-        return 'default';
-      case 'rejected':
-        return 'destructive';
-      default:
-        return 'secondary';
-    }
+  const handleApprove = (equipment: Equipment) => {
+    approveEquipment({
+      id: equipment.id,
+      notes: 'Approved for network use'
+    });
   };
+
+  const handleReject = (equipment: Equipment) => {
+    rejectEquipment({
+      id: equipment.id,
+      notes: 'Rejected - does not meet requirements'
+    });
+  };
+
+  const getStatusBadge = (equipment: Equipment) => {
+    const status = equipment.approval_status || equipment.status;
+    
+    if (status === 'approved' || status === 'active') {
+      return <Badge className="bg-green-100 text-green-800">Active</Badge>;
+    }
+    if (status === 'pending') {
+      return <Badge className="bg-yellow-100 text-yellow-800">Pending</Badge>;
+    }
+    if (status === 'rejected' || status === 'inactive') {
+      return <Badge className="bg-red-100 text-red-800">Inactive</Badge>;
+    }
+    return <Badge className="bg-gray-100 text-gray-800">Unknown</Badge>;
+  };
+
+  if (isLoading) {
+    return <div className="p-6">Loading equipment...</div>;
+  }
 
   return (
     <div className="space-y-6">
-      {/* Action Buttons */}
-      <div className="flex gap-4">
-        <Button onClick={() => setShowAddDialog(true)}>
+      <div className="flex items-center justify-between">
+        <div>
+          <h2 className="text-2xl font-bold">Equipment Management</h2>
+          <p className="text-muted-foreground">
+            Manage network equipment, approve new additions, and configure SNMP settings
+          </p>
+        </div>
+        <Button onClick={() => setIsAddDialogOpen(true)}>
           <Plus className="h-4 w-4 mr-2" />
           Add Equipment
         </Button>
-        
-        <Button variant="outline">
-          <Settings className="h-4 w-4 mr-2" />
-          Schedule Maintenance
-        </Button>
       </div>
 
-      {/* Equipment Lists */}
-      <div className="grid gap-6">
-        {/* Pending Approval */}
-        {canApprove && pendingEquipment.length > 0 && (
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <Clock className="h-5 w-5 text-yellow-500" />
-                Pending Approval ({pendingEquipment.length})
-              </CardTitle>
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+        {equipment.map((item) => (
+          <Card key={item.id}>
+            <CardHeader className="pb-3">
+              <div className="flex items-center justify-between">
+                <CardTitle className="text-lg">{item.type}</CardTitle>
+                {getStatusBadge(item)}
+              </div>
+              <div className="text-sm text-muted-foreground">
+                {item.brand} {item.model}
+              </div>
             </CardHeader>
-            <CardContent>
-              <div className="grid gap-4">
-                {pendingEquipment.map((eq) => (
-                  <div key={eq.id} className="flex items-center justify-between p-4 border rounded-lg">
-                    <div className="flex-1">
-                      <div className="flex items-center gap-3">
-                        <div>
-                          <h3 className="font-medium">{eq.brand} {eq.model}</h3>
-                          <p className="text-sm text-muted-foreground">
-                            {eq.type} • {eq.serial_number}
-                          </p>
-                          {eq.ip_address && (
-                            <p className="text-xs text-muted-foreground">IP: {eq.ip_address}</p>
-                          )}
-                        </div>
-                      </div>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <Badge variant="secondary">
-                        <Clock className="h-3 w-3 mr-1" />
-                        Pending
-                      </Badge>
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        onClick={() => openApprovalDialog(eq)}
-                      >
-                        <Eye className="h-4 w-4 mr-1" />
-                        Review
-                      </Button>
-                    </div>
-                  </div>
-                ))}
+            <CardContent className="space-y-3">
+              <div className="text-sm">
+                <p><strong>Serial:</strong> {item.serial_number}</p>
+                {item.ip_address && (
+                  <p><strong>IP:</strong> {item.ip_address}</p>
+                )}
+                {item.mac_address && (
+                  <p><strong>MAC:</strong> {item.mac_address}</p>
+                )}
+                <p><strong>Status:</strong> {item.status}</p>
+              </div>
+
+              <div className="flex gap-2 flex-wrap">
+                {item.approval_status === 'pending' && (
+                  <>
+                    <Button
+                      size="sm"
+                      onClick={() => handleApprove(item)}
+                      className="bg-green-600 hover:bg-green-700"
+                    >
+                      <CheckCircle className="h-3 w-3 mr-1" />
+                      Approve
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="destructive"
+                      onClick={() => handleReject(item)}
+                    >
+                      <XCircle className="h-3 w-3 mr-1" />
+                      Reject
+                    </Button>
+                  </>
+                )}
+                
+                <AlertDialog>
+                  <AlertDialogTrigger asChild>
+                    <Button size="sm" variant="destructive">
+                      <Trash2 className="h-3 w-3 mr-1" />
+                      Delete
+                    </Button>
+                  </AlertDialogTrigger>
+                  <AlertDialogContent>
+                    <AlertDialogHeader>
+                      <AlertDialogTitle>Delete Equipment</AlertDialogTitle>
+                      <AlertDialogDescription>
+                        Are you sure you want to delete this equipment? This will mark it as decommissioned.
+                      </AlertDialogDescription>
+                    </AlertDialogHeader>
+                    <AlertDialogFooter>
+                      <AlertDialogCancel>Cancel</AlertDialogCancel>
+                      <AlertDialogAction onClick={() => handleDelete(item.id)}>
+                        Delete
+                      </AlertDialogAction>
+                    </AlertDialogFooter>
+                  </AlertDialogContent>
+                </AlertDialog>
               </div>
             </CardContent>
           </Card>
+        ))}
+
+        {equipment.length === 0 && (
+          <div className="col-span-full text-center py-12">
+            <h3 className="text-lg font-medium text-gray-900 mb-2">No Equipment Found</h3>
+            <p className="text-gray-500 mb-4">
+              Add your first piece of network equipment to get started.
+            </p>
+            <Button onClick={() => setIsAddDialogOpen(true)}>
+              <Plus className="h-4 w-4 mr-2" />
+              Add Equipment
+            </Button>
+          </div>
         )}
-
-        {/* Equipment Overview */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          <Card>
-            <CardContent className="p-4 text-center">
-              <div className="text-2xl font-bold text-green-600">{approvedEquipment.length}</div>
-              <div className="text-sm text-muted-foreground">Approved Equipment</div>
-            </CardContent>
-          </Card>
-          
-          <Card>
-            <CardContent className="p-4 text-center">
-              <div className="text-2xl font-bold text-yellow-600">{pendingEquipment.length}</div>
-              <div className="text-sm text-muted-foreground">Pending Approval</div>
-            </CardContent>
-          </Card>
-          
-          <Card>
-            <CardContent className="p-4 text-center">
-              <div className="text-2xl font-bold text-red-600">{rejectedEquipment.length}</div>
-              <div className="text-sm text-muted-foreground">Rejected</div>
-            </CardContent>
-          </Card>
-        </div>
-
-        {/* All Equipment */}
-        <Card>
-          <CardHeader>
-            <CardTitle>All Equipment</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-4">
-              {equipment.length === 0 ? (
-                <div className="text-center py-8 text-muted-foreground">
-                  No equipment found. Click "Add Equipment" to get started.
-                </div>
-              ) : (
-                equipment.map((eq) => (
-                  <div key={eq.id} className="flex items-center justify-between p-4 border rounded-lg">
-                    <div className="flex-1">
-                      <div className="flex items-center gap-3">
-                        {getStatusIcon(eq.approval_status || 'pending')}
-                        <div>
-                          <h3 className="font-medium">{eq.brand} {eq.model}</h3>
-                          <p className="text-sm text-muted-foreground">
-                            {eq.type} • {eq.serial_number}
-                          </p>
-                          {eq.ip_address && (
-                            <p className="text-xs text-muted-foreground">IP: {eq.ip_address}</p>
-                          )}
-                          {eq.clients && (
-                            <p className="text-xs text-blue-600">Assigned to: {eq.clients.name}</p>
-                          )}
-                        </div>
-                      </div>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <Badge variant={getStatusColor(eq.approval_status || 'pending')}>
-                        {eq.approval_status || 'pending'}
-                      </Badge>
-                      {eq.auto_discovered && (
-                        <Badge variant="outline" className="text-xs">
-                          Auto-discovered
-                        </Badge>
-                      )}
-                    </div>
-                  </div>
-                ))
-              )}
-            </div>
-          </CardContent>
-        </Card>
       </div>
 
-      {/* Dialogs */}
       <AddEquipmentDialog
-        open={showAddDialog}
-        onOpenChange={setShowAddDialog}
-      />
-
-      <EquipmentApprovalDialog
-        open={showApprovalDialog}
-        onOpenChange={setShowApprovalDialog}
-        equipment={selectedEquipment}
-        onApprove={handleApprove}
-        onReject={handleReject}
+        open={isAddDialogOpen}
+        onOpenChange={setIsAddDialogOpen}
       />
     </div>
   );
