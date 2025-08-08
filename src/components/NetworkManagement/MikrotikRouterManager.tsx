@@ -5,20 +5,19 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
-import { useMikrotikRouters } from '@/hooks/useMikrotikRouters';
-import { DataTable } from '@/components/ui/data-table';
-import { ColumnDef } from '@tanstack/react-table';
-import { MikrotikRouter } from '@/services/radiusService';
-import { Plus, TestTube, Wifi } from 'lucide-react';
+import { useMikroTikRouters } from '@/hooks/useMikroTikRouters';
+import { Plus, TestTube, Wifi, Edit, Trash2 } from 'lucide-react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
 
 export const MikrotikRouterManager = () => {
-  const { routers, isLoading, addRouter, testConnection, isAddingRouter, isTestingConnection } = useMikrotikRouters();
+  const { routers, isLoading, createRouter, updateRouter, deleteRouter, testConnection, isCreating, isDeleting, isTesting } = useMikroTikRouters();
   const [showAddDialog, setShowAddDialog] = useState(false);
+  const [editingRouter, setEditingRouter] = useState(null);
   const [newRouter, setNewRouter] = useState({
     name: '',
     ip_address: '',
-    admin_username: '',
+    admin_username: 'admin',
     admin_password: '',
     snmp_community: 'public',
     snmp_version: 2,
@@ -26,17 +25,19 @@ export const MikrotikRouterManager = () => {
     dns_servers: '8.8.8.8,8.8.4.4',
     client_network: '10.0.0.0/24',
     gateway: '',
-    status: 'pending' as const,
-    last_test_results: null,
-    connection_status: 'offline' as const,
   });
 
   const handleAddRouter = () => {
-    addRouter(newRouter);
+    createRouter({
+      ...newRouter,
+      status: 'pending',
+      last_test_results: null,
+      connection_status: 'offline',
+    });
     setNewRouter({
       name: '',
       ip_address: '',
-      admin_username: '',
+      admin_username: 'admin',
       admin_password: '',
       snmp_community: 'public',
       snmp_version: 2,
@@ -44,61 +45,45 @@ export const MikrotikRouterManager = () => {
       dns_servers: '8.8.8.8,8.8.4.4',
       client_network: '10.0.0.0/24',
       gateway: '',
-      status: 'pending',
-      last_test_results: null,
-      connection_status: 'offline',
     });
     setShowAddDialog(false);
   };
 
-  const columns: ColumnDef<MikrotikRouter>[] = [
-    {
-      accessorKey: 'name',
-      header: 'Name',
-    },
-    {
-      accessorKey: 'ip_address',
-      header: 'IP Address',
-    },
-    {
-      accessorKey: 'pppoe_interface',
-      header: 'PPPoE Interface',
-    },
-    {
-      accessorKey: 'connection_status',
-      header: 'Connection',
-      cell: ({ row }) => (
-        <Badge variant={row.original.connection_status === 'online' ? 'success' : 'destructive'}>
-          <Wifi className="h-3 w-3 mr-1" />
-          {row.original.connection_status}
-        </Badge>
-      ),
-    },
-    {
-      accessorKey: 'status',
-      header: 'Status',
-      cell: ({ row }) => (
-        <Badge variant={row.original.status === 'active' ? 'success' : 'secondary'}>
-          {row.original.status}
-        </Badge>
-      ),
-    },
-    {
-      id: 'actions',
-      header: 'Actions',
-      cell: ({ row }) => (
-        <Button
-          size="sm"
-          variant="outline"
-          onClick={() => testConnection(row.original.ip_address)}
-          disabled={isTestingConnection}
-        >
-          <TestTube className="h-4 w-4 mr-2" />
-          Test
-        </Button>
-      ),
-    },
-  ];
+  const getStatusBadge = (status: string) => {
+    switch (status) {
+      case 'online':
+        return <Badge variant="default" className="bg-green-100 text-green-800">Online</Badge>;
+      case 'offline':
+        return <Badge variant="destructive">Offline</Badge>;
+      case 'testing':
+        return <Badge variant="secondary">Testing</Badge>;
+      default:
+        return <Badge variant="outline">Unknown</Badge>;
+    }
+  };
+
+  const getConnectionBadge = (connectionStatus: string) => {
+    switch (connectionStatus) {
+      case 'active':
+        return <Badge variant="default" className="bg-green-100 text-green-800">Active</Badge>;
+      case 'pending':
+        return <Badge variant="secondary">Pending</Badge>;
+      case 'error':
+        return <Badge variant="destructive">Error</Badge>;
+      default:
+        return <Badge variant="outline">Unknown</Badge>;
+    }
+  };
+
+  if (isLoading) {
+    return (
+      <Card>
+        <CardContent className="p-6">
+          <div className="text-center">Loading routers...</div>
+        </CardContent>
+      </Card>
+    );
+  }
 
   return (
     <div className="space-y-6">
@@ -176,7 +161,7 @@ export const MikrotikRouterManager = () => {
                     <Button variant="outline" onClick={() => setShowAddDialog(false)}>
                       Cancel
                     </Button>
-                    <Button onClick={handleAddRouter} disabled={isAddingRouter}>
+                    <Button onClick={handleAddRouter} disabled={isCreating}>
                       Add Router
                     </Button>
                   </div>
@@ -193,11 +178,75 @@ export const MikrotikRouterManager = () => {
               </div>
             </div>
 
-            <DataTable
-              columns={columns}
-              data={routers}
-              loading={isLoading}
-            />
+            <div className="grid gap-4">
+              {routers.map((router) => (
+                <div key={router.id} className="border rounded-lg p-4 space-y-3">
+                  <div className="flex justify-between items-start">
+                    <div>
+                      <div className="flex items-center gap-2 mb-1">
+                        <h3 className="font-medium">{router.name}</h3>
+                        {getStatusBadge(router.connection_status)}
+                      </div>
+                      <p className="text-sm text-muted-foreground">{router.ip_address}</p>
+                      <p className="text-sm">Interface: {router.pppoe_interface}</p>
+                    </div>
+                    <div className="flex gap-2">
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => testConnection(router.id)}
+                        disabled={isTesting}
+                      >
+                        <TestTube className="h-4 w-4 mr-1" />
+                        Test
+                      </Button>
+                      <AlertDialog>
+                        <AlertDialogTrigger asChild>
+                          <Button size="sm" variant="destructive">
+                            <Trash2 className="h-4 w-4 mr-1" />
+                            Delete
+                          </Button>
+                        </AlertDialogTrigger>
+                        <AlertDialogContent>
+                          <AlertDialogHeader>
+                            <AlertDialogTitle>Delete Router</AlertDialogTitle>
+                            <AlertDialogDescription>
+                              Are you sure you want to delete "{router.name}"? This action cannot be undone.
+                            </AlertDialogDescription>
+                          </AlertDialogHeader>
+                          <AlertDialogFooter>
+                            <AlertDialogCancel>Cancel</AlertDialogCancel>
+                            <AlertDialogAction onClick={() => deleteRouter(router.id)}>
+                              Delete
+                            </AlertDialogAction>
+                          </AlertDialogFooter>
+                        </AlertDialogContent>
+                      </AlertDialog>
+                    </div>
+                  </div>
+                  
+                  {router.last_test_results && (
+                    <div className="text-xs text-muted-foreground">
+                      Last test: {new Date(router.last_test_results.timestamp || '').toLocaleString()}
+                    </div>
+                  )}
+                </div>
+              ))}
+
+              {routers.length === 0 && (
+                <div className="text-center py-8">
+                  <Wifi className="h-12 w-12 text-gray-400 mx-auto mb-4" />
+                  <h3 className="text-lg font-medium mb-2">No Routers Added</h3>
+                  <p className="text-gray-500 mb-4">
+                    Add your first MikroTik router to start managing network access.
+                  </p>
+                  <Button onClick={() => setShowAddDialog(true)}>
+                    <Plus className="h-4 w-4 mr-2" />
+                    Add Router
+                  </Button>
+                </div>
+              )}
+            </div>
           </div>
         </CardContent>
       </Card>

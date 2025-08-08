@@ -9,7 +9,7 @@ export interface RadiusUser {
   group_name: string;
   max_upload: string;
   max_download: string;
-  expiration: Date;
+  expiration: string | null;
   is_active: boolean;
   isp_company_id: string;
 }
@@ -20,8 +20,8 @@ export interface RadiusSession {
   username: string;
   session_id: string;
   nas_ip_address?: string;
-  start_time: Date;
-  end_time?: Date;
+  start_time: string;
+  end_time?: string;
   bytes_in: number;
   bytes_out: number;
   status: 'active' | 'terminated';
