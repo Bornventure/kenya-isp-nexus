@@ -1,159 +1,168 @@
 
-import React from 'react';
-import { useClientsWithNetworkManagement } from '@/hooks/useClientsWithNetworkManagement';
+import React, { useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Wifi, WifiOff, Activity, Users } from 'lucide-react';
-import { enhancedSnmpService } from '@/services/enhancedSnmpService';
-import { dataUsageService } from '@/services/dataUsageService';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { 
+  Router, 
+  Settings, 
+  Plus,
+  Activity,
+  Users,
+  Network
+} from 'lucide-react';
+import MikroTikSetupWizard from './MikroTikSetupWizard';
+import { useProductionNetworkManagement } from '@/hooks/useProductionNetworkManagement';
 
 const ProductionNetworkPanel = () => {
-  const networkHook = useClientsWithNetworkManagement();
-  
-  // Get clients data from the network management hook
-  const clients = networkHook.clients || [];
-  const isLoading = networkHook.isLoading;
-  const error = networkHook.error;
-
-  const handleDisconnectClient = async (clientId: string) => {
-    const success = await enhancedSnmpService.disconnectClient(clientId);
-    if (success) {
-      console.log(`Client ${clientId} disconnected successfully`);
+  const [showSetupWizard, setShowSetupWizard] = useState(false);
+  const [activeRouters] = useState([
+    {
+      id: '1',
+      name: 'Main Router',
+      ip: '192.168.1.1',
+      status: 'online',
+      clients: 12,
+      uptime: '5 days'
     }
-  };
+  ]);
 
-  const handleReconnectClient = async (clientId: string) => {
-    const success = await enhancedSnmpService.reconnectClient(clientId);
-    if (success) {
-      console.log(`Client ${clientId} reconnected successfully`);
-    }
-  };
+  const {
+    disconnectClient,
+    reconnectClient,
+    getDeviceStatus
+  } = useProductionNetworkManagement();
 
-  const handleDataUsageTracking = async (clientId: string) => {
-    // Track some sample data usage with a default equipment ID
-    await dataUsageService.trackDataUsage(clientId, 1024000, 512000, 'default-equipment');
-  };
-
-  if (isLoading) {
+  if (showSetupWizard) {
     return (
-      <Card>
-        <CardContent className="p-6">
-          <div className="text-center">Loading network data...</div>
-        </CardContent>
-      </Card>
+      <div className="space-y-4">
+        <div className="flex items-center justify-between">
+          <h2 className="text-2xl font-bold">MikroTik Router Setup</h2>
+          <Button variant="outline" onClick={() => setShowSetupWizard(false)}>
+            Back to Network Panel
+          </Button>
+        </div>
+        <MikroTikSetupWizard />
+      </div>
     );
   }
-
-  if (error) {
-    return (
-      <Card>
-        <CardContent className="p-6">
-          <div className="text-center text-red-500">Error loading network data: {error.message}</div>
-        </CardContent>
-      </Card>
-    );
-  }
-
-  const activeClients = clients.filter(client => client.status === 'active');
 
   return (
     <div className="space-y-6">
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Total Clients</CardTitle>
-            <Users className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{clients.length}</div>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Active Clients</CardTitle>
-            <Wifi className="h-4 w-4 text-green-600" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold text-green-600">{activeClients.length}</div>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Inactive Clients</CardTitle>
-            <WifiOff className="h-4 w-4 text-red-600" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold text-red-600">
-              {clients.length - activeClients.length}
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Network Status</CardTitle>
-            <Activity className="h-4 w-4 text-green-600" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-sm font-medium text-green-600">Online</div>
-          </CardContent>
-        </Card>
+      <div className="flex items-center justify-between">
+        <div>
+          <h2 className="text-2xl font-bold">Production Network Control</h2>
+          <p className="text-muted-foreground">Manage your MikroTik routers and client connections</p>
+        </div>
+        <div className="flex gap-2">
+          <Button onClick={() => setShowSetupWizard(true)} className="gap-2">
+            <Plus className="h-4 w-4" />
+            Add Router
+          </Button>
+          <Button variant="outline" className="gap-2">
+            <Settings className="h-4 w-4" />
+            Settings
+          </Button>
+        </div>
       </div>
 
-      <Card>
-        <CardHeader>
-          <CardTitle>Client Network Management</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="space-y-4">
-            {clients.slice(0, 10).map((client) => (
-              <div key={client.id} className="flex items-center justify-between p-4 border rounded-lg">
-                <div className="flex items-center space-x-4">
-                  <div className="flex flex-col">
-                    <span className="font-medium">{client.name}</span>
-                    <span className="text-sm text-muted-foreground">{client.email}</span>
-                  </div>
-                  <Badge variant={client.status === 'active' ? 'default' : 'secondary'}>
-                    {client.status}
-                  </Badge>
-                </div>
-                
-                <div className="flex space-x-2">
-                  <Button 
-                    size="sm" 
-                    variant="outline"
-                    onClick={() => handleDataUsageTracking(client.id)}
-                  >
-                    Track Usage
-                  </Button>
-                  {client.status === 'active' ? (
-                    <Button 
-                      size="sm" 
-                      variant="destructive"
-                      onClick={() => handleDisconnectClient(client.id)}
-                    >
-                      <WifiOff className="h-4 w-4 mr-2" />
-                      Disconnect
-                    </Button>
-                  ) : (
-                    <Button 
-                      size="sm" 
-                      variant="default"
-                      onClick={() => handleReconnectClient(client.id)}
-                    >
-                      <Wifi className="h-4 w-4 mr-2" />
-                      Reconnect
-                    </Button>
-                  )}
-                </div>
+      <Tabs defaultValue="routers" className="space-y-4">
+        <TabsList>
+          <TabsTrigger value="routers">Active Routers</TabsTrigger>
+          <TabsTrigger value="clients">Connected Clients</TabsTrigger>
+          <TabsTrigger value="monitoring">Live Monitoring</TabsTrigger>
+        </TabsList>
+
+        <TabsContent value="routers" className="space-y-4">
+          {activeRouters.length === 0 ? (
+            <Card>
+              <CardContent className="text-center py-12">
+                <Router className="h-16 w-16 mx-auto text-muted-foreground mb-4" />
+                <h3 className="text-lg font-semibold mb-2">No MikroTik Routers Configured</h3>
+                <p className="text-muted-foreground mb-4">
+                  Add your first MikroTik router to start managing client connections and network traffic.
+                </p>
+                <Button onClick={() => setShowSetupWizard(true)} className="gap-2">
+                  <Plus className="h-4 w-4" />
+                  Setup MikroTik Router
+                </Button>
+              </CardContent>
+            </Card>
+          ) : (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+              {activeRouters.map((router) => (
+                <Card key={router.id}>
+                  <CardHeader className="pb-3">
+                    <div className="flex items-center justify-between">
+                      <CardTitle className="text-lg">{router.name}</CardTitle>
+                      <Badge variant={router.status === 'online' ? 'default' : 'destructive'}>
+                        {router.status}
+                      </Badge>
+                    </div>
+                  </CardHeader>
+                  <CardContent className="space-y-3">
+                    <div className="flex items-center justify-between text-sm">
+                      <span className="text-muted-foreground">IP Address:</span>
+                      <span className="font-medium">{router.ip}</span>
+                    </div>
+                    <div className="flex items-center justify-between text-sm">
+                      <span className="text-muted-foreground">Connected Clients:</span>
+                      <span className="font-medium">{router.clients}</span>
+                    </div>
+                    <div className="flex items-center justify-between text-sm">
+                      <span className="text-muted-foreground">Uptime:</span>
+                      <span className="font-medium">{router.uptime}</span>
+                    </div>
+                    <div className="flex gap-2 pt-2">
+                      <Button size="sm" variant="outline" className="flex-1">
+                        Configure
+                      </Button>
+                      <Button size="sm" variant="outline" className="flex-1">
+                        Monitor
+                      </Button>
+                    </div>
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
+          )}
+        </TabsContent>
+
+        <TabsContent value="clients">
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Users className="h-5 w-5" />
+                Connected Clients
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="text-center py-8 text-muted-foreground">
+                <Users className="h-16 w-16 mx-auto mb-4 opacity-50" />
+                <p>No clients connected. Set up your MikroTik router to see client connections.</p>
               </div>
-            ))}
-          </div>
-        </CardContent>
-      </Card>
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        <TabsContent value="monitoring">
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Activity className="h-5 w-5" />
+                Network Monitoring
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="text-center py-8 text-muted-foreground">
+                <Network className="h-16 w-16 mx-auto mb-4 opacity-50" />
+                <p>Network monitoring will be available once you configure your MikroTik router.</p>
+              </div>
+            </CardContent>
+          </Card>
+        </TabsContent>
+      </Tabs>
     </div>
   );
 };
