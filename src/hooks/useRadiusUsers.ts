@@ -12,7 +12,30 @@ export const useRadiusUsers = () => {
 
   const { data: radiusUsers = [], isLoading, refetch } = useQuery({
     queryKey: ['radius-users', profile?.isp_company_id],
-    queryFn: () => radiusService.getRadiusUsers(),
+    queryFn: async () => {
+      if (!profile?.isp_company_id) return [];
+
+      const { data, error } = await supabase
+        .from('radius_users' as any)
+        .select(`
+          *,
+          clients (
+            name,
+            email,
+            phone,
+            status
+          )
+        `)
+        .eq('isp_company_id', profile.isp_company_id)
+        .order('created_at', { ascending: false });
+
+      if (error) {
+        console.error('Error fetching RADIUS users:', error);
+        return [];
+      }
+
+      return (data || []) as RadiusUser[];
+    },
     enabled: !!profile?.isp_company_id,
   });
 

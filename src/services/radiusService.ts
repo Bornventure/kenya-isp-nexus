@@ -51,13 +51,13 @@ class RadiusService {
   async getRadiusUsers(): Promise<RadiusUser[]> {
     try {
       const { data, error } = await supabase
-        .from('radius_users')
+        .from('radius_users' as any)
         .select('*')
         .eq('is_active', true)
         .order('created_at', { ascending: false });
 
       if (error) throw error;
-      return data || [];
+      return (data || []) as RadiusUser[];
     } catch (error) {
       console.error('Error fetching RADIUS users:', error);
       return [];
@@ -68,13 +68,13 @@ class RadiusService {
   async getActiveSessions(): Promise<RadiusSession[]> {
     try {
       const { data, error } = await supabase
-        .from('radius_sessions')
+        .from('radius_sessions' as any)
         .select('*')
         .eq('status', 'active')
         .order('start_time', { ascending: false });
 
       if (error) throw error;
-      return data || [];
+      return (data || []) as RadiusSession[];
     } catch (error) {
       console.error('Error fetching RADIUS sessions:', error);
       return [];
@@ -108,7 +108,7 @@ class RadiusService {
       };
 
       const { error } = await supabase
-        .from('radius_users')
+        .from('radius_users' as any)
         .upsert(radiusUser, { onConflict: 'username' });
 
       if (error) throw error;
@@ -128,7 +128,7 @@ class RadiusService {
   async updateRadiusUser(clientId: string, updates: Partial<RadiusUser>): Promise<boolean> {
     try {
       const { error } = await supabase
-        .from('radius_users')
+        .from('radius_users' as any)
         .update({
           ...updates,
           updated_at: new Date().toISOString()
@@ -139,7 +139,7 @@ class RadiusService {
 
       // Get updated user and configure routers
       const { data: radiusUser } = await supabase
-        .from('radius_users')
+        .from('radius_users' as any)
         .select('*')
         .eq('client_id', clientId)
         .single();
@@ -159,7 +159,7 @@ class RadiusService {
   async deleteRadiusUser(clientId: string): Promise<boolean> {
     try {
       const { data: radiusUser } = await supabase
-        .from('radius_users')
+        .from('radius_users' as any)
         .select('username')
         .eq('client_id', clientId)
         .single();
@@ -169,7 +169,7 @@ class RadiusService {
       }
 
       const { error } = await supabase
-        .from('radius_users')
+        .from('radius_users' as any)
         .delete()
         .eq('client_id', clientId);
 
@@ -186,7 +186,7 @@ class RadiusService {
     try {
       // End all active sessions in database
       const { error } = await supabase
-        .from('radius_sessions')
+        .from('radius_sessions' as any)
         .update({
           status: 'terminated',
           end_time: new Date().toISOString()
@@ -210,12 +210,12 @@ class RadiusService {
   async getMikrotikRouters(): Promise<MikrotikRouter[]> {
     try {
       const { data, error } = await supabase
-        .from('mikrotik_routers')
+        .from('mikrotik_routers' as any)
         .select('*')
         .order('name');
 
       if (error) throw error;
-      return data || [];
+      return (data || []) as MikrotikRouter[];
     } catch (error) {
       console.error('Error fetching MikroTik routers:', error);
       return [];
@@ -226,7 +226,7 @@ class RadiusService {
   async addMikrotikRouter(router: Omit<MikrotikRouter, 'id' | 'isp_company_id'>): Promise<boolean> {
     try {
       const { error } = await supabase
-        .from('mikrotik_routers')
+        .from('mikrotik_routers' as any)
         .insert([router]);
 
       if (error) throw error;
@@ -254,7 +254,7 @@ class RadiusService {
       };
 
       await supabase
-        .from('mikrotik_routers')
+        .from('mikrotik_routers' as any)
         .update({
           connection_status: 'online',
           last_test_results: testResults,

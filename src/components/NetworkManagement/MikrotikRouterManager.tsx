@@ -5,15 +5,14 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
-import { useMikroTikRouters } from '@/hooks/useMikroTikRouters';
-import { Plus, TestTube, Wifi, Edit, Trash2 } from 'lucide-react';
+import { useMikrotikRouters } from '@/hooks/useMikrotikRouters';
+import { Plus, TestTube, Wifi, Trash2 } from 'lucide-react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
 
 export const MikrotikRouterManager = () => {
-  const { routers, isLoading, createRouter, updateRouter, deleteRouter, testConnection, isCreating, isDeleting, isTesting } = useMikroTikRouters();
+  const { routers, isLoading, createRouter, updateRouter, deleteRouter, testConnection, isCreating, isDeleting, isTesting } = useMikrotikRouters();
   const [showAddDialog, setShowAddDialog] = useState(false);
-  const [editingRouter, setEditingRouter] = useState(null);
   const [newRouter, setNewRouter] = useState({
     name: '',
     ip_address: '',
@@ -30,9 +29,9 @@ export const MikrotikRouterManager = () => {
   const handleAddRouter = () => {
     createRouter({
       ...newRouter,
-      status: 'pending',
+      status: 'pending' as const,
       last_test_results: null,
-      connection_status: 'offline',
+      connection_status: 'offline' as const,
     });
     setNewRouter({
       name: '',
@@ -52,24 +51,11 @@ export const MikrotikRouterManager = () => {
   const getStatusBadge = (status: string) => {
     switch (status) {
       case 'online':
-        return <Badge variant="default" className="bg-green-100 text-green-800">Online</Badge>;
+        return <Badge className="bg-green-100 text-green-800 border-green-200">Online</Badge>;
       case 'offline':
         return <Badge variant="destructive">Offline</Badge>;
       case 'testing':
         return <Badge variant="secondary">Testing</Badge>;
-      default:
-        return <Badge variant="outline">Unknown</Badge>;
-    }
-  };
-
-  const getConnectionBadge = (connectionStatus: string) => {
-    switch (connectionStatus) {
-      case 'active':
-        return <Badge variant="default" className="bg-green-100 text-green-800">Active</Badge>;
-      case 'pending':
-        return <Badge variant="secondary">Pending</Badge>;
-      case 'error':
-        return <Badge variant="destructive">Error</Badge>;
       default:
         return <Badge variant="outline">Unknown</Badge>;
     }

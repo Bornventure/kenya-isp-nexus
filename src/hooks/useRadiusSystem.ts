@@ -35,7 +35,7 @@ export const useRadiusSystem = () => {
       if (!profile?.isp_company_id) return [];
 
       const { data, error } = await supabase
-        .from('radius_users')
+        .from('radius_users' as any)
         .select(`
           *,
           clients (
@@ -64,7 +64,7 @@ export const useRadiusSystem = () => {
       if (!profile?.isp_company_id) return [];
       
       const { data, error } = await supabase
-        .from('radius_sessions')
+        .from('radius_sessions' as any)
         .select('*')
         .eq('isp_company_id', profile.isp_company_id)
         .eq('status', 'active')
@@ -87,7 +87,7 @@ export const useRadiusSystem = () => {
       if (!profile?.isp_company_id) return [];
       
       const { data, error } = await supabase
-        .from('mikrotik_routers')
+        .from('mikrotik_routers' as any)
         .select('*')
         .eq('isp_company_id', profile.isp_company_id)
         .order('name');
@@ -133,7 +133,7 @@ export const useRadiusSystem = () => {
       message: radiusUsers.length > 0 
         ? 'User authentication system configured and ready'
         : 'No RADIUS users configured. Add clients to enable authentication',
-      details: { active_users: radiusUsers.filter(u => u.is_active).length },
+      details: { active_users: radiusUsers.filter((u: any) => u.is_active).length },
       isp_company_id: profile?.isp_company_id || ''
     },
     {
@@ -162,11 +162,11 @@ export const useRadiusSystem = () => {
       id: '6',
       test_category: 'pppoe',
       test_name: 'MikroTik Integration',
-      status: mikrotikRouters.filter(r => r.connection_status === 'online').length > 0 ? 'passed' : 'failed',
+      status: mikrotikRouters.filter((r: any) => r.connection_status === 'online').length > 0 ? 'passed' : 'failed',
       last_run: new Date().toISOString(),
-      message: `${mikrotikRouters.filter(r => r.connection_status === 'online').length} MikroTik device(s) online`,
+      message: `${mikrotikRouters.filter((r: any) => r.connection_status === 'online').length} MikroTik device(s) online`,
       details: { 
-        online_routers: mikrotikRouters.filter(r => r.connection_status === 'online').length,
+        online_routers: mikrotikRouters.filter((r: any) => r.connection_status === 'online').length,
         total_routers: mikrotikRouters.length
       },
       isp_company_id: profile?.isp_company_id || ''
@@ -175,10 +175,10 @@ export const useRadiusSystem = () => {
       id: '7',
       test_category: 'pppoe',
       test_name: 'Speed Limit Control',
-      status: radiusUsers.filter(u => u.max_upload && u.max_download).length > 0 ? 'passed' : 'failed',
+      status: radiusUsers.filter((u: any) => u.max_upload && u.max_download).length > 0 ? 'passed' : 'failed',
       last_run: new Date().toISOString(),
       message: 'Speed limit control system configured and ready',
-      details: { users_with_limits: radiusUsers.filter(u => u.max_upload && u.max_download).length },
+      details: { users_with_limits: radiusUsers.filter((u: any) => u.max_upload && u.max_download).length },
       isp_company_id: profile?.isp_company_id || ''
     },
     {
