@@ -45,7 +45,7 @@ export const useMikrotikRouters = () => {
         throw error;
       }
 
-      return (data || []) as MikrotikRouter[];
+      return (data || []) as unknown as MikrotikRouter[];
     },
     enabled: !!profile?.isp_company_id,
   });

@@ -34,7 +34,7 @@ export const useRadiusUsers = () => {
         return [];
       }
 
-      return (data || []) as RadiusUser[];
+      return (data || []) as unknown as RadiusUser[];
     },
     enabled: !!profile?.isp_company_id,
   });

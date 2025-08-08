@@ -40,7 +40,7 @@ export const useRadiusSessions = () => {
         return [];
       }
 
-      return (data || []) as RadiusSession[];
+      return (data || []) as unknown as RadiusSession[];
     },
     enabled: !!profile?.isp_company_id,
     refetchInterval: 30000, // Refresh every 30 seconds

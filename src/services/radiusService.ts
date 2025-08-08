@@ -57,7 +57,7 @@ class RadiusService {
         .order('created_at', { ascending: false });
 
       if (error) throw error;
-      return (data || []) as RadiusUser[];
+      return (data || []) as unknown as RadiusUser[];
     } catch (error) {
       console.error('Error fetching RADIUS users:', error);
       return [];
@@ -74,7 +74,7 @@ class RadiusService {
         .order('start_time', { ascending: false });
 
       if (error) throw error;
-      return (data || []) as RadiusSession[];
+      return (data || []) as unknown as RadiusSession[];
     } catch (error) {
       console.error('Error fetching RADIUS sessions:', error);
       return [];
@@ -164,8 +164,8 @@ class RadiusService {
         .eq('client_id', clientId)
         .single();
 
-      if (radiusUser) {
-        await this.removeFromAllRouters(radiusUser.username);
+      if (radiusUser && (radiusUser as any).username) {
+        await this.removeFromAllRouters((radiusUser as any).username);
       }
 
       const { error } = await supabase
@@ -215,7 +215,7 @@ class RadiusService {
         .order('name');
 
       if (error) throw error;
-      return (data || []) as MikrotikRouter[];
+      return (data || []) as unknown as MikrotikRouter[];
     } catch (error) {
       console.error('Error fetching MikroTik routers:', error);
       return [];
