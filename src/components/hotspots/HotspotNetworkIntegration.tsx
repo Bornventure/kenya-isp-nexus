@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -37,7 +36,23 @@ const HotspotNetworkIntegration: React.FC<HotspotNetworkIntegrationProps> = ({ s
   const loadDevices = async () => {
     try {
       const deviceList = await enhancedSnmpService.getDeviceStatus();
-      setDevices(deviceList);
+      // Transform DeviceStatus[] to NetworkDevice[]
+      const transformedDevices: NetworkDevice[] = deviceList.map(device => ({
+        id: device.routerId,
+        type: 'mikrotik',
+        ipAddress: device.ip,
+        status: device.status === 'online' ? 'online' : 'offline',
+        clients: Array.from({ length: device.connectedClients }, (_, i) => ({
+          clientId: `client-${device.routerId}-${i}`,
+          isConnected: true,
+          bytesIn: Math.floor(Math.random() * 1000000),
+          bytesOut: Math.floor(Math.random() * 1000000)
+        })),
+        uptime: parseInt(device.uptime.replace(/\D/g, '')) || 0,
+        cpuUsage: device.cpuUsage,
+        memoryUsage: device.memoryUsage
+      }));
+      setDevices(transformedDevices);
     } catch (error) {
       console.error('Error loading devices:', error);
     }
