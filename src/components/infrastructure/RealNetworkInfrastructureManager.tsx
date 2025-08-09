@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -63,9 +62,12 @@ const RealNetworkInfrastructureManager = () => {
     await addDevice(ip, community, version);
   };
 
-  // Combine all devices for comprehensive infrastructure view
+  // Combine all devices for comprehensive infrastructure view with normalized status
   const allInfrastructureDevices = [
-    ...snmpDevices,
+    ...snmpDevices.map(device => ({
+      ...device,
+      normalizedStatus: device.status === 'online' ? 'online' : 'offline'
+    })),
     ...mikrotikRouters.map(router => ({
       id: router.id,
       name: router.name,
@@ -77,7 +79,8 @@ const RealNetworkInfrastructureManager = () => {
       uptime: 0,
       cpuUsage: 0,
       memoryUsage: 0,
-      interfaces: []
+      interfaces: [],
+      normalizedStatus: router.connection_status === 'online' ? 'online' : 'offline'
     })),
     ...networkEquipment.map(device => ({
       id: device.id,
@@ -85,18 +88,21 @@ const RealNetworkInfrastructureManager = () => {
       ip: device.ip_address || 'N/A',
       community: device.snmp_community || 'N/A',
       version: device.snmp_version || 0,
-      status: device.status as 'online' | 'offline',
+      status: device.status === 'active' ? 'online' : 'offline',
       type: device.type,
       uptime: 0,
       cpuUsage: 0,
       memoryUsage: 0,
-      interfaces: []
+      interfaces: [],
+      normalizedStatus: device.status === 'active' ? 'online' : 'offline'
     }))
   ];
 
-  const onlineDevices = allInfrastructureDevices.filter(d => d.status === 'online' || d.status === 'active').length;
-  const offlineDevices = allInfrastructureDevices.filter(d => d.status === 'offline' || d.status === 'inactive').length;
-  const criticalDevices = allInfrastructureDevices.filter(d => d.status === 'failed').length;
+  const onlineDevices = allInfrastructureDevices.filter(d => d.normalizedStatus === 'online').length;
+  const offlineDevices = allInfrastructureDevices.filter(d => d.normalizedStatus === 'offline').length;
+  const criticalDevices = allInfrastructureDevices.filter(d => 
+    d.status === 'failed' || d.status === 'error' || (d.normalizedStatus === 'offline' && d.type !== 'mikrotik_router')
+  ).length;
 
   return (
     <div className="space-y-6">
