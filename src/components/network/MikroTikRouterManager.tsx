@@ -11,7 +11,7 @@ import { Plus, TestTube, Settings, Trash2, Router } from 'lucide-react';
 import { useMikroTikRouters } from '@/hooks/useMikrotikRouters';
 
 export const MikrotikRouterManager = () => {
-  const { routers, isLoading, createRouter, updateRouter, deleteRouter, testConnection, isCreating, isDeleting, isTesting } = useMikrotikRouters();
+  const { routers, isLoading, createRouter, updateRouter, deleteRouter, testConnection, isCreating, isDeleting, isTesting } = useMikroTikRouters();
   const [showAddDialog, setShowAddDialog] = useState(false);
   const [newRouter, setNewRouter] = useState({
     name: '',

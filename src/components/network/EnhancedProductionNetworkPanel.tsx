@@ -10,7 +10,7 @@ import { useClients } from '@/hooks/useClients';
 import { useProductionNetworkManagement } from '@/hooks/useProductionNetworkManagement';
 
 const EnhancedProductionNetworkPanel = () => {
-  const { routers } = useMikrotikRouters();
+  const { routers } = useMikroTikRouters();
   const { clients } = useClients();
   const { disconnectClient, reconnectClient, applySpeedLimit } = useProductionNetworkManagement();
   const [activeTab, setActiveTab] = useState('overview');
