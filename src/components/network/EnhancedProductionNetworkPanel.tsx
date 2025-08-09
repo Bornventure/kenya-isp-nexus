@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -6,7 +5,7 @@ import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { AlertTriangle, Activity, Users, Zap, Settings, Router } from 'lucide-react';
 import { MikrotikRouterManager } from './MikroTikRouterManager';
-import { useMikrotikRouters } from '@/hooks/useMikrotikRouters';
+import { useMikroTikRouters } from '@/hooks/useMikrotikRouters';
 import { useClients } from '@/hooks/useClients';
 import { useProductionNetworkManagement } from '@/hooks/useProductionNetworkManagement';
 

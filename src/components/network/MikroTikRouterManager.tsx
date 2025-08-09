@@ -8,7 +8,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Plus, TestTube, Settings, Trash2, Router } from 'lucide-react';
-import { useMikrotikRouters } from '@/hooks/useMikrotikRouters';
+import { useMikroTikRouters } from '@/hooks/useMikrotikRouters';
 
 export const MikrotikRouterManager = () => {
   const { routers, isLoading, createRouter, updateRouter, deleteRouter, testConnection, isCreating, isDeleting, isTesting } = useMikrotikRouters();
