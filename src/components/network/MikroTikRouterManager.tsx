@@ -8,10 +8,10 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Plus, TestTube, Settings, Trash2, Router } from 'lucide-react';
-import { useMikroTikRouters } from '@/hooks/useMikrotikRouters';
+import { useMikrotikRouters } from '@/hooks/useMikrotikRouters';
 
 export const MikrotikRouterManager = () => {
-  const { routers, isLoading, createRouter, updateRouter, deleteRouter, testConnection, isCreating, isDeleting, isTesting } = useMikroTikRouters();
+  const { routers, isLoading, createRouter, updateRouter, deleteRouter, testConnection, isCreating, isDeleting, isTesting } = useMikrotikRouters();
   const [showAddDialog, setShowAddDialog] = useState(false);
   const [newRouter, setNewRouter] = useState({
     name: '',

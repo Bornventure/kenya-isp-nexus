@@ -5,12 +5,12 @@ import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { AlertTriangle, Activity, Users, Zap, Settings, Router } from 'lucide-react';
 import { MikrotikRouterManager } from './MikroTikRouterManager';
-import { useMikroTikRouters } from '@/hooks/useMikrotikRouters';
+import { useMikrotikRouters } from '@/hooks/useMikrotikRouters';
 import { useClients } from '@/hooks/useClients';
 import { useProductionNetworkManagement } from '@/hooks/useProductionNetworkManagement';
 
 const EnhancedProductionNetworkPanel = () => {
-  const { routers } = useMikroTikRouters();
+  const { routers } = useMikrotikRouters();
   const { clients } = useClients();
   const { disconnectClient, reconnectClient, applySpeedLimit } = useProductionNetworkManagement();
   const [activeTab, setActiveTab] = useState('overview');
