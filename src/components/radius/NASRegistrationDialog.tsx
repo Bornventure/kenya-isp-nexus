@@ -61,7 +61,7 @@ const NASRegistrationDialog: React.FC<NASRegistrationDialogProps> = ({
       setNasConfig(prev => ({
         ...prev,
         nas_name: item.name || `${item.manufacturer} ${item.model}`,
-        nas_ip: item.ip_address || '',
+        nas_ip: typeof item.ip_address === 'string' ? item.ip_address : '',
         description: `NAS created from inventory item: ${item.item_id}`
       }));
       setStep(2);
@@ -86,7 +86,8 @@ const NASRegistrationDialog: React.FC<NASRegistrationDialogProps> = ({
         client_network: nasConfig.client_network,
         gateway: nasConfig.nas_ip,
         status: 'pending' as const,
-        connection_status: 'offline' as const
+        connection_status: 'offline' as const,
+        last_test_results: null
       };
 
       // Create router in the system
@@ -94,7 +95,7 @@ const NASRegistrationDialog: React.FC<NASRegistrationDialogProps> = ({
 
       // 2. Register as RADIUS NAS client
       const { error: nasError } = await supabase
-        .from('radius_nas_clients' as any)
+        .from('radius_nas_clients')
         .insert({
           nas_name: nasConfig.nas_name,
           nas_ip: nasConfig.nas_ip,

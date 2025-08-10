@@ -34,7 +34,7 @@ interface NASClient {
   nas_name: string;
   nas_ip: string;
   nas_type: string;
-  description: string;
+  description: string | null;
   is_active: boolean;
   last_seen: string | null;
   created_at: string;
@@ -54,13 +54,13 @@ const NASManagementPanel = () => {
       if (!profile?.isp_company_id) return [];
 
       const { data, error } = await supabase
-        .from('radius_nas_clients' as any)
+        .from('radius_nas_clients')
         .select('*')
         .eq('isp_company_id', profile.isp_company_id)
         .order('created_at', { ascending: false });
 
       if (error) throw error;
-      return data as NASClient[];
+      return (data || []) as NASClient[];
     },
     enabled: !!profile?.isp_company_id,
   });
@@ -89,7 +89,7 @@ const NASManagementPanel = () => {
   const deleteNAS = useMutation({
     mutationFn: async (nasId: string) => {
       const { error } = await supabase
-        .from('radius_nas_clients' as any)
+        .from('radius_nas_clients')
         .delete()
         .eq('id', nasId);
 

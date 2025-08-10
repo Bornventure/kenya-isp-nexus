@@ -2636,6 +2636,56 @@ export type Database = {
           },
         ]
       }
+      radius_nas_clients: {
+        Row: {
+          created_at: string
+          description: string | null
+          id: string
+          is_active: boolean
+          isp_company_id: string | null
+          last_seen: string | null
+          nas_ip: unknown
+          nas_name: string
+          nas_secret: string
+          nas_type: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          description?: string | null
+          id?: string
+          is_active?: boolean
+          isp_company_id?: string | null
+          last_seen?: string | null
+          nas_ip: unknown
+          nas_name: string
+          nas_secret: string
+          nas_type?: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          description?: string | null
+          id?: string
+          is_active?: boolean
+          isp_company_id?: string | null
+          last_seen?: string | null
+          nas_ip?: unknown
+          nas_name?: string
+          nas_secret?: string
+          nas_type?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "radius_nas_clients_isp_company_id_fkey"
+            columns: ["isp_company_id"]
+            isOneToOne: false
+            referencedRelation: "isp_companies"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       radius_sessions: {
         Row: {
           bytes_in: number | null
