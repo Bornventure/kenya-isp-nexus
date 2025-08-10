@@ -29,8 +29,7 @@ export const useClientDeletion = () => {
         supabase.from('installation_invoices').delete().eq('client_id', clientId),
         // Delete wallet transactions
         supabase.from('wallet_transactions').delete().eq('client_id', clientId),
-        // Delete payments
-        supabase.from('mpesa_payments').delete().eq('client_id', clientId),
+        // Delete family bank payments
         supabase.from('family_bank_payments').delete().eq('client_id', clientId),
         // Delete hotspot sessions
         supabase.from('hotspot_sessions').delete().eq('client_id', clientId),

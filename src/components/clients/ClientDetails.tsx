@@ -5,6 +5,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Button } from '@/components/ui/button';
 import { ArrowLeft } from 'lucide-react';
 import { useClients, DatabaseClient } from '@/hooks/useClients';
+import { useClientDeletion } from '@/hooks/useClientDeletion';
 import { Client } from '@/types/client';
 import PersonalInfoSection from './details/PersonalInfoSection';
 import ServiceInfoSection from './details/ServiceInfoSection';
@@ -50,7 +51,8 @@ interface ClientDetailsProps {
 const ClientDetails: React.FC<ClientDetailsProps> = ({ clientId: propClientId, onClose }) => {
   const { id: urlClientId } = useParams();
   const navigate = useNavigate();
-  const { clients, isLoading, updateClient, deleteClient, isUpdating, isDeleting } = useClients();
+  const { clients, isLoading, updateClient, isUpdating } = useClients();
+  const { deleteClient, isDeletingClient } = useClientDeletion();
   const [activeTab, setActiveTab] = useState('overview');
 
   // Use either the prop clientId or URL parameter
@@ -143,7 +145,7 @@ const ClientDetails: React.FC<ClientDetailsProps> = ({ clientId: propClientId, o
           onStatusChange={handleStatusChange}
           onDelete={handleDeleteClient}
           isUpdating={isUpdating}
-          isDeleting={isDeleting}
+          isDeleting={isDeletingClient}
         />
       </div>
 

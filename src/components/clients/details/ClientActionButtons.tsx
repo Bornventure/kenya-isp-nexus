@@ -12,7 +12,6 @@ import {
   XCircle 
 } from 'lucide-react';
 import { Client } from '@/types/client';
-import { useClientDeletion } from '@/hooks/useClientDeletion';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -29,17 +28,19 @@ interface ClientActionButtonsProps {
   client: Client;
   onEdit: () => void;
   onStatusChange: (status: Client['status']) => void;
+  onDelete: (clientId: string) => void;
   isUpdating?: boolean;
+  isDeleting?: boolean;
 }
 
 const ClientActionButtons: React.FC<ClientActionButtonsProps> = ({ 
   client, 
   onEdit, 
   onStatusChange,
-  isUpdating = false
+  onDelete,
+  isUpdating = false,
+  isDeleting = false
 }) => {
-  const { deleteClient, isDeletingClient } = useClientDeletion();
-
   const getStatusColor = (status: Client['status']) => {
     switch (status) {
       case 'active': return 'bg-green-100 text-green-800';
@@ -63,7 +64,7 @@ const ClientActionButtons: React.FC<ClientActionButtonsProps> = ({
   const canClientLogin = client.status === 'active';
 
   const handleDeleteConfirm = () => {
-    deleteClient(client.id);
+    onDelete(client.id);
   };
 
   return (
@@ -112,10 +113,10 @@ const ClientActionButtons: React.FC<ClientActionButtonsProps> = ({
                 variant="outline" 
                 size="sm" 
                 className="text-red-600 hover:text-red-700 hover:bg-red-50"
-                disabled={isDeletingClient}
+                disabled={isDeleting}
               >
                 <Trash2 className="h-4 w-4 mr-2" />
-                {isDeletingClient ? 'Deleting...' : 'Delete'}
+                {isDeleting ? 'Deleting...' : 'Delete'}
               </Button>
             </AlertDialogTrigger>
             <AlertDialogContent>
