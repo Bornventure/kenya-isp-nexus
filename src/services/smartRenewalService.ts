@@ -33,8 +33,8 @@ class SmartRenewalService {
 
       if (error || !client) return null;
 
-      const currentBalance = parseFloat(client.wallet_balance || 0);
-      const requiredAmount = parseFloat(client.monthly_rate || 0);
+      const currentBalance = parseFloat(client.wallet_balance?.toString() || '0');
+      const requiredAmount = parseFloat(client.monthly_rate?.toString() || '0');
       const shortfall = Math.max(0, requiredAmount - currentBalance);
       const subscriptionEnd = new Date(client.subscription_end_date);
       const now = new Date();
@@ -80,7 +80,7 @@ class SmartRenewalService {
         p_client_id: analysis.clientId
       });
 
-      if (error || !data?.success) {
+      if (error || !data || (typeof data === 'object' && 'success' in data && !data.success)) {
         throw new Error('Renewal processing failed');
       }
 

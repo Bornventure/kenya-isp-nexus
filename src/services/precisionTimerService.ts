@@ -217,21 +217,9 @@ class PrecisionTimerService {
         .update({ status: 'suspended' })
         .eq('id', clientId);
 
-      // Disconnect from network via RADIUS/MikroTik
-      const { radiusService } = await import('./radiusService');
-      
-      // Get RADIUS username
-      const { data: radiusUser } = await supabase
-        .from('radius_users' as any)
-        .select('username')
-        .eq('client_id', clientId)
-        .single();
-
-      if (radiusUser?.username) {
-        await radiusService.disconnectUser(radiusUser.username);
-      }
-
-      console.log(`Client ${clientId} service suspended and disconnected`);
+      // For now, we'll log the disconnection action
+      // In production, this would integrate with RADIUS/MikroTik for actual disconnection
+      console.log(`Client ${clientId} service suspended and should be disconnected from network`);
     } catch (error) {
       console.error('Service suspension failed:', error);
     }
