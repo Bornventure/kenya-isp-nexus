@@ -12,6 +12,7 @@ import {
   XCircle 
 } from 'lucide-react';
 import { Client } from '@/types/client';
+import { useClientDeletion } from '@/hooks/useClientDeletion';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -28,19 +29,17 @@ interface ClientActionButtonsProps {
   client: Client;
   onEdit: () => void;
   onStatusChange: (status: Client['status']) => void;
-  onDelete?: (clientId: string) => void;
   isUpdating?: boolean;
-  isDeleting?: boolean;
 }
 
 const ClientActionButtons: React.FC<ClientActionButtonsProps> = ({ 
   client, 
   onEdit, 
   onStatusChange,
-  onDelete,
-  isUpdating = false,
-  isDeleting = false
+  isUpdating = false
 }) => {
+  const { deleteClient, isDeletingClient } = useClientDeletion();
+
   const getStatusColor = (status: Client['status']) => {
     switch (status) {
       case 'active': return 'bg-green-100 text-green-800';
@@ -62,6 +61,10 @@ const ClientActionButtons: React.FC<ClientActionButtonsProps> = ({
   };
 
   const canClientLogin = client.status === 'active';
+
+  const handleDeleteConfirm = () => {
+    deleteClient(client.id);
+  };
 
   return (
     <div>
@@ -103,38 +106,36 @@ const ClientActionButtons: React.FC<ClientActionButtonsProps> = ({
             Edit Client
           </Button>
 
-          {onDelete && (
-            <AlertDialog>
-              <AlertDialogTrigger asChild>
-                <Button 
-                  variant="outline" 
-                  size="sm" 
-                  className="text-red-600 hover:text-red-700 hover:bg-red-50"
-                  disabled={isDeleting}
+          <AlertDialog>
+            <AlertDialogTrigger asChild>
+              <Button 
+                variant="outline" 
+                size="sm" 
+                className="text-red-600 hover:text-red-700 hover:bg-red-50"
+                disabled={isDeletingClient}
+              >
+                <Trash2 className="h-4 w-4 mr-2" />
+                {isDeletingClient ? 'Deleting...' : 'Delete'}
+              </Button>
+            </AlertDialogTrigger>
+            <AlertDialogContent>
+              <AlertDialogHeader>
+                <AlertDialogTitle>Are you sure?</AlertDialogTitle>
+                <AlertDialogDescription>
+                  This will permanently delete the client "{client.name}" and all associated data including invoices, equipment assignments, and payment history. This action cannot be undone.
+                </AlertDialogDescription>
+              </AlertDialogHeader>
+              <AlertDialogFooter>
+                <AlertDialogCancel>Cancel</AlertDialogCancel>
+                <AlertDialogAction 
+                  onClick={handleDeleteConfirm}
+                  className="bg-red-600 hover:bg-red-700"
                 >
-                  <Trash2 className="h-4 w-4 mr-2" />
-                  {isDeleting ? 'Deleting...' : 'Delete'}
-                </Button>
-              </AlertDialogTrigger>
-              <AlertDialogContent>
-                <AlertDialogHeader>
-                  <AlertDialogTitle>Are you sure?</AlertDialogTitle>
-                  <AlertDialogDescription>
-                    This will permanently delete the client "{client.name}" and all associated data. This action cannot be undone.
-                  </AlertDialogDescription>
-                </AlertDialogHeader>
-                <AlertDialogFooter>
-                  <AlertDialogCancel>Cancel</AlertDialogCancel>
-                  <AlertDialogAction 
-                    onClick={() => onDelete(client.id)}
-                    className="bg-red-600 hover:bg-red-700"
-                  >
-                    Delete Client
-                  </AlertDialogAction>
-                </AlertDialogFooter>
-              </AlertDialogContent>
-            </AlertDialog>
-          )}
+                  Delete Client
+                </AlertDialogAction>
+              </AlertDialogFooter>
+            </AlertDialogContent>
+          </AlertDialog>
         </div>
 
         {/* Status Controls */}

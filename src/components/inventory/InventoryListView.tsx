@@ -1,15 +1,25 @@
-
 import React, { useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Badge } from '@/components/ui/badge';
-import { useInventoryItems } from '@/hooks/useInventory';
+import { useInventoryItems, useDeleteInventoryItem } from '@/hooks/useInventory';
 import { Package, Search, Plus, Edit, Settings, Trash2 } from 'lucide-react';
 import AddInventoryItemDialog from './AddInventoryItemDialog';
 import EditInventoryItemDialog from './EditInventoryItemDialog';
 import AssignEquipmentDialog from './AssignEquipmentDialog';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
 
 interface InventoryListViewProps {
   initialFilter?: string;
@@ -24,6 +34,8 @@ const InventoryListView: React.FC<InventoryListViewProps> = ({
   const [showAddDialog, setShowAddDialog] = useState(false);
   const [editingItem, setEditingItem] = useState<string | null>(null);
   const [assigningItem, setAssigningItem] = useState<{ id: string; name: string } | null>(null);
+
+  const { mutate: deleteItem, isPending: isDeleting } = useDeleteInventoryItem();
 
   // Set initial filters when component mounts or initialFilter changes
   React.useEffect(() => {
@@ -74,10 +86,13 @@ const InventoryListView: React.FC<InventoryListViewProps> = ({
         setAssigningItem({ id: itemId, name: item.name || item.model || 'Unnamed Item' });
         break;
       case 'delete':
-        // Handle delete - you might want to add a confirmation dialog
-        console.log('Delete item:', itemId);
+        deleteItem(itemId);
         break;
     }
+  };
+
+  const handleDeleteConfirm = (itemId: string) => {
+    deleteItem(itemId);
   };
 
   return (
@@ -177,14 +192,35 @@ const InventoryListView: React.FC<InventoryListViewProps> = ({
                     >
                       <Settings className="h-4 w-4" />
                     </Button>
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => handleItemAction(item.id, 'delete')}
-                      className="text-destructive hover:text-destructive"
-                    >
-                      <Trash2 className="h-4 w-4" />
-                    </Button>
+                    <AlertDialog>
+                      <AlertDialogTrigger asChild>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="text-destructive hover:text-destructive"
+                          disabled={isDeleting}
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
+                      </AlertDialogTrigger>
+                      <AlertDialogContent>
+                        <AlertDialogHeader>
+                          <AlertDialogTitle>Are you sure?</AlertDialogTitle>
+                          <AlertDialogDescription>
+                            This will permanently delete the inventory item "{item.name || item.model || 'Unnamed Item'}". This action cannot be undone.
+                          </AlertDialogDescription>
+                        </AlertDialogHeader>
+                        <AlertDialogFooter>
+                          <AlertDialogCancel>Cancel</AlertDialogCancel>
+                          <AlertDialogAction 
+                            onClick={() => handleDeleteConfirm(item.id)}
+                            className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                          >
+                            Delete
+                          </AlertDialogAction>
+                        </AlertDialogFooter>
+                      </AlertDialogContent>
+                    </AlertDialog>
                   </div>
                 </div>
               </CardHeader>

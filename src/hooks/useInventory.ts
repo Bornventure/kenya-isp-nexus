@@ -215,6 +215,40 @@ export const useUpdateInventoryItem = () => {
   });
 };
 
+export const useDeleteInventoryItem = () => {
+  const queryClient = useQueryClient();
+  const { toast } = useToast();
+
+  return useMutation({
+    mutationFn: async (itemId: string) => {
+      const { error } = await supabase
+        .from('inventory_items')
+        .delete()
+        .eq('id', itemId);
+
+      if (error) {
+        console.error('Error deleting inventory item:', error);
+        throw error;
+      }
+    },
+    onSuccess: () => {
+      toast({
+        title: "Success",
+        description: "Inventory item deleted successfully.",
+      });
+      queryClient.invalidateQueries({ queryKey: ['inventory-items'] });
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Error",
+        description: "Failed to delete inventory item. Please try again.",
+        variant: "destructive",
+      });
+      console.error('Error deleting inventory item:', error);
+    },
+  });
+};
+
 export const useUnassignEquipmentFromClient = () => {
   const queryClient = useQueryClient();
   const { toast } = useToast();

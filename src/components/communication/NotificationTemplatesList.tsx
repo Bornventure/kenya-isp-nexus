@@ -10,6 +10,18 @@ import { Mail, MessageSquare, Edit, Trash2, Search } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { useTemplateDeletion } from '@/hooks/useTemplateDeletion';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
 
 interface NotificationTemplate {
   id: string;
@@ -31,6 +43,7 @@ const NotificationTemplatesList: React.FC<NotificationTemplatesListProps> = ({ o
   const [filterTrigger, setFilterTrigger] = useState('all');
   const { toast } = useToast();
   const queryClient = useQueryClient();
+  const { deleteTemplate, isDeletingTemplate } = useTemplateDeletion();
 
   const { data: templates, isLoading } = useQuery({
     queryKey: ['notification-templates'],
@@ -78,30 +91,8 @@ const NotificationTemplatesList: React.FC<NotificationTemplatesListProps> = ({ o
     }
   };
 
-  const handleDelete = async (templateId: string) => {
-    if (window.confirm('Are you sure you want to delete this template?')) {
-      try {
-        const { error } = await supabase
-          .from('notification_templates')
-          .delete()
-          .eq('id', templateId);
-
-        if (error) throw error;
-
-        queryClient.invalidateQueries({ queryKey: ['notification-templates'] });
-        toast({
-          title: "Template Deleted",
-          description: "Template has been deleted successfully",
-        });
-      } catch (error) {
-        console.error('Error deleting template:', error);
-        toast({
-          title: "Error",
-          description: "Failed to delete template",
-          variant: "destructive",
-        });
-      }
-    }
+  const handleDeleteConfirm = (templateId: string) => {
+    deleteTemplate(templateId);
   };
 
   const getVariablesCount = (variables: any): number => {
@@ -229,14 +220,37 @@ const NotificationTemplatesList: React.FC<NotificationTemplatesListProps> = ({ o
                   <Edit className="h-4 w-4 mr-1" />
                   Edit
                 </Button>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => handleDelete(template.id)}
-                >
-                  <Trash2 className="h-4 w-4 mr-1" />
-                  Delete
-                </Button>
+                
+                <AlertDialog>
+                  <AlertDialogTrigger asChild>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      disabled={isDeletingTemplate}
+                      className="text-destructive hover:text-destructive"
+                    >
+                      <Trash2 className="h-4 w-4 mr-1" />
+                      {isDeletingTemplate ? 'Deleting...' : 'Delete'}
+                    </Button>
+                  </AlertDialogTrigger>
+                  <AlertDialogContent>
+                    <AlertDialogHeader>
+                      <AlertDialogTitle>Are you sure?</AlertDialogTitle>
+                      <AlertDialogDescription>
+                        This will permanently delete the notification template "{template.name}". This action cannot be undone.
+                      </AlertDialogDescription>
+                    </AlertDialogHeader>
+                    <AlertDialogFooter>
+                      <AlertDialogCancel>Cancel</AlertDialogCancel>
+                      <AlertDialogAction 
+                        onClick={() => handleDeleteConfirm(template.id)}
+                        className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                      >
+                        Delete Template
+                      </AlertDialogAction>
+                    </AlertDialogFooter>
+                  </AlertDialogContent>
+                </AlertDialog>
               </div>
             </CardContent>
           </Card>
