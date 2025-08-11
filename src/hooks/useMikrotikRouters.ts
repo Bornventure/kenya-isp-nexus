@@ -77,9 +77,11 @@ export const useMikrotikRouters = () => {
         throw new Error('Admin password is required');
       }
 
-      // Helper function to convert empty strings to null for inet fields
-      const cleanInetField = (value: string | undefined) => {
-        return (value && value.trim()) ? value.trim() : null;
+      // Helper function to generate default gateway from IP address
+      const generateDefaultGateway = (ipAddress: string) => {
+        const parts = ipAddress.split('.');
+        // Use .1 as default gateway (common practice)
+        return `${parts[0]}.${parts[1]}.${parts[2]}.1`;
       };
 
       // Prepare data for database insertion
@@ -93,7 +95,7 @@ export const useMikrotikRouters = () => {
         pppoe_interface: routerData.pppoe_interface?.trim() || 'pppoe-server1',
         dns_servers: routerData.dns_servers?.trim() || '8.8.8.8,8.8.4.4',
         client_network: routerData.client_network?.trim() || '10.0.0.0/24',
-        gateway: cleanInetField(routerData.gateway), // Convert empty string to null
+        gateway: routerData.gateway?.trim() || generateDefaultGateway(routerData.ip_address), // Provide default gateway
         status: 'pending' as const,
         last_test_results: null,
         connection_status: 'offline' as const,

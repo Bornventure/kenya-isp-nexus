@@ -1,3 +1,4 @@
+
 import { useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -179,6 +180,15 @@ export const MikrotikRouterManager = () => {
                     )}
                   </div>
                   <div className="space-y-2">
+                    <Label htmlFor="gateway">Gateway</Label>
+                    <Input
+                      id="gateway"
+                      value={newRouter.gateway}
+                      onChange={(e) => handleInputChange('gateway', e.target.value)}
+                      placeholder="192.168.1.1 (auto-generated if empty)"
+                    />
+                  </div>
+                  <div className="space-y-2">
                     <Label htmlFor="pppoe_interface">PPPoE Interface</Label>
                     <Input
                       id="pppoe_interface"
@@ -194,6 +204,15 @@ export const MikrotikRouterManager = () => {
                       value={newRouter.client_network}
                       onChange={(e) => handleInputChange('client_network', e.target.value)}
                       placeholder="10.0.0.0/24"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="dns_servers">DNS Servers</Label>
+                    <Input
+                      id="dns_servers"
+                      value={newRouter.dns_servers}
+                      onChange={(e) => handleInputChange('dns_servers', e.target.value)}
+                      placeholder="8.8.8.8,8.8.4.4"
                     />
                   </div>
                   <div className="col-span-2 flex justify-end gap-2">
@@ -228,6 +247,7 @@ export const MikrotikRouterManager = () => {
                       </div>
                       <p className="text-sm text-muted-foreground">{router.ip_address}</p>
                       <p className="text-sm">Interface: {router.pppoe_interface}</p>
+                      <p className="text-sm">Gateway: {router.gateway}</p>
                     </div>
                     <div className="flex gap-2">
                       <Button
