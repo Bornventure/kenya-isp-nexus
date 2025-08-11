@@ -19,6 +19,11 @@ export interface LowStockItem {
   category_id: string;
 }
 
+// Type guard to check if an item is a valid record
+const isValidRecord = (item: unknown): item is Record<string, unknown> => {
+  return item !== null && item !== undefined && typeof item === 'object';
+};
+
 export const useInventoryCategories = () => {
   return useQuery({
     queryKey: ['inventory-categories'],
@@ -35,11 +40,11 @@ export const useInventoryCategories = () => {
 
         // Check if data exists and is valid
         if (data && Array.isArray(data) && data.length > 0) {
+          // Filter out null/undefined items first
+          const validItems = data.filter(isValidRecord);
+          
           // Type guard to check if the data matches our expected structure
-          const isValidData = data.every(item => {
-            if (!item || item === null || typeof item !== 'object') {
-              return false;
-            }
+          const isValidData = validItems.every(item => {
             return (
               'id' in item && 
               'name' in item && 
@@ -50,7 +55,7 @@ export const useInventoryCategories = () => {
             );
           });
           
-          if (isValidData) {
+          if (isValidData && validItems.length === data.length) {
             return data as unknown as InventoryCategory[];
           }
         }
@@ -81,11 +86,11 @@ export const useLowStockItems = () => {
 
         // Check if data exists and is valid
         if (data && Array.isArray(data) && data.length > 0) {
+          // Filter out null/undefined items first
+          const validItems = data.filter(isValidRecord);
+          
           // Type guard to check if the data matches our expected structure
-          const isValidData = data.every(item => {
-            if (!item || item === null || typeof item !== 'object') {
-              return false;
-            }
+          const isValidData = validItems.every(item => {
             return (
               'category_name' in item && 
               'minimum_stock_level' in item && 
@@ -96,7 +101,7 @@ export const useLowStockItems = () => {
             );
           });
           
-          if (isValidData) {
+          if (isValidData && validItems.length === data.length) {
             return data as unknown as LowStockItem[];
           }
         }

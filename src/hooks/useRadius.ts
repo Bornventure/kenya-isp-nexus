@@ -57,6 +57,11 @@ export interface NASClient {
   isp_company_id: string;
 }
 
+// Type guard to check if an item is a valid record
+const isValidRecord = (item: unknown): item is Record<string, unknown> => {
+  return item !== null && item !== undefined && typeof item === 'object';
+};
+
 export const useRadiusServers = () => {
   return useQuery({
     queryKey: ['radius-servers'],
@@ -73,11 +78,11 @@ export const useRadiusServers = () => {
 
         // Check if data exists and is valid
         if (data && Array.isArray(data) && data.length > 0) {
+          // Filter out null/undefined items first
+          const validItems = data.filter(isValidRecord);
+          
           // Type guard to check if the data matches our expected structure
-          const isValidData = data.every(item => {
-            if (!item || item === null || typeof item !== 'object') {
-              return false;
-            }
+          const isValidData = validItems.every(item => {
             return (
               'id' in item && 
               'name' in item && 
@@ -88,7 +93,7 @@ export const useRadiusServers = () => {
             );
           });
           
-          if (isValidData) {
+          if (isValidData && validItems.length === data.length) {
             return data as unknown as RadiusServer[];
           }
         }
@@ -119,11 +124,11 @@ export const useRadiusGroups = () => {
 
         // Check if data exists and is valid
         if (data && Array.isArray(data) && data.length > 0) {
+          // Filter out null/undefined items first
+          const validItems = data.filter(isValidRecord);
+          
           // Type guard to check if the data matches our expected structure
-          const isValidData = data.every(item => {
-            if (!item || item === null || typeof item !== 'object') {
-              return false;
-            }
+          const isValidData = validItems.every(item => {
             return (
               'id' in item && 
               'name' in item && 
@@ -134,7 +139,7 @@ export const useRadiusGroups = () => {
             );
           });
           
-          if (isValidData) {
+          if (isValidData && validItems.length === data.length) {
             return data as unknown as RadiusGroup[];
           }
         }
@@ -165,11 +170,11 @@ export const useRadiusUsers = () => {
 
         // Check if data exists and is valid
         if (data && Array.isArray(data) && data.length > 0) {
+          // Filter out null/undefined items first
+          const validItems = data.filter(isValidRecord);
+          
           // Type guard to check if the data matches our expected structure
-          const isValidData = data.every(item => {
-            if (!item || item === null || typeof item !== 'object') {
-              return false;
-            }
+          const isValidData = validItems.every(item => {
             return (
               'id' in item && 
               'username' in item && 
@@ -180,7 +185,7 @@ export const useRadiusUsers = () => {
             );
           });
           
-          if (isValidData) {
+          if (isValidData && validItems.length === data.length) {
             return data as unknown as RadiusUser[];
           }
         }
@@ -215,11 +220,11 @@ export const useNASClients = () => {
 
         // Check if data exists and is valid
         if (data && Array.isArray(data) && data.length > 0) {
+          // Filter out null/undefined items first
+          const validItems = data.filter(isValidRecord);
+          
           // Type guard to check if the data matches our expected structure
-          const isValidData = data.every(item => {
-            if (!item || item === null || typeof item !== 'object') {
-              return false;
-            }
+          const isValidData = validItems.every(item => {
             return (
               'id' in item && 
               'name' in item && 
@@ -230,7 +235,7 @@ export const useNASClients = () => {
             );
           });
           
-          if (isValidData) {
+          if (isValidData && validItems.length === data.length) {
             return data as unknown as NASClient[];
           }
         }
