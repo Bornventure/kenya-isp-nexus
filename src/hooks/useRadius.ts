@@ -62,7 +62,6 @@ export const useRadiusServers = () => {
   return useQuery({
     queryKey: ['radius-servers'],
     queryFn: async () => {
-      // Try to fetch from the new table, fall back to mock data
       try {
         const { data, error } = await supabase
           .from('radius_servers' as any)
@@ -70,41 +69,18 @@ export const useRadiusServers = () => {
 
         if (error || !data) {
           console.log('Using fallback RADIUS servers data');
-          // Return mock data for now since table might not be in types yet
-          return [
-            {
-              id: '1',
-              name: 'Primary RADIUS Server',
-              server_address: '192.168.1.100',
-              auth_port: 1812,
-              accounting_port: 1813,
-              shared_secret: 'secret123',
-              timeout_seconds: 30,
-              retry_attempts: 3,
-              is_enabled: true,
-              is_primary: true,
-              isp_company_id: 'company-1'
-            }
-          ] as RadiusServer[];
+          return getDefaultRadiusServers();
         }
-        return data as RadiusServer[];
+        
+        // Check if data is valid array format
+        if (Array.isArray(data) && data.length > 0 && 'id' in data[0]) {
+          return data as RadiusServer[];
+        }
+        
+        return getDefaultRadiusServers();
       } catch (error) {
         console.error('Error fetching RADIUS servers:', error);
-        return [
-          {
-            id: '1',
-            name: 'Primary RADIUS Server',
-            server_address: '192.168.1.100',
-            auth_port: 1812,
-            accounting_port: 1813,
-            shared_secret: 'secret123',
-            timeout_seconds: 30,
-            retry_attempts: 3,
-            is_enabled: true,
-            is_primary: true,
-            isp_company_id: 'company-1'
-          }
-        ] as RadiusServer[];
+        return getDefaultRadiusServers();
       }
     },
   });
@@ -114,7 +90,6 @@ export const useRadiusGroups = () => {
   return useQuery({
     queryKey: ['radius-groups'],
     queryFn: async () => {
-      // Try to fetch from the new table, fall back to mock data
       try {
         const { data, error } = await supabase
           .from('radius_groups' as any)
@@ -122,58 +97,18 @@ export const useRadiusGroups = () => {
 
         if (error || !data) {
           console.log('Using fallback RADIUS groups data');
-          return [
-            {
-              id: '1',
-              name: 'basic',
-              description: 'Basic Internet Package',
-              upload_limit_mbps: 5,
-              download_limit_mbps: 10,
-              session_timeout_seconds: 86400,
-              idle_timeout_seconds: 300,
-              is_active: true,
-              isp_company_id: 'company-1'
-            },
-            {
-              id: '2',
-              name: 'premium',
-              description: 'Premium Internet Package',
-              upload_limit_mbps: 20,
-              download_limit_mbps: 50,
-              session_timeout_seconds: 86400,
-              idle_timeout_seconds: 300,
-              is_active: true,
-              isp_company_id: 'company-1'
-            }
-          ] as RadiusGroup[];
+          return getDefaultRadiusGroups();
         }
-        return data as RadiusGroup[];
+        
+        // Check if data is valid array format
+        if (Array.isArray(data) && data.length > 0 && 'id' in data[0]) {
+          return data as RadiusGroup[];
+        }
+        
+        return getDefaultRadiusGroups();
       } catch (error) {
         console.error('Error fetching RADIUS groups:', error);
-        return [
-          {
-            id: '1',
-            name: 'basic',
-            description: 'Basic Internet Package',
-            upload_limit_mbps: 5,
-            download_limit_mbps: 10,
-            session_timeout_seconds: 86400,
-            idle_timeout_seconds: 300,
-            is_active: true,
-            isp_company_id: 'company-1'
-          },
-          {
-            id: '2',
-            name: 'premium',
-            description: 'Premium Internet Package',
-            upload_limit_mbps: 20,
-            download_limit_mbps: 50,
-            session_timeout_seconds: 86400,
-            idle_timeout_seconds: 300,
-            is_active: true,
-            isp_company_id: 'company-1'
-          }
-        ] as RadiusGroup[];
+        return getDefaultRadiusGroups();
       }
     },
   });
@@ -183,7 +118,6 @@ export const useRadiusUsers = () => {
   return useQuery({
     queryKey: ['radius-users'],
     queryFn: async () => {
-      // Try to fetch from the new table, fall back to empty array
       try {
         const { data, error } = await supabase
           .from('radius_users' as any)
@@ -193,7 +127,13 @@ export const useRadiusUsers = () => {
           console.log('Using fallback RADIUS users data');
           return [] as RadiusUser[];
         }
-        return data as RadiusUser[];
+        
+        // Check if data is valid array format
+        if (Array.isArray(data) && data.length > 0 && 'id' in data[0]) {
+          return data as RadiusUser[];
+        }
+        
+        return [] as RadiusUser[];
       } catch (error) {
         console.error('Error fetching RADIUS users:', error);
         return [] as RadiusUser[];
@@ -210,7 +150,6 @@ export const useNASClients = () => {
   const query = useQuery({
     queryKey: ['nas-clients'],
     queryFn: async () => {
-      // Try to fetch from the new table, fall back to empty array
       try {
         const { data, error } = await supabase
           .from('nas_clients' as any)
@@ -221,7 +160,13 @@ export const useNASClients = () => {
           console.log('Using fallback NAS clients data');
           return [] as NASClient[];
         }
-        return data as NASClient[];
+        
+        // Check if data is valid array format
+        if (Array.isArray(data) && data.length > 0 && 'id' in data[0]) {
+          return data as NASClient[];
+        }
+        
+        return [] as NASClient[];
       } catch (error) {
         console.error('Error fetching NAS clients:', error);
         return [] as NASClient[];
@@ -342,3 +287,48 @@ export const useNASClients = () => {
     deleteNASClient,
   };
 };
+
+function getDefaultRadiusServers(): RadiusServer[] {
+  return [
+    {
+      id: '1',
+      name: 'Primary RADIUS Server',
+      server_address: '192.168.1.100',
+      auth_port: 1812,
+      accounting_port: 1813,
+      shared_secret: 'secret123',
+      timeout_seconds: 30,
+      retry_attempts: 3,
+      is_enabled: true,
+      is_primary: true,
+      isp_company_id: 'company-1'
+    }
+  ];
+}
+
+function getDefaultRadiusGroups(): RadiusGroup[] {
+  return [
+    {
+      id: '1',
+      name: 'basic',
+      description: 'Basic Internet Package',
+      upload_limit_mbps: 5,
+      download_limit_mbps: 10,
+      session_timeout_seconds: 86400,
+      idle_timeout_seconds: 300,
+      is_active: true,
+      isp_company_id: 'company-1'
+    },
+    {
+      id: '2',
+      name: 'premium',
+      description: 'Premium Internet Package',
+      upload_limit_mbps: 20,
+      download_limit_mbps: 50,
+      session_timeout_seconds: 86400,
+      idle_timeout_seconds: 300,
+      is_active: true,
+      isp_company_id: 'company-1'
+    }
+  ];
+}

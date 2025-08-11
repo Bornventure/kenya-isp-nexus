@@ -1,3 +1,4 @@
+
 import React, { useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -67,7 +68,6 @@ const NetworkManagementDashboard = () => {
         onOpenChange={setShowAddDialog}
         onAddDevice={handleAddDevice}
         onTestConnection={handleTestConnection}
-        isLoading={isLoading}
       />
     </div>
   );

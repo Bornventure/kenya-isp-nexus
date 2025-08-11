@@ -125,10 +125,17 @@ const NetworkDeviceMonitor: React.FC = () => {
     }
   };
 
-  const handleEditFormChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
+  const handleEditFormChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setEditFormData({
       ...editFormData,
       [e.target.name]: e.target.value,
+    });
+  };
+
+  const handleSelectChange = (value: string) => {
+    setEditFormData({
+      ...editFormData,
+      deviceType: value,
     });
   };
 
@@ -326,11 +333,7 @@ const NetworkDeviceMonitor: React.FC = () => {
                     <Label htmlFor="edit-type">Device Type</Label>
                     <Select
                       value={editFormData.deviceType}
-                      onValueChange={(value) =>
-                        handleEditFormChange({
-                          target: { name: 'deviceType', value } as any,
-                        })
-                      }
+                      onValueChange={handleSelectChange}
                     >
                       <SelectTrigger className="w-full">
                         <SelectValue placeholder="Select a device type" />
