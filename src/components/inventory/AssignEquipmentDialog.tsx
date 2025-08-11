@@ -1,196 +1,244 @@
 
 import React, { useState } from 'react';
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Badge } from '@/components/ui/badge';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Label } from '@/components/ui/label';
 import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from '@/components/ui/table';
-import { Search, CheckCircle, User } from 'lucide-react';
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
+import { Badge } from '@/components/ui/badge';
 import { useInventoryItems, useAssignEquipmentToClient } from '@/hooks/useInventory';
-import { useClients } from '@/hooks/useClients';
+import { Package, Router, Network } from 'lucide-react';
 
 interface AssignEquipmentDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  clientId?: string; // Optional - if provided, will assign to this specific client
-  clientName?: string; // Optional - if provided, will show this client name
+  clientId: string;
+  clientName: string;
 }
 
 const AssignEquipmentDialog: React.FC<AssignEquipmentDialogProps> = ({
   open,
   onOpenChange,
-  clientId: preSelectedClientId,
-  clientName: preSelectedClientName,
+  clientId,
+  clientName,
 }) => {
-  const [search, setSearch] = useState('');
-  const [selectedClientId, setSelectedClientId] = useState(preSelectedClientId || '');
-  const { mutate: assignEquipment, isPending } = useAssignEquipmentToClient();
-  
-  // Get clients for selection if no client is pre-selected
-  const { clients, isLoading: clientsLoading } = useClients();
-  
-  // Only show CPE items that are in stock
-  const { data: availableEquipment, isLoading } = useInventoryItems({
-    category: 'CPE',
-    status: 'In Stock',
-    search: search || undefined,
+  const [selectedEquipmentId, setSelectedEquipmentId] = useState<string>('');
+  const [searchTerm, setSearchTerm] = useState('');
+
+  const { data: availableEquipment = [] } = useInventoryItems({
+    status: 'In Stock'
   });
 
-  const handleAssign = (itemId: string) => {
-    const clientToAssign = preSelectedClientId || selectedClientId;
-    if (!clientToAssign) {
-      alert('Please select a client first');
-      return;
-    }
+  const { mutate: assignEquipment, isPending } = useAssignEquipmentToClient();
+
+  // Filter equipment based on search and availability
+  const filteredEquipment = availableEquipment.filter(item => 
+    (item.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+     item.type?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+     item.model?.toLowerCase().includes(searchTerm.toLowerCase())) &&
+    !item.assigned_customer_id // Only show unassigned equipment
+  );
+
+  // Separate CPE and Network equipment
+  const cpeEquipment = filteredEquipment.filter(item => item.category === 'CPE');
+  const networkEquipment = filteredEquipment.filter(item => 
+    item.category === 'Network Hardware' || item.is_network_equipment
+  );
+
+  const handleAssign = () => {
+    if (!selectedEquipmentId) return;
 
     assignEquipment(
-      { itemId, clientId: clientToAssign },
+      { 
+        itemId: selectedEquipmentId, 
+        clientId, 
+        clientName 
+      },
       {
         onSuccess: () => {
           onOpenChange(false);
-          setSearch('');
-          if (!preSelectedClientId) {
-            setSelectedClientId('');
-          }
+          setSelectedEquipmentId('');
+          setSearchTerm('');
         },
       }
     );
   };
 
-  const selectedClient = preSelectedClientId 
-    ? { name: preSelectedClientName }
-    : clients.find(c => c.id === selectedClientId);
+  const getEquipmentIcon = (category: string, isNetworkEquipment?: boolean) => {
+    if (category === 'CPE') return <Package className="h-4 w-4" />;
+    if (category === 'Network Hardware' || isNetworkEquipment) return <Network className="h-4 w-4" />;
+    return <Router className="h-4 w-4" />;
+  };
+
+  const getEquipmentBadge = (category: string, isNetworkEquipment?: boolean) => {
+    if (category === 'CPE') return <Badge variant="outline">CPE</Badge>;
+    if (category === 'Network Hardware' || isNetworkEquipment) return <Badge variant="default">Network</Badge>;
+    return <Badge variant="secondary">Other</Badge>;
+  };
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-4xl max-h-[600px]">
+      <DialogContent className="max-w-2xl">
         <DialogHeader>
-          <DialogTitle>
-            Assign Equipment {selectedClient ? `to ${selectedClient.name}` : ''}
-          </DialogTitle>
+          <DialogTitle>Assign Equipment to {clientName}</DialogTitle>
+          <DialogDescription>
+            Select equipment to assign to this client. Network equipment will be fully integrated with RADIUS and monitoring systems.
+          </DialogDescription>
         </DialogHeader>
 
         <div className="space-y-4">
-          {/* Client Selection - only show if no client is pre-selected */}
-          {!preSelectedClientId && (
-            <div className="space-y-2">
-              <Label>Select Client</Label>
-              <Select value={selectedClientId} onValueChange={setSelectedClientId}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Choose a client..." />
-                </SelectTrigger>
-                <SelectContent>
-                  {clientsLoading ? (
-                    <SelectItem value="loading" disabled>Loading clients...</SelectItem>
-                  ) : (
-                    clients.map((client) => (
-                      <SelectItem key={client.id} value={client.id}>
-                        <div className="flex items-center gap-2">
-                          <User className="h-4 w-4" />
-                          <span>{client.name} ({client.phone})</span>
-                        </div>
-                      </SelectItem>
-                    ))
-                  )}
-                </SelectContent>
-              </Select>
-            </div>
-          )}
-
-          {/* Search */}
-          <div className="relative">
-            <Search className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
+          <div>
+            <Label htmlFor="search">Search Equipment</Label>
             <Input
-              placeholder="Search available equipment..."
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              className="pl-10"
+              id="search"
+              placeholder="Search by name, type, or model..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
             />
           </div>
 
-          {/* Available Equipment */}
-          <div className="border rounded-lg max-h-96 overflow-y-auto">
-            {isLoading ? (
-              <div className="p-6 text-center">Loading available equipment...</div>
-            ) : availableEquipment && availableEquipment.length > 0 ? (
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Item ID</TableHead>
-                    <TableHead>Type</TableHead>
-                    <TableHead>Model</TableHead>
-                    <TableHead>Serial Number</TableHead>
-                    <TableHead>MAC Address</TableHead>
-                    <TableHead>Action</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {availableEquipment.map((item) => (
-                    <TableRow key={item.id}>
-                      <TableCell className="font-mono text-sm">
-                        {item.item_id}
-                      </TableCell>
-                      <TableCell>
-                        <div>
-                          <div className="font-medium">{item.type}</div>
+          <div>
+            <Label>Available Equipment</Label>
+            <div className="max-h-96 overflow-y-auto border rounded-lg p-2 space-y-2">
+              {/* CPE Equipment Section */}
+              {cpeEquipment.length > 0 && (
+                <div>
+                  <div className="text-sm font-medium text-muted-foreground mb-2 flex items-center gap-2">
+                    <Package className="h-4 w-4" />
+                    Customer Premises Equipment (CPE)
+                  </div>
+                  {cpeEquipment.map((item) => (
+                    <div
+                      key={item.id}
+                      className={`p-3 border rounded cursor-pointer transition-colors ${
+                        selectedEquipmentId === item.id 
+                          ? 'border-primary bg-primary/5' 
+                          : 'hover:border-primary/50'
+                      }`}
+                      onClick={() => setSelectedEquipmentId(item.id)}
+                    >
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-3">
+                          {getEquipmentIcon(item.category, item.is_network_equipment)}
+                          <div>
+                            <div className="font-medium">
+                              {item.name || item.type}
+                            </div>
+                            <div className="text-sm text-muted-foreground">
+                              {item.manufacturer} {item.model}
+                            </div>
+                            {item.serial_number && (
+                              <div className="text-xs text-muted-foreground font-mono">
+                                SN: {item.serial_number}
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                        <div className="flex flex-col items-end gap-1">
+                          {getEquipmentBadge(item.category, item.is_network_equipment)}
                           <Badge variant="outline" className="text-xs">
-                            {item.category}
+                            {item.status}
                           </Badge>
                         </div>
-                      </TableCell>
-                      <TableCell>
-                        <div>
-                          {item.manufacturer && (
-                            <div className="text-xs text-muted-foreground">
-                              {item.manufacturer}
-                            </div>
-                          )}
-                          <div className="font-medium">{item.model || item.name}</div>
-                        </div>
-                      </TableCell>
-                      <TableCell className="font-mono text-sm">
-                        {item.serial_number || '-'}
-                      </TableCell>
-                      <TableCell className="font-mono text-sm">
-                        {item.mac_address || '-'}
-                      </TableCell>
-                      <TableCell>
-                        <Button
-                          size="sm"
-                          onClick={() => handleAssign(item.id)}
-                          disabled={isPending || (!preSelectedClientId && !selectedClientId)}
-                        >
-                          <CheckCircle className="h-4 w-4 mr-1" />
-                          Assign
-                        </Button>
-                      </TableCell>
-                    </TableRow>
+                      </div>
+                    </div>
                   ))}
-                </TableBody>
-              </Table>
-            ) : (
-              <div className="p-6 text-center text-muted-foreground">
-                <p>No available CPE equipment found</p>
-                <p className="text-sm">Add CPE equipment to inventory or check if items are in stock</p>
-              </div>
-            )}
-          </div>
+                </div>
+              )}
 
-          <div className="flex justify-end">
-            <Button variant="outline" onClick={() => onOpenChange(false)}>
-              Cancel
-            </Button>
+              {/* Network Equipment Section */}
+              {networkEquipment.length > 0 && (
+                <div>
+                  <div className="text-sm font-medium text-muted-foreground mb-2 flex items-center gap-2">
+                    <Network className="h-4 w-4" />
+                    Network Equipment (Full Integration)
+                  </div>
+                  {networkEquipment.map((item) => (
+                    <div
+                      key={item.id}
+                      className={`p-3 border rounded cursor-pointer transition-colors ${
+                        selectedEquipmentId === item.id 
+                          ? 'border-primary bg-primary/5' 
+                          : 'hover:border-primary/50'
+                      }`}
+                      onClick={() => setSelectedEquipmentId(item.id)}
+                    >
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-3">
+                          {getEquipmentIcon(item.category, item.is_network_equipment)}
+                          <div>
+                            <div className="font-medium">
+                              {item.name || item.type}
+                            </div>
+                            <div className="text-sm text-muted-foreground">
+                              {item.manufacturer} {item.model}
+                            </div>
+                            {item.ip_address && (
+                              <div className="text-xs text-muted-foreground font-mono">
+                                IP: {item.ip_address}
+                              </div>
+                            )}
+                            {item.serial_number && (
+                              <div className="text-xs text-muted-foreground font-mono">
+                                SN: {item.serial_number}
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                        <div className="flex flex-col items-end gap-1">
+                          {getEquipmentBadge(item.category, item.is_network_equipment)}
+                          <Badge variant="outline" className="text-xs">
+                            {item.status}
+                          </Badge>
+                          {item.is_network_equipment && (
+                            <Badge variant="secondary" className="text-xs">
+                              Auto-Deploy
+                            </Badge>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              {filteredEquipment.length === 0 && (
+                <div className="text-center py-8 text-muted-foreground">
+                  <Package className="h-8 w-8 mx-auto mb-2" />
+                  <p>No available equipment found</p>
+                  {searchTerm && (
+                    <p className="text-sm">Try adjusting your search terms</p>
+                  )}
+                </div>
+              )}
+            </div>
           </div>
         </div>
+
+        <DialogFooter>
+          <Button variant="outline" onClick={() => onOpenChange(false)}>
+            Cancel
+          </Button>
+          <Button 
+            onClick={handleAssign} 
+            disabled={!selectedEquipmentId || isPending}
+          >
+            {isPending ? 'Assigning...' : 'Assign Equipment'}
+          </Button>
+        </DialogFooter>
       </DialogContent>
     </Dialog>
   );
