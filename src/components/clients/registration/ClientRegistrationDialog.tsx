@@ -1,4 +1,3 @@
-
 import React from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
@@ -21,6 +20,25 @@ interface ClientRegistrationDialogProps {
   isSubmitting?: boolean;
 }
 
+interface ClientFormData {
+  name: string;
+  email: string;
+  phone: string;
+  id_number: string;
+  kra_pin_number: string;
+  mpesa_number: string;
+  address: string;
+  county: string;
+  sub_county: string;
+  latitude: number | null;
+  longitude: number | null;
+  service_package_id: string;
+  monthly_rate: number;
+  connection_type: 'fiber' | 'wireless' | 'satellite';
+  client_type: 'individual' | 'business' | 'corporate';
+  installation_date: string;
+}
+
 const ClientRegistrationDialog: React.FC<ClientRegistrationDialogProps> = ({
   open,
   onOpenChange,
@@ -31,7 +49,7 @@ const ClientRegistrationDialog: React.FC<ClientRegistrationDialogProps> = ({
   const { servicePackages, isLoading: packagesLoading } = useServicePackages();
   const { checkCanAddClient } = useLicenseLimitCheck();
 
-  const initialFormData = {
+  const initialFormData: ClientFormData = {
     // Personal Information
     name: '',
     email: '',
@@ -44,14 +62,14 @@ const ClientRegistrationDialog: React.FC<ClientRegistrationDialogProps> = ({
     address: '',
     county: '',
     sub_county: '',
-    latitude: null as number | null,
-    longitude: null as number | null,
+    latitude: null,
+    longitude: null,
     
     // Service Information
     service_package_id: '',
     monthly_rate: 0,
-    connection_type: 'fiber' as any,
-    client_type: 'individual' as any,
+    connection_type: 'fiber',
+    client_type: 'individual',
     installation_date: '',
   };
 
@@ -60,14 +78,14 @@ const ClientRegistrationDialog: React.FC<ClientRegistrationDialogProps> = ({
     updateFormData,
     handleSubmitSuccess,
     clearPersistedData,
-  } = usePersistedFormState({
+  } = usePersistedFormState<ClientFormData>({
     key: 'clientRegistration',
     initialState: initialFormData,
   });
 
   const [errors, setErrors] = React.useState<Record<string, string>>({});
 
-  const handleFieldChange = (field: string, value: any) => {
+  const handleFieldChange = (field: keyof ClientFormData, value: any) => {
     console.log('Updating form field:', field, 'with value:', value);
     updateFormData(field, value);
     
@@ -365,7 +383,7 @@ const ClientRegistrationDialog: React.FC<ClientRegistrationDialogProps> = ({
                   <Label htmlFor="connection_type">Connection Type *</Label>
                   <Select
                     value={formData.connection_type}
-                    onValueChange={(value) => handleFieldChange('connection_type', value)}
+                    onValueChange={(value) => handleFieldChange('connection_type', value as ClientFormData['connection_type'])}
                   >
                     <SelectTrigger className={errors.connection_type ? 'border-red-500' : ''}>
                       <SelectValue placeholder="Select connection type" />
@@ -383,7 +401,7 @@ const ClientRegistrationDialog: React.FC<ClientRegistrationDialogProps> = ({
                   <Label htmlFor="client_type">Client Type *</Label>
                   <Select
                     value={formData.client_type}
-                    onValueChange={(value) => handleFieldChange('client_type', value)}
+                    onValueChange={(value) => handleFieldChange('client_type', value as ClientFormData['client_type'])}
                   >
                     <SelectTrigger className={errors.client_type ? 'border-red-500' : ''}>
                       <SelectValue placeholder="Select client type" />
