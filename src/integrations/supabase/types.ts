@@ -1700,6 +1700,7 @@ export type Database = {
           assigned_customer_id: string | null
           assigned_device_id: string | null
           assignment_date: string | null
+          barcode: string | null
           capacity: string | null
           category: string
           cost: number | null
@@ -1740,6 +1741,7 @@ export type Database = {
           assigned_customer_id?: string | null
           assigned_device_id?: string | null
           assignment_date?: string | null
+          barcode?: string | null
           capacity?: string | null
           category: string
           cost?: number | null
@@ -1780,6 +1782,7 @@ export type Database = {
           assigned_customer_id?: string | null
           assigned_device_id?: string | null
           assignment_date?: string | null
+          barcode?: string | null
           capacity?: string | null
           category?: string
           cost?: number | null
