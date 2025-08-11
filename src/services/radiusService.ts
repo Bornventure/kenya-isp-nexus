@@ -120,7 +120,7 @@ class RadiusService {
       console.log(`Disconnecting RADIUS user: ${username}`);
       
       // Update any active sessions to disconnected
-      await supabase
+      await (supabase as any)
         .from('network_sessions')
         .update({ status: 'disconnected' })
         .eq('username', username)
@@ -135,7 +135,7 @@ class RadiusService {
 
   async getActiveSessions(): Promise<any[]> {
     try {
-      const { data, error } = await supabase
+      const { data, error } = await (supabase as any)
         .from('network_sessions')
         .select('*')
         .eq('status', 'active');

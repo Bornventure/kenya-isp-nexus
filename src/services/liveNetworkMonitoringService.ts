@@ -1,8 +1,8 @@
 
 import { supabase } from '@/integrations/supabase/client';
-import { NetworkSession, ClientNetworkStatus } from '@/types/network';
+import type { NetworkSession, ClientNetworkStatus } from '@/types/network';
 
-export { NetworkSession, ClientNetworkStatus };
+export type { NetworkSession, ClientNetworkStatus };
 
 class LiveNetworkMonitoringService {
   private monitoringInterval: NodeJS.Timeout | null = null;
@@ -44,27 +44,28 @@ class LiveNetworkMonitoringService {
 
   async getClientNetworkStatus(clientId: string): Promise<ClientNetworkStatus> {
     try {
-      // Try to get current session using raw query since table might not be in types
+      // Try to get current session using rpc; function may not exist in generated types
       let session: NetworkSession | undefined;
       
       try {
-        const { data: sessionData, error: sessionError } = await supabase
-          .rpc('get_network_session_by_client', { client_id: clientId }) as any;
+        const { data: sessionData } = await (supabase as any)
+          .rpc('get_network_session_by_client', { client_id: clientId });
 
-        if (!sessionError && sessionData) {
+        const sd = sessionData as any;
+        if (sd) {
           session = {
-            id: sessionData.id,
-            client_id: sessionData.client_id || clientId,
-            username: sessionData.username,
-            ip_address: sessionData.ip_address || 'dynamic',
-            nas_ip_address: sessionData.nas_ip_address || '',
-            session_id: sessionData.session_id,
-            start_time: sessionData.start_time,
-            bytes_in: sessionData.bytes_in,
-            bytes_out: sessionData.bytes_out,
-            status: sessionData.status as 'active' | 'disconnected',
-            last_update: sessionData.last_update || sessionData.start_time,
-            created_at: sessionData.created_at
+            id: sd.id,
+            client_id: sd.client_id || clientId,
+            username: sd.username,
+            ip_address: sd.ip_address || 'dynamic',
+            nas_ip_address: sd.nas_ip_address || '',
+            session_id: sd.session_id,
+            start_time: sd.start_time,
+            bytes_in: sd.bytes_in,
+            bytes_out: sd.bytes_out,
+            status: (sd.status as 'active' | 'disconnected') || 'active',
+            last_update: sd.last_update || sd.start_time,
+            created_at: sd.created_at
           };
         }
       } catch (error) {
@@ -100,7 +101,7 @@ class LiveNetworkMonitoringService {
         console.error('Error fetching client:', clientError);
       }
 
-      const speedLimit = this.parseSpeedLimit(client?.service_packages?.speed || '10Mbps');
+      const speedLimit = this.parseSpeedLimit((client as any)?.service_packages?.speed || '10Mbps');
       const dataUsageToday = usage ? (usage.in_octets + usage.out_octets) / (1024 * 1024) : 0; // MB
 
       return {
@@ -109,7 +110,7 @@ class LiveNetworkMonitoringService {
         current_session: session,
         data_usage_today: dataUsageToday,
         speed_limit: speedLimit,
-        last_seen: session?.start_time || client?.updated_at || new Date().toISOString()
+        last_seen: (session?.start_time || (client as any)?.updated_at || new Date().toISOString()) as string
       };
     } catch (error) {
       console.error('Error getting client network status:', error);
@@ -129,11 +130,11 @@ class LiveNetworkMonitoringService {
       let sessions: any[] = [];
       
       try {
-        const { data, error } = await supabase
-          .rpc('get_active_sessions_by_client', { client_id: clientId }) as any;
+        const { data } = await (supabase as any)
+          .rpc('get_active_sessions_by_client', { client_id: clientId });
         
-        if (!error && data) {
-          sessions = data;
+        if (data) {
+          sessions = data as any[];
         }
       } catch (error) {
         console.warn('Failed to fetch sessions for disconnect:', error);
@@ -161,7 +162,7 @@ class LiveNetworkMonitoringService {
     try {
       // Update RADIUS user profile
       try {
-        await supabase.rpc('update_radius_user_speed', {
+        await (supabase as any).rpc('update_radius_user_speed', {
           client_id: clientId,
           max_download: this.parseSpeedLimit(newSpeed).download,
           max_upload: this.parseSpeedLimit(newSpeed).upload

@@ -1,7 +1,7 @@
-
 import { supabase } from '@/integrations/supabase/client';
 import { radiusService } from './radiusService';
 import { mikrotikApiService } from './mikrotikApiService';
+import type { MikrotikRouter } from '@/types/network';
 
 export interface OnboardingStep {
   name: string;
@@ -193,21 +193,22 @@ class ClientOnboardingService {
   private async configureMikroTikRouter(client: any, equipment: any) {
     // Try to get MikroTik routers using raw query since table might not be in types
     try {
-      const { data: routers, error } = await supabase
-        .rpc('get_mikrotik_routers_raw') as any;
+      const { data: routers } = await (supabase as any)
+        .rpc('get_mikrotik_routers_raw');
 
-      // Fallback to mock router if query fails
-      const router = routers?.[0] || {
-        id: 'mock-router-id',
-        name: 'Mock MikroTik Router',
-        ip_address: '192.168.1.1',
-        admin_username: 'admin',
-        admin_password: 'admin123'
-      };
+      const routerList = (routers as MikrotikRouter[] | undefined) || [];
+      const router: MikrotikRouter | { id: string; name: string; ip_address: string; admin_username: string; admin_password: string } =
+        routerList[0] || {
+          id: 'mock-router-id',
+          name: 'Mock MikroTik Router',
+          ip_address: '192.168.1.1',
+          admin_username: 'admin',
+          admin_password: 'admin123'
+        };
 
       const speedLimit = this.parseSpeedFromPackage(client.service_packages?.speed || '10Mbps');
 
-      // Configure PPPoE secret on MikroTik
+      // Configure PPPoE secret on MikroTik (mock via simple queue creation)
       const pppoeConfig = {
         name: client.email || client.phone,
         password: this.generateSecurePassword(),
@@ -218,12 +219,11 @@ class ClientOnboardingService {
         comment: `Client: ${client.name} - Auto configured`
       };
 
-      // In production, this would use actual RouterOS API
       const configSuccess = await mikrotikApiService.createSimpleQueue(
         {
-          ip: router.ip_address,
-          username: router.admin_username,
-          password: router.admin_password,
+          ip: (router as any).ip_address,
+          username: (router as any).admin_username,
+          password: (router as any).admin_password,
           port: 8728
         },
         {
@@ -240,8 +240,8 @@ class ClientOnboardingService {
       }
 
       return {
-        routerId: router.id,
-        routerName: router.name,
+        routerId: (router as any).id,
+        routerName: (router as any).name,
         pppoeConfig,
         speedLimit
       };
@@ -294,9 +294,9 @@ class ClientOnboardingService {
       isp_company_id: client.isp_company_id
     };
 
-    // Try to store network configuration using raw insert
+    // Try to store network configuration using raw insert via RPC fallback
     try {
-      await supabase.rpc('insert_client_network_profile', networkProfile as any);
+      await (supabase as any).rpc('insert_client_network_profile', networkProfile as any);
     } catch (error) {
       console.warn('Failed to store network profile:', error);
     }

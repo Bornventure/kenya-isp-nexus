@@ -331,19 +331,19 @@ const InventoryItemDetail: React.FC<InventoryItemDetailProps> = ({ itemId, onClo
       <EditInventoryItemDialog
         open={showEditDialog}
         onOpenChange={setShowEditDialog}
-        item={item as InventoryItem}
+        inventoryItem={item as InventoryItem}
       />
 
       <PromoteToEquipmentDialog
         open={showPromoteDialog}
         onOpenChange={setShowPromoteDialog}
-        item={item as InventoryItem}
+        inventoryItem={item as InventoryItem}
       />
 
       <PromoteToMikrotikDialog
         open={showMikrotikDialog}
         onOpenChange={setShowMikrotikDialog}
-        item={item as InventoryItem}
+        inventoryItem={item as InventoryItem}
       />
     </>
   );
