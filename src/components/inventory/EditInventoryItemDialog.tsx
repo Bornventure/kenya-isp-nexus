@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
@@ -74,8 +73,7 @@ const EditInventoryItemDialog: React.FC<EditInventoryItemDialogProps> = ({
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     
-    const updateParams = {
-      id: itemId,
+    const updates = {
       name: formData.name || null,
       manufacturer: formData.manufacturer || null,
       model: formData.model || null,
@@ -98,7 +96,7 @@ const EditInventoryItemDialog: React.FC<EditInventoryItemDialogProps> = ({
       subnet_mask: formData.subnet_mask || null,
     };
 
-    updateItem(updateParams, {
+    updateItem({ itemId, updates }, {
       onSuccess: () => {
         onOpenChange(false);
       },

@@ -43,6 +43,12 @@ export interface InventoryItem {
   isp_company_id?: string;
   created_at?: string;
   updated_at?: string;
+  item_sku?: string;
+  clients?: {
+    id: string;
+    name: string;
+    phone: string;
+  };
 }
 
 export const useInventoryItems = (filters: {
@@ -59,7 +65,14 @@ export const useInventoryItems = (filters: {
 
       let query = supabase
         .from('inventory_items')
-        .select('*')
+        .select(`
+          *,
+          clients!inventory_items_assigned_customer_id_fkey (
+            id,
+            name,
+            phone
+          )
+        `)
         .eq('isp_company_id', profile.isp_company_id)
         .order('created_at', { ascending: false });
 
@@ -98,7 +111,14 @@ export const useInventoryItem = (itemId: string) => {
 
       const { data, error } = await supabase
         .from('inventory_items')
-        .select('*')
+        .select(`
+          *,
+          clients!inventory_items_assigned_customer_id_fkey (
+            id,
+            name,
+            phone
+          )
+        `)
         .eq('id', itemId)
         .single();
 
@@ -116,10 +136,16 @@ export const useCreateInventoryItem = () => {
 
   return useMutation({
     mutationFn: async (itemData: Partial<InventoryItem>) => {
+      if (!itemData.category || !itemData.type) {
+        throw new Error('Category and type are required');
+      }
+
       const { data, error } = await supabase
         .from('inventory_items')
         .insert({
           ...itemData,
+          category: itemData.category,
+          type: itemData.type,
           isp_company_id: profile?.isp_company_id,
         })
         .select()
@@ -286,9 +312,9 @@ export const usePromoteToNetworkEquipment = () => {
       inventoryItemId: string; 
       equipmentData: any;
     }) => {
-      // First create network equipment record
+      // First create equipment record
       const { data: equipment, error: equipmentError } = await supabase
-        .from('network_equipment')
+        .from('equipment')
         .insert(equipmentData)
         .select()
         .single();
