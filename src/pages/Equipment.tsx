@@ -1,4 +1,3 @@
-
 import React from 'react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import EquipmentActions from '@/components/equipment/EquipmentActions';
@@ -7,6 +6,7 @@ import RealNetworkInfrastructureManager from '@/components/infrastructure/RealNe
 import NetworkDeviceMonitor from '@/components/equipment/NetworkDeviceMonitor';
 import EquipmentInventoryManager from '@/components/equipment/EquipmentInventoryManager';
 import { MikrotikRouterManager } from '@/components/network/MikroTikRouterManager';
+import NetworkEquipmentList from '@/components/equipment/NetworkEquipmentList';
 
 const Equipment = () => {
   return (
@@ -18,8 +18,9 @@ const Equipment = () => {
         </p>
       </div>
       
-      <Tabs defaultValue="live-monitoring" className="space-y-4">
-        <TabsList className="grid w-full grid-cols-6">
+      <Tabs defaultValue="network-equipment" className="space-y-4">
+        <TabsList className="grid w-full grid-cols-7">
+          <TabsTrigger value="network-equipment">Network Equipment</TabsTrigger>
           <TabsTrigger value="live-monitoring">Live Monitoring</TabsTrigger>
           <TabsTrigger value="mikrotik">MikroTik Routers</TabsTrigger>
           <TabsTrigger value="infrastructure">Infrastructure</TabsTrigger>
@@ -27,6 +28,10 @@ const Equipment = () => {
           <TabsTrigger value="lifecycle">Lifecycle</TabsTrigger>
           <TabsTrigger value="overview">Overview</TabsTrigger>
         </TabsList>
+        
+        <TabsContent value="network-equipment">
+          <NetworkEquipmentList />
+        </TabsContent>
         
         <TabsContent value="live-monitoring">
           <NetworkDeviceMonitor />

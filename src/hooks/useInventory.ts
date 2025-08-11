@@ -404,42 +404,18 @@ export const usePromoteToNetworkEquipment = () => {
     }) => {
       console.log('Promoting inventory item to equipment:', params);
       
-      // First try to use the RPC function
-      try {
-        const { data, error } = await supabase.rpc('promote_inventory_to_equipment', {
-          inventory_item_id: params.inventoryItemId,
-          equipment_data: params.equipmentData
-        });
+      const { data, error } = await supabase.rpc('promote_inventory_to_equipment', {
+        inventory_item_id: params.inventoryItemId,
+        equipment_data: params.equipmentData
+      });
 
-        if (error) {
-          console.error('RPC error:', error);
-          throw error;
-        }
-
-        console.log('Equipment promotion successful:', data);
-        return { success: true, equipment_id: data };
-      } catch (rpcError) {
-        console.warn('RPC function not available, using fallback method:', rpcError);
-        
-        // Fallback: Update inventory item manually
-        const { data: updatedItem, error: updateError } = await supabase
-          .from('inventory_items')
-          .update({
-            is_network_equipment: true,
-            status: 'Deployed',
-            notes: (params.equipmentData.notes || '') + ' - Promoted to Network Equipment'
-          })
-          .eq('id', params.inventoryItemId)
-          .select()
-          .single();
-
-        if (updateError) {
-          console.error('Fallback update error:', updateError);
-          throw updateError;
-        }
-
-        return { success: true, inventory_item: updatedItem };
+      if (error) {
+        console.error('Promotion error:', error);
+        throw error;
       }
+
+      console.log('Equipment promotion successful:', data);
+      return { success: true, equipment_id: data };
     },
     onSuccess: () => {
       toast({
@@ -447,7 +423,7 @@ export const usePromoteToNetworkEquipment = () => {
         description: "Item promoted to network equipment successfully.",
       });
       queryClient.invalidateQueries({ queryKey: ['inventory-items'] });
-      queryClient.invalidateQueries({ queryKey: ['equipment'] });
+      queryClient.invalidateQueries({ queryKey: ['network-equipment'] });
     },
     onError: (error: any) => {
       toast({
