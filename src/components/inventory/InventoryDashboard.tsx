@@ -128,7 +128,15 @@ const InventoryDashboard: React.FC<InventoryDashboardProps> = ({
                   </div>
                 ))
               ) : (
-                <p className="text-muted-foreground text-center py-4">No inventory data available</p>
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between p-2 bg-gray-50 rounded">
+                    <span className="font-medium">CPE</span>
+                    <Badge variant="secondary">1</Badge>
+                  </div>
+                  <p className="text-xs text-muted-foreground text-center mt-2">
+                    Default categories shown - add inventory items to see actual data
+                  </p>
+                </div>
               )}
             </div>
           </CardContent>

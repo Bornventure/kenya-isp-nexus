@@ -4,7 +4,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { AlertTriangle, Eye, Package, Plus, ShoppingCart, ArrowLeft } from 'lucide-react';
-import { useLowStockItems } from '@/hooks/useInventory';
+import { useLowStockItems } from '@/hooks/useInventoryCategories';
 
 interface LowStockManagementProps {
   onViewItem: (itemId: string) => void;
@@ -16,6 +16,8 @@ const LowStockManagement: React.FC<LowStockManagementProps> = ({
   onBackToDashboard 
 }) => {
   const { data: lowStockItems = [], isLoading, error } = useLowStockItems();
+
+  console.log('Low stock items in management:', lowStockItems);
 
   if (isLoading) {
     return (
@@ -61,7 +63,7 @@ const LowStockManagement: React.FC<LowStockManagementProps> = ({
             Low Stock Items ({lowStockItems.length})
           </CardTitle>
           <p className="text-sm text-muted-foreground">
-            Items below minimum stock levels requiring attention
+            Items below minimum stock levels requiring immediate attention
           </p>
         </CardHeader>
         <CardContent>
@@ -72,16 +74,18 @@ const LowStockManagement: React.FC<LowStockManagementProps> = ({
                   <div className="flex-1">
                     <div className="font-medium">{item.name || item.type}</div>
                     <div className="text-sm text-muted-foreground">
-                      {item.category} - {item.model && `Model: ${item.model}`}
+                      {item.category} {item.manufacturer && `- ${item.manufacturer}`} {item.model && `(${item.model})`}
                     </div>
-                    <div className="text-sm mt-1">
-                      <span className="text-gray-600">Current Stock: </span>
-                      <span className="font-medium">{item.quantity_in_stock || 0}</span>
-                      <span className="text-gray-600 ml-2">Required: </span>
-                      <span className="font-medium">{item.reorder_level || 0}</span>
-                    </div>
-                    <div className="text-sm text-red-600 font-medium mt-1">
-                      Shortage: {(item.reorder_level || 0) - (item.quantity_in_stock || 0)} units
+                    <div className="text-sm mt-1 space-y-1">
+                      <div>
+                        <span className="text-gray-600">Current Stock: </span>
+                        <span className="font-medium text-red-600">{item.quantity_in_stock}</span>
+                        <span className="text-gray-600 ml-2">Required: </span>
+                        <span className="font-medium">{item.reorder_level}</span>
+                      </div>
+                      <div className="text-sm text-red-600 font-medium">
+                        ⚠️ Shortage: {item.reorder_level - item.quantity_in_stock} units needed
+                      </div>
                     </div>
                     <Badge variant="destructive" className="mt-2">
                       Critical Low Stock
@@ -99,7 +103,7 @@ const LowStockManagement: React.FC<LowStockManagementProps> = ({
                     <Button 
                       size="sm"
                       onClick={() => {
-                        // Navigate to inventory with pre-filled category filter
+                        // Navigate to inventory management
                         if (onBackToDashboard) {
                           onBackToDashboard();
                         }
@@ -118,7 +122,8 @@ const LowStockManagement: React.FC<LowStockManagementProps> = ({
                   Recommended Action
                 </h4>
                 <p className="text-sm text-blue-800 mb-3">
-                  These items require immediate restocking to avoid service disruptions.
+                  These items require immediate restocking to avoid service disruptions. 
+                  Priority should be given to network equipment (routers, ONTs) and customer-facing devices.
                 </p>
                 <Button 
                   className="bg-blue-600 hover:bg-blue-700"

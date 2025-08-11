@@ -3,8 +3,8 @@ import React from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { AlertTriangle, Package, TrendingDown } from 'lucide-react';
-import { useLowStockItems } from '@/hooks/useInventory';
+import { AlertTriangle, Package, TrendingDown, ShoppingCart } from 'lucide-react';
+import { useLowStockItems } from '@/hooks/useInventoryCategories';
 
 interface InventoryLowStockOverviewProps {
   onViewLowStock: () => void;
@@ -12,6 +12,8 @@ interface InventoryLowStockOverviewProps {
 
 const InventoryLowStockOverview: React.FC<InventoryLowStockOverviewProps> = ({ onViewLowStock }) => {
   const { data: lowStockItems = [], isLoading } = useLowStockItems();
+
+  console.log('Low stock items in overview:', lowStockItems);
 
   if (isLoading) {
     return (
@@ -51,10 +53,14 @@ const InventoryLowStockOverview: React.FC<InventoryLowStockOverviewProps> = ({ o
             <div className="space-y-2">
               {lowStockItems.slice(0, 3).map((item) => (
                 <div key={item.id} className="flex items-center justify-between p-2 bg-gray-50 rounded">
-                  <div>
+                  <div className="flex-1">
                     <p className="font-medium text-sm">{item.name || item.type}</p>
                     <p className="text-xs text-muted-foreground">
+                      {item.manufacturer && `${item.manufacturer} - `}
                       Stock: {item.quantity_in_stock} / Min: {item.reorder_level}
+                    </p>
+                    <p className="text-xs text-red-600">
+                      Need: {item.reorder_level - item.quantity_in_stock} more
                     </p>
                   </div>
                   <TrendingDown className="h-4 w-4 text-red-500" />
@@ -63,14 +69,17 @@ const InventoryLowStockOverview: React.FC<InventoryLowStockOverviewProps> = ({ o
               
               {lowStockItems.length > 3 && (
                 <p className="text-sm text-muted-foreground text-center">
-                  +{lowStockItems.length - 3} more items
+                  +{lowStockItems.length - 3} more items need restocking
                 </p>
               )}
             </div>
             
-            <Button onClick={onViewLowStock} className="w-full" variant="outline">
-              View All Low Stock Items
-            </Button>
+            <div className="flex gap-2">
+              <Button onClick={onViewLowStock} className="flex-1" variant="outline">
+                <ShoppingCart className="h-4 w-4 mr-2" />
+                View All Low Stock Items
+              </Button>
+            </div>
           </div>
         ) : (
           <div className="text-center py-6">

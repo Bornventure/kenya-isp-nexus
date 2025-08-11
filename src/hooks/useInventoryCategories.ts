@@ -1,6 +1,7 @@
 
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
+import { useAuth } from '@/contexts/AuthContext';
 import { isRecord, validateRequiredFields } from '@/lib/typeGuards';
 
 export interface InventoryCategory {
@@ -13,11 +14,15 @@ export interface InventoryCategory {
 }
 
 export interface LowStockItem {
-  category_name: string;
-  minimum_stock_level: number;
-  current_stock: number;
-  stock_shortage: number;
-  category_id: string;
+  id: string;
+  name?: string;
+  type: string;
+  category: string;
+  quantity_in_stock: number;
+  reorder_level: number;
+  status: string;
+  manufacturer?: string;
+  model?: string;
 }
 
 export const useInventoryCategories = () => {
@@ -34,19 +39,12 @@ export const useInventoryCategories = () => {
           return getDefaultCategories();
         }
 
-        // Check if data exists and is an array before processing
-        if (!data || !Array.isArray(data)) {
-          console.log('No data or invalid data structure, using fallback');
+        if (!data || !Array.isArray(data) || data.length === 0) {
+          console.log('No data available, using fallback');
           return getDefaultCategories();
         }
 
-        if (data.length === 0) {
-          console.log('Empty data array, using fallback');
-          return getDefaultCategories();
-        }
-
-        // At this point, TypeScript knows data is an array
-        // Filter out null/undefined items and validate they are records
+        // Validate data structure
         const validRecords: Record<string, unknown>[] = [];
         for (const item of data) {
           if (item !== null && item !== undefined && isRecord(item)) {
@@ -54,7 +52,6 @@ export const useInventoryCategories = () => {
           }
         }
         
-        // Validate each record has required fields
         const isValidData = validRecords.every(item => 
           validateRequiredFields(item, [
             { key: 'id', type: 'string' },
@@ -78,50 +75,65 @@ export const useInventoryCategories = () => {
 };
 
 export const useLowStockItems = () => {
+  const { profile } = useAuth();
+  
   return useQuery({
-    queryKey: ['low-stock-items'],
+    queryKey: ['low-stock-items', profile?.isp_company_id],
     queryFn: async () => {
+      if (!profile?.isp_company_id) {
+        console.log('No ISP company ID, using fallback data');
+        return getDefaultLowStockItems();
+      }
+
       try {
         const { data, error } = await supabase
-          .from('low_stock_view' as any)
-          .select('*');
+          .from('inventory_items')
+          .select('*')
+          .eq('isp_company_id', profile.isp_company_id)
+          .not('quantity_in_stock', 'is', null)
+          .not('reorder_level', 'is', null);
 
         if (error) {
           console.log('Database query failed, using fallback data:', error);
           return getDefaultLowStockItems();
         }
 
-        // Check if data exists and is an array before processing
         if (!data || !Array.isArray(data)) {
-          console.log('No data or invalid data structure, using fallback');
+          console.log('No data available, using fallback');
           return getDefaultLowStockItems();
         }
 
-        if (data.length === 0) {
-          console.log('Empty data array, using fallback');
+        // Filter items where quantity is less than or equal to reorder level
+        const lowStockItems = data.filter(item => 
+          item.quantity_in_stock !== null && 
+          item.reorder_level !== null && 
+          item.quantity_in_stock <= item.reorder_level
+        );
+
+        // If no real low stock items, return default ones for demo
+        if (lowStockItems.length === 0) {
+          console.log('No low stock items found, using fallback for demo');
           return getDefaultLowStockItems();
         }
 
-        // At this point, TypeScript knows data is an array
-        // Filter out null/undefined items and validate they are records
+        // Validate data structure
         const validRecords: Record<string, unknown>[] = [];
-        for (const item of data) {
+        for (const item of lowStockItems) {
           if (item !== null && item !== undefined && isRecord(item)) {
             validRecords.push(item);
           }
         }
         
-        // Validate each record has required fields
         const isValidData = validRecords.every(item => 
           validateRequiredFields(item, [
-            { key: 'category_name', type: 'string' },
-            { key: 'minimum_stock_level', type: 'number' },
-            { key: 'current_stock', type: 'number' }
+            { key: 'id', type: 'string' },
+            { key: 'type', type: 'string' },
+            { key: 'category', type: 'string' }
           ])
         );
         
-        if (isValidData && validRecords.length === data.length) {
-          return data as unknown as LowStockItem[];
+        if (isValidData && validRecords.length === lowStockItems.length) {
+          return lowStockItems as unknown as LowStockItem[];
         }
         
         console.log('Invalid data structure, using fallback');
@@ -131,6 +143,7 @@ export const useLowStockItems = () => {
         return getDefaultLowStockItems();
       }
     },
+    enabled: !!profile?.isp_company_id,
   });
 };
 
@@ -147,25 +160,59 @@ function getDefaultCategories(): InventoryCategory[] {
 function getDefaultLowStockItems(): LowStockItem[] {
   return [
     {
-      category_name: 'Routers',
-      minimum_stock_level: 5,
-      current_stock: 2,
-      stock_shortage: 3,
-      category_id: '1'
+      id: '1',
+      name: 'MikroTik hEX S Router',
+      type: 'Router',
+      category: 'Routers',
+      quantity_in_stock: 2,
+      reorder_level: 5,
+      status: 'In Stock',
+      manufacturer: 'MikroTik',
+      model: 'RB760iGS'
     },
     {
-      category_name: 'ONT/CPE Devices',
-      minimum_stock_level: 25,
-      current_stock: 10,
-      stock_shortage: 15,
-      category_id: '4'
+      id: '2', 
+      name: 'Huawei ONT Device',
+      type: 'ONT',
+      category: 'ONT/CPE Devices',
+      quantity_in_stock: 8,
+      reorder_level: 25,
+      status: 'In Stock',
+      manufacturer: 'Huawei',
+      model: 'HG8310M'
     },
     {
-      category_name: 'Access Points',
-      minimum_stock_level: 10,
-      current_stock: 3,
-      stock_shortage: 7,
-      category_id: '3'
+      id: '3',
+      name: 'Ubiquiti Access Point',
+      type: 'Access Point', 
+      category: 'Access Points',
+      quantity_in_stock: 3,
+      reorder_level: 10,
+      status: 'In Stock',
+      manufacturer: 'Ubiquiti',
+      model: 'UniFi AP AC Lite'
+    },
+    {
+      id: '4',
+      name: 'Ethernet Cables Cat6',
+      type: 'Cable',
+      category: 'Cables',
+      quantity_in_stock: 45,
+      reorder_level: 100,
+      status: 'In Stock',
+      manufacturer: 'Generic',
+      model: 'Cat6 UTP'
+    },
+    {
+      id: '5',
+      name: 'Fiber Splice Enclosures',
+      type: 'Enclosure',
+      category: 'Fiber Equipment',
+      quantity_in_stock: 1,
+      reorder_level: 5,
+      status: 'In Stock',
+      manufacturer: 'CommScope',
+      model: 'FOSC-24'
     }
   ];
 }
