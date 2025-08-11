@@ -1,8 +1,8 @@
+
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
-import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/contexts/AuthContext';
-import { isRecord, validateRequiredFields } from '@/lib/typeGuards';
+import { useToast } from '@/hooks/use-toast';
 
 export interface RadiusServer {
   id: string;
@@ -12,35 +12,25 @@ export interface RadiusServer {
   accounting_port: number;
   shared_secret: string;
   timeout_seconds: number;
-  retry_attempts: number;
   is_enabled: boolean;
   is_primary: boolean;
   isp_company_id: string;
+  created_at: string;
+  updated_at: string;
 }
 
 export interface RadiusGroup {
   id: string;
   name: string;
-  description?: string;
+  description: string;
   upload_limit_mbps: number;
   download_limit_mbps: number;
   session_timeout_seconds?: number;
   idle_timeout_seconds?: number;
   is_active: boolean;
   isp_company_id: string;
-}
-
-export interface RadiusUser {
-  id: string;
-  client_id?: string;
-  username: string;
-  password: string;
-  group_name?: string;
-  max_upload: string;
-  max_download: string;
-  expiration?: string;
-  is_active: boolean;
-  isp_company_id: string;
+  created_at: string;
+  updated_at: string;
 }
 
 export interface NASClient {
@@ -48,277 +38,104 @@ export interface NASClient {
   name: string;
   shortname: string;
   type: string;
-  ports: number;
+  nas_ip_address: string;
   secret: string;
-  server?: string;
+  ports: number;
   community: string;
   description?: string;
-  nas_ip_address: string;
   is_active: boolean;
   isp_company_id: string;
+  created_at: string;
+  updated_at: string;
 }
 
 export const useRadiusServers = () => {
+  const { profile } = useAuth();
+
   return useQuery({
-    queryKey: ['radius-servers'],
+    queryKey: ['radius-servers', profile?.isp_company_id],
     queryFn: async () => {
-      try {
-        const { data, error } = await supabase
-          .from('radius_servers' as any)
-          .select('*');
+      if (!profile?.isp_company_id) return [];
 
-        if (error) {
-          console.log('Database query failed, using fallback data:', error);
-          return getDefaultRadiusServers();
-        }
+      const { data, error } = await supabase
+        .from('radius_servers')
+        .select('*')
+        .eq('isp_company_id', profile.isp_company_id)
+        .order('created_at', { ascending: false });
 
-        // Check if data exists and is an array before processing
-        if (!data || !Array.isArray(data)) {
-          console.log('No data or invalid data structure, using fallback');
-          return getDefaultRadiusServers();
-        }
-
-        if (data.length === 0) {
-          console.log('Empty data array, using fallback');
-          return getDefaultRadiusServers();
-        }
-
-        // At this point, TypeScript knows data is an array
-        // Filter out null/undefined items and validate they are records
-        const validRecords: Record<string, unknown>[] = [];
-        for (const item of data) {
-          if (item !== null && item !== undefined && isRecord(item)) {
-            validRecords.push(item);
-          }
-        }
-        
-        // Validate each record has required fields
-        const isValidData = validRecords.every(item => 
-          validateRequiredFields(item, [
-            { key: 'id', type: 'string' },
-            { key: 'name', type: 'string' },
-            { key: 'server_address', type: 'string' }
-          ])
-        );
-        
-        if (isValidData && validRecords.length === data.length) {
-          return data as unknown as RadiusServer[];
-        }
-        
-        console.log('Invalid data structure, using fallback');
-        return getDefaultRadiusServers();
-      } catch (error) {
-        console.error('Error fetching RADIUS servers:', error);
-        return getDefaultRadiusServers();
-      }
+      if (error) throw error;
+      return (data || []) as RadiusServer[];
     },
+    enabled: !!profile?.isp_company_id,
   });
 };
 
 export const useRadiusGroups = () => {
+  const { profile } = useAuth();
+
   return useQuery({
-    queryKey: ['radius-groups'],
+    queryKey: ['radius-groups', profile?.isp_company_id],
     queryFn: async () => {
-      try {
-        const { data, error } = await supabase
-          .from('radius_groups' as any)
-          .select('*');
+      if (!profile?.isp_company_id) return [];
 
-        if (error) {
-          console.log('Database query failed, using fallback data:', error);
-          return getDefaultRadiusGroups();
-        }
+      const { data, error } = await supabase
+        .from('radius_groups')
+        .select('*')
+        .eq('isp_company_id', profile.isp_company_id)
+        .order('created_at', { ascending: false });
 
-        // Check if data exists and is an array before processing
-        if (!data || !Array.isArray(data)) {
-          console.log('No data or invalid data structure, using fallback');
-          return getDefaultRadiusGroups();
-        }
-
-        if (data.length === 0) {
-          console.log('Empty data array, using fallback');
-          return getDefaultRadiusGroups();
-        }
-
-        // At this point, TypeScript knows data is an array
-        // Filter out null/undefined items and validate they are records
-        const validRecords: Record<string, unknown>[] = [];
-        for (const item of data) {
-          if (item !== null && item !== undefined && isRecord(item)) {
-            validRecords.push(item);
-          }
-        }
-        
-        // Validate each record has required fields
-        const isValidData = validRecords.every(item => 
-          validateRequiredFields(item, [
-            { key: 'id', type: 'string' },
-            { key: 'name', type: 'string' },
-            { key: 'upload_limit_mbps', type: 'number' }
-          ])
-        );
-        
-        if (isValidData && validRecords.length === data.length) {
-          return data as unknown as RadiusGroup[];
-        }
-        
-        console.log('Invalid data structure, using fallback');
-        return getDefaultRadiusGroups();
-      } catch (error) {
-        console.error('Error fetching RADIUS groups:', error);
-        return getDefaultRadiusGroups();
-      }
+      if (error) throw error;
+      return (data || []) as RadiusGroup[];
     },
-  });
-};
-
-export const useRadiusUsers = () => {
-  return useQuery({
-    queryKey: ['radius-users'],
-    queryFn: async () => {
-      try {
-        const { data, error } = await supabase
-          .from('radius_users' as any)
-          .select('*');
-
-        if (error) {
-          console.log('Database query failed, using fallback data:', error);
-          return [] as RadiusUser[];
-        }
-
-        // Check if data exists and is an array before processing
-        if (!data || !Array.isArray(data)) {
-          console.log('No data or invalid data structure, returning empty array');
-          return [] as RadiusUser[];
-        }
-
-        if (data.length === 0) {
-          return [] as RadiusUser[];
-        }
-
-        // At this point, TypeScript knows data is an array
-        // Filter out null/undefined items and validate they are records
-        const validRecords: Record<string, unknown>[] = [];
-        for (const item of data) {
-          if (item !== null && item !== undefined && isRecord(item)) {
-            validRecords.push(item);
-          }
-        }
-        
-        // Validate each record has required fields
-        const isValidData = validRecords.every(item => 
-          validateRequiredFields(item, [
-            { key: 'id', type: 'string' },
-            { key: 'username', type: 'string' },
-            { key: 'password', type: 'string' }
-          ])
-        );
-        
-        if (isValidData && validRecords.length === data.length) {
-          return data as unknown as RadiusUser[];
-        }
-        
-        return [] as RadiusUser[];
-      } catch (error) {
-        console.error('Error fetching RADIUS users:', error);
-        return [] as RadiusUser[];
-      }
-    },
+    enabled: !!profile?.isp_company_id,
   });
 };
 
 export const useNASClients = () => {
+  const { profile } = useAuth();
   const { toast } = useToast();
   const queryClient = useQueryClient();
-  const { profile } = useAuth();
 
-  const query = useQuery({
-    queryKey: ['nas-clients'],
+  const { data: nasClients = [], isLoading } = useQuery({
+    queryKey: ['nas-clients', profile?.isp_company_id],
     queryFn: async () => {
-      try {
-        const { data, error } = await supabase
-          .from('nas_clients' as any)
-          .select('*')
-          .eq('isp_company_id', profile?.isp_company_id);
+      if (!profile?.isp_company_id) return [];
 
-        if (error) {
-          console.log('Database query failed, using fallback data:', error);
-          return [] as NASClient[];
-        }
+      const { data, error } = await supabase
+        .from('nas_clients')
+        .select('*')
+        .eq('isp_company_id', profile.isp_company_id)
+        .order('created_at', { ascending: false });
 
-        // Check if data exists and is an array before processing
-        if (!data || !Array.isArray(data)) {
-          console.log('No data or invalid data structure, returning empty array');
-          return [] as NASClient[];
-        }
-
-        if (data.length === 0) {
-          return [] as NASClient[];
-        }
-
-        // At this point, TypeScript knows data is an array
-        // Filter out null/undefined items and validate they are records
-        const validRecords: Record<string, unknown>[] = [];
-        for (const item of data) {
-          if (item !== null && item !== undefined && isRecord(item)) {
-            validRecords.push(item);
-          }
-        }
-        
-        // Validate each record has required fields
-        const isValidData = validRecords.every(item => 
-          validateRequiredFields(item, [
-            { key: 'id', type: 'string' },
-            { key: 'name', type: 'string' },
-            { key: 'shortname', type: 'string' }
-          ])
-        );
-        
-        if (isValidData && validRecords.length === data.length) {
-          return data as unknown as NASClient[];
-        }
-        
-        return [] as NASClient[];
-      } catch (error) {
-        console.error('Error fetching NAS clients:', error);
-        return [] as NASClient[];
-      }
+      if (error) throw error;
+      return (data || []) as NASClient[];
     },
+    enabled: !!profile?.isp_company_id,
   });
 
   const createNASClient = useMutation({
-    mutationFn: async (nasClient: Omit<NASClient, 'id'>) => {
-      // Try to insert into the new table, simulate if not available
-      try {
-        const { data, error } = await supabase
-          .from('nas_clients' as any)
-          .insert(nasClient)
-          .select()
-          .single();
+    mutationFn: async (clientData: Omit<NASClient, 'id' | 'created_at' | 'updated_at'>) => {
+      const { data, error } = await supabase
+        .from('nas_clients')
+        .insert(clientData)
+        .select()
+        .single();
 
-        if (error) throw error;
-        return data;
-      } catch (error) {
-        console.log('Simulating NAS client creation:', error);
-        // For now, just simulate creation since table might not be available
-        const newClient = {
-          ...nasClient,
-          id: crypto.randomUUID(),
-        };
-        return newClient;
-      }
+      if (error) throw error;
+      return data;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['nas-clients'] });
       toast({
-        title: "NAS Client Added",
-        description: "Network Access Server client has been configured successfully.",
+        title: "NAS Client Created",
+        description: "NAS client has been created successfully.",
       });
     },
-    onError: (error) => {
+    onError: (error: any) => {
+      console.error('Error creating NAS client:', error);
       toast({
         title: "Error",
-        description: "Failed to add NAS client: " + error.message,
+        description: "Failed to create NAS client. Please try again.",
         variant: "destructive",
       });
     },
@@ -326,34 +143,28 @@ export const useNASClients = () => {
 
   const updateNASClient = useMutation({
     mutationFn: async ({ id, updates }: { id: string; updates: Partial<NASClient> }) => {
-      // Try to update in the new table, simulate if not available
-      try {
-        const { data, error } = await supabase
-          .from('nas_clients' as any)
-          .update(updates)
-          .eq('id', id)
-          .select()
-          .single();
+      const { data, error } = await supabase
+        .from('nas_clients')
+        .update(updates)
+        .eq('id', id)
+        .select()
+        .single();
 
-        if (error) throw error;
-        return data;
-      } catch (error) {
-        console.log('Simulating NAS client update:', error);
-        // Simulate update
-        return { id, ...updates };
-      }
+      if (error) throw error;
+      return data;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['nas-clients'] });
       toast({
         title: "NAS Client Updated",
-        description: "Network Access Server client has been updated successfully.",
+        description: "NAS client has been updated successfully.",
       });
     },
-    onError: (error) => {
+    onError: (error: any) => {
+      console.error('Error updating NAS client:', error);
       toast({
         title: "Error",
-        description: "Failed to update NAS client: " + error.message,
+        description: "Failed to update NAS client. Please try again.",
         variant: "destructive",
       });
     },
@@ -361,86 +172,36 @@ export const useNASClients = () => {
 
   const deleteNASClient = useMutation({
     mutationFn: async (id: string) => {
-      // Try to delete from the new table, simulate if not available
-      try {
-        const { error } = await supabase
-          .from('nas_clients' as any)
-          .delete()
-          .eq('id', id);
+      const { error } = await supabase
+        .from('nas_clients')
+        .delete()
+        .eq('id', id);
 
-        if (error) throw error;
-        return id;
-      } catch (error) {
-        console.log('Simulating NAS client deletion:', error);
-        // Simulate deletion
-        return id;
-      }
+      if (error) throw error;
+      return id;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['nas-clients'] });
       toast({
         title: "NAS Client Deleted",
-        description: "Network Access Server client has been removed.",
+        description: "NAS client has been deleted successfully.",
       });
     },
-    onError: (error) => {
+    onError: (error: any) => {
+      console.error('Error deleting NAS client:', error);
       toast({
         title: "Error",
-        description: "Failed to delete NAS client: " + error.message,
+        description: "Failed to delete NAS client. Please try again.",
         variant: "destructive",
       });
     },
   });
 
   return {
-    ...query,
+    data: nasClients,
+    isLoading,
     createNASClient,
     updateNASClient,
     deleteNASClient,
   };
 };
-
-function getDefaultRadiusServers(): RadiusServer[] {
-  return [
-    {
-      id: '1',
-      name: 'Primary RADIUS Server',
-      server_address: '192.168.1.100',
-      auth_port: 1812,
-      accounting_port: 1813,
-      shared_secret: 'secret123',
-      timeout_seconds: 30,
-      retry_attempts: 3,
-      is_enabled: true,
-      is_primary: true,
-      isp_company_id: 'company-1'
-    }
-  ];
-}
-
-function getDefaultRadiusGroups(): RadiusGroup[] {
-  return [
-    {
-      id: '1',
-      name: 'basic',
-      description: 'Basic Internet Package',
-      upload_limit_mbps: 5,
-      download_limit_mbps: 10,
-      session_timeout_seconds: 86400,
-      idle_timeout_seconds: 300,
-      is_active: true,
-      isp_company_id: 'company-1'
-    },
-    {
-      id: '2',
-      name: 'premium',
-      description: 'Premium Internet Package',
-      upload_limit_mbps: 20,
-      download_limit_mbps: 50,
-      session_timeout_seconds: 86400,
-      idle_timeout_seconds: 300,
-      is_active: true,
-      isp_company_id: 'company-1'
-    }
-  ];
-}
