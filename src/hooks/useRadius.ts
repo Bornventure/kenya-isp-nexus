@@ -1,4 +1,3 @@
-
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
@@ -84,8 +83,11 @@ export const useRadiusServers = () => {
           return getDefaultRadiusServers();
         }
 
+        // At this point, TypeScript knows data is an array
         // Filter out null/undefined items first
-        const validRecords = data.filter(isRecord);
+        const validRecords = data.filter((item): item is Record<string, unknown> => 
+          item !== null && item !== undefined && isRecord(item)
+        );
         
         // Validate each record has required fields
         const isValidData = validRecords.every(item => 
@@ -135,8 +137,11 @@ export const useRadiusGroups = () => {
           return getDefaultRadiusGroups();
         }
 
+        // At this point, TypeScript knows data is an array
         // Filter out null/undefined items first
-        const validRecords = data.filter(isRecord);
+        const validRecords = data.filter((item): item is Record<string, unknown> => 
+          item !== null && item !== undefined && isRecord(item)
+        );
         
         // Validate each record has required fields
         const isValidData = validRecords.every(item => 
@@ -185,8 +190,11 @@ export const useRadiusUsers = () => {
           return [] as RadiusUser[];
         }
 
+        // At this point, TypeScript knows data is an array
         // Filter out null/undefined items first
-        const validRecords = data.filter(isRecord);
+        const validRecords = data.filter((item): item is Record<string, unknown> => 
+          item !== null && item !== undefined && isRecord(item)
+        );
         
         // Validate each record has required fields
         const isValidData = validRecords.every(item => 
@@ -239,8 +247,11 @@ export const useNASClients = () => {
           return [] as NASClient[];
         }
 
+        // At this point, TypeScript knows data is an array
         // Filter out null/undefined items first
-        const validRecords = data.filter(isRecord);
+        const validRecords = data.filter((item): item is Record<string, unknown> => 
+          item !== null && item !== undefined && isRecord(item)
+        );
         
         // Validate each record has required fields
         const isValidData = validRecords.every(item => 

@@ -45,8 +45,11 @@ export const useInventoryCategories = () => {
           return getDefaultCategories();
         }
 
+        // At this point, TypeScript knows data is an array
         // Filter out null/undefined items first
-        const validRecords = data.filter(isRecord);
+        const validRecords = data.filter((item): item is Record<string, unknown> => 
+          item !== null && item !== undefined && isRecord(item)
+        );
         
         // Validate each record has required fields
         const isValidData = validRecords.every(item => 
@@ -96,8 +99,11 @@ export const useLowStockItems = () => {
           return getDefaultLowStockItems();
         }
 
+        // At this point, TypeScript knows data is an array
         // Filter out null/undefined items first
-        const validRecords = data.filter(isRecord);
+        const validRecords = data.filter((item): item is Record<string, unknown> => 
+          item !== null && item !== undefined && isRecord(item)
+        );
         
         // Validate each record has required fields
         const isValidData = validRecords.every(item => 
