@@ -1,3 +1,4 @@
+
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { isRecord, validateRequiredFields } from '@/lib/typeGuards';
@@ -33,23 +34,31 @@ export const useInventoryCategories = () => {
           return getDefaultCategories();
         }
 
-        // Check if data exists and is valid
-        if (data && Array.isArray(data) && data.length > 0) {
-          // Filter out null/undefined items first
-          const validRecords = data.filter(isRecord);
-          
-          // Validate each record has required fields
-          const isValidData = validRecords.every(item => 
-            validateRequiredFields(item, [
-              { key: 'id', type: 'string' },
-              { key: 'name', type: 'string' },
-              { key: 'minimum_stock_level', type: 'number' }
-            ])
-          );
-          
-          if (isValidData && validRecords.length === data.length) {
-            return data as unknown as InventoryCategory[];
-          }
+        // Check if data exists and is an array before processing
+        if (!data || !Array.isArray(data)) {
+          console.log('No data or invalid data structure, using fallback');
+          return getDefaultCategories();
+        }
+
+        if (data.length === 0) {
+          console.log('Empty data array, using fallback');
+          return getDefaultCategories();
+        }
+
+        // Filter out null/undefined items first
+        const validRecords = data.filter(isRecord);
+        
+        // Validate each record has required fields
+        const isValidData = validRecords.every(item => 
+          validateRequiredFields(item, [
+            { key: 'id', type: 'string' },
+            { key: 'name', type: 'string' },
+            { key: 'minimum_stock_level', type: 'number' }
+          ])
+        );
+        
+        if (isValidData && validRecords.length === data.length) {
+          return data as unknown as InventoryCategory[];
         }
         
         console.log('Invalid data structure, using fallback');
@@ -76,23 +85,31 @@ export const useLowStockItems = () => {
           return getDefaultLowStockItems();
         }
 
-        // Check if data exists and is valid
-        if (data && Array.isArray(data) && data.length > 0) {
-          // Filter out null/undefined items first
-          const validRecords = data.filter(isRecord);
-          
-          // Validate each record has required fields
-          const isValidData = validRecords.every(item => 
-            validateRequiredFields(item, [
-              { key: 'category_name', type: 'string' },
-              { key: 'minimum_stock_level', type: 'number' },
-              { key: 'current_stock', type: 'number' }
-            ])
-          );
-          
-          if (isValidData && validRecords.length === data.length) {
-            return data as unknown as LowStockItem[];
-          }
+        // Check if data exists and is an array before processing
+        if (!data || !Array.isArray(data)) {
+          console.log('No data or invalid data structure, using fallback');
+          return getDefaultLowStockItems();
+        }
+
+        if (data.length === 0) {
+          console.log('Empty data array, using fallback');
+          return getDefaultLowStockItems();
+        }
+
+        // Filter out null/undefined items first
+        const validRecords = data.filter(isRecord);
+        
+        // Validate each record has required fields
+        const isValidData = validRecords.every(item => 
+          validateRequiredFields(item, [
+            { key: 'category_name', type: 'string' },
+            { key: 'minimum_stock_level', type: 'number' },
+            { key: 'current_stock', type: 'number' }
+          ])
+        );
+        
+        if (isValidData && validRecords.length === data.length) {
+          return data as unknown as LowStockItem[];
         }
         
         console.log('Invalid data structure, using fallback');

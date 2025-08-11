@@ -1,3 +1,4 @@
+
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
@@ -72,23 +73,31 @@ export const useRadiusServers = () => {
           return getDefaultRadiusServers();
         }
 
-        // Check if data exists and is valid
-        if (data && Array.isArray(data) && data.length > 0) {
-          // Filter out null/undefined items first
-          const validRecords = data.filter(isRecord);
-          
-          // Validate each record has required fields
-          const isValidData = validRecords.every(item => 
-            validateRequiredFields(item, [
-              { key: 'id', type: 'string' },
-              { key: 'name', type: 'string' },
-              { key: 'server_address', type: 'string' }
-            ])
-          );
-          
-          if (isValidData && validRecords.length === data.length) {
-            return data as unknown as RadiusServer[];
-          }
+        // Check if data exists and is an array before processing
+        if (!data || !Array.isArray(data)) {
+          console.log('No data or invalid data structure, using fallback');
+          return getDefaultRadiusServers();
+        }
+
+        if (data.length === 0) {
+          console.log('Empty data array, using fallback');
+          return getDefaultRadiusServers();
+        }
+
+        // Filter out null/undefined items first
+        const validRecords = data.filter(isRecord);
+        
+        // Validate each record has required fields
+        const isValidData = validRecords.every(item => 
+          validateRequiredFields(item, [
+            { key: 'id', type: 'string' },
+            { key: 'name', type: 'string' },
+            { key: 'server_address', type: 'string' }
+          ])
+        );
+        
+        if (isValidData && validRecords.length === data.length) {
+          return data as unknown as RadiusServer[];
         }
         
         console.log('Invalid data structure, using fallback');
@@ -115,23 +124,31 @@ export const useRadiusGroups = () => {
           return getDefaultRadiusGroups();
         }
 
-        // Check if data exists and is valid
-        if (data && Array.isArray(data) && data.length > 0) {
-          // Filter out null/undefined items first
-          const validRecords = data.filter(isRecord);
-          
-          // Validate each record has required fields
-          const isValidData = validRecords.every(item => 
-            validateRequiredFields(item, [
-              { key: 'id', type: 'string' },
-              { key: 'name', type: 'string' },
-              { key: 'upload_limit_mbps', type: 'number' }
-            ])
-          );
-          
-          if (isValidData && validRecords.length === data.length) {
-            return data as unknown as RadiusGroup[];
-          }
+        // Check if data exists and is an array before processing
+        if (!data || !Array.isArray(data)) {
+          console.log('No data or invalid data structure, using fallback');
+          return getDefaultRadiusGroups();
+        }
+
+        if (data.length === 0) {
+          console.log('Empty data array, using fallback');
+          return getDefaultRadiusGroups();
+        }
+
+        // Filter out null/undefined items first
+        const validRecords = data.filter(isRecord);
+        
+        // Validate each record has required fields
+        const isValidData = validRecords.every(item => 
+          validateRequiredFields(item, [
+            { key: 'id', type: 'string' },
+            { key: 'name', type: 'string' },
+            { key: 'upload_limit_mbps', type: 'number' }
+          ])
+        );
+        
+        if (isValidData && validRecords.length === data.length) {
+          return data as unknown as RadiusGroup[];
         }
         
         console.log('Invalid data structure, using fallback');
@@ -158,23 +175,30 @@ export const useRadiusUsers = () => {
           return [] as RadiusUser[];
         }
 
-        // Check if data exists and is valid
-        if (data && Array.isArray(data) && data.length > 0) {
-          // Filter out null/undefined items first
-          const validRecords = data.filter(isRecord);
-          
-          // Validate each record has required fields
-          const isValidData = validRecords.every(item => 
-            validateRequiredFields(item, [
-              { key: 'id', type: 'string' },
-              { key: 'username', type: 'string' },
-              { key: 'password', type: 'string' }
-            ])
-          );
-          
-          if (isValidData && validRecords.length === data.length) {
-            return data as unknown as RadiusUser[];
-          }
+        // Check if data exists and is an array before processing
+        if (!data || !Array.isArray(data)) {
+          console.log('No data or invalid data structure, returning empty array');
+          return [] as RadiusUser[];
+        }
+
+        if (data.length === 0) {
+          return [] as RadiusUser[];
+        }
+
+        // Filter out null/undefined items first
+        const validRecords = data.filter(isRecord);
+        
+        // Validate each record has required fields
+        const isValidData = validRecords.every(item => 
+          validateRequiredFields(item, [
+            { key: 'id', type: 'string' },
+            { key: 'username', type: 'string' },
+            { key: 'password', type: 'string' }
+          ])
+        );
+        
+        if (isValidData && validRecords.length === data.length) {
+          return data as unknown as RadiusUser[];
         }
         
         return [] as RadiusUser[];
@@ -205,23 +229,30 @@ export const useNASClients = () => {
           return [] as NASClient[];
         }
 
-        // Check if data exists and is valid
-        if (data && Array.isArray(data) && data.length > 0) {
-          // Filter out null/undefined items first
-          const validRecords = data.filter(isRecord);
-          
-          // Validate each record has required fields
-          const isValidData = validRecords.every(item => 
-            validateRequiredFields(item, [
-              { key: 'id', type: 'string' },
-              { key: 'name', type: 'string' },
-              { key: 'shortname', type: 'string' }
-            ])
-          );
-          
-          if (isValidData && validRecords.length === data.length) {
-            return data as unknown as NASClient[];
-          }
+        // Check if data exists and is an array before processing
+        if (!data || !Array.isArray(data)) {
+          console.log('No data or invalid data structure, returning empty array');
+          return [] as NASClient[];
+        }
+
+        if (data.length === 0) {
+          return [] as NASClient[];
+        }
+
+        // Filter out null/undefined items first
+        const validRecords = data.filter(isRecord);
+        
+        // Validate each record has required fields
+        const isValidData = validRecords.every(item => 
+          validateRequiredFields(item, [
+            { key: 'id', type: 'string' },
+            { key: 'name', type: 'string' },
+            { key: 'shortname', type: 'string' }
+          ])
+        );
+        
+        if (isValidData && validRecords.length === data.length) {
+          return data as unknown as NASClient[];
         }
         
         return [] as NASClient[];
