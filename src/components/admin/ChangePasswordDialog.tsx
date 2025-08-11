@@ -1,5 +1,5 @@
 
-import React, { useState } from 'react';
+import React from 'react';
 import {
   Dialog,
   DialogContent,
@@ -14,6 +14,7 @@ import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
 import { Lock, Eye, EyeOff } from 'lucide-react';
+import { usePersistedFormState } from '@/hooks/usePersistedFormState';
 import type { SystemUser } from '@/types/user';
 
 interface ChangePasswordDialogProps {
@@ -27,18 +28,31 @@ const ChangePasswordDialog: React.FC<ChangePasswordDialogProps> = ({
   open, 
   onOpenChange 
 }) => {
-  const [newPassword, setNewPassword] = useState('');
-  const [confirmPassword, setConfirmPassword] = useState('');
-  const [showPassword, setShowPassword] = useState(false);
-  const [isChanging, setIsChanging] = useState(false);
+  const [showPassword, setShowPassword] = React.useState(false);
+  const [isChanging, setIsChanging] = React.useState(false);
   const { toast } = useToast();
+
+  const initialFormData = {
+    newPassword: '',
+    confirmPassword: '',
+  };
+
+  const {
+    formData,
+    updateFormData,
+    handleSubmitSuccess,
+    clearPersistedData,
+  } = usePersistedFormState({
+    key: `changePassword_${user?.id || 'unknown'}`,
+    initialState: initialFormData,
+  });
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!user) return;
 
     // Validation
-    if (newPassword.length < 6) {
+    if (formData.newPassword.length < 6) {
       toast({
         title: "Password Too Short",
         description: "Password must be at least 6 characters long.",
@@ -47,7 +61,7 @@ const ChangePasswordDialog: React.FC<ChangePasswordDialogProps> = ({
       return;
     }
 
-    if (newPassword !== confirmPassword) {
+    if (formData.newPassword !== formData.confirmPassword) {
       toast({
         title: "Password Mismatch",
         description: "New password and confirm password do not match.",
@@ -63,7 +77,7 @@ const ChangePasswordDialog: React.FC<ChangePasswordDialogProps> = ({
       const { data, error } = await supabase.functions.invoke('change-user-password', {
         body: {
           user_id: user.id,
-          new_password: newPassword,
+          new_password: formData.newPassword,
         },
       });
 
@@ -82,8 +96,7 @@ const ChangePasswordDialog: React.FC<ChangePasswordDialogProps> = ({
       });
 
       // Clear form and close dialog
-      setNewPassword('');
-      setConfirmPassword('');
+      handleSubmitSuccess();
       onOpenChange(false);
     } catch (error) {
       console.error('Error changing password:', error);
@@ -104,8 +117,13 @@ const ChangePasswordDialog: React.FC<ChangePasswordDialogProps> = ({
     for (let i = 0, n = charset.length; i < length; ++i) {
       password += charset.charAt(Math.floor(Math.random() * n));
     }
-    setNewPassword(password);
-    setConfirmPassword(password);
+    updateFormData('newPassword', password);
+    updateFormData('confirmPassword', password);
+  };
+
+  const handleCancel = () => {
+    onOpenChange(false);
+    // Don't clear data on cancel - user might want to continue later
   };
 
   if (!user) return null;
@@ -130,8 +148,8 @@ const ChangePasswordDialog: React.FC<ChangePasswordDialogProps> = ({
               <Input
                 id="new_password"
                 type={showPassword ? "text" : "password"}
-                value={newPassword}
-                onChange={(e) => setNewPassword(e.target.value)}
+                value={formData.newPassword}
+                onChange={(e) => updateFormData('newPassword', e.target.value)}
                 placeholder="Enter new password"
                 className="pr-10"
                 required
@@ -160,8 +178,8 @@ const ChangePasswordDialog: React.FC<ChangePasswordDialogProps> = ({
             <Input
               id="confirm_password"
               type={showPassword ? "text" : "password"}
-              value={confirmPassword}
-              onChange={(e) => setConfirmPassword(e.target.value)}
+              value={formData.confirmPassword}
+              onChange={(e) => updateFormData('confirmPassword', e.target.value)}
               placeholder="Confirm new password"
               required
             />
@@ -179,16 +197,28 @@ const ChangePasswordDialog: React.FC<ChangePasswordDialogProps> = ({
             </Button>
           </div>
           
-          <DialogFooter>
-            <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
-              Cancel
-            </Button>
-            <Button 
-              type="submit" 
+          <DialogFooter className="flex justify-between">
+            <Button
+              type="button"
+              variant="ghost"
+              onClick={() => clearPersistedData()}
               disabled={isChanging}
+              className="text-sm"
             >
-              {isChanging ? 'Changing Password...' : 'Change Password'}
+              Clear Form
             </Button>
+            
+            <div className="flex space-x-2">
+              <Button type="button" variant="outline" onClick={handleCancel} disabled={isChanging}>
+                Cancel
+              </Button>
+              <Button 
+                type="submit" 
+                disabled={isChanging}
+              >
+                {isChanging ? 'Changing Password...' : 'Change Password'}
+              </Button>
+            </div>
           </DialogFooter>
         </form>
       </DialogContent>

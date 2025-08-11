@@ -1,6 +1,6 @@
 
-import React, { useState } from 'react';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
+import React from 'react';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -8,6 +8,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Plus, Loader2 } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { useSuperAdminCompanies } from '@/hooks/useSuperAdminCompanies';
+import { usePersistedFormState } from '@/hooks/usePersistedFormState';
 import type { CreateUserData, SystemUser } from '@/types/user';
 
 interface CreateUserDialogProps {
@@ -26,7 +27,7 @@ const CreateUserDialog: React.FC<CreateUserDialogProps> = ({
   const { profile } = useAuth();
   const { data: companies } = useSuperAdminCompanies();
   
-  const [formData, setFormData] = useState<CreateUserData>({
+  const initialFormData: CreateUserData = {
     email: '',
     password: '',
     first_name: '',
@@ -34,24 +35,41 @@ const CreateUserDialog: React.FC<CreateUserDialogProps> = ({
     phone: '',
     role: 'readonly',
     isp_company_id: profile?.role === 'isp_admin' ? profile?.isp_company_id || '' : '',
+  };
+
+  const {
+    formData,
+    updateFormData,
+    handleSubmitSuccess,
+    clearPersistedData,
+  } = usePersistedFormState({
+    key: 'createUser',
+    initialState: initialFormData,
   });
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    onCreateUser(formData);
-    setFormData({
-      email: '',
-      password: '',
-      first_name: '',
-      last_name: '',
-      phone: '',
-      role: 'readonly',
-      isp_company_id: profile?.role === 'isp_admin' ? profile?.isp_company_id || '' : '',
-    });
+    try {
+      await onCreateUser(formData);
+      handleSubmitSuccess(); // Clear persisted data on successful submission
+    } catch (error) {
+      // Don't clear data if submission fails
+      console.error('Error creating user:', error);
+    }
+  };
+
+  const handleCancel = () => {
+    onOpenChange(false);
+    // Don't clear data on cancel - user might want to continue later
   };
 
   const handleInputChange = (field: keyof CreateUserData, value: string) => {
-    setFormData(prev => ({ ...prev, [field]: value }));
+    updateFormData(field, value);
+  };
+
+  // Clear form data when explicitly requested
+  const handleClearForm = () => {
+    clearPersistedData();
   };
 
   // Both super_admin and isp_admin can create users
@@ -75,7 +93,6 @@ const CreateUserDialog: React.FC<CreateUserDialogProps> = ({
     // Only super_admin can create isp_admin and super_admin users
     if (profile?.role === 'super_admin') {
       baseRoles.push({ value: 'isp_admin', label: 'ISP Admin' });
-      // Note: super_admin creation should be done carefully, not included in regular UI
     }
 
     return baseRoles;
@@ -185,28 +202,40 @@ const CreateUserDialog: React.FC<CreateUserDialogProps> = ({
             </div>
           )}
 
-          <div className="flex justify-end space-x-2 pt-4">
+          <div className="flex justify-between pt-4">
             <Button
               type="button"
-              variant="outline"
-              onClick={() => onOpenChange(false)}
+              variant="ghost"
+              onClick={handleClearForm}
               disabled={isCreating}
+              className="text-sm"
             >
-              Cancel
+              Clear Form
             </Button>
-            <Button type="submit" disabled={isCreating}>
-              {isCreating ? (
-                <>
-                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                  Creating...
-                </>
-              ) : (
-                <>
-                  <Plus className="h-4 w-4 mr-2" />
-                  Create User
-                </>
-              )}
-            </Button>
+            
+            <div className="flex space-x-2">
+              <Button
+                type="button"
+                variant="outline"
+                onClick={handleCancel}
+                disabled={isCreating}
+              >
+                Cancel
+              </Button>
+              <Button type="submit" disabled={isCreating}>
+                {isCreating ? (
+                  <>
+                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                    Creating...
+                  </>
+                ) : (
+                  <>
+                    <Plus className="h-4 w-4 mr-2" />
+                    Create User
+                  </>
+                )}
+              </Button>
+            </div>
           </div>
         </form>
       </DialogContent>
