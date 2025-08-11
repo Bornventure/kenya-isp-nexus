@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
@@ -9,17 +8,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { usePromoteToMikrotikRouter } from '@/hooks/usePromoteToMikrotikRouter';
 import { Loader2 } from 'lucide-react';
-
-interface InventoryItem {
-  id: string;
-  item_id: string;
-  name?: string;
-  type: string;
-  manufacturer?: string;
-  model?: string;
-  serial_number?: string;
-  mac_address?: string;
-}
+import { InventoryItem } from '@/hooks/useInventory';
 
 interface PromoteToMikrotikDialogProps {
   open: boolean;
@@ -58,7 +47,7 @@ const PromoteToMikrotikDialog: React.FC<PromoteToMikrotikDialogProps> = ({
         inventoryItemId: inventoryItem.id,
         routerData: {
           ...formData,
-          name: formData.name || `${inventoryItem.manufacturer} ${inventoryItem.model}`,
+          name: formData.name || `${inventoryItem.manufacturer || ''} ${inventoryItem.model || ''}`.trim(),
         },
       },
       {
@@ -99,7 +88,7 @@ const PromoteToMikrotikDialog: React.FC<PromoteToMikrotikDialogProps> = ({
             <CardContent>
               <div className="grid grid-cols-2 gap-4 text-sm">
                 <div>
-                  <span className="font-medium">Item ID:</span> {inventoryItem.item_id}
+                  <span className="font-medium">Item ID:</span> {inventoryItem.item_id || 'N/A'}
                 </div>
                 <div>
                   <span className="font-medium">Type:</span> {inventoryItem.type}

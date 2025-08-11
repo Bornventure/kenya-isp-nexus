@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -331,7 +330,7 @@ const InventoryItemDetail: React.FC<InventoryItemDetailProps> = ({ itemId, onClo
       <EditInventoryItemDialog
         open={showEditDialog}
         onOpenChange={setShowEditDialog}
-        inventoryItem={item as InventoryItem}
+        itemId={item.id}
       />
 
       <PromoteToEquipmentDialog
