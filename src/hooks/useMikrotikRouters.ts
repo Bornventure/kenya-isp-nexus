@@ -1,4 +1,3 @@
-
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
@@ -57,16 +56,59 @@ export const useMikrotikRouters = () => {
         throw new Error('No ISP company associated with user');
       }
 
+      console.log('Creating router with data:', routerData);
+
+      // Validate required fields
+      if (!routerData.name?.trim()) {
+        throw new Error('Router name is required');
+      }
+      
+      if (!routerData.ip_address?.trim()) {
+        throw new Error('IP address is required');
+      }
+
+      // Validate IP address format
+      const ipRegex = /^(?:(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.){3}(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)$/;
+      if (!ipRegex.test(routerData.ip_address)) {
+        throw new Error('Invalid IP address format');
+      }
+
+      if (!routerData.admin_password?.trim()) {
+        throw new Error('Admin password is required');
+      }
+
+      // Prepare data for database insertion
+      const insertData = {
+        name: routerData.name.trim(),
+        ip_address: routerData.ip_address.trim(),
+        admin_username: routerData.admin_username?.trim() || 'admin',
+        admin_password: routerData.admin_password.trim(),
+        snmp_community: routerData.snmp_community?.trim() || 'public',
+        snmp_version: Number(routerData.snmp_version) || 2,
+        pppoe_interface: routerData.pppoe_interface?.trim() || 'pppoe-server1',
+        dns_servers: routerData.dns_servers?.trim() || '8.8.8.8,8.8.4.4',
+        client_network: routerData.client_network?.trim() || '10.0.0.0/24',
+        gateway: routerData.gateway?.trim() || '',
+        status: 'pending' as const,
+        last_test_results: null,
+        connection_status: 'offline' as const,
+        isp_company_id: profile.isp_company_id,
+      };
+
+      console.log('Inserting router data:', insertData);
+
       const { data, error } = await supabase
         .from('mikrotik_routers')
-        .insert({
-          ...routerData,
-          isp_company_id: profile.isp_company_id,
-        })
+        .insert(insertData)
         .select()
         .single();
 
-      if (error) throw error;
+      if (error) {
+        console.error('Supabase error details:', error);
+        throw new Error(`Failed to create router: ${error.message}`);
+      }
+
+      console.log('Router created successfully:', data);
       return data;
     },
     onSuccess: () => {
@@ -80,7 +122,7 @@ export const useMikrotikRouters = () => {
       console.error('Error creating router:', error);
       toast({
         title: "Error",
-        description: "Failed to add router. Please try again.",
+        description: error.message || "Failed to add router. Please try again.",
         variant: "destructive",
       });
     },

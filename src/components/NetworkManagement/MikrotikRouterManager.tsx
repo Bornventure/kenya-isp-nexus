@@ -1,4 +1,3 @@
-
 import { useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -13,6 +12,7 @@ import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, 
 export const MikrotikRouterManager = () => {
   const { routers, isLoading, createRouter, updateRouter, deleteRouter, testConnection, isCreating, isDeleting, isTesting } = useMikrotikRouters();
   const [showAddDialog, setShowAddDialog] = useState(false);
+  const [formErrors, setFormErrors] = useState<Record<string, string>>({});
   const [newRouter, setNewRouter] = useState({
     name: '',
     ip_address: '',
@@ -26,13 +26,44 @@ export const MikrotikRouterManager = () => {
     gateway: '',
   });
 
+  const validateForm = () => {
+    const errors: Record<string, string> = {};
+
+    if (!newRouter.name.trim()) {
+      errors.name = 'Router name is required';
+    }
+
+    if (!newRouter.ip_address.trim()) {
+      errors.ip_address = 'IP address is required';
+    } else {
+      const ipRegex = /^(?:(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.){3}(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)$/;
+      if (!ipRegex.test(newRouter.ip_address)) {
+        errors.ip_address = 'Please enter a valid IP address';
+      }
+    }
+
+    if (!newRouter.admin_password.trim()) {
+      errors.admin_password = 'Admin password is required';
+    }
+
+    setFormErrors(errors);
+    return Object.keys(errors).length === 0;
+  };
+
   const handleAddRouter = () => {
+    if (!validateForm()) {
+      return;
+    }
+
+    console.log('Submitting router data:', newRouter);
+    
     createRouter({
       ...newRouter,
       status: 'pending' as const,
       last_test_results: null,
       connection_status: 'offline' as const,
     });
+    
     setNewRouter({
       name: '',
       ip_address: '',
@@ -45,7 +76,17 @@ export const MikrotikRouterManager = () => {
       client_network: '10.0.0.0/24',
       gateway: '',
     });
+    setFormErrors({});
     setShowAddDialog(false);
+  };
+
+  const handleInputChange = (field: string, value: string | number) => {
+    setNewRouter({ ...newRouter, [field]: value });
+    
+    // Clear error when user starts typing
+    if (formErrors[field]) {
+      setFormErrors({ ...formErrors, [field]: '' });
+    }
   };
 
   const getStatusBadge = (status: string) => {
@@ -90,47 +131,59 @@ export const MikrotikRouterManager = () => {
                 </DialogHeader>
                 <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-2">
-                    <Label htmlFor="name">Router Name</Label>
+                    <Label htmlFor="name">Router Name *</Label>
                     <Input
                       id="name"
                       value={newRouter.name}
-                      onChange={(e) => setNewRouter({ ...newRouter, name: e.target.value })}
+                      onChange={(e) => handleInputChange('name', e.target.value)}
                       placeholder="Main Router"
+                      className={formErrors.name ? 'border-red-500' : ''}
                     />
+                    {formErrors.name && (
+                      <p className="text-sm text-red-500">{formErrors.name}</p>
+                    )}
                   </div>
                   <div className="space-y-2">
-                    <Label htmlFor="ip_address">IP Address</Label>
+                    <Label htmlFor="ip_address">IP Address *</Label>
                     <Input
                       id="ip_address"
                       value={newRouter.ip_address}
-                      onChange={(e) => setNewRouter({ ...newRouter, ip_address: e.target.value })}
+                      onChange={(e) => handleInputChange('ip_address', e.target.value)}
                       placeholder="192.168.1.1"
+                      className={formErrors.ip_address ? 'border-red-500' : ''}
                     />
+                    {formErrors.ip_address && (
+                      <p className="text-sm text-red-500">{formErrors.ip_address}</p>
+                    )}
                   </div>
                   <div className="space-y-2">
                     <Label htmlFor="admin_username">Admin Username</Label>
                     <Input
                       id="admin_username"
                       value={newRouter.admin_username}
-                      onChange={(e) => setNewRouter({ ...newRouter, admin_username: e.target.value })}
+                      onChange={(e) => handleInputChange('admin_username', e.target.value)}
                       placeholder="admin"
                     />
                   </div>
                   <div className="space-y-2">
-                    <Label htmlFor="admin_password">Admin Password</Label>
+                    <Label htmlFor="admin_password">Admin Password *</Label>
                     <Input
                       id="admin_password"
                       type="password"
                       value={newRouter.admin_password}
-                      onChange={(e) => setNewRouter({ ...newRouter, admin_password: e.target.value })}
+                      onChange={(e) => handleInputChange('admin_password', e.target.value)}
+                      className={formErrors.admin_password ? 'border-red-500' : ''}
                     />
+                    {formErrors.admin_password && (
+                      <p className="text-sm text-red-500">{formErrors.admin_password}</p>
+                    )}
                   </div>
                   <div className="space-y-2">
                     <Label htmlFor="pppoe_interface">PPPoE Interface</Label>
                     <Input
                       id="pppoe_interface"
                       value={newRouter.pppoe_interface}
-                      onChange={(e) => setNewRouter({ ...newRouter, pppoe_interface: e.target.value })}
+                      onChange={(e) => handleInputChange('pppoe_interface', e.target.value)}
                       placeholder="pppoe-server1"
                     />
                   </div>
@@ -139,7 +192,7 @@ export const MikrotikRouterManager = () => {
                     <Input
                       id="client_network"
                       value={newRouter.client_network}
-                      onChange={(e) => setNewRouter({ ...newRouter, client_network: e.target.value })}
+                      onChange={(e) => handleInputChange('client_network', e.target.value)}
                       placeholder="10.0.0.0/24"
                     />
                   </div>
@@ -148,7 +201,7 @@ export const MikrotikRouterManager = () => {
                       Cancel
                     </Button>
                     <Button onClick={handleAddRouter} disabled={isCreating}>
-                      Add Router
+                      {isCreating ? 'Adding...' : 'Add Router'}
                     </Button>
                   </div>
                 </div>
