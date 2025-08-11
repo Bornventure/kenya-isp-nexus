@@ -1,293 +1,271 @@
 
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Switch } from '@/components/ui/switch';
-import { Label } from '@/components/ui/label';
 import { Progress } from '@/components/ui/progress';
-import { snmpService } from '@/services/snmpService';
-import { qosService } from '@/services/qosService';
-import { useNetworkManagement } from '@/hooks/useNetworkManagement';
 import { 
   Router, 
-  Wifi, 
-  Server, 
-  Signal,
-  WifiOff,
+  Activity, 
+  Users, 
+  Settings, 
+  Plus, 
+  RefreshCw,
+  AlertTriangle,
   CheckCircle,
   XCircle,
-  Settings,
-  Gauge,
-  Activity,
-  Shield,
   Zap
 } from 'lucide-react';
+import { useRealSNMP } from '@/hooks/useRealSNMP';
+import { useNetworkManagement } from '@/hooks/useNetworkManagement';
+import AddSNMPDeviceDialog from './AddSNMPDeviceDialog';
 
-const NetworkManagementPanel = () => {
-  const [autoManagementEnabled, setAutoManagementEnabled] = useState(true);
-  const [qosMonitoringEnabled, setQosMonitoringEnabled] = useState(true);
-  const [deviceStats, setDeviceStats] = useState({
-    totalDevices: 0,
-    onlineDevices: 0,
-    managedClients: 0,
-    qosPoliciesActive: 0,
-    bandwidthUtilization: 0
-  });
+const NetworkManagementPanel: React.FC = () => {
+  const [showAddDevice, setShowAddDevice] = useState(false);
+  const { 
+    devices, 
+    isLoading, 
+    isMonitoring, 
+    addDevice, 
+    testConnection, 
+    refreshDevices, 
+    startMonitoring, 
+    stopMonitoring,
+    disconnectClient,
+    reconnectClient
+  } = useRealSNMP();
+  
+  const { clients, disconnectClient: networkDisconnect, reconnectClient: networkReconnect } = useNetworkManagement();
 
-  const { disconnectClient, reconnectClient, applyQoSToClient } = useNetworkManagement();
-
-  useEffect(() => {
-    // Initialize comprehensive SNMP service
-    const initializeNetworkManagement = async () => {
-      await snmpService.initialize();
-      
-      // Update stats periodically
-      const statsInterval = setInterval(async () => {
-        const devices = snmpService.getComprehensiveDeviceStatus();
-        const qosPolicies = qosService.getActiveQoSPolicies();
-        
-        setDeviceStats({
-          totalDevices: devices.length,
-          onlineDevices: devices.filter(d => d.status === 'online').length,
-          managedClients: qosPolicies.length,
-          qosPoliciesActive: qosPolicies.length,
-          bandwidthUtilization: Math.random() * 100 // Simulated
-        });
-      }, 5000);
-
-      return () => clearInterval(statsInterval);
-    };
-
-    initializeNetworkManagement();
-  }, []);
-
-  const handleTestDisconnect = async () => {
-    await disconnectClient('test-client-001');
+  const handleAddDevice = async (ip: string, community: string, version: number) => {
+    try {
+      await addDevice(ip, community, version);
+      setShowAddDevice(false);
+    } catch (error) {
+      console.error('Failed to add device:', error);
+      throw error;
+    }
   };
 
-  const handleTestReconnect = async () => {
-    await reconnectClient('test-client-001');
+  const handleTestConnection = async (ip: string, community: string, version: number) => {
+    return await testConnection(ip, community, version);
   };
 
-  const handleTestQoS = async () => {
-    await applyQoSToClient('test-client-001', 'test-package-001');
+  const onlineDevices = devices.filter(device => device.status === 'online').length;
+  const offlineDevices = devices.filter(device => device.status === 'offline').length;
+  const totalBandwidthUtil = devices.length > 0 
+    ? devices.reduce((sum, device) => sum + (device.cpuUsage || 0), 0) / devices.length 
+    : 0;
+
+  const getStatusIcon = (status: string) => {
+    switch (status) {
+      case 'online': return <CheckCircle className="h-4 w-4 text-green-500" />;
+      case 'offline': return <XCircle className="h-4 w-4 text-red-500" />;
+      default: return <AlertTriangle className="h-4 w-4 text-yellow-500" />;
+    }
+  };
+
+  const formatUptime = (seconds: number) => {
+    const days = Math.floor(seconds / 86400);
+    const hours = Math.floor((seconds % 86400) / 3600);
+    return `${days}d ${hours}h`;
   };
 
   return (
     <div className="space-y-6">
       <Card>
         <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <Settings className="h-5 w-5" />
-            Comprehensive SNMP Network Management
-          </CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-6">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div className="flex items-center justify-between">
-              <div className="space-y-0.5">
-                <Label htmlFor="auto-management">Automatic Network Management</Label>
-                <p className="text-sm text-muted-foreground">
-                  Automatically disconnect/reconnect clients based on billing status
-                </p>
-              </div>
-              <Switch
-                id="auto-management"
-                checked={autoManagementEnabled}
-                onCheckedChange={setAutoManagementEnabled}
-              />
+          <div className="flex items-center justify-between">
+            <div>
+              <CardTitle className="flex items-center gap-2">
+                <Activity className="h-6 w-6" />
+                Comprehensive SNMP Network Management
+              </CardTitle>
+              <p className="text-sm text-muted-foreground mt-1">
+                Real-time monitoring and control of network infrastructure via SNMP
+              </p>
             </div>
-
-            <div className="flex items-center justify-between">
-              <div className="space-y-0.5">
-                <Label htmlFor="qos-monitoring">QoS Monitoring & Enforcement</Label>
-                <p className="text-sm text-muted-foreground">
-                  Monitor and enforce speed limits via SNMP
-                </p>
-              </div>
-              <Switch
-                id="qos-monitoring"
-                checked={qosMonitoringEnabled}
-                onCheckedChange={setQosMonitoringEnabled}
-              />
+            <div className="flex items-center gap-2">
+              <Button 
+                variant="outline" 
+                size="sm" 
+                onClick={refreshDevices}
+                disabled={isLoading}
+              >
+                <RefreshCw className={`h-4 w-4 mr-2 ${isLoading ? 'animate-spin' : ''}`} />
+                Refresh
+              </Button>
+              <Button onClick={() => setShowAddDevice(true)} size="sm">
+                <Plus className="h-4 w-4 mr-2" />
+                Add Device
+              </Button>
             </div>
           </div>
-
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
-            <div className="text-center p-4 border rounded-lg">
-              <Server className="h-8 w-8 mx-auto mb-2 text-blue-500" />
-              <div className="text-2xl font-bold">{deviceStats.totalDevices}</div>
+        </CardHeader>
+        <CardContent>
+          {/* Real-time Statistics */}
+          <div className="grid grid-cols-2 md:grid-cols-5 gap-4 mb-6">
+            <div className="text-center">
+              <div className="text-2xl font-bold text-blue-600">{devices.length}</div>
               <div className="text-sm text-muted-foreground">Total Devices</div>
             </div>
-            
-            <div className="text-center p-4 border rounded-lg">
-              <CheckCircle className="h-8 w-8 mx-auto mb-2 text-green-500" />
-              <div className="text-2xl font-bold">{deviceStats.onlineDevices}</div>
+            <div className="text-center">
+              <div className="text-2xl font-bold text-green-600">{onlineDevices}</div>
               <div className="text-sm text-muted-foreground">Online Devices</div>
             </div>
-            
-            <div className="text-center p-4 border rounded-lg">
-              <Wifi className="h-8 w-8 mx-auto mb-2 text-purple-500" />
-              <div className="text-2xl font-bold">{deviceStats.managedClients}</div>
+            <div className="text-center">
+              <div className="text-2xl font-bold text-purple-600">{clients.length}</div>
               <div className="text-sm text-muted-foreground">Managed Clients</div>
             </div>
-            
-            <div className="text-center p-4 border rounded-lg">
-              <Gauge className="h-8 w-8 mx-auto mb-2 text-orange-500" />
-              <div className="text-2xl font-bold">{deviceStats.qosPoliciesActive}</div>
-              <div className="text-sm text-muted-foreground">QoS Policies</div>
+            <div className="text-center">
+              <div className="text-2xl font-bold text-orange-600">
+                {devices.reduce((sum, device) => sum + (device.interfaces?.length || 0), 0)}
+              </div>
+              <div className="text-sm text-muted-foreground">Active Interfaces</div>
             </div>
-            
-            <div className="text-center p-4 border rounded-lg">
-              <Activity className="h-8 w-8 mx-auto mb-2 text-red-500" />
-              <div className="text-2xl font-bold">{deviceStats.bandwidthUtilization.toFixed(1)}%</div>
-              <div className="text-sm text-muted-foreground">Bandwidth Util.</div>
+            <div className="text-center">
+              <div className="text-2xl font-bold text-indigo-600">{totalBandwidthUtil.toFixed(1)}%</div>
+              <div className="text-sm text-muted-foreground">Avg. CPU Usage</div>
             </div>
           </div>
 
-          <div className="space-y-4">
-            <h4 className="text-lg font-semibold">Network Operations</h4>
+          {/* Network Operations */}
+          <div className="mb-6">
+            <h4 className="text-lg font-medium mb-3">Network Operations</h4>
             <div className="flex flex-wrap gap-2">
-              <Button onClick={handleTestDisconnect} variant="destructive" size="sm">
-                <WifiOff className="h-4 w-4 mr-2" />
+              {isMonitoring ? (
+                <Button variant="destructive" size="sm" onClick={stopMonitoring}>
+                  Stop Monitoring
+                </Button>
+              ) : (
+                <Button variant="default" size="sm" onClick={startMonitoring}>
+                  Start Monitoring
+                </Button>
+              )}
+              <Button 
+                variant="outline" 
+                size="sm"
+                onClick={() => clients.length > 0 && disconnectClient(clients[0].ip, clients[0].mac || 'unknown')}
+                disabled={clients.length === 0}
+              >
                 Test Disconnect
               </Button>
-              <Button onClick={handleTestReconnect} variant="default" size="sm">
-                <Wifi className="h-4 w-4 mr-2" />
+              <Button 
+                variant="outline" 
+                size="sm"
+                onClick={() => clients.length > 0 && reconnectClient(clients[0].ip, clients[0].mac || 'unknown')}
+                disabled={clients.length === 0}
+              >
                 Test Reconnect
               </Button>
-              <Button onClick={handleTestQoS} variant="outline" size="sm">
-                <Gauge className="h-4 w-4 mr-2" />
-                Test QoS Apply
-              </Button>
             </div>
           </div>
-        </CardContent>
-      </Card>
 
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <Shield className="h-5 w-5" />
-            Enhanced Network Device Status
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="space-y-4">
-            {[
-              { 
-                id: 'router-001', 
-                name: 'Main Router - Cisco ISR4321', 
-                type: 'router', 
-                ip: '192.168.1.1', 
-                status: 'online',
-                capabilities: ['routing', 'qos', 'firewall', 'vpn'],
-                utilization: 45,
-                activeClients: 12
-              },
-              { 
-                id: 'switch-001', 
-                name: 'Distribution Switch A - Ubiquiti 24-Port', 
-                type: 'switch', 
-                ip: '192.168.1.10', 
-                status: 'online',
-                capabilities: ['switching', 'vlan', 'qos', 'stp'],
-                utilization: 67,
-                activeClients: 8
-              },
-              { 
-                id: 'ap-001', 
-                name: 'Access Point - Zone A - UniFi AC Pro', 
-                type: 'access_point', 
-                ip: '192.168.1.50', 
-                status: 'offline',
-                capabilities: ['wireless', 'wpa3', 'band_steering'],
-                utilization: 0,
-                activeClients: 0
-              }
-            ].map((device) => (
-              <div key={device.id} className="flex items-center justify-between p-4 border rounded-lg">
-                <div className="flex items-center gap-3">
-                  {device.type === 'router' && <Router className="h-5 w-5 text-blue-500" />}
-                  {device.type === 'switch' && <Server className="h-5 w-5 text-green-500" />}
-                  {device.type === 'access_point' && <Wifi className="h-5 w-5 text-purple-500" />}
-                  <div className="flex-1">
-                    <div className="font-medium">{device.name}</div>
-                    <div className="text-sm text-muted-foreground">
-                      {device.ip} • {device.activeClients} clients
-                    </div>
-                    <div className="flex flex-wrap gap-1 mt-1">
-                      {device.capabilities.map((cap) => (
-                        <Badge key={cap} variant="outline" className="text-xs">
-                          {cap}
+          {/* Enhanced Network Device Status */}
+          <div>
+            <h4 className="text-lg font-medium mb-3">Network Device Status</h4>
+            {devices.length === 0 ? (
+              <div className="text-center py-8 text-muted-foreground">
+                <Router className="h-12 w-12 mx-auto mb-4 opacity-50" />
+                <p className="mb-2">No SNMP devices configured</p>
+                <p className="text-sm mb-4">Add your first network device to start monitoring</p>
+                <Button onClick={() => setShowAddDevice(true)}>
+                  <Plus className="h-4 w-4 mr-2" />
+                  Add SNMP Device
+                </Button>
+              </div>
+            ) : (
+              <div className="space-y-4">
+                {devices.map((device) => (
+                  <div key={device.id} className="border rounded-lg p-4">
+                    <div className="flex items-center justify-between mb-3">
+                      <div className="flex items-center gap-3">
+                        <Router className="h-5 w-5 text-blue-600" />
+                        <div>
+                          <div className="font-medium">{device.name}</div>
+                          <div className="text-sm text-muted-foreground">
+                            {device.ip} • {device.interfaces?.length || 0} interfaces
+                          </div>
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        {getStatusIcon(device.status)}
+                        <Badge variant={device.status === 'online' ? 'default' : 'destructive'}>
+                          {device.status}
                         </Badge>
-                      ))}
+                      </div>
                     </div>
-                  </div>
-                </div>
-                
-                <div className="flex items-center gap-4">
-                  <div className="text-right">
-                    <div className="text-sm font-medium">
-                      {device.utilization}% utilization
+
+                    <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
+                      <div>
+                        <div className="text-muted-foreground">Type</div>
+                        <div className="font-medium capitalize">{device.type}</div>
+                      </div>
+                      <div>
+                        <div className="text-muted-foreground">Uptime</div>
+                        <div className="font-medium">{formatUptime(device.uptime)}</div>
+                      </div>
+                      <div>
+                        <div className="text-muted-foreground">CPU Usage</div>
+                        <div className="font-medium">{device.cpuUsage}%</div>
+                      </div>
+                      <div>
+                        <div className="text-muted-foreground">Memory</div>
+                        <div className="font-medium">{device.memoryUsage.toFixed(1)}%</div>
+                      </div>
                     </div>
-                    <Progress value={device.utilization} className="w-20 mt-1" />
-                  </div>
-                  
-                  <Badge 
-                    variant={device.status === 'online' ? 'default' : 'destructive'}
-                    className={device.status === 'online' ? 'bg-green-500' : ''}
-                  >
-                    {device.status === 'online' ? (
-                      <>
-                        <CheckCircle className="h-3 w-3 mr-1" />
-                        Online
-                      </>
-                    ) : (
-                      <>
-                        <XCircle className="h-3 w-3 mr-1" />
-                        Offline
-                      </>
+
+                    {device.status === 'online' && (
+                      <div className="mt-3">
+                        <div className="flex justify-between text-sm mb-1">
+                          <span>System Load</span>
+                          <span>{device.cpuUsage}%</span>
+                        </div>
+                        <Progress value={device.cpuUsage} className="h-2" />
+                      </div>
                     )}
-                  </Badge>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+
+          {/* QoS & Speed Control Status */}
+          {devices.length > 0 && (
+            <div className="mt-6">
+              <h4 className="text-lg font-medium mb-3">QoS & Speed Control Status</h4>
+              <div className="text-sm text-muted-foreground mb-4">
+                Real-time monitoring of speed limits and traffic shaping policies across all network equipment.
+              </div>
+              
+              <div className="grid grid-cols-3 gap-4 text-center">
+                <div>
+                  <div className="text-2xl font-bold">{devices.length}</div>
+                  <div className="text-sm text-muted-foreground">Active Devices</div>
+                </div>
+                <div>
+                  <div className="text-2xl font-bold">{((onlineDevices / devices.length) * 100).toFixed(1)}%</div>
+                  <div className="text-sm text-muted-foreground">Avg. Compliance</div>
+                </div>
+                <div>
+                  <div className="text-2xl font-bold">{offlineDevices}</div>
+                  <div className="text-sm text-muted-foreground">Offline Devices</div>
                 </div>
               </div>
-            ))}
-          </div>
+            </div>
+          )}
         </CardContent>
       </Card>
 
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <Zap className="h-5 w-5" />
-            QoS & Speed Control Status
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="space-y-4">
-            <div className="text-sm text-muted-foreground">
-              Real-time monitoring of speed limits and traffic shaping policies across all network equipment.
-            </div>
-            
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              <div className="p-3 border rounded">
-                <div className="text-sm font-medium text-green-600">Active Policies</div>
-                <div className="text-2xl font-bold">{deviceStats.qosPoliciesActive}</div>
-              </div>
-              <div className="p-3 border rounded">
-                <div className="text-sm font-medium text-blue-600">Avg. Compliance</div>
-                <div className="text-2xl font-bold">98.5%</div>
-              </div>
-              <div className="p-3 border rounded">
-                <div className="text-sm font-medium text-orange-600">Policy Violations</div>
-                <div className="text-2xl font-bold">2</div>
-              </div>
-            </div>
-          </div>
-        </CardContent>
-      </Card>
+      {/* Add Device Dialog */}
+      {showAddDevice && (
+        <AddSNMPDeviceDialog
+          open={showAddDevice}
+          onClose={() => setShowAddDevice(false)}
+          onAddDevice={handleAddDevice}
+          onTestConnection={handleTestConnection}
+        />
+      )}
     </div>
   );
 };
