@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -99,26 +98,54 @@ const ClientBillingSection: React.FC<ClientBillingSectionProps> = ({
       if (invoicesError) throw invoicesError;
       setInvoices(invoicesData || []);
 
-      // Load payments
+      // Load payments with proper status field selection
       const { data: paymentsData, error: paymentsError } = await supabase
         .from('payments')
-        .select('*')
+        .select(`
+          id,
+          amount,
+          payment_method,
+          reference_number,
+          payment_date,
+          created_at,
+          status
+        `)
         .eq('client_id', clientId)
         .order('payment_date', { ascending: false });
 
       if (paymentsError) throw paymentsError;
-      setPayments(paymentsData || []);
+      
+      // Ensure payments have status field with default value if missing
+      const paymentsWithStatus = (paymentsData || []).map(payment => ({
+        ...payment,
+        status: payment.status || 'completed'
+      }));
+      setPayments(paymentsWithStatus);
 
-      // Load wallet transactions
+      // Load wallet transactions with proper type casting
       const { data: walletData, error: walletError } = await supabase
         .from('wallet_transactions')
-        .select('*')
+        .select(`
+          id,
+          transaction_type,
+          amount,
+          description,
+          created_at
+        `)
         .eq('client_id', clientId)
         .order('created_at', { ascending: false })
         .limit(10);
 
       if (walletError) throw walletError;
-      setWalletTransactions(walletData || []);
+      
+      // Type-cast transaction_type to ensure it matches our interface
+      const typedWalletTransactions = (walletData || []).map(transaction => ({
+        ...transaction,
+        transaction_type: (transaction.transaction_type === 'credit' || transaction.transaction_type === 'debit') 
+          ? transaction.transaction_type as 'credit' | 'debit'
+          : 'debit' as 'credit' | 'debit' // Default fallback
+      }));
+      setWalletTransactions(typedWalletTransactions);
 
     } catch (error) {
       console.error('Error loading billing data:', error);
