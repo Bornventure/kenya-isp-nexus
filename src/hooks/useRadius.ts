@@ -1,4 +1,3 @@
-
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
@@ -67,16 +66,28 @@ export const useRadiusServers = () => {
           .from('radius_servers' as any)
           .select('*');
 
-        if (error || !data) {
-          console.log('Using fallback RADIUS servers data');
+        if (error) {
+          console.log('Database query failed, using fallback data:', error);
           return getDefaultRadiusServers();
         }
-        
-        // Check if data is valid array format
-        if (Array.isArray(data) && data.length > 0 && 'id' in data[0]) {
-          return data as RadiusServer[];
+
+        // Check if data exists and is valid
+        if (data && Array.isArray(data) && data.length > 0) {
+          // Type guard to check if the data matches our expected structure
+          const isValidData = data.every(item => 
+            item && 
+            typeof item === 'object' && 
+            'id' in item && 
+            'name' in item && 
+            'server_address' in item
+          );
+          
+          if (isValidData) {
+            return data as RadiusServer[];
+          }
         }
         
+        console.log('Invalid data structure, using fallback');
         return getDefaultRadiusServers();
       } catch (error) {
         console.error('Error fetching RADIUS servers:', error);
@@ -95,16 +106,28 @@ export const useRadiusGroups = () => {
           .from('radius_groups' as any)
           .select('*');
 
-        if (error || !data) {
-          console.log('Using fallback RADIUS groups data');
+        if (error) {
+          console.log('Database query failed, using fallback data:', error);
           return getDefaultRadiusGroups();
         }
-        
-        // Check if data is valid array format
-        if (Array.isArray(data) && data.length > 0 && 'id' in data[0]) {
-          return data as RadiusGroup[];
+
+        // Check if data exists and is valid
+        if (data && Array.isArray(data) && data.length > 0) {
+          // Type guard to check if the data matches our expected structure
+          const isValidData = data.every(item => 
+            item && 
+            typeof item === 'object' && 
+            'id' in item && 
+            'name' in item && 
+            'upload_limit_mbps' in item
+          );
+          
+          if (isValidData) {
+            return data as RadiusGroup[];
+          }
         }
         
+        console.log('Invalid data structure, using fallback');
         return getDefaultRadiusGroups();
       } catch (error) {
         console.error('Error fetching RADIUS groups:', error);
@@ -123,14 +146,25 @@ export const useRadiusUsers = () => {
           .from('radius_users' as any)
           .select('*');
 
-        if (error || !data) {
-          console.log('Using fallback RADIUS users data');
+        if (error) {
+          console.log('Database query failed, using fallback data:', error);
           return [] as RadiusUser[];
         }
-        
-        // Check if data is valid array format
-        if (Array.isArray(data) && data.length > 0 && 'id' in data[0]) {
-          return data as RadiusUser[];
+
+        // Check if data exists and is valid
+        if (data && Array.isArray(data) && data.length > 0) {
+          // Type guard to check if the data matches our expected structure
+          const isValidData = data.every(item => 
+            item && 
+            typeof item === 'object' && 
+            'id' in item && 
+            'username' in item && 
+            'password' in item
+          );
+          
+          if (isValidData) {
+            return data as RadiusUser[];
+          }
         }
         
         return [] as RadiusUser[];
@@ -156,14 +190,25 @@ export const useNASClients = () => {
           .select('*')
           .eq('isp_company_id', profile?.isp_company_id);
 
-        if (error || !data) {
-          console.log('Using fallback NAS clients data');
+        if (error) {
+          console.log('Database query failed, using fallback data:', error);
           return [] as NASClient[];
         }
-        
-        // Check if data is valid array format
-        if (Array.isArray(data) && data.length > 0 && 'id' in data[0]) {
-          return data as NASClient[];
+
+        // Check if data exists and is valid
+        if (data && Array.isArray(data) && data.length > 0) {
+          // Type guard to check if the data matches our expected structure
+          const isValidData = data.every(item => 
+            item && 
+            typeof item === 'object' && 
+            'id' in item && 
+            'name' in item && 
+            'shortname' in item
+          );
+          
+          if (isValidData) {
+            return data as NASClient[];
+          }
         }
         
         return [] as NASClient[];

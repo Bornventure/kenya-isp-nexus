@@ -28,17 +28,28 @@ export const useInventoryCategories = () => {
           .from('inventory_categories' as any)
           .select('*');
 
-        if (error || !data) {
-          console.log('Using fallback inventory categories data');
-          // Return default categories if database query fails
+        if (error) {
+          console.log('Database query failed, using fallback data:', error);
           return getDefaultCategories();
         }
-        
-        // Check if data is valid array format
-        if (Array.isArray(data) && data.length > 0 && 'id' in data[0]) {
-          return data as InventoryCategory[];
+
+        // Check if data exists and is valid
+        if (data && Array.isArray(data) && data.length > 0) {
+          // Type guard to check if the data matches our expected structure
+          const isValidData = data.every(item => 
+            item && 
+            typeof item === 'object' && 
+            'id' in item && 
+            'name' in item && 
+            'minimum_stock_level' in item
+          );
+          
+          if (isValidData) {
+            return data as InventoryCategory[];
+          }
         }
         
+        console.log('Invalid data structure, using fallback');
         return getDefaultCategories();
       } catch (error) {
         console.error('Error fetching inventory categories:', error);
@@ -57,16 +68,28 @@ export const useLowStockItems = () => {
           .from('low_stock_view' as any)
           .select('*');
 
-        if (error || !data) {
-          console.log('Using fallback low stock data');
+        if (error) {
+          console.log('Database query failed, using fallback data:', error);
           return getDefaultLowStockItems();
         }
-        
-        // Check if data is valid array format
-        if (Array.isArray(data) && data.length > 0 && 'category_name' in data[0]) {
-          return data as LowStockItem[];
+
+        // Check if data exists and is valid
+        if (data && Array.isArray(data) && data.length > 0) {
+          // Type guard to check if the data matches our expected structure
+          const isValidData = data.every(item => 
+            item && 
+            typeof item === 'object' && 
+            'category_name' in item && 
+            'minimum_stock_level' in item && 
+            'current_stock' in item
+          );
+          
+          if (isValidData) {
+            return data as LowStockItem[];
+          }
         }
         
+        console.log('Invalid data structure, using fallback');
         return getDefaultLowStockItems();
       } catch (error) {
         console.error('Error fetching low stock items:', error);
