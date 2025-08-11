@@ -2,6 +2,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/contexts/AuthContext';
+import { isRecord, validateRequiredFields } from '@/lib/typeGuards';
 
 export interface RadiusServer {
   id: string;
@@ -57,11 +58,6 @@ export interface NASClient {
   isp_company_id: string;
 }
 
-// Type guard to check if an item is a valid record
-const isValidRecord = (item: unknown): item is Record<string, unknown> => {
-  return item !== null && item !== undefined && typeof item === 'object';
-};
-
 export const useRadiusServers = () => {
   return useQuery({
     queryKey: ['radius-servers'],
@@ -79,21 +75,18 @@ export const useRadiusServers = () => {
         // Check if data exists and is valid
         if (data && Array.isArray(data) && data.length > 0) {
           // Filter out null/undefined items first
-          const validItems = data.filter(isValidRecord);
+          const validRecords = data.filter(isRecord);
           
-          // Type guard to check if the data matches our expected structure
-          const isValidData = validItems.every(item => {
-            return (
-              'id' in item && 
-              'name' in item && 
-              'server_address' in item &&
-              typeof item.id === 'string' &&
-              typeof item.name === 'string' &&
-              typeof item.server_address === 'string'
-            );
-          });
+          // Validate each record has required fields
+          const isValidData = validRecords.every(item => 
+            validateRequiredFields(item, [
+              { key: 'id', type: 'string' },
+              { key: 'name', type: 'string' },
+              { key: 'server_address', type: 'string' }
+            ])
+          );
           
-          if (isValidData && validItems.length === data.length) {
+          if (isValidData && validRecords.length === data.length) {
             return data as unknown as RadiusServer[];
           }
         }
@@ -125,21 +118,18 @@ export const useRadiusGroups = () => {
         // Check if data exists and is valid
         if (data && Array.isArray(data) && data.length > 0) {
           // Filter out null/undefined items first
-          const validItems = data.filter(isValidRecord);
+          const validRecords = data.filter(isRecord);
           
-          // Type guard to check if the data matches our expected structure
-          const isValidData = validItems.every(item => {
-            return (
-              'id' in item && 
-              'name' in item && 
-              'upload_limit_mbps' in item &&
-              typeof item.id === 'string' &&
-              typeof item.name === 'string' &&
-              typeof item.upload_limit_mbps === 'number'
-            );
-          });
+          // Validate each record has required fields
+          const isValidData = validRecords.every(item => 
+            validateRequiredFields(item, [
+              { key: 'id', type: 'string' },
+              { key: 'name', type: 'string' },
+              { key: 'upload_limit_mbps', type: 'number' }
+            ])
+          );
           
-          if (isValidData && validItems.length === data.length) {
+          if (isValidData && validRecords.length === data.length) {
             return data as unknown as RadiusGroup[];
           }
         }
@@ -171,21 +161,18 @@ export const useRadiusUsers = () => {
         // Check if data exists and is valid
         if (data && Array.isArray(data) && data.length > 0) {
           // Filter out null/undefined items first
-          const validItems = data.filter(isValidRecord);
+          const validRecords = data.filter(isRecord);
           
-          // Type guard to check if the data matches our expected structure
-          const isValidData = validItems.every(item => {
-            return (
-              'id' in item && 
-              'username' in item && 
-              'password' in item &&
-              typeof item.id === 'string' &&
-              typeof item.username === 'string' &&
-              typeof item.password === 'string'
-            );
-          });
+          // Validate each record has required fields
+          const isValidData = validRecords.every(item => 
+            validateRequiredFields(item, [
+              { key: 'id', type: 'string' },
+              { key: 'username', type: 'string' },
+              { key: 'password', type: 'string' }
+            ])
+          );
           
-          if (isValidData && validItems.length === data.length) {
+          if (isValidData && validRecords.length === data.length) {
             return data as unknown as RadiusUser[];
           }
         }
@@ -221,21 +208,18 @@ export const useNASClients = () => {
         // Check if data exists and is valid
         if (data && Array.isArray(data) && data.length > 0) {
           // Filter out null/undefined items first
-          const validItems = data.filter(isValidRecord);
+          const validRecords = data.filter(isRecord);
           
-          // Type guard to check if the data matches our expected structure
-          const isValidData = validItems.every(item => {
-            return (
-              'id' in item && 
-              'name' in item && 
-              'shortname' in item &&
-              typeof item.id === 'string' &&
-              typeof item.name === 'string' &&
-              typeof item.shortname === 'string'
-            );
-          });
+          // Validate each record has required fields
+          const isValidData = validRecords.every(item => 
+            validateRequiredFields(item, [
+              { key: 'id', type: 'string' },
+              { key: 'name', type: 'string' },
+              { key: 'shortname', type: 'string' }
+            ])
+          );
           
-          if (isValidData && validItems.length === data.length) {
+          if (isValidData && validRecords.length === data.length) {
             return data as unknown as NASClient[];
           }
         }

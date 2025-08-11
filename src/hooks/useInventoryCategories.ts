@@ -1,6 +1,6 @@
-
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
+import { isRecord, validateRequiredFields } from '@/lib/typeGuards';
 
 export interface InventoryCategory {
   id: string;
@@ -19,11 +19,6 @@ export interface LowStockItem {
   category_id: string;
 }
 
-// Type guard to check if an item is a valid record
-const isValidRecord = (item: unknown): item is Record<string, unknown> => {
-  return item !== null && item !== undefined && typeof item === 'object';
-};
-
 export const useInventoryCategories = () => {
   return useQuery({
     queryKey: ['inventory-categories'],
@@ -41,21 +36,18 @@ export const useInventoryCategories = () => {
         // Check if data exists and is valid
         if (data && Array.isArray(data) && data.length > 0) {
           // Filter out null/undefined items first
-          const validItems = data.filter(isValidRecord);
+          const validRecords = data.filter(isRecord);
           
-          // Type guard to check if the data matches our expected structure
-          const isValidData = validItems.every(item => {
-            return (
-              'id' in item && 
-              'name' in item && 
-              'minimum_stock_level' in item &&
-              typeof item.id === 'string' &&
-              typeof item.name === 'string' &&
-              typeof item.minimum_stock_level === 'number'
-            );
-          });
+          // Validate each record has required fields
+          const isValidData = validRecords.every(item => 
+            validateRequiredFields(item, [
+              { key: 'id', type: 'string' },
+              { key: 'name', type: 'string' },
+              { key: 'minimum_stock_level', type: 'number' }
+            ])
+          );
           
-          if (isValidData && validItems.length === data.length) {
+          if (isValidData && validRecords.length === data.length) {
             return data as unknown as InventoryCategory[];
           }
         }
@@ -87,21 +79,18 @@ export const useLowStockItems = () => {
         // Check if data exists and is valid
         if (data && Array.isArray(data) && data.length > 0) {
           // Filter out null/undefined items first
-          const validItems = data.filter(isValidRecord);
+          const validRecords = data.filter(isRecord);
           
-          // Type guard to check if the data matches our expected structure
-          const isValidData = validItems.every(item => {
-            return (
-              'category_name' in item && 
-              'minimum_stock_level' in item && 
-              'current_stock' in item &&
-              typeof item.category_name === 'string' &&
-              typeof item.minimum_stock_level === 'number' &&
-              typeof item.current_stock === 'number'
-            );
-          });
+          // Validate each record has required fields
+          const isValidData = validRecords.every(item => 
+            validateRequiredFields(item, [
+              { key: 'category_name', type: 'string' },
+              { key: 'minimum_stock_level', type: 'number' },
+              { key: 'current_stock', type: 'number' }
+            ])
+          );
           
-          if (isValidData && validItems.length === data.length) {
+          if (isValidData && validRecords.length === data.length) {
             return data as unknown as LowStockItem[];
           }
         }
