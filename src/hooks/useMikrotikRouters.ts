@@ -35,7 +35,7 @@ export const useMikrotikRouters = () => {
       if (!profile?.isp_company_id) return [];
 
       const { data, error } = await supabase
-        .from('mikrotik_routers' as any)
+        .from('mikrotik_routers')
         .select('*')
         .eq('isp_company_id', profile.isp_company_id)
         .order('created_at', { ascending: false });
@@ -45,7 +45,7 @@ export const useMikrotikRouters = () => {
         throw error;
       }
 
-      return (data || []) as unknown as MikrotikRouter[];
+      return (data || []) as MikrotikRouter[];
     },
     enabled: !!profile?.isp_company_id,
   });
@@ -57,7 +57,7 @@ export const useMikrotikRouters = () => {
       }
 
       const { data, error } = await supabase
-        .from('mikrotik_routers' as any)
+        .from('mikrotik_routers')
         .insert({
           ...routerData,
           isp_company_id: profile.isp_company_id,
@@ -88,7 +88,7 @@ export const useMikrotikRouters = () => {
   const updateRouter = useMutation({
     mutationFn: async ({ id, updates }: { id: string; updates: Partial<MikrotikRouter> }) => {
       const { data, error } = await supabase
-        .from('mikrotik_routers' as any)
+        .from('mikrotik_routers')
         .update({ ...updates, updated_at: new Date().toISOString() })
         .eq('id', id)
         .select()
@@ -117,7 +117,7 @@ export const useMikrotikRouters = () => {
   const deleteRouter = useMutation({
     mutationFn: async (routerId: string) => {
       const { error } = await supabase
-        .from('mikrotik_routers' as any)
+        .from('mikrotik_routers')
         .delete()
         .eq('id', routerId);
 
