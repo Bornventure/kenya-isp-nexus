@@ -98,7 +98,7 @@ const ClientBillingSection: React.FC<ClientBillingSectionProps> = ({
       if (invoicesError) throw invoicesError;
       setInvoices(invoicesData || []);
 
-      // Load payments with proper status field selection
+      // Load payments - using available columns only
       const { data: paymentsData, error: paymentsError } = await supabase
         .from('payments')
         .select(`
@@ -107,18 +107,17 @@ const ClientBillingSection: React.FC<ClientBillingSectionProps> = ({
           payment_method,
           reference_number,
           payment_date,
-          created_at,
-          status
+          created_at
         `)
         .eq('client_id', clientId)
         .order('payment_date', { ascending: false });
 
       if (paymentsError) throw paymentsError;
       
-      // Ensure payments have status field with default value if missing
+      // Add default status since it doesn't exist in the database
       const paymentsWithStatus = (paymentsData || []).map(payment => ({
         ...payment,
-        status: payment.status || 'completed'
+        status: 'completed' // Default status since column doesn't exist
       }));
       setPayments(paymentsWithStatus);
 
