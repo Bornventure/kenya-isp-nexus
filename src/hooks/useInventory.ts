@@ -41,6 +41,8 @@ export interface InventoryItem {
   capacity?: string;
   ip_address?: string;
   subnet_mask?: string;
+  assigned_customer_id?: string;
+  assigned_device_id?: string;
 }
 
 export const useInventory = () => {
@@ -70,18 +72,23 @@ export const useInventory = () => {
   });
 
   const createItem = useMutation({
-    mutationFn: async (itemData: Omit<InventoryItem, 'id' | 'created_at' | 'updated_at' | 'isp_company_id' | 'item_id' | 'is_network_equipment'>) => {
+    mutationFn: async (itemData: Partial<InventoryItem>) => {
       if (!profile?.isp_company_id) {
         throw new Error('No ISP company associated with user');
       }
 
+      // Ensure required fields are present
+      const insertData = {
+        ...itemData,
+        isp_company_id: profile.isp_company_id,
+        is_network_equipment: false,
+        category: itemData.category || 'General',
+        type: itemData.type || 'Equipment',
+      };
+
       const { data, error } = await supabase
         .from('inventory_items')
-        .insert({
-          ...itemData,
-          isp_company_id: profile.isp_company_id,
-          is_network_equipment: false,
-        })
+        .insert(insertData)
         .select()
         .single();
 
@@ -114,7 +121,6 @@ export const useInventory = () => {
   };
 };
 
-// Additional hooks that components depend on
 export const useInventoryItems = (filters?: { category?: string; status?: string; search?: string }) => {
   const { profile } = useAuth();
 
@@ -194,13 +200,17 @@ export const useCreateInventoryItem = () => {
         throw new Error('No ISP company associated with user');
       }
 
+      const insertData = {
+        ...itemData,
+        isp_company_id: profile.isp_company_id,
+        is_network_equipment: false,
+        category: itemData.category || 'General',
+        type: itemData.type || 'Equipment',
+      };
+
       const { data, error } = await supabase
         .from('inventory_items')
-        .insert({
-          ...itemData,
-          isp_company_id: profile.isp_company_id,
-          is_network_equipment: false,
-        })
+        .insert(insertData)
         .select()
         .single();
 
@@ -303,22 +313,12 @@ export const useAssignEquipmentToClient = () => {
         .from('inventory_items')
         .update({
           status: 'Deployed',
+          assigned_customer_id: clientId,
           assignment_date: new Date().toISOString(),
         })
         .eq('id', itemId);
 
       if (error) throw error;
-
-      // Create client equipment assignment
-      const { error: assignError } = await supabase
-        .from('client_equipment')
-        .insert({
-          client_id: clientId,
-          inventory_item_id: itemId,
-          status: 'active',
-        });
-
-      if (assignError) throw assignError;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['inventory-items'] });
@@ -349,19 +349,12 @@ export const useUnassignEquipmentFromClient = () => {
         .from('inventory_items')
         .update({
           status: 'In Stock',
+          assigned_customer_id: null,
           assignment_date: null,
         })
         .eq('id', itemId);
 
       if (error) throw error;
-
-      // Remove client equipment assignment
-      const { error: unassignError } = await supabase
-        .from('client_equipment')
-        .delete()
-        .eq('inventory_item_id', itemId);
-
-      if (unassignError) throw unassignError;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['inventory-items'] });

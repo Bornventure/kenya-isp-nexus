@@ -1,3 +1,4 @@
+
 import React from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -77,7 +78,7 @@ const InventoryDashboard: React.FC<InventoryDashboardProps> = ({
   }
 
   const totalItems = stats?.total || 0;
-  const inStockItems = stats?.inStock || 0;
+  const inStockItems = stats?.in_stock || 0;
   const deployedItems = stats?.deployed || 0;
   const maintenanceItems = stats?.maintenance || 0;
 
@@ -208,16 +209,16 @@ const InventoryDashboard: React.FC<InventoryDashboardProps> = ({
       </div>
 
       {/* Category Breakdown */}
-      {stats?.byCategory && Object.keys(stats.byCategory).length > 0 && (
+      {stats?.by_category && Object.keys(stats.by_category).length > 0 && (
         <Card>
           <CardHeader>
             <CardTitle>Category Breakdown</CardTitle>
           </CardHeader>
           <CardContent>
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-              {Object.entries(stats.byCategory).map(([category, count]) => (
+              {Object.entries(stats.by_category).map(([category, count]) => (
                 <div key={category} className="text-center p-4 border rounded-lg hover:bg-muted/50 transition-colors cursor-pointer" onClick={() => onFilterByStatus('')}>
-                  <div className="text-2xl font-bold">{count}</div>
+                  <div className="text-2xl font-bold">{String(count)}</div>
                   <div className="text-sm text-muted-foreground">{category}</div>
                 </div>
               ))}
