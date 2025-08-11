@@ -6,13 +6,14 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
 import { Badge } from '@/components/ui/badge';
-import { Plus, Settings, Server, Users } from 'lucide-react';
+import { Plus, Settings, Server, Users, Edit, Trash2 } from 'lucide-react';
 import { useRadiusServers, useRadiusGroups } from '@/hooks/useRadius';
 
 const RadiusConfigurationPanel = () => {
   const { data: servers = [], isLoading: serversLoading } = useRadiusServers();
   const { data: groups = [], isLoading: groupsLoading } = useRadiusGroups();
   const [showAddServer, setShowAddServer] = useState(false);
+  const [showAddGroup, setShowAddGroup] = useState(false);
 
   return (
     <div className="space-y-6">
@@ -63,6 +64,12 @@ const RadiusConfigurationPanel = () => {
                       {server.is_primary && (
                         <Badge variant="outline">Primary</Badge>
                       )}
+                      <Button size="sm" variant="outline">
+                        <Edit className="h-4 w-4" />
+                      </Button>
+                      <Button size="sm" variant="destructive">
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
                     </div>
                   </div>
                   <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
@@ -93,13 +100,21 @@ const RadiusConfigurationPanel = () => {
       {/* RADIUS Groups Configuration */}
       <Card>
         <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <Users className="h-5 w-5" />
-            RADIUS User Groups
-          </CardTitle>
-          <p className="text-sm text-muted-foreground">
-            Configure user groups with speed limits and session timeouts
-          </p>
+          <div className="flex items-center justify-between">
+            <div>
+              <CardTitle className="flex items-center gap-2">
+                <Users className="h-5 w-5" />
+                RADIUS User Groups
+              </CardTitle>
+              <p className="text-sm text-muted-foreground">
+                Configure user groups with speed limits and session timeouts
+              </p>
+            </div>
+            <Button onClick={() => setShowAddGroup(true)}>
+              <Plus className="h-4 w-4 mr-2" />
+              Add Group
+            </Button>
+          </div>
         </CardHeader>
         <CardContent>
           {groupsLoading ? (
@@ -108,9 +123,13 @@ const RadiusConfigurationPanel = () => {
             <div className="text-center py-8">
               <Users className="h-12 w-12 mx-auto mb-4 opacity-50" />
               <h3 className="text-lg font-medium">No User Groups Configured</h3>
-              <p className="text-muted-foreground">
-                Default groups have been created for your service packages
+              <p className="text-muted-foreground mb-4">
+                Create user groups to manage speed limits and access control
               </p>
+              <Button onClick={() => setShowAddGroup(true)}>
+                <Plus className="h-4 w-4 mr-2" />
+                Add User Group
+              </Button>
             </div>
           ) : (
             <div className="grid gap-4">
@@ -118,11 +137,21 @@ const RadiusConfigurationPanel = () => {
                 <div key={group.id} className="border rounded-lg p-4">
                   <div className="flex items-center justify-between mb-3">
                     <h4 className="font-medium capitalize">{group.name}</h4>
-                    <Badge variant={group.is_active ? 'default' : 'secondary'}>
-                      {group.is_active ? 'Active' : 'Inactive'}
-                    </Badge>
+                    <div className="flex items-center gap-2">
+                      <Badge variant={group.is_active ? 'default' : 'secondary'}>
+                        {group.is_active ? 'Active' : 'Inactive'}
+                      </Badge>
+                      <Button size="sm" variant="outline">
+                        <Edit className="h-4 w-4" />
+                      </Button>
+                      <Button size="sm" variant="destructive">
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
+                    </div>
                   </div>
-                  <p className="text-sm text-muted-foreground mb-3">{group.description}</p>
+                  {group.description && (
+                    <p className="text-sm text-muted-foreground mb-3">{group.description}</p>
+                  )}
                   <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
                     <div>
                       <span className="text-muted-foreground">Upload:</span>
@@ -162,23 +191,32 @@ const RadiusConfigurationPanel = () => {
         </CardHeader>
         <CardContent>
           <div className="space-y-4">
-            <div className="p-4 bg-green-50 border border-green-200 rounded-lg">
-              <h4 className="font-medium text-green-900 mb-2">RADIUS Speed Control Active</h4>
-              <p className="text-sm text-green-800 mb-3">
-                Speed limits are now managed entirely through the RADIUS system. Client speeds are automatically 
-                applied based on their assigned service package group.
-              </p>
-              <div className="grid grid-cols-2 gap-4 text-sm">
-                <div>
-                  <span className="text-green-700">Authentication:</span>
-                  <div className="font-medium">RADIUS Server</div>
-                </div>
-                <div>
-                  <span className="text-green-700">Speed Control:</span>
-                  <div className="font-medium">User Groups</div>
+            {servers.length > 0 && groups.length > 0 ? (
+              <div className="p-4 bg-green-50 border border-green-200 rounded-lg">
+                <h4 className="font-medium text-green-900 mb-2">RADIUS Speed Control Active</h4>
+                <p className="text-sm text-green-800 mb-3">
+                  Speed limits are now managed entirely through the RADIUS system. Client speeds are automatically 
+                  applied based on their assigned service package group.
+                </p>
+                <div className="grid grid-cols-2 gap-4 text-sm">
+                  <div>
+                    <span className="text-green-700">Authentication:</span>
+                    <div className="font-medium">RADIUS Server</div>
+                  </div>
+                  <div>
+                    <span className="text-green-700">Speed Control:</span>
+                    <div className="font-medium">User Groups</div>
+                  </div>
                 </div>
               </div>
-            </div>
+            ) : (
+              <div className="p-4 bg-orange-50 border border-orange-200 rounded-lg">
+                <h4 className="font-medium text-orange-900 mb-2">Configuration Required</h4>
+                <p className="text-sm text-orange-800 mb-3">
+                  Configure RADIUS servers and user groups to enable automated speed control.
+                </p>
+              </div>
+            )}
             
             <div className="p-4 bg-blue-50 border border-blue-200 rounded-lg">
               <h4 className="font-medium text-blue-900 mb-2">How It Works</h4>
