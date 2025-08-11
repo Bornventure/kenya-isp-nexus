@@ -3,14 +3,18 @@ import React from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { AlertTriangle, Eye, Package, Plus, ShoppingCart } from 'lucide-react';
-import { useLowStockItems } from '@/hooks/useInventoryCategories';
+import { AlertTriangle, Eye, Package, Plus, ShoppingCart, ArrowLeft } from 'lucide-react';
+import { useLowStockItems } from '@/hooks/useInventory';
 
 interface LowStockManagementProps {
   onViewItem: (itemId: string) => void;
+  onBackToDashboard?: () => void;
 }
 
-const LowStockManagement: React.FC<LowStockManagementProps> = ({ onViewItem }) => {
+const LowStockManagement: React.FC<LowStockManagementProps> = ({ 
+  onViewItem, 
+  onBackToDashboard 
+}) => {
   const { data: lowStockItems = [], isLoading, error } = useLowStockItems();
 
   if (isLoading) {
@@ -34,7 +38,7 @@ const LowStockManagement: React.FC<LowStockManagementProps> = ({ onViewItem }) =
           <AlertTriangle className="h-12 w-12 mx-auto mb-4 text-destructive opacity-50" />
           <h3 className="text-lg font-medium mb-2">Error Loading Low Stock Items</h3>
           <p className="text-sm text-muted-foreground">
-            {error.message}
+            Please try again later
           </p>
         </CardContent>
       </Card>
@@ -43,30 +47,43 @@ const LowStockManagement: React.FC<LowStockManagementProps> = ({ onViewItem }) =
 
   return (
     <div className="space-y-6">
+      {onBackToDashboard && (
+        <Button variant="outline" onClick={onBackToDashboard} className="mb-4">
+          <ArrowLeft className="h-4 w-4 mr-2" />
+          Back to Dashboard
+        </Button>
+      )}
+      
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
             <AlertTriangle className="h-5 w-5 text-orange-600" />
-            Critical Stock Shortage Alert
+            Low Stock Items ({lowStockItems.length})
           </CardTitle>
           <p className="text-sm text-muted-foreground">
-            Essential ISP equipment categories below minimum stock levels
+            Items below minimum stock levels requiring attention
           </p>
         </CardHeader>
         <CardContent>
           {lowStockItems.length > 0 ? (
             <div className="space-y-4">
               {lowStockItems.map((item) => (
-                <div key={item.category_id} className="flex items-center justify-between p-4 border rounded-lg border-orange-200 bg-orange-50">
+                <div key={item.id} className="flex items-center justify-between p-4 border rounded-lg border-orange-200 bg-orange-50">
                   <div className="flex-1">
-                    <div className="font-medium">{item.category_name}</div>
+                    <div className="font-medium">{item.name || item.type}</div>
                     <div className="text-sm text-muted-foreground">
-                      Current Stock: {item.current_stock} | Required: {item.minimum_stock_level}
+                      {item.category} - {item.model && `Model: ${item.model}`}
                     </div>
-                    <div className="text-sm text-red-600 font-medium">
-                      Shortage: {item.stock_shortage} units
+                    <div className="text-sm mt-1">
+                      <span className="text-gray-600">Current Stock: </span>
+                      <span className="font-medium">{item.quantity_in_stock || 0}</span>
+                      <span className="text-gray-600 ml-2">Required: </span>
+                      <span className="font-medium">{item.reorder_level || 0}</span>
                     </div>
-                    <Badge variant="destructive" className="mt-1">
+                    <div className="text-sm text-red-600 font-medium mt-1">
+                      Shortage: {(item.reorder_level || 0) - (item.quantity_in_stock || 0)} units
+                    </div>
+                    <Badge variant="destructive" className="mt-2">
                       Critical Low Stock
                     </Badge>
                   </div>
@@ -74,7 +91,7 @@ const LowStockManagement: React.FC<LowStockManagementProps> = ({ onViewItem }) =
                     <Button 
                       size="sm" 
                       variant="outline"
-                      onClick={() => onViewItem(item.category_id)}
+                      onClick={() => onViewItem(item.id)}
                     >
                       <Eye className="h-4 w-4 mr-1" />
                       View
@@ -82,8 +99,10 @@ const LowStockManagement: React.FC<LowStockManagementProps> = ({ onViewItem }) =
                     <Button 
                       size="sm"
                       onClick={() => {
-                        // Navigate to inventory with pre-filled category
-                        window.location.href = `/inventory?category=${encodeURIComponent(item.category_name)}`;
+                        // Navigate to inventory with pre-filled category filter
+                        if (onBackToDashboard) {
+                          onBackToDashboard();
+                        }
                       }}
                     >
                       <Plus className="h-4 w-4 mr-1" />
@@ -99,11 +118,11 @@ const LowStockManagement: React.FC<LowStockManagementProps> = ({ onViewItem }) =
                   Recommended Action
                 </h4>
                 <p className="text-sm text-blue-800 mb-3">
-                  These equipment categories are essential for ISP operations. Immediate restocking is recommended to avoid service disruptions.
+                  These items require immediate restocking to avoid service disruptions.
                 </p>
                 <Button 
                   className="bg-blue-600 hover:bg-blue-700"
-                  onClick={() => window.location.href = '/inventory'}
+                  onClick={onBackToDashboard}
                 >
                   Go to Inventory Management
                 </Button>
@@ -113,7 +132,7 @@ const LowStockManagement: React.FC<LowStockManagementProps> = ({ onViewItem }) =
             <div className="text-center py-8 text-muted-foreground">
               <Package className="h-12 w-12 mx-auto mb-4 opacity-50" />
               <p className="font-medium text-green-600">Excellent Stock Levels!</p>
-              <p className="text-sm">All essential ISP equipment categories are well stocked</p>
+              <p className="text-sm">All items are above minimum stock levels</p>
             </div>
           )}
         </CardContent>

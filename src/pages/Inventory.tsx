@@ -14,6 +14,8 @@ const Inventory = () => {
     // Map the status to the appropriate tab
     if (status === '') {
       setActiveTab('all-items');
+    } else if (status === 'low-stock') {
+      setActiveTab('low-stock');
     } else {
       setActiveTab(status);
     }
@@ -22,6 +24,10 @@ const Inventory = () => {
   const handleViewItem = (itemId: string) => {
     console.log('View item:', itemId);
     // You can implement item detail view here
+  };
+
+  const handleBackToDashboard = () => {
+    setActiveTab('dashboard');
   };
 
   if (!profile) {
@@ -71,7 +77,10 @@ const Inventory = () => {
         </TabsContent>
 
         <TabsContent value="low-stock" className="space-y-6">
-          <LowStockManagement onViewItem={handleViewItem} />
+          <LowStockManagement 
+            onViewItem={handleViewItem} 
+            onBackToDashboard={handleBackToDashboard}
+          />
         </TabsContent>
       </Tabs>
     </div>
