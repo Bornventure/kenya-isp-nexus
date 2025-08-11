@@ -1,4 +1,3 @@
-
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
@@ -75,17 +74,19 @@ export const useRadiusServers = () => {
         // Check if data exists and is valid
         if (data && Array.isArray(data) && data.length > 0) {
           // Type guard to check if the data matches our expected structure
-          const isValidData = data.every(item => 
-            item && 
-            item !== null &&
-            typeof item === 'object' && 
-            'id' in item && 
-            'name' in item && 
-            'server_address' in item &&
-            typeof item.id === 'string' &&
-            typeof item.name === 'string' &&
-            typeof item.server_address === 'string'
-          );
+          const isValidData = data.every(item => {
+            if (!item || item === null || typeof item !== 'object') {
+              return false;
+            }
+            return (
+              'id' in item && 
+              'name' in item && 
+              'server_address' in item &&
+              typeof item.id === 'string' &&
+              typeof item.name === 'string' &&
+              typeof item.server_address === 'string'
+            );
+          });
           
           if (isValidData) {
             return data as unknown as RadiusServer[];
@@ -119,17 +120,19 @@ export const useRadiusGroups = () => {
         // Check if data exists and is valid
         if (data && Array.isArray(data) && data.length > 0) {
           // Type guard to check if the data matches our expected structure
-          const isValidData = data.every(item => 
-            item && 
-            item !== null &&
-            typeof item === 'object' && 
-            'id' in item && 
-            'name' in item && 
-            'upload_limit_mbps' in item &&
-            typeof item.id === 'string' &&
-            typeof item.name === 'string' &&
-            typeof item.upload_limit_mbps === 'number'
-          );
+          const isValidData = data.every(item => {
+            if (!item || item === null || typeof item !== 'object') {
+              return false;
+            }
+            return (
+              'id' in item && 
+              'name' in item && 
+              'upload_limit_mbps' in item &&
+              typeof item.id === 'string' &&
+              typeof item.name === 'string' &&
+              typeof item.upload_limit_mbps === 'number'
+            );
+          });
           
           if (isValidData) {
             return data as unknown as RadiusGroup[];
@@ -163,17 +166,19 @@ export const useRadiusUsers = () => {
         // Check if data exists and is valid
         if (data && Array.isArray(data) && data.length > 0) {
           // Type guard to check if the data matches our expected structure
-          const isValidData = data.every(item => 
-            item && 
-            item !== null &&
-            typeof item === 'object' && 
-            'id' in item && 
-            'username' in item && 
-            'password' in item &&
-            typeof item.id === 'string' &&
-            typeof item.username === 'string' &&
-            typeof item.password === 'string'
-          );
+          const isValidData = data.every(item => {
+            if (!item || item === null || typeof item !== 'object') {
+              return false;
+            }
+            return (
+              'id' in item && 
+              'username' in item && 
+              'password' in item &&
+              typeof item.id === 'string' &&
+              typeof item.username === 'string' &&
+              typeof item.password === 'string'
+            );
+          });
           
           if (isValidData) {
             return data as unknown as RadiusUser[];
@@ -211,17 +216,19 @@ export const useNASClients = () => {
         // Check if data exists and is valid
         if (data && Array.isArray(data) && data.length > 0) {
           // Type guard to check if the data matches our expected structure
-          const isValidData = data.every(item => 
-            item && 
-            item !== null &&
-            typeof item === 'object' && 
-            'id' in item && 
-            'name' in item && 
-            'shortname' in item &&
-            typeof item.id === 'string' &&
-            typeof item.name === 'string' &&
-            typeof item.shortname === 'string'
-          );
+          const isValidData = data.every(item => {
+            if (!item || item === null || typeof item !== 'object') {
+              return false;
+            }
+            return (
+              'id' in item && 
+              'name' in item && 
+              'shortname' in item &&
+              typeof item.id === 'string' &&
+              typeof item.name === 'string' &&
+              typeof item.shortname === 'string'
+            );
+          });
           
           if (isValidData) {
             return data as unknown as NASClient[];

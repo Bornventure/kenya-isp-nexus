@@ -36,17 +36,19 @@ export const useInventoryCategories = () => {
         // Check if data exists and is valid
         if (data && Array.isArray(data) && data.length > 0) {
           // Type guard to check if the data matches our expected structure
-          const isValidData = data.every(item => 
-            item && 
-            item !== null &&
-            typeof item === 'object' && 
-            'id' in item && 
-            'name' in item && 
-            'minimum_stock_level' in item &&
-            typeof item.id === 'string' &&
-            typeof item.name === 'string' &&
-            typeof item.minimum_stock_level === 'number'
-          );
+          const isValidData = data.every(item => {
+            if (!item || item === null || typeof item !== 'object') {
+              return false;
+            }
+            return (
+              'id' in item && 
+              'name' in item && 
+              'minimum_stock_level' in item &&
+              typeof item.id === 'string' &&
+              typeof item.name === 'string' &&
+              typeof item.minimum_stock_level === 'number'
+            );
+          });
           
           if (isValidData) {
             return data as unknown as InventoryCategory[];
@@ -80,17 +82,19 @@ export const useLowStockItems = () => {
         // Check if data exists and is valid
         if (data && Array.isArray(data) && data.length > 0) {
           // Type guard to check if the data matches our expected structure
-          const isValidData = data.every(item => 
-            item && 
-            item !== null &&
-            typeof item === 'object' && 
-            'category_name' in item && 
-            'minimum_stock_level' in item && 
-            'current_stock' in item &&
-            typeof item.category_name === 'string' &&
-            typeof item.minimum_stock_level === 'number' &&
-            typeof item.current_stock === 'number'
-          );
+          const isValidData = data.every(item => {
+            if (!item || item === null || typeof item !== 'object') {
+              return false;
+            }
+            return (
+              'category_name' in item && 
+              'minimum_stock_level' in item && 
+              'current_stock' in item &&
+              typeof item.category_name === 'string' &&
+              typeof item.minimum_stock_level === 'number' &&
+              typeof item.current_stock === 'number'
+            );
+          });
           
           if (isValidData) {
             return data as unknown as LowStockItem[];
