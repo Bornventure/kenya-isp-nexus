@@ -1,12 +1,12 @@
-
 import React from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { TestTube, Router, Database, Wifi, Clipboard, Activity } from 'lucide-react';
+import { TestTube, Router, Database, Wifi, Clipboard, Activity, Settings } from 'lucide-react';
 import EnhancedSystemIntegrationTest from '@/components/testing/EnhancedSystemIntegrationTest';
 import ProductionReadinessChecklist from '@/components/testing/ProductionReadinessChecklist';
 import NetworkDiagnosticsPanel from '@/components/network/NetworkDiagnosticsPanel';
 import ProductionNetworkPanel from '@/components/network/ProductionNetworkPanel';
+import MikroTikSetupGuide from '@/components/network/MikroTikSetupGuide';
 
 const SystemTest = () => {
   return (
@@ -14,15 +14,19 @@ const SystemTest = () => {
       <div>
         <h1 className="text-3xl font-bold flex items-center gap-3">
           <TestTube className="h-8 w-8" />
-          Production System Testing & Handover
+          Production System Testing & Integration
         </h1>
         <p className="text-muted-foreground mt-2">
-          Complete end-to-end testing of client onboarding, network management, payment processing, RADIUS authentication, and production readiness validation
+          Complete setup and testing of real MikroTik RouterOS devices for production deployment
         </p>
       </div>
 
-      <Tabs defaultValue="integration" className="space-y-4">
-        <TabsList className="grid w-full grid-cols-5">
+      <Tabs defaultValue="setup" className="space-y-4">
+        <TabsList className="grid w-full grid-cols-6">
+          <TabsTrigger value="setup" className="gap-2">
+            <Settings className="h-4 w-4" />
+            Setup Guide
+          </TabsTrigger>
           <TabsTrigger value="integration" className="gap-2">
             <TestTube className="h-4 w-4" />
             Integration Test
@@ -44,6 +48,10 @@ const SystemTest = () => {
             RADIUS Guide
           </TabsTrigger>
         </TabsList>
+
+        <TabsContent value="setup" className="space-y-4">
+          <MikroTikSetupGuide />
+        </TabsContent>
 
         <TabsContent value="integration" className="space-y-4">
           <EnhancedSystemIntegrationTest />

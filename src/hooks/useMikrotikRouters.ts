@@ -3,6 +3,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/hooks/use-toast';
+import { realMikrotikService } from '@/services/realMikrotikService';
 
 export interface MikrotikRouter {
   id: string;
@@ -146,37 +147,90 @@ export const useMikrotikRouters = () => {
       const router = routers.find(r => r.id === routerId);
       if (!router) throw new Error('Router not found');
 
+      console.log('Starting real connection test for router:', router.name);
+
       // Update status to testing
       await updateRouter.mutateAsync({
         id: routerId,
         updates: { connection_status: 'testing' }
       });
 
-      // Simulate connection tests
-      const testResults = {
-        ping: true,
-        snmp: Math.random() > 0.1,
-        ssh: Math.random() > 0.3,
-        api: Math.random() > 0.2,
-        timestamp: new Date().toISOString()
-      };
+      // Perform real connection test
+      const testResults = await realMikrotikService.testConnection({
+        ip: router.ip_address,
+        username: router.admin_username,
+        password: router.admin_password,
+        port: 8728
+      });
 
-      const overallStatus = testResults.ping && testResults.snmp && testResults.api ? 'online' : 'offline';
+      console.log('Real test results:', testResults);
 
-      // Update with test results
+      // Get system info if connection is successful
+      let systemInfo = null;
+      if (testResults.success) {
+        try {
+          systemInfo = await realMikrotikService.getSystemInfo({
+            ip: router.ip_address,
+            username: router.admin_username,
+            password: router.admin_password,
+            port: 8728
+          });
+        } catch (error) {
+          console.warn('Could not get system info:', error);
+        }
+      }
+
+      const overallStatus = testResults.success ? 'online' : 'offline';
+      const routerStatus = testResults.success ? 'active' : 'error';
+
+      // Update with real test results
       return updateRouter.mutateAsync({
         id: routerId,
         updates: {
           connection_status: overallStatus,
-          last_test_results: testResults,
-          status: overallStatus === 'online' ? 'active' : 'error'
+          last_test_results: {
+            ...testResults,
+            systemInfo,
+            timestamp: new Date().toISOString()
+          },
+          status: routerStatus
         }
       });
     },
-    onSuccess: () => {
+    onSuccess: (result, routerId) => {
+      const router = routers.find(r => r.id === routerId);
+      const success = result?.connection_status === 'online';
+      
       toast({
-        title: "Connection Test Complete",
-        description: "Router connection test has been completed.",
+        title: success ? "Connection Test Successful" : "Connection Test Failed",
+        description: success 
+          ? `Router "${router?.name}" is online and accessible.`
+          : `Router "${router?.name}" is not responding. Check network connectivity and credentials.`,
+        variant: success ? "default" : "destructive",
+      });
+    },
+    onError: (error: any, routerId) => {
+      console.error('Connection test error:', error);
+      const router = routers.find(r => r.id === routerId);
+      
+      // Update status to offline on error
+      updateRouter.mutate({
+        id: routerId,
+        updates: {
+          connection_status: 'offline',
+          status: 'error',
+          last_test_results: {
+            success: false,
+            error: error.message,
+            timestamp: new Date().toISOString()
+          }
+        }
+      });
+
+      toast({
+        title: "Connection Test Error",
+        description: `Failed to test router "${router?.name}": ${error.message}`,
+        variant: "destructive",
       });
     },
   });
