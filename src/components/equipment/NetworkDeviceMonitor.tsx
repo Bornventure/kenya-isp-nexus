@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -411,14 +412,14 @@ const NetworkDeviceMonitor: React.FC = () => {
             </div>
           )}
         </CardContent>
+      </Card>
 
-        <AddSNMPDeviceDialog
-          open={showAddDialog}
-          onOpenChange={setShowAddDialog}
-          onAddDevice={handleAddDevice}
-          onTestConnection={handleTestConnection}
-        />
-      </div>
+      <AddSNMPDeviceDialog
+        open={showAddDialog}
+        onOpenChange={setShowAddDialog}
+        onAddDevice={handleAddDevice}
+        onTestConnection={handleTestConnection}
+      />
     </div>
   );
 };
