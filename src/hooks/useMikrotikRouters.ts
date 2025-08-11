@@ -77,6 +77,11 @@ export const useMikrotikRouters = () => {
         throw new Error('Admin password is required');
       }
 
+      // Helper function to convert empty strings to null for inet fields
+      const cleanInetField = (value: string | undefined) => {
+        return (value && value.trim()) ? value.trim() : null;
+      };
+
       // Prepare data for database insertion
       const insertData = {
         name: routerData.name.trim(),
@@ -88,7 +93,7 @@ export const useMikrotikRouters = () => {
         pppoe_interface: routerData.pppoe_interface?.trim() || 'pppoe-server1',
         dns_servers: routerData.dns_servers?.trim() || '8.8.8.8,8.8.4.4',
         client_network: routerData.client_network?.trim() || '10.0.0.0/24',
-        gateway: routerData.gateway?.trim() || '',
+        gateway: cleanInetField(routerData.gateway), // Convert empty string to null
         status: 'pending' as const,
         last_test_results: null,
         connection_status: 'offline' as const,
