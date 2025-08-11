@@ -16,6 +16,20 @@ import { useInventoryItems } from '@/hooks/useInventory';
 import { useMikrotikRouters } from '@/hooks/useMikrotikRouters';
 import { useToast } from '@/hooks/use-toast';
 
+interface UnifiedEquipment {
+  id: string;
+  name?: string;
+  model?: string;
+  type: string;
+  status: string;
+  approval_status?: string;
+  created_at: string;
+  notes?: string;
+  equipment_type: string;
+  brand?: string;
+  connection_status?: string;
+}
+
 const EquipmentLifecycleManager = () => {
   const { equipment, isLoading: equipmentLoading, approveEquipment, rejectEquipment } = useEquipment();
   const { data: inventoryItems = [], isLoading: inventoryLoading } = useInventoryItems({
@@ -28,20 +42,42 @@ const EquipmentLifecycleManager = () => {
   const [selectedInventoryItem, setSelectedInventoryItem] = useState<any>(null);
   const [promotionNotes, setPromotionNotes] = useState('');
 
-  // Combine all equipment data
-  const allEquipment = [
-    ...equipment,
-    ...inventoryItems.filter(item => item.is_network_equipment),
+  // Combine all equipment data with proper typing
+  const allEquipment: UnifiedEquipment[] = [
+    ...equipment.map(item => ({
+      id: item.id,
+      name: item.model || item.type,
+      model: item.model,
+      type: item.type,
+      status: item.status,
+      approval_status: item.approval_status,
+      created_at: item.created_at,
+      notes: item.notes,
+      equipment_type: 'Equipment',
+      brand: item.brand
+    })),
+    ...inventoryItems.filter(item => item.is_network_equipment).map(item => ({
+      id: item.id,
+      name: item.name || item.model,
+      model: item.model,
+      type: item.type,
+      status: item.status,
+      approval_status: 'approved', // Inventory items are pre-approved
+      created_at: item.created_at,
+      notes: `Inventory: ${item.item_id}`,
+      equipment_type: 'Network Hardware',
+      brand: item.manufacturer
+    })),
     ...routers.map(router => ({
       id: router.id,
-      type: 'MikroTik Router',
-      brand: 'MikroTik',
+      name: router.name,
       model: router.name,
-      serial_number: router.ip_address,
+      type: 'MikroTik Router',
       status: router.status,
       approval_status: router.status === 'active' ? 'approved' : 'pending',
       created_at: router.created_at,
       notes: `IP: ${router.ip_address}, Interface: ${router.pppoe_interface}`,
+      equipment_type: 'Router',
       connection_status: router.connection_status
     }))
   ];
@@ -230,9 +266,9 @@ const EquipmentLifecycleManager = () => {
                           <div className="flex items-center gap-3">
                             {getEquipmentIcon(item.type)}
                             <div>
-                              <h4 className="font-medium">{item.model || item.name}</h4>
+                              <h4 className="font-medium">{item.name || item.model}</h4>
                               <div className="text-sm text-muted-foreground">
-                                {item.type} • {item.brand}
+                                {item.type} • {item.brand || 'Unknown Brand'}
                               </div>
                               {item.notes && (
                                 <div className="text-xs text-muted-foreground mt-1">
@@ -243,35 +279,39 @@ const EquipmentLifecycleManager = () => {
                           </div>
                           <div className="flex items-center gap-2">
                             {getStatusBadge(item.approval_status || item.status)}
-                            <Button 
-                              size="sm" 
-                              onClick={() => handleApproveEquipment(item.id)}
-                            >
-                              Approve
-                            </Button>
-                            <AlertDialog>
-                              <AlertDialogTrigger asChild>
-                                <Button size="sm" variant="destructive">
-                                  Reject
+                            {item.equipment_type === 'Equipment' && (
+                              <>
+                                <Button 
+                                  size="sm" 
+                                  onClick={() => handleApproveEquipment(item.id)}
+                                >
+                                  Approve
                                 </Button>
-                              </AlertDialogTrigger>
-                              <AlertDialogContent>
-                                <AlertDialogHeader>
-                                  <AlertDialogTitle>Reject Equipment</AlertDialogTitle>
-                                  <AlertDialogDescription>
-                                    Please provide a reason for rejecting this equipment.
-                                  </AlertDialogDescription>
-                                </AlertDialogHeader>
-                                <AlertDialogFooter>
-                                  <AlertDialogCancel>Cancel</AlertDialogCancel>
-                                  <AlertDialogAction 
-                                    onClick={() => handleRejectEquipment(item.id, 'Rejected via lifecycle manager')}
-                                  >
-                                    Reject
-                                  </AlertDialogAction>
-                                </AlertDialogFooter>
-                              </AlertDialogContent>
-                            </AlertDialog>
+                                <AlertDialog>
+                                  <AlertDialogTrigger asChild>
+                                    <Button size="sm" variant="destructive">
+                                      Reject
+                                    </Button>
+                                  </AlertDialogTrigger>
+                                  <AlertDialogContent>
+                                    <AlertDialogHeader>
+                                      <AlertDialogTitle>Reject Equipment</AlertDialogTitle>
+                                      <AlertDialogDescription>
+                                        Please provide a reason for rejecting this equipment.
+                                      </AlertDialogDescription>
+                                    </AlertDialogHeader>
+                                    <AlertDialogFooter>
+                                      <AlertDialogCancel>Cancel</AlertDialogCancel>
+                                      <AlertDialogAction 
+                                        onClick={() => handleRejectEquipment(item.id, 'Rejected via lifecycle manager')}
+                                      >
+                                        Reject
+                                      </AlertDialogAction>
+                                    </AlertDialogFooter>
+                                  </AlertDialogContent>
+                                </AlertDialog>
+                              </>
+                            )}
                           </div>
                         </div>
                       </CardContent>
@@ -290,9 +330,9 @@ const EquipmentLifecycleManager = () => {
                         <div className="flex items-center gap-3">
                           {getEquipmentIcon(item.type)}
                           <div>
-                            <h4 className="font-medium">{item.model || item.name}</h4>
+                            <h4 className="font-medium">{item.name || item.model}</h4>
                             <div className="text-sm text-muted-foreground">
-                              {item.type} • {item.brand}
+                              {item.type} • {item.brand || 'Unknown Brand'}
                             </div>
                             {item.connection_status && (
                               <Badge 

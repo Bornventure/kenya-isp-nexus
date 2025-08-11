@@ -8,6 +8,19 @@ import { useEquipment } from '@/hooks/useEquipment';
 import { useInventoryItems } from '@/hooks/useInventory';
 import { useMikrotikRouters } from '@/hooks/useMikrotikRouters';
 
+interface UnifiedEquipment {
+  id: string;
+  name?: string;
+  model?: string;
+  type: string;
+  status: string;
+  ip_address?: string;
+  notes?: string;
+  equipment_type: string;
+  brand?: string;
+  connection_status?: string;
+}
+
 const EquipmentActions = () => {
   const { equipment, isLoading: equipmentLoading } = useEquipment();
   const { data: inventoryItems = [], isLoading: inventoryLoading } = useInventoryItems({
@@ -52,23 +65,39 @@ const EquipmentActions = () => {
     );
   }
 
-  const allEquipment = [
+  // Unify all equipment types
+  const allEquipment: UnifiedEquipment[] = [
     ...equipment.map(item => ({
-      ...item,
-      equipment_type: 'Equipment'
+      id: item.id,
+      name: item.model || item.type,
+      model: item.model,
+      type: item.type,
+      status: item.status,
+      ip_address: item.ip_address?.toString(),
+      notes: item.notes,
+      equipment_type: 'Equipment',
+      brand: item.brand
     })),
     ...routers.map(router => ({
       id: router.id,
       name: router.name,
+      model: router.name,
       type: 'MikroTik Router',
       status: router.connection_status,
       ip_address: router.ip_address,
       notes: `Interface: ${router.pppoe_interface}`,
-      equipment_type: 'Router'
+      equipment_type: 'Router',
+      connection_status: router.connection_status
     })),
     ...inventoryItems.filter(item => item.is_network_equipment).map(item => ({
-      ...item,
-      equipment_type: 'Network Hardware'
+      id: item.id,
+      name: item.name || item.model,
+      model: item.model,
+      type: item.type,
+      status: item.status,
+      notes: `Inventory: ${item.item_id}`,
+      equipment_type: 'Network Hardware',
+      brand: item.manufacturer
     }))
   ];
 
