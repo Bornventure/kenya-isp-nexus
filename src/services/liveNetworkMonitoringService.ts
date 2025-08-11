@@ -68,8 +68,8 @@ class LiveNetworkMonitoringService {
   async getClientNetworkStatus(clientId: string): Promise<ClientNetworkStatus> {
     try {
       // Get current session
-      const { data: session } = await supabase
-        .from('network_sessions' as any)
+      const { data: sessionData, error: sessionError } = await supabase
+        .from('network_sessions')
         .select('*')
         .eq('client_id', clientId)
         .eq('status', 'active')
@@ -77,9 +77,27 @@ class LiveNetworkMonitoringService {
         .limit(1)
         .maybeSingle();
 
+      if (sessionError) {
+        console.error('Error fetching session:', sessionError);
+      }
+
+      const session = sessionData ? {
+        id: sessionData.id,
+        client_id: sessionData.client_id || clientId,
+        username: sessionData.username,
+        ip_address: sessionData.ip_address || 'dynamic',
+        nas_ip_address: sessionData.nas_ip_address || '',
+        session_id: sessionData.session_id,
+        start_time: sessionData.start_time,
+        bytes_in: sessionData.bytes_in,
+        bytes_out: sessionData.bytes_out,
+        status: sessionData.status as 'active' | 'disconnected',
+        last_update: sessionData.last_update || sessionData.start_time
+      } : undefined;
+
       // Get today's data usage
       const today = new Date().toISOString().split('T')[0];
-      const { data: usage } = await supabase
+      const { data: usage, error: usageError } = await supabase
         .from('bandwidth_statistics')
         .select('in_octets, out_octets')
         .eq('client_id', clientId)
@@ -88,8 +106,12 @@ class LiveNetworkMonitoringService {
         .limit(1)
         .maybeSingle();
 
+      if (usageError) {
+        console.error('Error fetching usage:', usageError);
+      }
+
       // Get client's speed limit
-      const { data: client } = await supabase
+      const { data: client, error: clientError } = await supabase
         .from('clients')
         .select(`
           *,
@@ -98,25 +120,17 @@ class LiveNetworkMonitoringService {
         .eq('id', clientId)
         .single();
 
+      if (clientError) {
+        console.error('Error fetching client:', clientError);
+      }
+
       const speedLimit = this.parseSpeedLimit(client?.service_packages?.speed || '10Mbps');
       const dataUsageToday = usage ? (usage.in_octets + usage.out_octets) / (1024 * 1024) : 0; // MB
 
       return {
         client_id: clientId,
         is_online: !!session,
-        current_session: session ? {
-          id: session.id,
-          client_id: session.client_id || clientId,
-          username: session.username,
-          ip_address: session.ip_address || 'dynamic',
-          nas_ip_address: session.nas_ip_address || '',
-          session_id: session.session_id,
-          start_time: session.start_time,
-          bytes_in: session.bytes_in,
-          bytes_out: session.bytes_out,
-          status: session.status as 'active' | 'disconnected',
-          last_update: session.last_update || session.start_time
-        } : undefined,
+        current_session: session,
         data_usage_today: dataUsageToday,
         speed_limit: speedLimit,
         last_seen: session?.start_time || client?.updated_at || new Date().toISOString()
@@ -136,27 +150,31 @@ class LiveNetworkMonitoringService {
   async disconnectClient(clientId: string): Promise<boolean> {
     try {
       // Get active sessions
-      const { data: sessions } = await supabase
-        .from('network_sessions' as any)
+      const { data: sessions, error } = await supabase
+        .from('network_sessions')
         .select('*')
         .eq('client_id', clientId)
         .eq('status', 'active');
+
+      if (error) {
+        console.error('Error fetching sessions:', error);
+        return false;
+      }
 
       if (!sessions || sessions.length === 0) {
         return true; // Already disconnected
       }
 
       // Disconnect from MikroTik routers
-      for (const session of sessions) {
-        await this.sendDisconnectCommand(session.nas_ip_address, session.username);
+      for (const sessionData of sessions) {
+        await this.sendDisconnectCommand(sessionData.nas_ip_address, sessionData.username);
       }
 
       // Update session status
       await supabase
-        .from('network_sessions' as any)
+        .from('network_sessions')
         .update({
-          status: 'disconnected',
-          end_time: new Date().toISOString()
+          status: 'disconnected'
         })
         .eq('client_id', clientId)
         .eq('status', 'active');
@@ -172,21 +190,26 @@ class LiveNetworkMonitoringService {
   async changeClientSpeedLimit(clientId: string, newSpeed: string): Promise<boolean> {
     try {
       // Get client's current session
-      const { data: session } = await supabase
-        .from('network_sessions' as any)
+      const { data: sessionData, error } = await supabase
+        .from('network_sessions')
         .select('*')
         .eq('client_id', clientId)
         .eq('status', 'active')
         .maybeSingle();
 
-      if (session) {
+      if (error) {
+        console.error('Error fetching session:', error);
+        return false;
+      }
+
+      if (sessionData) {
         const speedLimit = this.parseSpeedLimit(newSpeed);
-        await this.applySpeedLimitToSession(session, speedLimit);
+        await this.applySpeedLimitToSession(sessionData, speedLimit);
       }
 
       // Update RADIUS user profile
       await supabase
-        .from('radius_users' as any)
+        .from('radius_users')
         .update({
           max_download: this.parseSpeedLimit(newSpeed).download,
           max_upload: this.parseSpeedLimit(newSpeed).upload
@@ -203,38 +226,43 @@ class LiveNetworkMonitoringService {
   private async updateNetworkStatistics() {
     try {
       // Get all active sessions
-      const { data: sessions } = await supabase
-        .from('network_sessions' as any)
+      const { data: sessions, error } = await supabase
+        .from('network_sessions')
         .select('*')
         .eq('status', 'active');
+
+      if (error) {
+        console.error('Error fetching sessions:', error);
+        return;
+      }
 
       if (!sessions) return;
 
       // Simulate real-time data collection
-      for (const session of sessions) {
-        const bytesIn = session.bytes_in + Math.floor(Math.random() * 1000000); // Simulate traffic
-        const bytesOut = session.bytes_out + Math.floor(Math.random() * 500000);
+      for (const sessionData of sessions) {
+        const bytesIn = sessionData.bytes_in + Math.floor(Math.random() * 1000000); // Simulate traffic
+        const bytesOut = sessionData.bytes_out + Math.floor(Math.random() * 500000);
 
         await supabase
-          .from('network_sessions' as any)
+          .from('network_sessions')
           .update({
             bytes_in: bytesIn,
             bytes_out: bytesOut,
             last_update: new Date().toISOString()
           })
-          .eq('id', session.id);
+          .eq('id', sessionData.id);
 
         // Update bandwidth statistics
-        if (session.client_id && session.equipment_id) {
+        if (sessionData.client_id && sessionData.equipment_id) {
           await supabase
             .from('bandwidth_statistics')
             .upsert({
-              client_id: session.client_id,
-              equipment_id: session.equipment_id,
+              client_id: sessionData.client_id,
+              equipment_id: sessionData.equipment_id,
               in_octets: bytesIn,
               out_octets: bytesOut,
               timestamp: new Date().toISOString(),
-              isp_company_id: session.isp_company_id
+              isp_company_id: sessionData.isp_company_id
             });
         }
       }
@@ -246,21 +274,25 @@ class LiveNetworkMonitoringService {
   private async checkClientSessions() {
     try {
       // Check for sessions that should be expired
-      const { data: expiredSessions } = await supabase
-        .from('network_sessions' as any)
+      const { data: expiredSessions, error } = await supabase
+        .from('network_sessions')
         .select('*')
         .eq('status', 'active')
         .lt('start_time', new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString()); // Older than 24 hours
 
+      if (error) {
+        console.error('Error fetching expired sessions:', error);
+        return;
+      }
+
       if (expiredSessions) {
-        for (const session of expiredSessions) {
+        for (const sessionData of expiredSessions) {
           await supabase
-            .from('network_sessions' as any)
+            .from('network_sessions')
             .update({
-              status: 'disconnected',
-              end_time: new Date().toISOString()
+              status: 'disconnected'
             })
-            .eq('id', session.id);
+            .eq('id', sessionData.id);
         }
       }
     } catch (error) {

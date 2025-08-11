@@ -7,11 +7,22 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { usePromoteToNetworkEquipment, InventoryItem } from '@/hooks/useInventory';
+import { usePromoteToNetworkEquipment } from '@/hooks/useInventory';
 import { usePromoteToMikrotikRouter } from '@/hooks/usePromoteToMikrotikRouter';
 import { useEquipmentTypes } from '@/hooks/useEquipmentTypes';
 import { Loader2, Router, Network } from 'lucide-react';
 import PromoteToMikrotikDialog from './PromoteToMikrotikDialog';
+
+interface InventoryItem {
+  id: string;
+  item_id: string;
+  name?: string;
+  type: string;
+  manufacturer?: string;
+  model?: string;
+  serial_number?: string;
+  mac_address?: string;
+}
 
 interface PromoteToEquipmentDialogProps {
   open: boolean;

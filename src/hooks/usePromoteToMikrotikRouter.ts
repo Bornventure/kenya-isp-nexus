@@ -25,17 +25,57 @@ export const usePromoteToMikrotikRouter = () => {
       inventoryItemId: string; 
       routerData: MikrotikRouterData;
     }) => {
-      const { data, error } = await supabase.rpc('promote_inventory_to_mikrotik_router', {
-        inventory_item_id: inventoryItemId,
-        router_data: routerData
-      });
+      // Get the inventory item first
+      const { data: inventoryItem, error: inventoryError } = await supabase
+        .from('inventory_items')
+        .select('*')
+        .eq('id', inventoryItemId)
+        .single();
 
-      if (error) {
-        console.error('Error promoting to MikroTik router:', error);
-        throw error;
+      if (inventoryError || !inventoryItem) {
+        throw new Error('Inventory item not found');
       }
 
-      return data;
+      // Create MikroTik router record
+      const { data: router, error: routerError } = await supabase
+        .from('mikrotik_routers')
+        .insert({
+          name: routerData.name || inventoryItem.name || 'MikroTik Router',
+          ip_address: routerData.ip_address,
+          admin_username: routerData.admin_username || 'admin',
+          admin_password: routerData.admin_password,
+          snmp_community: routerData.snmp_community || 'public',
+          snmp_version: routerData.snmp_version || 2,
+          pppoe_interface: routerData.pppoe_interface || 'pppoe-server1',
+          dns_servers: routerData.dns_servers || '8.8.8.8,8.8.4.4',
+          client_network: routerData.client_network || '10.0.0.0/24',
+          gateway: routerData.gateway,
+          status: 'pending',
+          isp_company_id: inventoryItem.isp_company_id
+        })
+        .select()
+        .single();
+
+      if (routerError) {
+        console.error('Error creating MikroTik router:', routerError);
+        throw routerError;
+      }
+
+      // Update inventory item to mark as promoted
+      const { error: updateError } = await supabase
+        .from('inventory_items')
+        .update({
+          status: 'Deployed',
+          notes: (inventoryItem.notes || '') + ' - Promoted to MikroTik Router'
+        })
+        .eq('id', inventoryItemId);
+
+      if (updateError) {
+        console.error('Error updating inventory item:', updateError);
+        throw updateError;
+      }
+
+      return router;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['inventory'] });
