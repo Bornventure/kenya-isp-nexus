@@ -21,7 +21,8 @@ const NASManagementPanel = () => {
     secret: '',
     ports: 1812,
     community: 'public',
-    description: ''
+    description: '',
+    is_active: true
   });
 
   const handleSubmit = () => {
@@ -46,7 +47,8 @@ const NASManagementPanel = () => {
       secret: '',
       ports: 1812,
       community: 'public',
-      description: ''
+      description: '',
+      is_active: true
     });
     setShowAddForm(false);
     setEditingClient(null);
@@ -61,7 +63,8 @@ const NASManagementPanel = () => {
       secret: client.secret,
       ports: client.ports,
       community: client.community,
-      description: client.description || ''
+      description: client.description || '',
+      is_active: client.is_active
     });
     setEditingClient(client);
     setShowAddForm(true);
