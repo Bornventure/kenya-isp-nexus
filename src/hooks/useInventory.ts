@@ -390,48 +390,90 @@ export const useLowStockItems = () => {
 export const usePromoteToNetworkEquipment = () => {
   const queryClient = useQueryClient();
   const { toast } = useToast();
+  const { profile } = useAuth();
 
   return useMutation({
-    mutationFn: async (params: {
-      inventoryItemId: string;
-      equipmentData: {
-        equipment_type_id: string;
-        ip_address: string;
-        snmp_community: string;
-        snmp_version: number;
-        notes: string;
-      };
+    mutationFn: async ({ 
+      inventoryItemId, 
+      equipmentData 
+    }: { 
+      inventoryItemId: string; 
+      equipmentData: any;
     }) => {
-      console.log('Promoting inventory item to equipment:', params);
-      
-      const { data, error } = await supabase.rpc('promote_inventory_to_equipment', {
-        inventory_item_id: params.inventoryItemId,
-        equipment_data: params.equipmentData
-      });
+      console.log('Promoting inventory item to equipment:', { inventoryItemId, equipmentData });
 
-      if (error) {
-        console.error('Promotion error:', error);
-        throw error;
+      // First, get the inventory item details
+      const { data: inventoryItem, error: fetchError } = await supabase
+        .from('inventory_items')
+        .select('*')
+        .eq('id', inventoryItemId)
+        .single();
+
+      if (fetchError) {
+        console.error('Error fetching inventory item:', fetchError);
+        throw fetchError;
       }
 
-      console.log('Equipment promotion successful:', data);
-      return { success: true, equipment_id: data };
+      // Create equipment record
+      const { data: equipment, error: equipmentError } = await supabase
+        .from('equipment')
+        .insert({
+          type: inventoryItem.type,
+          brand: inventoryItem.manufacturer,
+          model: inventoryItem.model,
+          serial_number: inventoryItem.serial_number || `INV-${inventoryItem.item_id}`,
+          mac_address: inventoryItem.mac_address,
+          ip_address: equipmentData.ip_address,
+          snmp_community: equipmentData.snmp_community || 'public',
+          snmp_version: equipmentData.snmp_version || 2,
+          status: 'available',
+          notes: equipmentData.notes || 'Promoted from inventory',
+          location: inventoryItem.location,
+          equipment_type_id: equipmentData.equipment_type_id,
+          isp_company_id: profile?.isp_company_id,
+          approval_status: 'approved'
+        })
+        .select()
+        .single();
+
+      if (equipmentError) {
+        console.error('Error creating equipment:', equipmentError);
+        throw equipmentError;
+      }
+
+      // Update inventory item
+      const { error: updateError } = await supabase
+        .from('inventory_items')
+        .update({
+          is_network_equipment: true,
+          equipment_id: equipment.id,
+          status: 'Deployed',
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', inventoryItemId);
+
+      if (updateError) {
+        console.error('Error updating inventory item:', updateError);
+        throw updateError;
+      }
+
+      return equipment;
     },
     onSuccess: () => {
-      toast({
-        title: "Success",
-        description: "Item promoted to network equipment successfully.",
-      });
       queryClient.invalidateQueries({ queryKey: ['inventory-items'] });
       queryClient.invalidateQueries({ queryKey: ['network-equipment'] });
+      toast({
+        title: "Success",
+        description: "Inventory item has been promoted to network equipment successfully.",
+      });
     },
     onError: (error: any) => {
+      console.error('Error promoting to equipment:', error);
       toast({
         title: "Error",
-        description: "Failed to promote item. Please try again.",
+        description: error.message || "Failed to promote inventory item to equipment.",
         variant: "destructive",
       });
-      console.error('Error promoting item:', error);
     },
   });
 };

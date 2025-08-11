@@ -1,27 +1,30 @@
 
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
-import { useToast } from '@/hooks/use-toast';
 
 export interface NetworkEquipment {
   id: string;
-  name: string;
-  equipment_type_id: string | null;
-  inventory_item_id: string | null;
-  ip_address: string;
-  snmp_community: string;
-  snmp_version: number;
-  status: string;
+  type: string;
+  brand: string | null;
+  model: string | null;
+  serial_number: string;
+  mac_address: string | null;
+  ip_address: string | null;
+  snmp_community: string | null;
+  snmp_version: number | null;
+  status: string | null;
   notes: string | null;
+  location: string | null;
   created_at: string;
   updated_at: string;
-  isp_company_id: string;
+  isp_company_id: string | null;
+  equipment_type_id: string | null;
   equipment_types?: {
     name: string;
     brand: string;
     model: string;
-    category: string;
+    device_type: string;
   };
   inventory_items?: {
     name: string;
@@ -32,8 +35,6 @@ export interface NetworkEquipment {
 
 export const useNetworkEquipment = () => {
   const { profile } = useAuth();
-  const { toast } = useToast();
-  const queryClient = useQueryClient();
 
   const { data: equipment = [], isLoading, error } = useQuery({
     queryKey: ['network-equipment', profile?.isp_company_id],
@@ -41,22 +42,18 @@ export const useNetworkEquipment = () => {
       if (!profile?.isp_company_id) return [];
 
       const { data, error } = await supabase
-        .from('network_equipment')
+        .from('equipment')
         .select(`
           *,
           equipment_types (
             name,
             brand,
             model,
-            category
-          ),
-          inventory_items (
-            name,
-            type,
-            serial_number
+            device_type
           )
         `)
         .eq('isp_company_id', profile.isp_company_id)
+        .eq('approval_status', 'approved')
         .order('created_at', { ascending: false });
 
       if (error) {

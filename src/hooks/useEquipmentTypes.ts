@@ -7,9 +7,11 @@ export interface EquipmentType {
   name: string;
   brand: string;
   model: string;
-  category: string;
+  device_type: string;
+  default_config: any;
+  snmp_settings: any;
   created_at: string;
-  isp_company_id: string;
+  updated_at: string;
 }
 
 export const useEquipmentTypes = () => {

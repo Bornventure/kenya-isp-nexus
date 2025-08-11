@@ -51,9 +51,9 @@ const NetworkEquipmentList = () => {
           <Card key={item.id}>
             <CardHeader className="pb-3">
               <CardTitle className="text-base flex items-center justify-between">
-                {item.name}
+                {item.type} - {item.brand} {item.model}
                 <Badge 
-                  variant={item.status === 'active' ? 'default' : 'secondary'}
+                  variant={item.status === 'available' ? 'default' : 'secondary'}
                 >
                   {item.status}
                 </Badge>
@@ -62,15 +62,24 @@ const NetworkEquipmentList = () => {
             <CardContent className="space-y-2">
               {item.equipment_types && (
                 <div className="text-sm">
-                  <span className="font-medium">Type:</span> {item.equipment_types.brand} {item.equipment_types.model}
+                  <span className="font-medium">Type:</span> {item.equipment_types.name}
                 </div>
               )}
-              <div className="text-sm">
-                <span className="font-medium">IP:</span> {item.ip_address}
-              </div>
-              <div className="text-sm">
-                <span className="font-medium">SNMP:</span> v{item.snmp_version} ({item.snmp_community})
-              </div>
+              {item.ip_address && (
+                <div className="text-sm">
+                  <span className="font-medium">IP:</span> {item.ip_address}
+                </div>
+              )}
+              {item.snmp_version && (
+                <div className="text-sm">
+                  <span className="font-medium">SNMP:</span> v{item.snmp_version} ({item.snmp_community})
+                </div>
+              )}
+              {item.location && (
+                <div className="text-sm">
+                  <span className="font-medium">Location:</span> {item.location}
+                </div>
+              )}
               {item.notes && (
                 <div className="text-xs text-muted-foreground mt-2">
                   {item.notes}
