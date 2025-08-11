@@ -84,10 +84,13 @@ export const useRadiusServers = () => {
         }
 
         // At this point, TypeScript knows data is an array
-        // Filter out null/undefined items first
-        const validRecords = data.filter((item): item is Record<string, unknown> => 
-          item !== null && item !== undefined && isRecord(item)
-        );
+        // Filter out null/undefined items and validate they are records
+        const validRecords: Record<string, unknown>[] = [];
+        for (const item of data) {
+          if (item !== null && item !== undefined && isRecord(item)) {
+            validRecords.push(item);
+          }
+        }
         
         // Validate each record has required fields
         const isValidData = validRecords.every(item => 
@@ -138,10 +141,13 @@ export const useRadiusGroups = () => {
         }
 
         // At this point, TypeScript knows data is an array
-        // Filter out null/undefined items first
-        const validRecords = data.filter((item): item is Record<string, unknown> => 
-          item !== null && item !== undefined && isRecord(item)
-        );
+        // Filter out null/undefined items and validate they are records
+        const validRecords: Record<string, unknown>[] = [];
+        for (const item of data) {
+          if (item !== null && item !== undefined && isRecord(item)) {
+            validRecords.push(item);
+          }
+        }
         
         // Validate each record has required fields
         const isValidData = validRecords.every(item => 
@@ -191,10 +197,13 @@ export const useRadiusUsers = () => {
         }
 
         // At this point, TypeScript knows data is an array
-        // Filter out null/undefined items first
-        const validRecords = data.filter((item): item is Record<string, unknown> => 
-          item !== null && item !== undefined && isRecord(item)
-        );
+        // Filter out null/undefined items and validate they are records
+        const validRecords: Record<string, unknown>[] = [];
+        for (const item of data) {
+          if (item !== null && item !== undefined && isRecord(item)) {
+            validRecords.push(item);
+          }
+        }
         
         // Validate each record has required fields
         const isValidData = validRecords.every(item => 
@@ -248,10 +257,13 @@ export const useNASClients = () => {
         }
 
         // At this point, TypeScript knows data is an array
-        // Filter out null/undefined items first
-        const validRecords = data.filter((item): item is Record<string, unknown> => 
-          item !== null && item !== undefined && isRecord(item)
-        );
+        // Filter out null/undefined items and validate they are records
+        const validRecords: Record<string, unknown>[] = [];
+        for (const item of data) {
+          if (item !== null && item !== undefined && isRecord(item)) {
+            validRecords.push(item);
+          }
+        }
         
         // Validate each record has required fields
         const isValidData = validRecords.every(item => 
