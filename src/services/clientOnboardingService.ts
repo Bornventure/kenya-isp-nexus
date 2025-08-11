@@ -193,7 +193,7 @@ class ClientOnboardingService {
   private async configureMikroTikRouter(client: any, equipment: any) {
     // Get available MikroTik routers
     const { data: routers, error } = await supabase
-      .from('mikrotik_routers')
+      .from('mikrotik_routers' as any)
       .select('*')
       .eq('status', 'active')
       .eq('connection_status', 'online');
@@ -254,15 +254,12 @@ class ClientOnboardingService {
       max_upload: this.parseSpeedFromPackage(client.service_packages?.speed || '10Mbps').upload,
       max_download: this.parseSpeedFromPackage(client.service_packages?.speed || '10Mbps').download,
       expiration: client.subscription_end_date,
-      is_active: true,
-      isp_company_id: client.isp_company_id
+      is_active: true
     };
 
-    const { error } = await supabase
-      .from('radius_users')
-      .upsert(radiusUser, { onConflict: 'client_id' });
+    const success = await radiusService.createUser(radiusUser);
 
-    if (error) {
+    if (!success) {
       throw new Error('Failed to create RADIUS user');
     }
 
@@ -278,12 +275,12 @@ class ClientOnboardingService {
       dns_servers: '8.8.8.8,8.8.4.4',
       firewall_rules: this.generateFirewallRules(client),
       qos_profile: radiusUser.group_name,
-      created_at: new Date().toISOString()
+      isp_company_id: client.isp_company_id
     };
 
     // Store network configuration
     const { error } = await supabase
-      .from('client_network_profiles')
+      .from('client_network_profiles' as any)
       .upsert(networkProfile, { onConflict: 'client_id' });
 
     if (error) {

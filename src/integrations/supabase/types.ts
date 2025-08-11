@@ -2062,6 +2062,66 @@ export type Database = {
           },
         ]
       }
+      mikrotik_routers: {
+        Row: {
+          admin_password: string
+          admin_username: string
+          client_network: string
+          connection_status: string
+          created_at: string
+          dns_servers: string
+          gateway: unknown
+          id: string
+          ip_address: unknown
+          isp_company_id: string
+          last_test_results: Json | null
+          name: string
+          pppoe_interface: string
+          snmp_community: string
+          snmp_version: number
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          admin_password: string
+          admin_username: string
+          client_network?: string
+          connection_status?: string
+          created_at?: string
+          dns_servers?: string
+          gateway: unknown
+          id?: string
+          ip_address: unknown
+          isp_company_id: string
+          last_test_results?: Json | null
+          name: string
+          pppoe_interface?: string
+          snmp_community?: string
+          snmp_version?: number
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          admin_password?: string
+          admin_username?: string
+          client_network?: string
+          connection_status?: string
+          created_at?: string
+          dns_servers?: string
+          gateway?: unknown
+          id?: string
+          ip_address?: unknown
+          isp_company_id?: string
+          last_test_results?: Json | null
+          name?: string
+          pppoe_interface?: string
+          snmp_community?: string
+          snmp_version?: number
+          status?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       mpesa_settings: {
         Row: {
           consumer_key: string | null

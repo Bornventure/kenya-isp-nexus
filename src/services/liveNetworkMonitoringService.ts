@@ -69,7 +69,7 @@ class LiveNetworkMonitoringService {
     try {
       // Get current session
       const { data: session } = await supabase
-        .from('radius_sessions')
+        .from('network_sessions' as any)
         .select('*')
         .eq('client_id', clientId)
         .eq('status', 'active')
@@ -104,7 +104,19 @@ class LiveNetworkMonitoringService {
       return {
         client_id: clientId,
         is_online: !!session,
-        current_session: session || undefined,
+        current_session: session ? {
+          id: session.id,
+          client_id: session.client_id || clientId,
+          username: session.username,
+          ip_address: session.ip_address || 'dynamic',
+          nas_ip_address: session.nas_ip_address || '',
+          session_id: session.session_id,
+          start_time: session.start_time,
+          bytes_in: session.bytes_in,
+          bytes_out: session.bytes_out,
+          status: session.status as 'active' | 'disconnected',
+          last_update: session.last_update || session.start_time
+        } : undefined,
         data_usage_today: dataUsageToday,
         speed_limit: speedLimit,
         last_seen: session?.start_time || client?.updated_at || new Date().toISOString()
@@ -125,7 +137,7 @@ class LiveNetworkMonitoringService {
     try {
       // Get active sessions
       const { data: sessions } = await supabase
-        .from('radius_sessions')
+        .from('network_sessions' as any)
         .select('*')
         .eq('client_id', clientId)
         .eq('status', 'active');
@@ -141,7 +153,7 @@ class LiveNetworkMonitoringService {
 
       // Update session status
       await supabase
-        .from('radius_sessions')
+        .from('network_sessions' as any)
         .update({
           status: 'disconnected',
           end_time: new Date().toISOString()
@@ -161,7 +173,7 @@ class LiveNetworkMonitoringService {
     try {
       // Get client's current session
       const { data: session } = await supabase
-        .from('radius_sessions')
+        .from('network_sessions' as any)
         .select('*')
         .eq('client_id', clientId)
         .eq('status', 'active')
@@ -174,7 +186,7 @@ class LiveNetworkMonitoringService {
 
       // Update RADIUS user profile
       await supabase
-        .from('radius_users')
+        .from('radius_users' as any)
         .update({
           max_download: this.parseSpeedLimit(newSpeed).download,
           max_upload: this.parseSpeedLimit(newSpeed).upload
@@ -192,7 +204,7 @@ class LiveNetworkMonitoringService {
     try {
       // Get all active sessions
       const { data: sessions } = await supabase
-        .from('radius_sessions')
+        .from('network_sessions' as any)
         .select('*')
         .eq('status', 'active');
 
@@ -204,7 +216,7 @@ class LiveNetworkMonitoringService {
         const bytesOut = session.bytes_out + Math.floor(Math.random() * 500000);
 
         await supabase
-          .from('radius_sessions')
+          .from('network_sessions' as any)
           .update({
             bytes_in: bytesIn,
             bytes_out: bytesOut,
@@ -213,16 +225,18 @@ class LiveNetworkMonitoringService {
           .eq('id', session.id);
 
         // Update bandwidth statistics
-        await supabase
-          .from('bandwidth_statistics')
-          .upsert({
-            client_id: session.client_id,
-            equipment_id: session.equipment_id,
-            in_octets: bytesIn,
-            out_octets: bytesOut,
-            timestamp: new Date().toISOString(),
-            isp_company_id: session.isp_company_id
-          });
+        if (session.client_id && session.equipment_id) {
+          await supabase
+            .from('bandwidth_statistics')
+            .upsert({
+              client_id: session.client_id,
+              equipment_id: session.equipment_id,
+              in_octets: bytesIn,
+              out_octets: bytesOut,
+              timestamp: new Date().toISOString(),
+              isp_company_id: session.isp_company_id
+            });
+        }
       }
     } catch (error) {
       console.error('Error updating network statistics:', error);
@@ -233,7 +247,7 @@ class LiveNetworkMonitoringService {
     try {
       // Check for sessions that should be expired
       const { data: expiredSessions } = await supabase
-        .from('radius_sessions')
+        .from('network_sessions' as any)
         .select('*')
         .eq('status', 'active')
         .lt('start_time', new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString()); // Older than 24 hours
@@ -241,7 +255,7 @@ class LiveNetworkMonitoringService {
       if (expiredSessions) {
         for (const session of expiredSessions) {
           await supabase
-            .from('radius_sessions')
+            .from('network_sessions' as any)
             .update({
               status: 'disconnected',
               end_time: new Date().toISOString()
@@ -273,14 +287,14 @@ class LiveNetworkMonitoringService {
         {
           event: '*',
           schema: 'public',
-          table: 'radius_sessions'
+          table: 'network_sessions'
         },
         (payload) => {
           console.log('Session change detected:', payload);
-          if (payload.new && payload.new.client_id) {
-            const callback = this.subscribers.get(payload.new.client_id);
+          if (payload.new && (payload.new as any).client_id) {
+            const callback = this.subscribers.get((payload.new as any).client_id);
             if (callback) {
-              this.getClientNetworkStatus(payload.new.client_id).then(callback);
+              this.getClientNetworkStatus((payload.new as any).client_id).then(callback);
             }
           }
         }

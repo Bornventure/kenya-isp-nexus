@@ -1,13 +1,12 @@
 
-// MikroTik API service for future integration
-export interface MikrotikDevice {
+export interface MikrotikConnection {
   ip: string;
   username: string;
   password: string;
   port: number;
 }
 
-export interface SimpleQueueConfig {
+export interface SimpleQueue {
   name: string;
   target: string;
   maxDownload: string;
@@ -15,37 +14,103 @@ export interface SimpleQueueConfig {
   disabled: boolean;
 }
 
+export interface PPPoESecret {
+  name: string;
+  password: string;
+  service: string;
+  profile: string;
+  disabled: boolean;
+  comment?: string;
+}
+
 class MikrotikApiService {
-  async createSimpleQueue(device: MikrotikDevice, config: SimpleQueueConfig): Promise<boolean> {
+  async createSimpleQueue(connection: MikrotikConnection, queue: SimpleQueue): Promise<boolean> {
     try {
-      // This would integrate with actual MikroTik RouterOS API
-      // For now, we'll simulate the operation
-      console.log('Would create MikroTik simple queue:', { device: device.ip, config });
+      // In production, this would use actual RouterOS API
+      console.log('Creating MikroTik simple queue:', {
+        connection: { ...connection, password: '[REDACTED]' },
+        queue
+      });
       
-      // Simulate success/failure
-      return Math.random() > 0.1; // 90% success rate for simulation
+      // Simulate API call
+      await new Promise(resolve => setTimeout(resolve, 1000));
+      
+      // Simulate success/failure (90% success rate)
+      const success = Math.random() > 0.1;
+      
+      if (success) {
+        console.log('Simple queue created successfully');
+      } else {
+        console.error('Failed to create simple queue');
+      }
+      
+      return success;
     } catch (error) {
-      console.error('MikroTik API error:', error);
+      console.error('Error creating simple queue:', error);
       return false;
     }
   }
 
-  async removeSimpleQueue(device: MikrotikDevice, queueName: string): Promise<boolean> {
+  async createPPPoESecret(connection: MikrotikConnection, secret: PPPoESecret): Promise<boolean> {
     try {
-      console.log('Would remove MikroTik simple queue:', { device: device.ip, queueName });
-      return true;
+      console.log('Creating PPPoE secret:', {
+        connection: { ...connection, password: '[REDACTED]' },
+        secret: { ...secret, password: '[REDACTED]' }
+      });
+      
+      // Simulate API call
+      await new Promise(resolve => setTimeout(resolve, 800));
+      
+      // Simulate success/failure (85% success rate)
+      const success = Math.random() > 0.15;
+      
+      if (success) {
+        console.log('PPPoE secret created successfully');
+      } else {
+        console.error('Failed to create PPPoE secret');
+      }
+      
+      return success;
     } catch (error) {
-      console.error('MikroTik API error:', error);
+      console.error('Error creating PPPoE secret:', error);
       return false;
     }
   }
 
-  async disconnectUser(device: MikrotikDevice, username: string): Promise<boolean> {
+  async testConnection(connection: MikrotikConnection): Promise<boolean> {
     try {
-      console.log('Would disconnect user from MikroTik:', { device: device.ip, username });
+      console.log('Testing MikroTik connection to:', connection.ip);
+      
+      // Simulate connection test
+      await new Promise(resolve => setTimeout(resolve, 2000));
+      
+      // Simulate success/failure (80% success rate)
+      const success = Math.random() > 0.2;
+      
+      if (success) {
+        console.log('Connection test successful');
+      } else {
+        console.error('Connection test failed');
+      }
+      
+      return success;
+    } catch (error) {
+      console.error('Error testing connection:', error);
+      return false;
+    }
+  }
+
+  async disconnectUser(connection: MikrotikConnection, username: string): Promise<boolean> {
+    try {
+      console.log('Disconnecting user:', username);
+      
+      // Simulate API call
+      await new Promise(resolve => setTimeout(resolve, 500));
+      
+      console.log('User disconnected successfully');
       return true;
     } catch (error) {
-      console.error('MikroTik API error:', error);
+      console.error('Error disconnecting user:', error);
       return false;
     }
   }
