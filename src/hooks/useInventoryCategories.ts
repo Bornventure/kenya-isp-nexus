@@ -38,14 +38,18 @@ export const useInventoryCategories = () => {
           // Type guard to check if the data matches our expected structure
           const isValidData = data.every(item => 
             item && 
+            item !== null &&
             typeof item === 'object' && 
             'id' in item && 
             'name' in item && 
-            'minimum_stock_level' in item
+            'minimum_stock_level' in item &&
+            typeof item.id === 'string' &&
+            typeof item.name === 'string' &&
+            typeof item.minimum_stock_level === 'number'
           );
           
           if (isValidData) {
-            return data as InventoryCategory[];
+            return data as unknown as InventoryCategory[];
           }
         }
         
@@ -78,14 +82,18 @@ export const useLowStockItems = () => {
           // Type guard to check if the data matches our expected structure
           const isValidData = data.every(item => 
             item && 
+            item !== null &&
             typeof item === 'object' && 
             'category_name' in item && 
             'minimum_stock_level' in item && 
-            'current_stock' in item
+            'current_stock' in item &&
+            typeof item.category_name === 'string' &&
+            typeof item.minimum_stock_level === 'number' &&
+            typeof item.current_stock === 'number'
           );
           
           if (isValidData) {
-            return data as LowStockItem[];
+            return data as unknown as LowStockItem[];
           }
         }
         
