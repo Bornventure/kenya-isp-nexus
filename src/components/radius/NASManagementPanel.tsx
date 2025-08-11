@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -9,9 +8,11 @@ import { Plus, Router, Trash2, Edit, CheckCircle, XCircle } from 'lucide-react';
 import { useNASClients } from '@/hooks/useRadius';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { useAuth } from '@/contexts/AuthContext';
 
 const NASManagementPanel = () => {
   const { data: nasClients = [], isLoading, createNASClient, updateNASClient, deleteNASClient } = useNASClients();
+  const { profile } = useAuth();
   const [showAddDialog, setShowAddDialog] = useState(false);
   const [editingClient, setEditingClient] = useState<string | null>(null);
   const [formData, setFormData] = useState({
@@ -28,14 +29,20 @@ const NASManagementPanel = () => {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
+      const nasClientData = {
+        ...formData,
+        isp_company_id: profile?.isp_company_id || '',
+        is_active: true
+      };
+
       if (editingClient) {
         await updateNASClient.mutateAsync({
           id: editingClient,
-          updates: formData,
+          updates: nasClientData,
         });
         setEditingClient(null);
       } else {
-        await createNASClient.mutateAsync(formData);
+        await createNASClient.mutateAsync(nasClientData);
         setShowAddDialog(false);
       }
       setFormData({
