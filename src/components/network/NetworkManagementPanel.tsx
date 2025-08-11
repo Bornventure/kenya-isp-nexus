@@ -17,7 +17,7 @@ import {
   Zap
 } from 'lucide-react';
 import { useRealSNMP } from '@/hooks/useRealSNMP';
-import { useNetworkManagement } from '@/hooks/useNetworkManagement';
+import { useClients } from '@/hooks/useClients';
 import AddSNMPDeviceDialog from './AddSNMPDeviceDialog';
 
 const NetworkManagementPanel: React.FC = () => {
@@ -35,7 +35,7 @@ const NetworkManagementPanel: React.FC = () => {
     reconnectClient
   } = useRealSNMP();
   
-  const { clients, disconnectClient: networkDisconnect, reconnectClient: networkReconnect } = useNetworkManagement();
+  const { clients } = useClients();
 
   const handleAddDevice = async (ip: string, community: string, version: number) => {
     try {
@@ -79,10 +79,10 @@ const NetworkManagementPanel: React.FC = () => {
             <div>
               <CardTitle className="flex items-center gap-2">
                 <Activity className="h-6 w-6" />
-                Comprehensive SNMP Network Management
+                Real-Time SNMP Network Management
               </CardTitle>
               <p className="text-sm text-muted-foreground mt-1">
-                Real-time monitoring and control of network infrastructure via SNMP
+                Live monitoring and control of network infrastructure via SNMP protocol
               </p>
             </div>
             <div className="flex items-center gap-2">
@@ -145,16 +145,24 @@ const NetworkManagementPanel: React.FC = () => {
               <Button 
                 variant="outline" 
                 size="sm"
-                onClick={() => clients.length > 0 && disconnectClient(clients[0].ip, clients[0].mac || 'unknown')}
-                disabled={clients.length === 0}
+                onClick={() => {
+                  if (devices.length > 0) {
+                    disconnectClient(devices[0].ip, 'test-mac');
+                  }
+                }}
+                disabled={devices.length === 0}
               >
                 Test Disconnect
               </Button>
               <Button 
                 variant="outline" 
                 size="sm"
-                onClick={() => clients.length > 0 && reconnectClient(clients[0].ip, clients[0].mac || 'unknown')}
-                disabled={clients.length === 0}
+                onClick={() => {
+                  if (devices.length > 0) {
+                    reconnectClient(devices[0].ip, 'test-mac');
+                  }
+                }}
+                disabled={devices.length === 0}
               >
                 Test Reconnect
               </Button>
@@ -258,14 +266,12 @@ const NetworkManagementPanel: React.FC = () => {
       </Card>
 
       {/* Add Device Dialog */}
-      {showAddDevice && (
-        <AddSNMPDeviceDialog
-          open={showAddDevice}
-          onClose={() => setShowAddDevice(false)}
-          onAddDevice={handleAddDevice}
-          onTestConnection={handleTestConnection}
-        />
-      )}
+      <AddSNMPDeviceDialog
+        open={showAddDevice}
+        onOpenChange={setShowAddDevice}
+        onAddDevice={handleAddDevice}
+        onTestConnection={handleTestConnection}
+      />
     </div>
   );
 };

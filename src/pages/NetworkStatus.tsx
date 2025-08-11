@@ -27,7 +27,7 @@ import {
   RefreshCw
 } from 'lucide-react';
 import { useRealSNMP } from '@/hooks/useRealSNMP';
-import { useNetworkManagement } from '@/hooks/useNetworkManagement';
+import { useClients } from '@/hooks/useClients';
 
 const NetworkStatus = () => {
   const [timeRange, setTimeRange] = useState('24h');
@@ -40,12 +40,11 @@ const NetworkStatus = () => {
     stopMonitoring 
   } = useRealSNMP();
   
-  const { clients: managedClients } = useNetworkManagement();
+  const { clients: managedClients } = useClients();
 
   const getStatusIcon = (status: string) => {
     switch (status) {
       case 'online': return <CheckCircle className="h-4 w-4 text-green-500" />;
-      case 'warning': return <AlertTriangle className="h-4 w-4 text-yellow-500" />;
       case 'offline': return <XCircle className="h-4 w-4 text-red-500" />;
       default: return <Activity className="h-4 w-4 text-gray-500" />;
     }
@@ -54,7 +53,6 @@ const NetworkStatus = () => {
   const getStatusColor = (status: string) => {
     switch (status) {
       case 'online': return 'bg-green-500';
-      case 'warning': return 'bg-yellow-500';
       case 'offline': return 'bg-red-500';
       default: return 'bg-gray-500';
     }
@@ -96,7 +94,6 @@ const NetworkStatus = () => {
   const overallStats = {
     totalNodes: devices.length,
     onlineNodes: devices.filter(d => d.status === 'online').length,
-    warningNodes: devices.filter(d => d.status === 'warning').length,
     offlineNodes: devices.filter(d => d.status === 'offline').length,
     averageUptime: getAverageUptime(),
     totalConnectedClients: getTotalConnectedClients(),
@@ -181,7 +178,7 @@ const NetworkStatus = () => {
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">{managedClients.length}</div>
-            <p className="text-xs text-muted-foreground">SNMP managed clients</p>
+            <p className="text-xs text-muted-foreground">Total registered clients</p>
           </CardContent>
         </Card>
 
