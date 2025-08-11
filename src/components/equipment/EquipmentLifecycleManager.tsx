@@ -1,388 +1,400 @@
 
 import React, { useState } from 'react';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { Progress } from '@/components/ui/progress';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
-import { 
-  Package, 
-  Settings, 
-  Activity, 
-  AlertTriangle, 
-  CheckCircle,
-  Calendar,
-  Wrench,
-  Trash2
-} from 'lucide-react';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Package, Router, Wifi, HardDrive, Cable, CheckCircle, Clock, AlertTriangle, Plus, Settings, Trash2 } from 'lucide-react';
+import { useEquipment } from '@/hooks/useEquipment';
+import { useInventoryItems } from '@/hooks/useInventory';
+import { useMikrotikRouters } from '@/hooks/useMikrotikRouters';
 import { useToast } from '@/hooks/use-toast';
 
 const EquipmentLifecycleManager = () => {
-  const { toast } = useToast();
-  const [selectedEquipment, setSelectedEquipment] = useState<string>('');
-  const [maintenanceData, setMaintenanceData] = useState({
-    type: '',
-    description: '',
-    scheduledDate: '',
-    technician: '',
-    estimatedDuration: ''
+  const { equipment, isLoading: equipmentLoading, approveEquipment, rejectEquipment } = useEquipment();
+  const { data: inventoryItems = [], isLoading: inventoryLoading } = useInventoryItems({
+    category: 'Network Hardware'
   });
+  const { routers, isLoading: routersLoading } = useMikrotikRouters();
+  const { toast } = useToast();
 
-  // Mock equipment data with lifecycle stages
-  const equipmentList = [
-    {
-      id: 'eq-001',
-      name: 'Router - Main Gateway',
-      model: 'Cisco ISR4321',
-      status: 'deployed',
-      stage: 'production',
-      health: 95,
-      lastMaintenance: '2024-05-15',
-      nextMaintenance: '2024-08-15',
-      firmwareVersion: '16.09.05',
-      location: 'Main Office',
-      uptime: '99.8%'
-    },
-    {
-      id: 'eq-002',
-      name: 'Switch - Distribution A',
-      model: 'Ubiquiti 24-Port',
-      status: 'maintenance',
-      stage: 'maintenance',
-      health: 78,
-      lastMaintenance: '2024-06-20',
-      nextMaintenance: '2024-06-22',
-      firmwareVersion: '1.11.0',
-      location: 'Zone A',
-      uptime: '0%'
-    },
-    {
-      id: 'eq-003',
-      name: 'Access Point - Zone B',
-      model: 'UniFi AC Pro',
-      status: 'end_of_life',
-      stage: 'disposal',
-      health: 45,
-      lastMaintenance: '2024-03-10',
-      nextMaintenance: 'N/A',
-      firmwareVersion: '4.3.20',
-      location: 'Zone B',
-      uptime: '85%'
-    }
+  const [showPromoteDialog, setShowPromoteDialog] = useState(false);
+  const [selectedInventoryItem, setSelectedInventoryItem] = useState<any>(null);
+  const [promotionNotes, setPromotionNotes] = useState('');
+
+  // Combine all equipment data
+  const allEquipment = [
+    ...equipment,
+    ...inventoryItems.filter(item => item.is_network_equipment),
+    ...routers.map(router => ({
+      id: router.id,
+      type: 'MikroTik Router',
+      brand: 'MikroTik',
+      model: router.name,
+      serial_number: router.ip_address,
+      status: router.status,
+      approval_status: router.status === 'active' ? 'approved' : 'pending',
+      created_at: router.created_at,
+      notes: `IP: ${router.ip_address}, Interface: ${router.pppoe_interface}`,
+      connection_status: router.connection_status
+    }))
   ];
 
-  const handleScheduleMaintenance = () => {
-    toast({
-      title: "Maintenance Scheduled",
-      description: `Maintenance scheduled for ${maintenanceData.scheduledDate}`,
-    });
-  };
-
-  const handleFirmwareUpdate = (equipmentId: string) => {
-    toast({
-      title: "Firmware Update Initiated",
-      description: `Firmware update started for equipment ${equipmentId}`,
-    });
-  };
-
-  const handleRetirement = (equipmentId: string) => {
-    toast({
-      title: "Equipment Retirement",
-      description: `Equipment ${equipmentId} marked for retirement`,
-    });
-  };
-
-  const getStatusColor = (status: string) => {
+  const getStatusIcon = (status: string) => {
     switch (status) {
-      case 'deployed': return 'bg-green-500';
-      case 'maintenance': return 'bg-yellow-500';
-      case 'end_of_life': return 'bg-red-500';
-      default: return 'bg-gray-500';
+      case 'approved':
+      case 'active':
+        return <CheckCircle className="h-4 w-4 text-green-600" />;
+      case 'pending':
+        return <Clock className="h-4 w-4 text-yellow-600" />;
+      case 'rejected':
+      case 'error':
+        return <AlertTriangle className="h-4 w-4 text-red-600" />;
+      default:
+        return <Clock className="h-4 w-4 text-gray-600" />;
     }
   };
 
-  const getStageIcon = (stage: string) => {
-    switch (stage) {
-      case 'production': return <CheckCircle className="h-4 w-4 text-green-500" />;
-      case 'maintenance': return <Wrench className="h-4 w-4 text-yellow-500" />;
-      case 'disposal': return <Trash2 className="h-4 w-4 text-red-500" />;
-      default: return <Package className="h-4 w-4 text-gray-500" />;
+  const getStatusBadge = (status: string) => {
+    switch (status) {
+      case 'approved':
+      case 'active':
+        return <Badge className="bg-green-100 text-green-800">Approved</Badge>;
+      case 'pending':
+        return <Badge variant="secondary">Pending</Badge>;
+      case 'rejected':
+      case 'error':
+        return <Badge variant="destructive">Rejected</Badge>;
+      default:
+        return <Badge variant="outline">Unknown</Badge>;
     }
   };
+
+  const getEquipmentIcon = (type: string) => {
+    if (type?.toLowerCase().includes('router') || type?.toLowerCase().includes('mikrotik')) {
+      return <Router className="h-6 w-6 text-blue-600" />;
+    }
+    if (type?.toLowerCase().includes('switch')) {
+      return <Package className="h-6 w-6 text-green-600" />;
+    }
+    if (type?.toLowerCase().includes('access point') || type?.toLowerCase().includes('wifi')) {
+      return <Wifi className="h-6 w-6 text-purple-600" />;
+    }
+    if (type?.toLowerCase().includes('cable')) {
+      return <Cable className="h-6 w-6 text-orange-600" />;
+    }
+    return <HardDrive className="h-6 w-6 text-gray-600" />;
+  };
+
+  const handlePromoteToEquipment = (item: any) => {
+    setSelectedInventoryItem(item);
+    setShowPromoteDialog(true);
+  };
+
+  const handleApproveEquipment = async (equipmentId: string) => {
+    try {
+      await approveEquipment({ id: equipmentId, notes: 'Approved via lifecycle manager' });
+      toast({
+        title: "Equipment Approved",
+        description: "Equipment has been approved and is now active.",
+      });
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: "Failed to approve equipment.",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const handleRejectEquipment = async (equipmentId: string, reason: string) => {
+    try {
+      await rejectEquipment({ id: equipmentId, notes: reason });
+      toast({
+        title: "Equipment Rejected",
+        description: "Equipment has been rejected.",
+      });
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: "Failed to reject equipment.",
+        variant: "destructive",
+      });
+    }
+  };
+
+  if (equipmentLoading || inventoryLoading || routersLoading) {
+    return (
+      <Card>
+        <CardContent className="p-6">
+          <div className="text-center">Loading equipment data...</div>
+        </CardContent>
+      </Card>
+    );
+  }
+
+  const pendingEquipment = allEquipment.filter(item => 
+    item.approval_status === 'pending' || item.status === 'pending'
+  );
+  const approvedEquipment = allEquipment.filter(item => 
+    item.approval_status === 'approved' || item.status === 'active'
+  );
+  const networkEquipment = inventoryItems.filter(item => !item.is_network_equipment);
 
   return (
     <div className="space-y-6">
-      <div>
-        <h2 className="text-2xl font-bold tracking-tight">Equipment Lifecycle Management</h2>
-        <p className="text-muted-foreground">
-          Manage equipment from purchase to disposal, including maintenance and health monitoring.
-        </p>
-      </div>
+      <Card>
+        <CardHeader>
+          <CardTitle>Equipment Lifecycle Management</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <Tabs defaultValue="overview" className="space-y-4">
+            <TabsList className="grid w-full grid-cols-4">
+              <TabsTrigger value="overview">Overview</TabsTrigger>
+              <TabsTrigger value="pending">Pending Approval</TabsTrigger>
+              <TabsTrigger value="active">Active Equipment</TabsTrigger>
+              <TabsTrigger value="inventory">Inventory Items</TabsTrigger>
+            </TabsList>
 
-      <Tabs defaultValue="overview" className="space-y-4">
-        <TabsList>
-          <TabsTrigger value="overview">Overview</TabsTrigger>
-          <TabsTrigger value="maintenance">Maintenance</TabsTrigger>
-          <TabsTrigger value="firmware">Firmware</TabsTrigger>
-          <TabsTrigger value="analytics">Analytics</TabsTrigger>
-        </TabsList>
-
-        <TabsContent value="overview">
-          <div className="grid gap-4">
-            {equipmentList.map((equipment) => (
-              <Card key={equipment.id}>
-                <CardContent className="p-6">
-                  <div className="flex items-center justify-between mb-4">
-                    <div className="flex items-center gap-3">
-                      {getStageIcon(equipment.stage)}
-                      <div>
-                        <h4 className="font-medium">{equipment.name}</h4>
-                        <p className="text-sm text-muted-foreground">
-                          {equipment.model} • {equipment.location}
-                        </p>
-                      </div>
-                    </div>
-                    <Badge className={`text-white ${getStatusColor(equipment.status)}`}>
-                      {equipment.status.replace('_', ' ')}
-                    </Badge>
-                  </div>
-
-                  <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-4">
-                    <div>
-                      <span className="text-sm text-muted-foreground">Health Score</span>
-                      <div className="flex items-center gap-2 mt-1">
-                        <Progress value={equipment.health} className="flex-1" />
-                        <span className="text-sm font-medium">{equipment.health}%</span>
-                      </div>
-                    </div>
-                    <div>
-                      <span className="text-sm text-muted-foreground">Uptime</span>
-                      <div className="font-medium">{equipment.uptime}</div>
-                    </div>
-                    <div>
-                      <span className="text-sm text-muted-foreground">Last Maintenance</span>
-                      <div className="font-medium">{equipment.lastMaintenance}</div>
-                    </div>
-                    <div>
-                      <span className="text-sm text-muted-foreground">Firmware</span>
-                      <div className="font-medium">{equipment.firmwareVersion}</div>
-                    </div>
-                  </div>
-
-                  <div className="flex gap-2">
-                    <Button 
-                      size="sm" 
-                      variant="outline"
-                      onClick={() => handleFirmwareUpdate(equipment.id)}
-                    >
-                      <Settings className="h-4 w-4 mr-2" />
-                      Update Firmware
-                    </Button>
-                    {equipment.stage !== 'disposal' && (
-                      <Button 
-                        size="sm" 
-                        variant="outline"
-                        onClick={() => setSelectedEquipment(equipment.id)}
-                      >
-                        <Calendar className="h-4 w-4 mr-2" />
-                        Schedule Maintenance
-                      </Button>
-                    )}
-                    {equipment.stage === 'production' && equipment.health < 50 && (
-                      <Button 
-                        size="sm" 
-                        variant="destructive"
-                        onClick={() => handleRetirement(equipment.id)}
-                      >
-                        <Trash2 className="h-4 w-4 mr-2" />
-                        Mark for Retirement
-                      </Button>
-                    )}
-                  </div>
-                </CardContent>
-              </Card>
-            ))}
-          </div>
-        </TabsContent>
-
-        <TabsContent value="maintenance">
-          <Card>
-            <CardHeader>
-              <CardTitle>Schedule Maintenance</CardTitle>
-              <CardDescription>
-                Plan and schedule maintenance activities for network equipment.
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <Label htmlFor="equipment">Equipment</Label>
-                  <Select
-                    value={selectedEquipment}
-                    onValueChange={setSelectedEquipment}
-                  >
-                    <SelectTrigger>
-                      <SelectValue placeholder="Select equipment" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {equipmentList.map((eq) => (
-                        <SelectItem key={eq.id} value={eq.id}>
-                          {eq.name}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-                
-                <div>
-                  <Label htmlFor="maintenanceType">Maintenance Type</Label>
-                  <Select
-                    value={maintenanceData.type}
-                    onValueChange={(value) => setMaintenanceData({
-                      ...maintenanceData,
-                      type: value
-                    })}
-                  >
-                    <SelectTrigger>
-                      <SelectValue placeholder="Select type" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="preventive">Preventive</SelectItem>
-                      <SelectItem value="corrective">Corrective</SelectItem>
-                      <SelectItem value="emergency">Emergency</SelectItem>
-                      <SelectItem value="upgrade">Upgrade</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-              </div>
-
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <Label htmlFor="scheduledDate">Scheduled Date</Label>
-                  <Input
-                    id="scheduledDate"
-                    type="datetime-local"
-                    value={maintenanceData.scheduledDate}
-                    onChange={(e) => setMaintenanceData({
-                      ...maintenanceData,
-                      scheduledDate: e.target.value
-                    })}
-                  />
-                </div>
-                
-                <div>
-                  <Label htmlFor="technician">Assigned Technician</Label>
-                  <Select
-                    value={maintenanceData.technician}
-                    onValueChange={(value) => setMaintenanceData({
-                      ...maintenanceData,
-                      technician: value
-                    })}
-                  >
-                    <SelectTrigger>
-                      <SelectValue placeholder="Select technician" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="tech-001">John Doe</SelectItem>
-                      <SelectItem value="tech-002">Jane Smith</SelectItem>
-                      <SelectItem value="tech-003">Mike Wilson</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-              </div>
-
-              <div>
-                <Label htmlFor="description">Description</Label>
-                <Textarea
-                  id="description"
-                  placeholder="Describe the maintenance work to be performed..."
-                  value={maintenanceData.description}
-                  onChange={(e) => setMaintenanceData({
-                    ...maintenanceData,
-                    description: e.target.value
-                  })}
-                />
-              </div>
-
-              <Button onClick={handleScheduleMaintenance}>
-                Schedule Maintenance
-              </Button>
-            </CardContent>
-          </Card>
-        </TabsContent>
-
-        <TabsContent value="firmware">
-          <Card>
-            <CardHeader>
-              <CardTitle>Firmware Management</CardTitle>
-              <CardDescription>
-                Track and manage firmware updates across all equipment.
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-4">
-                {equipmentList.map((equipment) => (
-                  <div key={equipment.id} className="flex items-center justify-between p-4 border rounded-lg">
-                    <div>
-                      <h4 className="font-medium">{equipment.name}</h4>
-                      <p className="text-sm text-muted-foreground">
-                        Current: {equipment.firmwareVersion}
-                      </p>
-                    </div>
+            <TabsContent value="overview" className="space-y-4">
+              <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                <Card>
+                  <CardContent className="p-4">
                     <div className="flex items-center gap-2">
-                      <Badge variant="outline">Latest: 16.09.06</Badge>
-                      <Button 
-                        size="sm"
-                        onClick={() => handleFirmwareUpdate(equipment.id)}
-                      >
-                        Update
-                      </Button>
+                      <Package className="h-8 w-8 text-blue-600" />
+                      <div>
+                        <div className="text-2xl font-bold">{allEquipment.length}</div>
+                        <div className="text-sm text-muted-foreground">Total Equipment</div>
+                      </div>
                     </div>
+                  </CardContent>
+                </Card>
+
+                <Card>
+                  <CardContent className="p-4">
+                    <div className="flex items-center gap-2">
+                      <CheckCircle className="h-8 w-8 text-green-600" />
+                      <div>
+                        <div className="text-2xl font-bold">{approvedEquipment.length}</div>
+                        <div className="text-sm text-muted-foreground">Active</div>
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+
+                <Card>
+                  <CardContent className="p-4">
+                    <div className="flex items-center gap-2">
+                      <Clock className="h-8 w-8 text-yellow-600" />
+                      <div>
+                        <div className="text-2xl font-bold">{pendingEquipment.length}</div>
+                        <div className="text-sm text-muted-foreground">Pending</div>
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+
+                <Card>
+                  <CardContent className="p-4">
+                    <div className="flex items-center gap-2">
+                      <Router className="h-8 w-8 text-purple-600" />
+                      <div>
+                        <div className="text-2xl font-bold">{routers.length}</div>
+                        <div className="text-sm text-muted-foreground">MikroTik Routers</div>
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+              </div>
+            </TabsContent>
+
+            <TabsContent value="pending" className="space-y-4">
+              <div className="grid gap-4">
+                {pendingEquipment.length === 0 ? (
+                  <div className="text-center py-8">
+                    <CheckCircle className="h-12 w-12 text-green-500 mx-auto mb-4" />
+                    <h3 className="text-lg font-medium">No Pending Equipment</h3>
+                    <p className="text-muted-foreground">All equipment has been processed.</p>
                   </div>
+                ) : (
+                  pendingEquipment.map((item) => (
+                    <Card key={item.id}>
+                      <CardContent className="p-4">
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center gap-3">
+                            {getEquipmentIcon(item.type)}
+                            <div>
+                              <h4 className="font-medium">{item.model || item.name}</h4>
+                              <div className="text-sm text-muted-foreground">
+                                {item.type} • {item.brand}
+                              </div>
+                              {item.notes && (
+                                <div className="text-xs text-muted-foreground mt-1">
+                                  {item.notes}
+                                </div>
+                              )}
+                            </div>
+                          </div>
+                          <div className="flex items-center gap-2">
+                            {getStatusBadge(item.approval_status || item.status)}
+                            <Button 
+                              size="sm" 
+                              onClick={() => handleApproveEquipment(item.id)}
+                            >
+                              Approve
+                            </Button>
+                            <AlertDialog>
+                              <AlertDialogTrigger asChild>
+                                <Button size="sm" variant="destructive">
+                                  Reject
+                                </Button>
+                              </AlertDialogTrigger>
+                              <AlertDialogContent>
+                                <AlertDialogHeader>
+                                  <AlertDialogTitle>Reject Equipment</AlertDialogTitle>
+                                  <AlertDialogDescription>
+                                    Please provide a reason for rejecting this equipment.
+                                  </AlertDialogDescription>
+                                </AlertDialogHeader>
+                                <AlertDialogFooter>
+                                  <AlertDialogCancel>Cancel</AlertDialogCancel>
+                                  <AlertDialogAction 
+                                    onClick={() => handleRejectEquipment(item.id, 'Rejected via lifecycle manager')}
+                                  >
+                                    Reject
+                                  </AlertDialogAction>
+                                </AlertDialogFooter>
+                              </AlertDialogContent>
+                            </AlertDialog>
+                          </div>
+                        </div>
+                      </CardContent>
+                    </Card>
+                  ))
+                )}
+              </div>
+            </TabsContent>
+
+            <TabsContent value="active" className="space-y-4">
+              <div className="grid gap-4">
+                {approvedEquipment.map((item) => (
+                  <Card key={item.id}>
+                    <CardContent className="p-4">
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-3">
+                          {getEquipmentIcon(item.type)}
+                          <div>
+                            <h4 className="font-medium">{item.model || item.name}</h4>
+                            <div className="text-sm text-muted-foreground">
+                              {item.type} • {item.brand}
+                            </div>
+                            {item.connection_status && (
+                              <Badge 
+                                variant={item.connection_status === 'online' ? 'default' : 'destructive'}
+                                className="mt-1"
+                              >
+                                {item.connection_status}
+                              </Badge>
+                            )}
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          {getStatusIcon(item.approval_status || item.status)}
+                          <span className="text-sm text-green-600">Active</span>
+                        </div>
+                      </div>
+                    </CardContent>
+                  </Card>
                 ))}
               </div>
-            </CardContent>
-          </Card>
-        </TabsContent>
+            </TabsContent>
 
-        <TabsContent value="analytics">
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            <Card>
-              <CardHeader>
-                <CardTitle className="text-sm">Equipment Health</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="text-2xl font-bold text-green-600">83%</div>
-                <p className="text-sm text-muted-foreground">Average health score</p>
-              </CardContent>
-            </Card>
-            
-            <Card>
-              <CardHeader>
-                <CardTitle className="text-sm">Maintenance Due</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="text-2xl font-bold text-yellow-600">3</div>
-                <p className="text-sm text-muted-foreground">Devices need maintenance</p>
-              </CardContent>
-            </Card>
-            
-            <Card>
-              <CardHeader>
-                <CardTitle className="text-sm">End of Life</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="text-2xl font-bold text-red-600">1</div>
-                <p className="text-sm text-muted-foreground">Device marked for disposal</p>
-              </CardContent>
-            </Card>
+            <TabsContent value="inventory" className="space-y-4">
+              <div className="grid gap-4">
+                {networkEquipment.length === 0 ? (
+                  <div className="text-center py-8">
+                    <Package className="h-12 w-12 text-gray-400 mx-auto mb-4" />
+                    <h3 className="text-lg font-medium">No Network Hardware in Inventory</h3>
+                    <p className="text-muted-foreground">
+                      Add network hardware to your inventory to promote to equipment.
+                    </p>
+                  </div>
+                ) : (
+                  networkEquipment.map((item) => (
+                    <Card key={item.id}>
+                      <CardContent className="p-4">
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center gap-3">
+                            {getEquipmentIcon(item.type)}
+                            <div>
+                              <h4 className="font-medium">{item.name}</h4>
+                              <div className="text-sm text-muted-foreground">
+                                {item.type} • {item.manufacturer}
+                              </div>
+                              <div className="text-xs text-muted-foreground">
+                                Status: {item.status} • ID: {item.item_id}
+                              </div>
+                            </div>
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <Badge variant="outline">{item.status}</Badge>
+                            <Button 
+                              size="sm" 
+                              onClick={() => handlePromoteToEquipment(item)}
+                            >
+                              <Plus className="h-4 w-4 mr-1" />
+                              Promote to Equipment
+                            </Button>
+                          </div>
+                        </div>
+                      </CardContent>
+                    </Card>
+                  ))
+                )}
+              </div>
+            </TabsContent>
+          </Tabs>
+        </CardContent>
+      </Card>
+
+      {/* Promote to Equipment Dialog */}
+      <Dialog open={showPromoteDialog} onOpenChange={setShowPromoteDialog}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Promote to Network Equipment</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div>
+              <Label>Notes</Label>
+              <Textarea
+                value={promotionNotes}
+                onChange={(e) => setPromotionNotes(e.target.value)}
+                placeholder="Add any notes about promoting this item to equipment..."
+              />
+            </div>
+            <div className="flex justify-end gap-2">
+              <Button variant="outline" onClick={() => setShowPromoteDialog(false)}>
+                Cancel
+              </Button>
+              <Button onClick={() => {
+                toast({
+                  title: "Feature Coming Soon",
+                  description: "Equipment promotion functionality will be available soon.",
+                });
+                setShowPromoteDialog(false);
+              }}>
+                Promote
+              </Button>
+            </div>
           </div>
-        </TabsContent>
-      </Tabs>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };
