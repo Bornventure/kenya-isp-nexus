@@ -2161,6 +2161,62 @@ export type Database = {
         }
         Relationships: []
       }
+      nas_clients: {
+        Row: {
+          community: string
+          created_at: string
+          description: string | null
+          id: string
+          is_active: boolean
+          isp_company_id: string | null
+          name: string
+          nas_ip_address: string
+          ports: number
+          secret: string
+          shortname: string
+          type: string
+          updated_at: string
+        }
+        Insert: {
+          community?: string
+          created_at?: string
+          description?: string | null
+          id?: string
+          is_active?: boolean
+          isp_company_id?: string | null
+          name: string
+          nas_ip_address: string
+          ports?: number
+          secret: string
+          shortname: string
+          type?: string
+          updated_at?: string
+        }
+        Update: {
+          community?: string
+          created_at?: string
+          description?: string | null
+          id?: string
+          is_active?: boolean
+          isp_company_id?: string | null
+          name?: string
+          nas_ip_address?: string
+          ports?: number
+          secret?: string
+          shortname?: string
+          type?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "nas_clients_isp_company_id_fkey"
+            columns: ["isp_company_id"]
+            isOneToOne: false
+            referencedRelation: "isp_companies"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       network_device_stats: {
         Row: {
           connected_clients: number | null
@@ -2699,6 +2755,56 @@ export type Database = {
           },
         ]
       }
+      radius_groups: {
+        Row: {
+          created_at: string
+          description: string | null
+          download_limit_mbps: number
+          id: string
+          idle_timeout_seconds: number | null
+          is_active: boolean
+          isp_company_id: string | null
+          name: string
+          session_timeout_seconds: number | null
+          updated_at: string
+          upload_limit_mbps: number
+        }
+        Insert: {
+          created_at?: string
+          description?: string | null
+          download_limit_mbps?: number
+          id?: string
+          idle_timeout_seconds?: number | null
+          is_active?: boolean
+          isp_company_id?: string | null
+          name: string
+          session_timeout_seconds?: number | null
+          updated_at?: string
+          upload_limit_mbps?: number
+        }
+        Update: {
+          created_at?: string
+          description?: string | null
+          download_limit_mbps?: number
+          id?: string
+          idle_timeout_seconds?: number | null
+          is_active?: boolean
+          isp_company_id?: string | null
+          name?: string
+          session_timeout_seconds?: number | null
+          updated_at?: string
+          upload_limit_mbps?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "radius_groups_isp_company_id_fkey"
+            columns: ["isp_company_id"]
+            isOneToOne: false
+            referencedRelation: "isp_companies"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       radius_nas_clients: {
         Row: {
           created_at: string
@@ -2742,6 +2848,59 @@ export type Database = {
         Relationships: [
           {
             foreignKeyName: "radius_nas_clients_isp_company_id_fkey"
+            columns: ["isp_company_id"]
+            isOneToOne: false
+            referencedRelation: "isp_companies"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      radius_servers: {
+        Row: {
+          accounting_port: number
+          auth_port: number
+          created_at: string
+          id: string
+          is_enabled: boolean
+          is_primary: boolean
+          isp_company_id: string | null
+          name: string
+          server_address: string
+          shared_secret: string
+          timeout_seconds: number
+          updated_at: string
+        }
+        Insert: {
+          accounting_port?: number
+          auth_port?: number
+          created_at?: string
+          id?: string
+          is_enabled?: boolean
+          is_primary?: boolean
+          isp_company_id?: string | null
+          name: string
+          server_address: string
+          shared_secret: string
+          timeout_seconds?: number
+          updated_at?: string
+        }
+        Update: {
+          accounting_port?: number
+          auth_port?: number
+          created_at?: string
+          id?: string
+          is_enabled?: boolean
+          is_primary?: boolean
+          isp_company_id?: string | null
+          name?: string
+          server_address?: string
+          shared_secret?: string
+          timeout_seconds?: number
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "radius_servers_isp_company_id_fkey"
             columns: ["isp_company_id"]
             isOneToOne: false
             referencedRelation: "isp_companies"
