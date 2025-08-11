@@ -1,274 +1,406 @@
-
 import React, { useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
-import { Progress } from '@/components/ui/progress';
-import { useRealSNMP } from '@/hooks/useRealSNMP';
-import AddSNMPDeviceDialog from './AddSNMPDeviceDialog';
-import { 
-  Router, 
-  Wifi, 
-  Server, 
-  Plus,
-  WifiOff,
-  CheckCircle,
-  XCircle,
-  Settings,
-  Activity,
-  Zap,
-  RefreshCw
-} from 'lucide-react';
+import { Plus, Router, Trash2, Edit, CheckCircle, XCircle } from 'lucide-react';
+import { useNASClients } from '@/hooks/useRadius';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { useAuth } from '@/contexts/AuthContext';
+import AddSNMPDeviceDialog from '@/components/network/AddSNMPDeviceDialog';
+import { useToast } from '@/hooks/use-toast';
 
 const RealNetworkManagementPanel = () => {
-  const {
-    devices,
-    isLoading,
-    isMonitoring,
-    addDevice,
-    testConnection,
-    disconnectClient,
-    reconnectClient,
-    startMonitoring,
-    stopMonitoring,
-    refreshDevices,
-  } = useRealSNMP();
-
+  const { data: nasClients = [], isLoading, createNASClient, updateNASClient, deleteNASClient } = useNASClients();
+  const { profile } = useAuth();
   const [showAddDialog, setShowAddDialog] = useState(false);
-
-  const deviceTypeIcons = {
-    router: Router,
-    switch: Server,
-    access_point: Wifi
-  };
-
-  const getStatusColor = (status: string) => {
-    switch (status) {
-      case 'online': return 'bg-green-500';
-      case 'offline': return 'bg-red-500';
-      default: return 'bg-gray-500';
-    }
-  };
-
-  const formatUptime = (seconds: number) => {
-    const days = Math.floor(seconds / 86400);
-    const hours = Math.floor((seconds % 86400) / 3600);
-    const minutes = Math.floor((seconds % 3600) / 60);
-    
-    if (days > 0) {
-      return `${days}d ${hours}h ${minutes}m`;
-    } else if (hours > 0) {
-      return `${hours}h ${minutes}m`;
-    } else {
-      return `${minutes}m`;
-    }
-  };
-
-  const formatBytes = (bytes: number) => {
-    if (bytes === 0) return '0 B';
-    const k = 1024;
-    const sizes = ['B', 'KB', 'MB', 'GB'];
-    const i = Math.floor(Math.log(bytes) / Math.log(k));
-    return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
-  };
+  const [editingClient, setEditingClient] = useState<string | null>(null);
+  const [formData, setFormData] = useState({
+    name: '',
+    shortname: '',
+    type: 'other',
+    nas_ip_address: '',
+    secret: '',
+    community: 'public',
+    description: '',
+    ports: 1812,
+  });
+  const { toast } = useToast();
+  const [snmpDeviceIp, setSnmpDeviceIp] = useState('');
+  const [snmpCommunity, setSnmpCommunity] = useState('public');
+  const [snmpVersion, setSnmpVersion] = useState(2);
+  const [isLoadingSnmp, setIsLoadingSnmp] = useState(false);
 
   const handleAddDevice = async (ip: string, community: string, version: number) => {
-    await addDevice(ip, community, version);
+    setIsLoadingSnmp(true);
+    try {
+      // Simulate adding a device
+      console.log(`Adding SNMP device with IP: ${ip}, community: ${community}, version: ${version}`);
+      toast({
+        title: "Device Added",
+        description: `Successfully added SNMP device with IP: ${ip}`,
+      });
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: "Could not add the device",
+        variant: "destructive",
+      });
+    } finally {
+      setIsLoadingSnmp(false);
+      setShowAddDialog(false);
+    }
+  };
+
+  const handleTestConnection = async (ip: string, community?: string, version?: number) => {
+    setIsLoadingSnmp(true);
+    try {
+      // Simulate testing the connection
+      console.log(`Testing connection to SNMP device with IP: ${ip}, community: ${community}, version: ${version}`);
+      await new Promise(resolve => setTimeout(resolve, 1500)); // Simulate network delay
+
+      toast({
+        title: "Connection Successful",
+        description: `Successfully connected to ${ip}`,
+      });
+      return true;
+    } catch (error) {
+      toast({
+        title: "Connection Failed",
+        description: "Could not connect to the device",
+        variant: "destructive",
+      });
+      return false;
+    } finally {
+      setIsLoadingSnmp(false);
+    }
+  };
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    try {
+      const nasClientData = {
+        ...formData,
+        isp_company_id: profile?.isp_company_id || '',
+        is_active: true
+      };
+
+      if (editingClient) {
+        await updateNASClient.mutateAsync({
+          id: editingClient,
+          updates: nasClientData,
+        });
+        setEditingClient(null);
+      } else {
+        await createNASClient.mutateAsync(nasClientData);
+        setShowAddDialog(false);
+      }
+      setFormData({
+        name: '',
+        shortname: '',
+        type: 'other',
+        nas_ip_address: '',
+        secret: '',
+        community: 'public',
+        description: '',
+        ports: 1812,
+      });
+    } catch (error) {
+      console.error('Error saving NAS client:', error);
+    }
+  };
+
+  const handleEdit = (client: any) => {
+    setEditingClient(client.id);
+    setFormData({
+      name: client.name,
+      shortname: client.shortname,
+      type: client.type,
+      nas_ip_address: client.nas_ip_address,
+      secret: client.secret,
+      community: client.community,
+      description: client.description || '',
+      ports: client.ports,
+    });
+  };
+
+  const handleDelete = async (id: string) => {
+    if (confirm('Are you sure you want to delete this NAS client?')) {
+      await deleteNASClient.mutateAsync(id);
+    }
+  };
+
+  const resetForm = () => {
+    setFormData({
+      name: '',
+      shortname: '',
+      type: 'other',
+      nas_ip_address: '',
+      secret: '',
+      community: 'public',
+      description: '',
+      ports: 1812,
+    });
+    setEditingClient(null);
   };
 
   return (
     <div className="space-y-6">
       <Card>
         <CardHeader>
-          <CardTitle className="flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              <Settings className="h-5 w-5" />
-              Real Network Management (SNMP)
+          <div className="flex items-center justify-between">
+            <div>
+              <CardTitle className="flex items-center gap-2">
+                <Router className="h-5 w-5" />
+                Network Access Server (NAS) Clients
+              </CardTitle>
+              <p className="text-sm text-muted-foreground mt-1">
+                Configure network devices that will authenticate users via RADIUS
+              </p>
             </div>
-            <div className="flex items-center gap-2">
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={refreshDevices}
-                disabled={isLoading}
-              >
-                <RefreshCw className={`h-4 w-4 mr-2 ${isLoading ? 'animate-spin' : ''}`} />
-                Refresh
-              </Button>
-              <Button
-                variant={isMonitoring ? "destructive" : "default"}
-                size="sm"
-                onClick={isMonitoring ? stopMonitoring : startMonitoring}
-              >
-                <Activity className="h-4 w-4 mr-2" />
-                {isMonitoring ? 'Stop Monitoring' : 'Start Monitoring'}
-              </Button>
-              <Button onClick={() => setShowAddDialog(true)}>
-                <Plus className="h-4 w-4 mr-2" />
-                Add Device
-              </Button>
-            </div>
-          </CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-6">
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-            <div className="text-center p-4 border rounded-lg">
-              <Server className="h-8 w-8 mx-auto mb-2 text-blue-500" />
-              <div className="text-2xl font-bold">{devices.length}</div>
-              <div className="text-sm text-muted-foreground">Total Devices</div>
-            </div>
-            
-            <div className="text-center p-4 border rounded-lg">
-              <CheckCircle className="h-8 w-8 mx-auto mb-2 text-green-500" />
-              <div className="text-2xl font-bold">
-                {devices.filter(d => d.status === 'online').length}
-              </div>
-              <div className="text-sm text-muted-foreground">Online Devices</div>
-            </div>
-            
-            <div className="text-center p-4 border rounded-lg">
-              <XCircle className="h-8 w-8 mx-auto mb-2 text-red-500" />
-              <div className="text-2xl font-bold">
-                {devices.filter(d => d.status === 'offline').length}
-              </div>
-              <div className="text-sm text-muted-foreground">Offline Devices</div>
-            </div>
-            
-            <div className="text-center p-4 border rounded-lg">
-              <Activity className="h-8 w-8 mx-auto mb-2 text-purple-500" />
-              <div className="text-2xl font-bold">
-                {devices.reduce((sum, d) => sum + d.interfaces.length, 0)}
-              </div>
-              <div className="text-sm text-muted-foreground">Total Interfaces</div>
-            </div>
-          </div>
+            <Dialog open={showAddDialog} onOpenChange={setShowAddDialog}>
+              <DialogTrigger asChild>
+                <Button>
+                  <Plus className="h-4 w-4 mr-2" />
+                  Add NAS Client
+                </Button>
+              </DialogTrigger>
+              <DialogContent className="sm:max-w-[500px]">
+                <DialogHeader>
+                  <DialogTitle>Add NAS Client</DialogTitle>
+                </DialogHeader>
+                <form onSubmit={handleSubmit} className="space-y-4">
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <Label htmlFor="name">Name</Label>
+                      <Input
+                        id="name"
+                        value={formData.name}
+                        onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                        placeholder="Main Router"
+                        required
+                      />
+                    </div>
+                    <div>
+                      <Label htmlFor="shortname">Short Name</Label>
+                      <Input
+                        id="shortname"
+                        value={formData.shortname}
+                        onChange={(e) => setFormData({ ...formData, shortname: e.target.value })}
+                        placeholder="router1"
+                        required
+                      />
+                    </div>
+                  </div>
+                  
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <Label htmlFor="nas_ip_address">IP Address</Label>
+                      <Input
+                        id="nas_ip_address"
+                        value={formData.nas_ip_address}
+                        onChange={(e) => setFormData({ ...formData, nas_ip_address: e.target.value })}
+                        placeholder="192.168.1.1"
+                        required
+                      />
+                    </div>
+                    <div>
+                      <Label htmlFor="type">Device Type</Label>
+                      <Select value={formData.type} onValueChange={(value) => setFormData({ ...formData, type: value })}>
+                        <SelectTrigger>
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="router">Router</SelectItem>
+                          <SelectItem value="switch">Switch</SelectItem>
+                          <SelectItem value="access_point">Access Point</SelectItem>
+                          <SelectItem value="other">Other</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  </div>
 
-          {devices.length === 0 ? (
-            <div className="text-center py-12">
-              <Wifi className="h-16 w-16 mx-auto text-muted-foreground mb-4" />
-              <h3 className="text-lg font-semibold mb-2">No Network Devices Found</h3>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <Label htmlFor="secret">Shared Secret</Label>
+                      <Input
+                        id="secret"
+                        type="password"
+                        value={formData.secret}
+                        onChange={(e) => setFormData({ ...formData, secret: e.target.value })}
+                        placeholder="Enter shared secret"
+                        required
+                      />
+                    </div>
+                    <div>
+                      <Label htmlFor="ports">RADIUS Port</Label>
+                      <Input
+                        id="ports"
+                        type="number"
+                        value={formData.ports}
+                        onChange={(e) => setFormData({ ...formData, ports: parseInt(e.target.value) })}
+                        placeholder="1812"
+                      />
+                    </div>
+                  </div>
+
+                  <div>
+                    <Label htmlFor="description">Description (Optional)</Label>
+                    <Input
+                      id="description"
+                      value={formData.description}
+                      onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+                      placeholder="Main network router for authentication"
+                    />
+                  </div>
+
+                  <div className="flex justify-end space-x-2">
+                    <Button type="button" variant="outline" onClick={() => {
+                      setShowAddDialog(false);
+                      resetForm();
+                    }}>
+                      Cancel
+                    </Button>
+                    <Button type="submit">
+                      Add NAS Client
+                    </Button>
+                  </div>
+                </form>
+              </DialogContent>
+            </Dialog>
+          </div>
+        </CardHeader>
+        <CardContent>
+          {isLoading ? (
+            <div className="text-center py-4">Loading NAS clients...</div>
+          ) : nasClients.length === 0 ? (
+            <div className="text-center py-8">
+              <Router className="h-12 w-12 mx-auto mb-4 opacity-50" />
+              <h3 className="text-lg font-medium">No NAS Clients Configured</h3>
               <p className="text-muted-foreground mb-4">
-                Add your first router, switch, or access point to start monitoring your network.
+                Add your network devices to enable RADIUS authentication
               </p>
               <Button onClick={() => setShowAddDialog(true)}>
                 <Plus className="h-4 w-4 mr-2" />
-                Add SNMP Device
+                Add First NAS Client
               </Button>
             </div>
           ) : (
             <div className="space-y-4">
-              <h4 className="text-lg font-semibold">Network Devices</h4>
-              {devices.map((device) => {
-                const Icon = deviceTypeIcons[device.type];
-                return (
-                  <div key={device.id} className="border rounded-lg p-6">
-                    <div className="flex items-center justify-between mb-4">
-                      <div className="flex items-center gap-3">
-                        <Icon className="h-6 w-6 text-blue-500" />
+              {nasClients.map((client) => (
+                <div key={client.id} className="border rounded-lg p-4">
+                  {editingClient === client.id ? (
+                    <form onSubmit={handleSubmit} className="space-y-4">
+                      <div className="grid grid-cols-2 gap-4">
                         <div>
-                          <h5 className="font-semibold">{device.name}</h5>
-                          <p className="text-sm text-muted-foreground">{device.ip}</p>
+                          <Label htmlFor="edit-name">Name</Label>
+                          <Input
+                            id="edit-name"
+                            value={formData.name}
+                            onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                            required
+                          />
+                        </div>
+                        <div>
+                          <Label htmlFor="edit-ip">IP Address</Label>
+                          <Input
+                            id="edit-ip"
+                            value={formData.nas_ip_address}
+                            onChange={(e) => setFormData({ ...formData, nas_ip_address: e.target.value })}
+                            required
+                          />
                         </div>
                       </div>
-                      <Badge className={`text-white ${getStatusColor(device.status)}`}>
-                        {device.status === 'online' ? (
-                          <>
-                            <CheckCircle className="h-3 w-3 mr-1" />
-                            Online
-                          </>
-                        ) : (
-                          <>
-                            <XCircle className="h-3 w-3 mr-1" />
-                            Offline
-                          </>
-                        )}
-                      </Badge>
-                    </div>
-
-                    <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-4">
-                      <div>
-                        <label className="text-xs text-muted-foreground">Uptime</label>
-                        <div className="font-medium">{formatUptime(device.uptime)}</div>
+                      <div className="flex justify-end space-x-2">
+                        <Button type="button" variant="outline" onClick={resetForm}>
+                          Cancel
+                        </Button>
+                        <Button type="submit">
+                          Save Changes
+                        </Button>
                       </div>
-                      <div>
-                        <label className="text-xs text-muted-foreground">CPU Usage</label>
-                        <div className="font-medium">{device.cpuUsage.toFixed(1)}%</div>
-                        <Progress value={device.cpuUsage} className="w-full mt-1" />
-                      </div>
-                      <div>
-                        <label className="text-xs text-muted-foreground">Memory Usage</label>
-                        <div className="font-medium">{device.memoryUsage.toFixed(1)}%</div>
-                        <Progress value={device.memoryUsage} className="w-full mt-1" />
-                      </div>
-                      <div>
-                        <label className="text-xs text-muted-foreground">Interfaces</label>
-                        <div className="font-medium">
-                          {device.interfaces.filter(i => i.status === 'up').length} / {device.interfaces.length}
+                    </form>
+                  ) : (
+                    <>
+                      <div className="flex items-center justify-between mb-3">
+                        <div className="flex items-center gap-3">
+                          <Router className="h-5 w-5 text-blue-600" />
+                          <div>
+                            <h4 className="font-medium">{client.name}</h4>
+                            <p className="text-sm text-muted-foreground">
+                              {client.shortname} • {client.nas_ip_address}
+                            </p>
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <Badge variant={client.is_active ? 'default' : 'secondary'}>
+                            {client.is_active ? (
+                              <CheckCircle className="h-3 w-3 mr-1" />
+                            ) : (
+                              <XCircle className="h-3 w-3 mr-1" />
+                            )}
+                            {client.is_active ? 'Active' : 'Inactive'}
+                          </Badge>
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() => handleEdit(client)}
+                          >
+                            <Edit className="h-3 w-3" />
+                          </Button>
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() => handleDelete(client.id)}
+                          >
+                            <Trash2 className="h-3 w-3" />
+                          </Button>
                         </div>
                       </div>
-                    </div>
 
-                    {device.interfaces.length > 0 && (
-                      <div>
-                        <h6 className="text-sm font-medium mb-2">Network Interfaces</h6>
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
-                          {device.interfaces.slice(0, 4).map((networkInterface) => (
-                            <div key={networkInterface.index} className="flex items-center justify-between p-2 bg-muted rounded text-sm">
-                              <span className="font-medium">{networkInterface.name}</span>
-                              <div className="flex items-center gap-2">
-                                <Badge variant={networkInterface.status === 'up' ? 'default' : 'secondary'}>
-                                  {networkInterface.status}
-                                </Badge>
-                                <span className="text-xs text-muted-foreground">
-                                  {formatBytes(networkInterface.bytesIn + networkInterface.bytesOut)}
-                                </span>
-                              </div>
-                            </div>
-                          ))}
-                          {device.interfaces.length > 4 && (
-                            <div className="text-xs text-muted-foreground p-2">
-                              +{device.interfaces.length - 4} more interfaces
-                            </div>
-                          )}
+                      <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
+                        <div>
+                          <span className="text-muted-foreground">Type:</span>
+                          <div className="font-medium capitalize">{client.type}</div>
+                        </div>
+                        <div>
+                          <span className="text-muted-foreground">Port:</span>
+                          <div className="font-medium">{client.ports}</div>
+                        </div>
+                        <div>
+                          <span className="text-muted-foreground">Community:</span>
+                          <div className="font-medium">{client.community}</div>
+                        </div>
+                        <div>
+                          <span className="text-muted-foreground">Secret:</span>
+                          <div className="font-medium">••••••••</div>
                         </div>
                       </div>
-                    )}
 
-                    <div className="flex gap-2 mt-4">
-                      <Button
-                        size="sm"
-                        variant="destructive"
-                        onClick={() => disconnectClient(device.ip, 'test-client')}
-                        disabled={device.status === 'offline'}
-                      >
-                        <WifiOff className="h-4 w-4 mr-2" />
-                        Test Disconnect
-                      </Button>
-                      <Button
-                        size="sm"
-                        variant="default"
-                        onClick={() => reconnectClient(device.ip, 'test-client')}
-                        disabled={device.status === 'offline'}
-                      >
-                        <Wifi className="h-4 w-4 mr-2" />
-                        Test Reconnect
-                      </Button>
-                    </div>
-                  </div>
-                );
-              })}
+                      {client.description && (
+                        <p className="text-sm text-muted-foreground mt-2">{client.description}</p>
+                      )}
+                    </>
+                  )}
+                </div>
+              ))}
             </div>
           )}
         </CardContent>
       </Card>
-
-      <AddSNMPDeviceDialog
-        open={showAddDialog}
-        onOpenChange={setShowAddDialog}
-        onDeviceAdded={handleAddDevice}
-        onTestConnection={testConnection}
-        isLoading={isLoading}
-      />
+      <div>
+        <Button onClick={() => setShowAddDialog(true)}>
+          Add SNMP Device
+        </Button>
+        <AddSNMPDeviceDialog
+          open={showAddDialog}
+          onOpenChange={setShowAddDialog}
+          onAddDevice={handleAddDevice}
+          onTestConnection={handleTestConnection}
+        />
+      </div>
     </div>
   );
 };

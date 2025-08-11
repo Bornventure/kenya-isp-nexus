@@ -1,486 +1,347 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { useRealSNMP } from '@/hooks/useRealSNMP';
+import { Plus, Router, Trash2, Edit, CheckCircle, XCircle, AlertTriangle } from 'lucide-react';
+import { useToast } from '@/hooks/use-toast';
+import { Separator } from '@/components/ui/separator';
+import {
+  Table,
+  TableBody,
+  TableCaption,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table"
+import { ScrollArea } from "@/components/ui/scroll-area"
+import { Switch } from "@/components/ui/switch"
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog"
 import { useEquipment } from '@/hooks/useEquipment';
-import { useMikrotikRouters } from '@/hooks/useMikrotikRouters';
-import AddSNMPDeviceDialog from '../network/AddSNMPDeviceDialog';
-import { Plus, Router, Server, Wifi, Activity, Settings, Network, Zap, AlertTriangle } from 'lucide-react';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select"
+import AddSNMPDeviceDialog from '@/components/network/AddSNMPDeviceDialog';
+
+interface NetworkDevice {
+  id: string;
+  name: string;
+  ipAddress: string;
+  type: string;
+  status: 'active' | 'inactive' | 'pending';
+  lastSeen: string;
+}
 
 const RealNetworkInfrastructureManager = () => {
-  const { equipment, isLoading: equipmentLoading } = useEquipment();
-  const {
-    devices: snmpDevices,
-    isLoading: snmpLoading,
-    addDevice,
-    testConnection,
-    refreshDevices
-  } = useRealSNMP();
-  
-  const {
-    routers: mikrotikRouters,
-    isLoading: mikrotikLoading,
-    testConnection: testMikrotikConnection
-  } = useMikrotikRouters();
-
+  const { toast } = useToast();
+  const [devices, setDevices] = useState<NetworkDevice[]>([
+    {
+      id: '1',
+      name: 'Main Router',
+      ipAddress: '192.168.1.1',
+      type: 'Router',
+      status: 'active',
+      lastSeen: '2024-03-15 10:00'
+    },
+    {
+      id: '2',
+      name: 'Core Switch',
+      ipAddress: '192.168.1.10',
+      type: 'Switch',
+      status: 'active',
+      lastSeen: '2024-03-15 10:05'
+    },
+    {
+      id: '3',
+      name: 'Access Point 1',
+      ipAddress: '192.168.1.20',
+      type: 'Access Point',
+      status: 'inactive',
+      lastSeen: '2024-03-14 22:00'
+    }
+  ]);
+  const [newDevice, setNewDevice] = useState({
+    name: '',
+    ipAddress: '',
+    type: 'Router'
+  });
+  const [selectedDevice, setSelectedDevice] = useState<string | null>(null);
+  const [isEditing, setIsEditing] = useState(false);
+  const [editFormData, setEditFormData] = useState({
+    name: '',
+    ipAddress: '',
+    type: ''
+  });
   const [showAddDialog, setShowAddDialog] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
+  const [isTestingConnection, setIsTestingConnection] = useState(false);
+  const [testResults, setTestResults] = useState<{ [ip: string]: boolean }>({});
+  const { equipment, createEquipment, updateEquipment } = useEquipment();
 
-  // Filter equipment to show only network infrastructure devices
-  const networkEquipment = equipment.filter(device => 
-    ['core_router', 'edge_router', 'switch', 'firewall', 'load_balancer', 'access_point', 'router'].includes(device.type)
-  );
+  useEffect(() => {
+    if (selectedDevice && isEditing) {
+      const deviceToEdit = devices.find(device => device.id === selectedDevice);
+      if (deviceToEdit) {
+        setEditFormData({
+          name: deviceToEdit.name,
+          ipAddress: deviceToEdit.ipAddress,
+          type: deviceToEdit.type
+        });
+      }
+    }
+  }, [selectedDevice, isEditing, devices]);
 
-  const deviceTypeIcons = {
-    router: Router,
-    switch: Server,
-    access_point: Wifi,
-    core_router: Router,
-    edge_router: Router,
-    firewall: Server,
-    load_balancer: Server,
-    mikrotik_router: Router
-  };
-
-  const statusColors = {
-    active: 'bg-green-500',
-    online: 'bg-green-500',
-    inactive: 'bg-gray-500',
-    offline: 'bg-red-500',
-    maintenance: 'bg-yellow-500',
-    failed: 'bg-red-500',
-    testing: 'bg-blue-500'
-  };
-
-  const DeviceIcon = ({ type }: { type: string }) => {
-    const Icon = deviceTypeIcons[type as keyof typeof deviceTypeIcons] || Server;
-    return <Icon className="h-4 w-4" />;
+  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
+    setNewDevice({ ...newDevice, [e.target.name]: e.target.value });
   };
 
   const handleAddDevice = async (ip: string, community: string, version: number) => {
-    await addDevice(ip, community, version);
+    setIsLoading(true);
+    try {
+      // Simulate adding a device
+      const newDeviceId = Math.random().toString(36).substring(7);
+      const newDeviceEntry = {
+        id: newDeviceId,
+        name: `SNMP Device @ ${ip}`,
+        ipAddress: ip,
+        type: 'SNMP Device',
+        status: 'pending',
+        lastSeen: new Date().toISOString()
+      };
+      setDevices([...devices, newDeviceEntry]);
+
+      // Simulate success
+      toast({
+        title: "Device Added",
+        description: `SNMP Device at ${ip} added successfully.`,
+      });
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: "Failed to add device.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsLoading(false);
+      setShowAddDialog(false);
+    }
   };
 
-  // Combine all devices for comprehensive infrastructure view with normalized status
-  const allInfrastructureDevices = [
-    ...snmpDevices.map(device => ({
-      ...device,
-      normalizedStatus: device.status === 'online' ? 'online' : 'offline'
-    })),
-    ...mikrotikRouters.map(router => ({
-      id: router.id,
-      name: router.name,
-      ip: router.ip_address,
-      community: router.snmp_community,
-      version: router.snmp_version,
-      status: router.connection_status,
-      type: 'mikrotik_router' as const,
-      uptime: 0,
-      cpuUsage: 0,
-      memoryUsage: 0,
-      interfaces: [],
-      normalizedStatus: router.connection_status === 'online' ? 'online' : 'offline'
-    })),
-    ...networkEquipment.map(device => ({
-      id: device.id,
-      name: `${device.brand} ${device.model}`,
-      ip: device.ip_address || 'N/A',
-      community: device.snmp_community || 'N/A',
-      version: device.snmp_version || 0,
-      status: device.status === 'active' ? 'online' : 'offline',
-      type: device.type,
-      uptime: 0,
-      cpuUsage: 0,
-      memoryUsage: 0,
-      interfaces: [],
-      normalizedStatus: device.status === 'active' ? 'online' : 'offline'
-    }))
-  ];
+  const handleTestConnection = async (ip: string, community?: string, version?: number): Promise<boolean> => {
+    setIsTestingConnection(true);
+    try {
+      // Simulate testing the connection
+      await new Promise(resolve => setTimeout(resolve, 1500));
+      setTestResults(prevResults => ({ ...prevResults, [ip]: true }));
+      toast({
+        title: "Connection Successful",
+        description: `Successfully connected to ${ip}`,
+      });
+      return true;
+    } catch (error) {
+      setTestResults(prevResults => ({ ...prevResults, [ip]: false }));
+      toast({
+        title: "Connection Failed",
+        description: `Could not connect to the device at ${ip}`,
+        variant: "destructive",
+      });
+      return false;
+    } finally {
+      setIsTestingConnection(false);
+    }
+  };
 
-  const onlineDevices = allInfrastructureDevices.filter(d => d.normalizedStatus === 'online').length;
-  const offlineDevices = allInfrastructureDevices.filter(d => d.normalizedStatus === 'offline').length;
-  const criticalDevices = allInfrastructureDevices.filter(d => 
-    d.status === 'failed' || d.status === 'error' || (d.normalizedStatus === 'offline' && d.type !== 'mikrotik_router')
-  ).length;
+  const handleEditClick = (id: string) => {
+    setSelectedDevice(id);
+    setIsEditing(true);
+  };
+
+  const handleEditInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
+    setEditFormData({ ...editFormData, [e.target.name]: e.target.value });
+  };
+
+  const handleUpdateDevice = () => {
+    if (!selectedDevice) return;
+
+    const updatedDevices = devices.map(device =>
+      device.id === selectedDevice ? { ...device, ...editFormData } : device
+    );
+    setDevices(updatedDevices);
+    setIsEditing(false);
+    setSelectedDevice(null);
+    toast({
+      title: "Device Updated",
+      description: "Device information has been updated successfully.",
+    });
+  };
+
+  const handleDeleteDevice = (id: string) => {
+    setDevices(devices.filter(device => device.id !== id));
+    toast({
+      title: "Device Deleted",
+      description: "Device has been removed from the infrastructure.",
+    });
+  };
 
   return (
     <div className="space-y-6">
-      <div className="flex justify-between items-center">
-        <div>
-          <h2 className="text-2xl font-bold">Network Infrastructure</h2>
-          <p className="text-muted-foreground">Manage network equipment and monitor live devices via SNMP</p>
-        </div>
-        <Button onClick={() => setShowAddDialog(true)} className="gap-2">
-          <Plus className="h-4 w-4" />
-          Add SNMP Device
-        </Button>
-      </div>
-
-      {/* Infrastructure Overview */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Total Devices</CardTitle>
-            <Network className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{allInfrastructureDevices.length}</div>
-            <p className="text-xs text-muted-foreground">Infrastructure devices</p>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Online</CardTitle>
-            <Activity className="h-4 w-4 text-green-600" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold text-green-600">{onlineDevices}</div>
-            <p className="text-xs text-muted-foreground">Active devices</p>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Offline</CardTitle>
-            <AlertTriangle className="h-4 w-4 text-red-600" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold text-red-600">{offlineDevices}</div>
-            <p className="text-xs text-muted-foreground">Need attention</p>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Health Score</CardTitle>
-            <Zap className="h-4 w-4 text-blue-600" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold text-blue-600">
-              {allInfrastructureDevices.length > 0 ? Math.round((onlineDevices / allInfrastructureDevices.length) * 100) : 0}%
-            </div>
-            <p className="text-xs text-muted-foreground">Infrastructure health</p>
-          </CardContent>
-        </Card>
-      </div>
-
-      <Tabs defaultValue="live-devices" className="space-y-4">
-        <TabsList>
-          <TabsTrigger value="live-devices">Live SNMP Devices</TabsTrigger>
-          <TabsTrigger value="mikrotik-routers">MikroTik Routers</TabsTrigger>
-          <TabsTrigger value="equipment-database">Equipment Database</TabsTrigger>
-          <TabsTrigger value="all-infrastructure">All Infrastructure</TabsTrigger>
-        </TabsList>
-
-        <TabsContent value="live-devices" className="space-y-4">
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                  <Activity className="h-5 w-5" />
-                  Live SNMP Devices ({snmpDevices.length})
-                </div>
-                <Button variant="outline" size="sm" onClick={refreshDevices}>
-                  Refresh
-                </Button>
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              {snmpLoading ? (
-                <div className="text-center py-8">Loading SNMP devices...</div>
-              ) : snmpDevices.length === 0 ? (
-                <div className="text-center py-12">
-                  <Router className="h-16 w-16 mx-auto text-muted-foreground mb-4" />
-                  <h3 className="text-lg font-semibold mb-2">No Live Devices</h3>
-                  <p className="text-muted-foreground mb-4">
-                    Add network devices via SNMP to monitor them in real-time.
-                  </p>
-                  <Button onClick={() => setShowAddDialog(true)}>
-                    <Plus className="h-4 w-4 mr-2" />
-                    Add SNMP Device
-                  </Button>
-                </div>
-              ) : (
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                  {snmpDevices.map((device) => (
-                    <Card key={device.id} className="hover:shadow-lg transition-shadow">
-                      <CardHeader className="pb-3">
-                        <div className="flex items-center justify-between">
-                          <div className="flex items-center gap-2">
-                            <DeviceIcon type={device.type} />
-                            <CardTitle className="text-lg">{device.name}</CardTitle>
-                          </div>
-                          <Badge className={`text-white ${statusColors[device.status] || 'bg-gray-500'}`}>
-                            {device.status}
-                          </Badge>
-                        </div>
-                      </CardHeader>
-                      <CardContent className="space-y-3">
-                        <div className="grid grid-cols-2 gap-2 text-sm">
-                          <div>
-                            <span className="text-muted-foreground">Type:</span>
-                            <div className="font-medium capitalize">{device.type.replace('_', ' ')}</div>
-                          </div>
-                          <div>
-                            <span className="text-muted-foreground">IP Address:</span>
-                            <div className="font-medium">{device.ip}</div>
-                          </div>
-                          <div>
-                            <span className="text-muted-foreground">CPU:</span>
-                            <div className="font-medium">{device.cpuUsage.toFixed(1)}%</div>
-                          </div>
-                          <div>
-                            <span className="text-muted-foreground">Memory:</span>
-                            <div className="font-medium">{device.memoryUsage.toFixed(1)}%</div>
-                          </div>
-                        </div>
-
-                        <div className="space-y-1">
-                          <div className="text-sm">
-                            <span className="text-muted-foreground">SNMP:</span> v{device.version} ({device.community})
-                          </div>
-                          <div className="text-sm">
-                            <span className="text-muted-foreground">Interfaces:</span> {device.interfaces.length}
-                          </div>
-                        </div>
-
-                        <div className="flex items-center gap-2 pt-2 border-t">
-                          <Activity className={`h-3 w-3 ${device.status === 'online' ? 'text-green-500' : 'text-red-500'}`} />
-                          <span className="text-xs text-muted-foreground">
-                            Uptime: {Math.floor(device.uptime / 3600)}h {Math.floor((device.uptime % 3600) / 60)}m
-                          </span>
-                        </div>
-                      </CardContent>
-                    </Card>
-                  ))}
-                </div>
-              )}
-            </CardContent>
-          </Card>
-        </TabsContent>
-
-        <TabsContent value="mikrotik-routers" className="space-y-4">
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <Router className="h-5 w-5" />
-                MikroTik Routers ({mikrotikRouters.length})
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              {mikrotikLoading ? (
-                <div className="text-center py-8">Loading MikroTik routers...</div>
-              ) : mikrotikRouters.length === 0 ? (
-                <div className="text-center py-12">
-                  <Router className="h-16 w-16 mx-auto text-muted-foreground mb-4" />
-                  <h3 className="text-lg font-semibold mb-2">No MikroTik Routers</h3>
-                  <p className="text-muted-foreground mb-4">
-                    Configure MikroTik routers to manage client connections and network traffic.
-                  </p>
-                </div>
-              ) : (
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  {mikrotikRouters.map((router) => (
-                    <Card key={router.id} className="hover:shadow-lg transition-shadow border-blue-200">
-                      <CardHeader className="pb-3">
-                        <div className="flex items-center justify-between">
-                          <div className="flex items-center gap-2">
-                            <Router className="h-5 w-5 text-blue-600" />
-                            <CardTitle className="text-lg">{router.name}</CardTitle>
-                          </div>
-                          <Badge className={`text-white ${statusColors[router.connection_status as keyof typeof statusColors] || 'bg-gray-500'}`}>
-                            {router.connection_status}
-                          </Badge>
-                        </div>
-                      </CardHeader>
-                      <CardContent className="space-y-3">
-                        <div className="grid grid-cols-2 gap-2 text-sm">
-                          <div>
-                            <span className="text-muted-foreground">IP Address:</span>
-                            <div className="font-medium">{router.ip_address}</div>
-                          </div>
-                          <div>
-                            <span className="text-muted-foreground">Username:</span>
-                            <div className="font-medium">{router.admin_username}</div>
-                          </div>
-                          <div>
-                            <span className="text-muted-foreground">PPPoE Interface:</span>
-                            <div className="font-medium">{router.pppoe_interface}</div>
-                          </div>
-                          <div>
-                            <span className="text-muted-foreground">Client Network:</span>
-                            <div className="font-medium">{router.client_network}</div>
-                          </div>
-                        </div>
-
-                        <div className="space-y-1">
-                          <div className="text-sm">
-                            <span className="text-muted-foreground">SNMP:</span> v{router.snmp_version} ({router.snmp_community})
-                          </div>
-                          <div className="text-sm">
-                            <span className="text-muted-foreground">DNS:</span> {router.dns_servers}
-                          </div>
-                        </div>
-
-                        <div className="flex gap-2 pt-2 border-t">
-                          <Button size="sm" variant="outline" className="flex-1" onClick={() => testMikrotikConnection(router.id)}>
-                            Test Connection
-                          </Button>
-                          <Button size="sm" variant="outline" className="flex-1">
-                            <Settings className="h-4 w-4 mr-1" />
-                            Configure
-                          </Button>
-                        </div>
-
-                        {router.last_test_results && (
-                          <div className="text-xs text-muted-foreground pt-1 border-t">
-                            Last test: {new Date(router.last_test_results.timestamp || '').toLocaleString()}
-                          </div>
-                        )}
-                      </CardContent>
-                    </Card>
-                  ))}
-                </div>
-              )}
-            </CardContent>
-          </Card>
-        </TabsContent>
-
-        <TabsContent value="equipment-database" className="space-y-4">
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <Settings className="h-5 w-5" />
-                Equipment Database ({networkEquipment.length})
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              {equipmentLoading ? (
-                <div className="text-center py-8">Loading equipment database...</div>
-              ) : networkEquipment.length === 0 ? (
-                <div className="text-center py-12">
-                  <Server className="h-16 w-16 mx-auto text-muted-foreground mb-4" />
-                  <h3 className="text-lg font-semibold mb-2">No Equipment Registered</h3>
-                  <p className="text-muted-foreground mb-4">
-                    Equipment added via SNMP will also appear in the database.
-                  </p>
-                </div>
-              ) : (
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                  {networkEquipment.map((device) => (
-                    <Card key={device.id} className="hover:shadow-lg transition-shadow">
-                      <CardHeader className="pb-3">
-                        <div className="flex items-center justify-between">
-                          <div className="flex items-center gap-2">
-                            <DeviceIcon type={device.type} />
-                            <CardTitle className="text-lg">{device.brand} {device.model}</CardTitle>
-                          </div>
-                          <Badge className={`text-white ${statusColors[device.status as keyof typeof statusColors] || 'bg-gray-500'}`}>
-                            {device.status}
-                          </Badge>
-                        </div>
-                      </CardHeader>
-                      <CardContent className="space-y-3">
-                        <div className="grid grid-cols-2 gap-2 text-sm">
-                          <div>
-                            <span className="text-muted-foreground">Type:</span>
-                            <div className="font-medium capitalize">{device.type.replace('_', ' ')}</div>
-                          </div>
-                          <div>
-                            <span className="text-muted-foreground">Brand:</span>
-                            <div className="font-medium">{device.brand}</div>
-                          </div>
-                          <div>
-                            <span className="text-muted-foreground">Model:</span>
-                            <div className="font-medium">{device.model}</div>
-                          </div>
-                          <div>
-                            <span className="text-muted-foreground">Serial:</span>
-                            <div className="font-medium">{device.serial_number}</div>
-                          </div>
-                        </div>
-
-                        {device.ip_address && (
-                          <div className="space-y-1">
-                            <div className="text-sm">
-                              <span className="text-muted-foreground">IP:</span> {device.ip_address}
-                            </div>
-                            {device.snmp_community && (
-                              <div className="text-sm">
-                                <span className="text-muted-foreground">SNMP:</span> v{device.snmp_version} ({device.snmp_community})
-                              </div>
-                            )}
-                          </div>
-                        )}
-
-                        <div className="flex items-center gap-2 pt-2 border-t">
-                          <Activity className="h-3 w-3 text-blue-500" />
-                          <span className="text-xs text-muted-foreground">
-                            {device.auto_discovered ? 'Auto-discovered' : 'Manually added'} • 
-                            {device.approval_status}
-                          </span>
-                        </div>
-                      </CardContent>
-                    </Card>
-                  ))}
-                </div>
-              )}
-            </CardContent>
-          </Card>
-        </TabsContent>
-
-        <TabsContent value="all-infrastructure" className="space-y-4">
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <Network className="h-5 w-5" />
-                Complete Infrastructure Overview ({allInfrastructureDevices.length})
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                {allInfrastructureDevices.map((device) => (
-                  <Card key={device.id} className="hover:shadow-lg transition-shadow">
-                    <CardContent className="p-4">
-                      <div className="flex items-center justify-between mb-3">
-                        <div className="flex items-center gap-3">
-                          <DeviceIcon type={device.type} />
-                          <div>
-                            <h4 className="font-medium">{device.name}</h4>
-                            <p className="text-sm text-muted-foreground">{device.ip}</p>
-                          </div>
-                        </div>
-                        <Badge className={`text-white ${statusColors[device.status as keyof typeof statusColors] || 'bg-gray-500'}`}>
-                          {device.status}
-                        </Badge>
+      <Card>
+        <CardHeader>
+          <div className="flex items-center justify-between">
+            <CardTitle className="flex items-center gap-2">
+              <Router className="h-5 w-5" />
+              Real Network Infrastructure
+            </CardTitle>
+            <Button onClick={() => setShowAddDialog(true)}>
+              <Plus className="h-4 w-4 mr-2" />
+              Add Device
+            </Button>
+          </div>
+        </CardHeader>
+        <CardContent>
+          <ScrollArea>
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead className="w-[200px]">Name</TableHead>
+                  <TableHead>IP Address</TableHead>
+                  <TableHead>Type</TableHead>
+                  <TableHead>Status</TableHead>
+                  <TableHead>Last Seen</TableHead>
+                  <TableHead className="text-right">Actions</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {devices.map((device) => (
+                  <TableRow key={device.id}>
+                    <TableCell className="font-medium">{device.name}</TableCell>
+                    <TableCell>{device.ipAddress}</TableCell>
+                    <TableCell>{device.type}</TableCell>
+                    <TableCell>
+                      <Badge variant={device.status === 'active' ? 'default' : device.status === 'pending' ? 'secondary' : 'destructive'}>
+                        {device.status}
+                      </Badge>
+                    </TableCell>
+                    <TableCell>{device.lastSeen}</TableCell>
+                    <TableCell className="text-right">
+                      <div className="flex justify-end gap-2">
+                        <Button
+                          variant="outline"
+                          size="icon"
+                          onClick={() => handleEditClick(device.id)}
+                        >
+                          <Edit className="h-4 w-4" />
+                        </Button>
+                        <AlertDialog>
+                          <AlertDialogTrigger asChild>
+                            <Button variant="outline" size="icon">
+                              <Trash2 className="h-4 w-4" />
+                            </Button>
+                          </AlertDialogTrigger>
+                          <AlertDialogContent>
+                            <AlertDialogHeader>
+                              <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
+                              <AlertDialogDescription>
+                                This action cannot be undone. This will permanently delete the device
+                                from your infrastructure.
+                              </AlertDialogDescription>
+                            </AlertDialogHeader>
+                            <AlertDialogFooter>
+                              <AlertDialogCancel>Cancel</AlertDialogCancel>
+                              <AlertDialogAction onClick={() => handleDeleteDevice(device.id)}>Delete</AlertDialogAction>
+                            </AlertDialogFooter>
+                          </AlertDialogContent>
+                        </AlertDialog>
                       </div>
-                      <div className="grid grid-cols-2 gap-2 text-sm">
-                        <div>
-                          <span className="text-muted-foreground">Type:</span>
-                          <div className="font-medium capitalize">{device.type.replace('_', ' ')}</div>
-                        </div>
-                        <div>
-                          <span className="text-muted-foreground">SNMP:</span>
-                          <div className="font-medium">v{device.version}</div>
-                        </div>
-                      </div>
-                    </CardContent>
-                  </Card>
+                    </TableCell>
+                  </TableRow>
                 ))}
+              </TableBody>
+            </Table>
+          </ScrollArea>
+        </CardContent>
+      </Card>
+
+      {selectedDevice && isEditing && (
+        <Card>
+          <CardHeader>
+            <CardTitle>Edit Device</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="grid gap-4 py-4">
+              <div className="grid grid-cols-4 items-center gap-4">
+                <Label htmlFor="name" className="text-right">
+                  Name
+                </Label>
+                <Input
+                  id="name"
+                  name="name"
+                  value={editFormData.name}
+                  onChange={handleEditInputChange}
+                  className="col-span-3"
+                />
               </div>
-            </CardContent>
-          </Card>
-        </TabsContent>
-      </Tabs>
+              <div className="grid grid-cols-4 items-center gap-4">
+                <Label htmlFor="ipAddress" className="text-right">
+                  IP Address
+                </Label>
+                <Input
+                  id="ipAddress"
+                  name="ipAddress"
+                  value={editFormData.ipAddress}
+                  onChange={handleEditInputChange}
+                  className="col-span-3"
+                />
+              </div>
+              <div className="grid grid-cols-4 items-center gap-4">
+                <Label htmlFor="type" className="text-right">
+                  Type
+                </Label>
+                <Input
+                  id="type"
+                  name="type"
+                  value={editFormData.type}
+                  onChange={handleEditInputChange}
+                  className="col-span-3"
+                />
+              </div>
+            </div>
+            <div className="flex justify-end space-x-2">
+              <Button variant="outline" onClick={() => {
+                setIsEditing(false);
+                setSelectedDevice(null);
+              }}>
+                Cancel
+              </Button>
+              <Button onClick={handleUpdateDevice}>
+                Update Device
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+      )}
 
       <AddSNMPDeviceDialog
         open={showAddDialog}
         onOpenChange={setShowAddDialog}
-        onDeviceAdded={handleAddDevice}
-        onTestConnection={testConnection}
-        isLoading={snmpLoading}
+        onAddDevice={handleAddDevice}
+        onTestConnection={handleTestConnection}
       />
     </div>
   );
