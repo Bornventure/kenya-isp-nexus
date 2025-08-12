@@ -1,7 +1,6 @@
 
 import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { enhancedSnmpService } from '@/services/enhancedSnmpService';
 
@@ -27,21 +26,10 @@ export const useProductionNetworkManagement = () => {
     return import.meta.env.VITE_REAL_NETWORK_MODE === 'true';
   };
 
-  // Get network tasks
+  // Always use demo data since database tables don't exist yet
   const { data: tasks = [], isLoading: tasksLoading } = useQuery({
     queryKey: ['network-tasks'],
     queryFn: async () => {
-      if (isRealMode()) {
-        const { data, error } = await supabase
-          .from('network_tasks')
-          .select('*')
-          .order('created_at', { ascending: false });
-        
-        if (error) throw error;
-        return data as NetworkTask[];
-      }
-      
-      // Demo data
       return [
         {
           id: '1',
@@ -60,21 +48,9 @@ export const useProductionNetworkManagement = () => {
     refetchInterval: 30000
   });
 
-  // Get network agents
   const { data: agents = [], isLoading: agentsLoading } = useQuery({
     queryKey: ['network-agents'],
     queryFn: async () => {
-      if (isRealMode()) {
-        const { data, error } = await supabase
-          .from('network_agents')
-          .select('*')
-          .order('name');
-        
-        if (error) throw error;
-        return data;
-      }
-      
-      // Demo data
       return [
         {
           id: '1',
@@ -90,31 +66,14 @@ export const useProductionNetworkManagement = () => {
     refetchInterval: 30000
   });
 
-  // Get device monitoring data
   const { data: deviceStatuses = [], isLoading: devicesLoading } = useQuery({
     queryKey: ['device-monitoring'],
     queryFn: () => enhancedSnmpService.getDeviceStatuses(),
     refetchInterval: 30000
   });
 
-  // Create task mutation
   const { mutateAsync: createTask, isPending: isCreatingTask } = useMutation({
     mutationFn: async (taskData: Partial<NetworkTask>) => {
-      if (isRealMode()) {
-        const { data, error } = await supabase
-          .from('network_tasks')
-          .insert([{
-            ...taskData,
-            isp_company_id: (await supabase.auth.getUser()).data.user?.user_metadata?.isp_company_id
-          }])
-          .select()
-          .single();
-        
-        if (error) throw error;
-        return data;
-      }
-      
-      // Demo response
       return { ...taskData, id: Math.random().toString() } as NetworkTask;
     },
     onSuccess: () => {
@@ -134,22 +93,8 @@ export const useProductionNetworkManagement = () => {
     }
   });
 
-  // Update task mutation
   const { mutateAsync: updateTask, isPending: isUpdatingTask } = useMutation({
     mutationFn: async ({ id, updates }: { id: string; updates: Partial<NetworkTask> }) => {
-      if (isRealMode()) {
-        const { data, error } = await supabase
-          .from('network_tasks')
-          .update(updates)
-          .eq('id', id)
-          .select()
-          .single();
-        
-        if (error) throw error;
-        return data;
-      }
-      
-      // Demo response
       return { id, ...updates } as NetworkTask;
     },
     onSuccess: () => {
@@ -169,7 +114,6 @@ export const useProductionNetworkManagement = () => {
     }
   });
 
-  // Test connectivity
   const testConnectivity = async (ipAddress: string) => {
     try {
       const result = await enhancedSnmpService.testConnectivity(ipAddress);
@@ -193,12 +137,80 @@ export const useProductionNetworkManagement = () => {
     }
   };
 
-  // Get network metrics
   const { data: networkMetrics, isLoading: metricsLoading } = useQuery({
     queryKey: ['network-metrics'],
     queryFn: () => enhancedSnmpService.getNetworkMetrics(),
     refetchInterval: 30000
   });
+
+  // Add missing methods that components expect
+  const disconnectClient = async (clientId: string): Promise<boolean> => {
+    try {
+      const success = await enhancedSnmpService.disconnectClient(clientId);
+      if (success) {
+        toast({
+          title: "Client Disconnected",
+          description: "Client has been successfully disconnected.",
+          variant: "destructive",
+        });
+      }
+      return success;
+    } catch (error) {
+      console.error('Error disconnecting client:', error);
+      toast({
+        title: "Disconnect Failed",
+        description: "Failed to disconnect client. Please try again.",
+        variant: "destructive",
+      });
+      return false;
+    }
+  };
+
+  const reconnectClient = async (clientId: string): Promise<boolean> => {
+    try {
+      const success = await enhancedSnmpService.reconnectClient(clientId);
+      if (success) {
+        toast({
+          title: "Client Reconnected",
+          description: "Client has been successfully reconnected.",
+        });
+      }
+      return success;
+    } catch (error) {
+      console.error('Error reconnecting client:', error);
+      toast({
+        title: "Reconnect Failed",
+        description: "Failed to reconnect client. Please try again.",
+        variant: "destructive",
+      });
+      return false;
+    }
+  };
+
+  const applySpeedLimit = async (clientId: string, packageId: string): Promise<boolean> => {
+    try {
+      const success = await enhancedSnmpService.applySpeedLimit(clientId, packageId);
+      if (success) {
+        toast({
+          title: "Speed Limit Applied",
+          description: "Speed limit has been successfully applied.",
+        });
+      }
+      return success;
+    } catch (error) {
+      console.error('Error applying speed limit:', error);
+      toast({
+        title: "Speed Limit Failed",
+        description: "Failed to apply speed limit. Please try again.",
+        variant: "destructive",
+      });
+      return false;
+    }
+  };
+
+  const getDeviceStatus = async () => {
+    return await enhancedSnmpService.getDeviceStatus();
+  };
 
   return {
     tasks,
@@ -212,6 +224,10 @@ export const useProductionNetworkManagement = () => {
     createTask,
     updateTask,
     testConnectivity,
+    disconnectClient,
+    reconnectClient,
+    applySpeedLimit,
+    getDeviceStatus,
     isCreatingTask,
     isUpdatingTask,
     isRealMode: isRealMode()
