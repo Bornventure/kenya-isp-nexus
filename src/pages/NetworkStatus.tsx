@@ -1,5 +1,5 @@
-
 import React, { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -24,13 +24,15 @@ import {
   Activity,
   TrendingUp,
   Zap,
-  RefreshCw
+  RefreshCw,
+  Plus
 } from 'lucide-react';
 import { useRealSNMP } from '@/hooks/useRealSNMP';
 import { useClients } from '@/hooks/useClients';
 
 const NetworkStatus = () => {
   const [timeRange, setTimeRange] = useState('24h');
+  const navigate = useNavigate();
   const { 
     devices, 
     isLoading, 
@@ -98,6 +100,10 @@ const NetworkStatus = () => {
     averageUptime: getAverageUptime(),
     totalConnectedClients: getTotalConnectedClients(),
     networkLoad: getNetworkLoad()
+  };
+
+  const handleAddNetworkDevice = () => {
+    navigate('/network-monitoring'); // Navigate to the network monitoring page which has SNMP management
   };
 
   return (
@@ -214,7 +220,8 @@ const NetworkStatus = () => {
                   <p className="text-muted-foreground mb-4">
                     Add SNMP devices to start monitoring your network infrastructure
                   </p>
-                  <Button onClick={() => window.location.href = '/network-management'}>
+                  <Button onClick={handleAddNetworkDevice}>
+                    <Plus className="h-4 w-4 mr-2" />
                     Add Network Device
                   </Button>
                 </div>
