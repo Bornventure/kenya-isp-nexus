@@ -3,208 +3,133 @@ import React from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { 
-  Wifi, 
-  WifiOff, 
-  Users, 
-  Shield, 
-  Activity,
-  AlertTriangle,
-  CheckCircle
-} from 'lucide-react';
-import { useRadiusUsers } from '@/hooks/useRadiusUsers';
 import { useRadiusSessions } from '@/hooks/useRadiusSessions';
+import { Wifi, WifiOff, Clock, Download, Upload } from 'lucide-react';
+import { formatBytes, formatDuration } from '@/utils/formatters';
 
 interface ClientNetworkControlProps {
   clientId: string;
   clientName: string;
-  isActive: boolean;
 }
 
-const ClientNetworkControl: React.FC<ClientNetworkControlProps> = ({
-  clientId,
-  clientName,
-  isActive
-}) => {
+const ClientNetworkControl: React.FC<ClientNetworkControlProps> = ({ clientId, clientName }) => {
   const { 
-    radiusUsers, 
-    createRadiusUser, 
-    disconnectUser, 
-    isCreating, 
-    isDisconnecting 
-  } = useRadiusUsers();
-  
-  const { sessions, disconnectSession } = useRadiusSessions();
-  
-  // Find RADIUS user for this client
-  const radiusUser = radiusUsers.find(user => user.client_id === clientId);
-  
-  // Find active sessions for this client
-  const clientSessions = sessions.filter(session => session.client_id === clientId);
-  
-  const handleCreateRadiusUser = () => {
-    createRadiusUser(clientId);
-  };
-  
-  const handleDisconnectUser = () => {
-    if (radiusUser) {
-      disconnectUser(radiusUser.username);
+    activeSessions, 
+    allSessions, 
+    isLoading, 
+    isLoadingAll, 
+    terminateSession, 
+    isTerminating 
+  } = useRadiusSessions();
+
+  const handleTerminateSession = async (sessionId: string) => {
+    try {
+      await terminateSession(sessionId);
+    } catch (error) {
+      console.error('Failed to terminate session:', error);
     }
   };
-  
-  const handleDisconnectSession = (username: string) => {
-    disconnectSession(username);
-  };
+
+  if (isLoading) {
+    return (
+      <Card>
+        <CardContent className="p-6">
+          <div className="flex items-center justify-center">
+            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+          </div>
+        </CardContent>
+      </Card>
+    );
+  }
 
   return (
-    <div className="space-y-4">
-      {/* RADIUS User Status */}
+    <div className="space-y-6">
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
-            <Shield className="h-5 w-5" />
-            RADIUS Authentication
+            <Wifi className="h-5 w-5" />
+            Active Sessions for {clientName}
           </CardTitle>
         </CardHeader>
         <CardContent>
-          {radiusUser ? (
-            <div className="space-y-4">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="font-medium">Username: {radiusUser.username}</p>
-                  <p className="text-sm text-muted-foreground">
-                    Group: {radiusUser.group_name} | 
-                    Download: {radiusUser.max_download} | 
-                    Upload: {radiusUser.max_upload}
-                  </p>
-                </div>
-                <Badge variant={radiusUser.is_active ? 'default' : 'destructive'}>
-                  {radiusUser.is_active ? 'Active' : 'Inactive'}
-                </Badge>
-              </div>
-              
-              <div className="flex gap-2">
-                <Button
-                  variant="destructive"
-                  size="sm"
-                  onClick={handleDisconnectUser}
-                  disabled={isDisconnecting}
-                >
-                  <WifiOff className="h-4 w-4 mr-2" />
-                  Disconnect from Network
-                </Button>
-              </div>
-            </div>
+          {activeSessions.length === 0 ? (
+            <p className="text-gray-500 text-center py-4">No active sessions</p>
           ) : (
             <div className="space-y-4">
-              <div className="flex items-center gap-2 p-3 bg-orange-50 border border-orange-200 rounded-lg">
-                <AlertTriangle className="h-5 w-5 text-orange-600" />
-                <p className="text-orange-900">No RADIUS user configured for this client</p>
-              </div>
-              
-              <Button
-                onClick={handleCreateRadiusUser}
-                disabled={isCreating || !isActive}
-              >
-                <Users className="h-4 w-4 mr-2" />
-                Create RADIUS User
-              </Button>
-              
-              {!isActive && (
-                <p className="text-sm text-muted-foreground">
-                  Client must be active to create RADIUS user
-                </p>
-              )}
+              {activeSessions.map((session) => (
+                <div key={session.id} className="flex items-center justify-between p-4 border rounded-lg">
+                  <div className="flex-1">
+                    <div className="flex items-center space-x-4">
+                      <Badge variant={session.status === 'active' ? 'default' : 'secondary'}>
+                        {session.status}
+                      </Badge>
+                      <span className="font-medium">{session.ipAddress}</span>
+                      <span className="text-sm text-gray-600">
+                        NAS: {session.nasIpAddress}
+                      </span>
+                    </div>
+                    <div className="mt-2 grid grid-cols-3 gap-4 text-sm text-gray-600">
+                      <div className="flex items-center gap-1">
+                        <Clock className="h-4 w-4" />
+                        {formatDuration(session.duration)}
+                      </div>
+                      <div className="flex items-center gap-1">
+                        <Download className="h-4 w-4" />
+                        {formatBytes(session.bytesIn)}
+                      </div>
+                      <div className="flex items-center gap-1">
+                        <Upload className="h-4 w-4" />
+                        {formatBytes(session.bytesOut)}
+                      </div>
+                    </div>
+                  </div>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => handleTerminateSession(session.id)}
+                    disabled={isTerminating}
+                  >
+                    <WifiOff className="h-4 w-4 mr-1" />
+                    Disconnect
+                  </Button>
+                </div>
+              ))}
             </div>
           )}
         </CardContent>
       </Card>
 
-      {/* Active Sessions */}
       <Card>
         <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <Activity className="h-5 w-5" />
-            Active Network Sessions ({clientSessions.length})
-          </CardTitle>
+          <CardTitle>Session History</CardTitle>
         </CardHeader>
         <CardContent>
-          {clientSessions.length > 0 ? (
-            <div className="space-y-3">
-              {clientSessions.map((session) => (
-                <div key={session.id} className="flex items-center justify-between p-3 border rounded-lg">
-                  <div>
-                    <p className="font-medium">Session ID: {session.session_id}</p>
-                    <p className="text-sm text-muted-foreground">
-                      Started: {new Date(session.start_time).toLocaleString()}
-                    </p>
-                    <p className="text-sm text-muted-foreground">
-                      Data: {Math.round(session.bytes_in / 1024 / 1024)}MB in / 
-                      {Math.round(session.bytes_out / 1024 / 1024)}MB out
-                    </p>
-                    {session.nas_ip_address && (
-                      <p className="text-sm text-muted-foreground">
-                        NAS: {session.nas_ip_address}
-                      </p>
-                    )}
-                  </div>
-                  
-                  <div className="flex items-center gap-2">
-                    <Badge variant="default">
-                      <Wifi className="h-3 w-3 mr-1" />
-                      Connected
+          {isLoadingAll ? (
+            <div className="flex items-center justify-center py-4">
+              <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-blue-600"></div>
+            </div>
+          ) : allSessions.length === 0 ? (
+            <p className="text-gray-500 text-center py-4">No session history</p>
+          ) : (
+            <div className="space-y-2">
+              {allSessions.slice(0, 10).map((session) => (
+                <div key={session.id} className="flex items-center justify-between p-3 border rounded">
+                  <div className="flex items-center space-x-4">
+                    <Badge variant={session.status === 'active' ? 'default' : 'secondary'}>
+                      {session.status}
                     </Badge>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => handleDisconnectSession(session.username)}
-                    >
-                      Disconnect
-                    </Button>
+                    <span className="text-sm">{session.ipAddress}</span>
+                    <span className="text-sm text-gray-600">
+                      {formatDuration(session.duration)}
+                    </span>
+                  </div>
+                  <div className="text-sm text-gray-600">
+                    {new Date(session.startTime).toLocaleDateString()}
                   </div>
                 </div>
               ))}
             </div>
-          ) : (
-            <div className="text-center py-6">
-              <WifiOff className="h-12 w-12 mx-auto mb-4 text-gray-400" />
-              <p className="text-muted-foreground">No active network sessions</p>
-              <p className="text-sm text-muted-foreground">
-                {radiusUser ? 'Client is not currently connected' : 'Create RADIUS user to enable connections'}
-              </p>
-            </div>
           )}
-        </CardContent>
-      </Card>
-
-      {/* Network Status Summary */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <CheckCircle className="h-5 w-5" />
-            Network Status Summary
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="grid grid-cols-2 gap-4">
-            <div className="text-center p-3 bg-gray-50 rounded-lg">
-              <p className="text-sm text-muted-foreground">RADIUS User</p>
-              <p className="font-medium">
-                {radiusUser ? 'Configured' : 'Not Configured'}
-              </p>
-            </div>
-            <div className="text-center p-3 bg-gray-50 rounded-lg">
-              <p className="text-sm text-muted-foreground">Active Sessions</p>
-              <p className="font-medium">{clientSessions.length}</p>
-            </div>
-          </div>
-          
-          <div className="mt-4 p-3 bg-blue-50 border border-blue-200 rounded-lg">
-            <p className="text-sm text-blue-900">
-              <strong>RADIUS Integration:</strong> Speed limits and access control are now managed 
-              automatically through RADIUS groups based on the client's service package.
-            </p>
-          </div>
         </CardContent>
       </Card>
     </div>
