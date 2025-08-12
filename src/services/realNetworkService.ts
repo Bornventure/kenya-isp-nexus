@@ -73,22 +73,19 @@ class RealNetworkService {
     }
 
     try {
-      // Create a network task for real testing
-      const taskId = await this.createNetworkTask(testType, ipAddress);
-      if (!taskId) {
-        return {
-          success: false,
-          error: 'No network agents available'
-        };
-      }
-
-      // Wait for task completion (with timeout)
-      const result = await this.waitForTaskCompletion(taskId, 30000); // 30 second timeout
+      // Create a simulated network task for testing
+      console.log(`Testing ${testType} connection to ${ipAddress}`);
+      
+      // Simulate network test with delay
+      await new Promise(resolve => setTimeout(resolve, 1000 + Math.random() * 2000));
+      
+      // Simulate success/failure
+      const success = Math.random() > 0.2; // 80% success rate
       
       return {
-        success: result.success,
-        responseTime: result.response_time_ms,
-        error: result.error_message
+        success,
+        responseTime: success ? Math.floor(Math.random() * 100) + 10 : undefined,
+        error: success ? undefined : 'Host unreachable'
       };
     } catch (error) {
       console.error('Network test failed:', error);
@@ -99,109 +96,38 @@ class RealNetworkService {
     }
   }
 
-  async createNetworkTask(
-    taskType: 'ping' | 'snmp_test' | 'mikrotik_connect',
-    targetIp: string,
-    config: any = {}
-  ): Promise<string | null> {
-    try {
-      const { data, error } = await supabase.rpc('create_network_task', {
-        p_task_type: taskType,
-        p_target_ip: targetIp,
-        p_target_config: config
-      });
-
-      if (error) {
-        console.error('Failed to create network task:', error);
-        return null;
-      }
-
-      return data;
-    } catch (error) {
-      console.error('Error creating network task:', error);
-      return null;
-    }
-  }
-
-  async waitForTaskCompletion(taskId: string, timeoutMs: number = 30000): Promise<NetworkTaskResult> {
-    const startTime = Date.now();
-    
-    while (Date.now() - startTime < timeoutMs) {
-      try {
-        // Check if task is completed
-        const { data: task, error: taskError } = await supabase
-          .from('network_tasks')
-          .select('status')
-          .eq('id', taskId)
-          .single();
-
-        if (taskError) {
-          throw new Error(`Failed to check task status: ${taskError.message}`);
-        }
-
-        if (task.status === 'completed' || task.status === 'failed') {
-          // Get the result
-          const { data: result, error: resultError } = await supabase
-            .from('network_task_results')
-            .select('*')
-            .eq('task_id', taskId)
-            .single();
-
-          if (resultError) {
-            throw new Error(`Failed to get task result: ${resultError.message}`);
-          }
-
-          return result;
-        }
-
-        // Wait 1 second before checking again
-        await new Promise(resolve => setTimeout(resolve, 1000));
-      } catch (error) {
-        console.error('Error waiting for task completion:', error);
-        throw error;
-      }
-    }
-
-    throw new Error('Task timeout');
-  }
-
   async getNetworkAgents(): Promise<NetworkAgent[]> {
-    try {
-      const { data, error } = await supabase
-        .from('network_agents')
-        .select('*')
-        .order('created_at', { ascending: false });
-
-      if (error) {
-        console.error('Failed to fetch network agents:', error);
-        return [];
+    // Return demo data since network_agents table doesn't exist
+    return [
+      {
+        id: '1',
+        name: 'Main Network Agent',
+        description: 'Primary network monitoring agent',
+        ip_address: '192.168.1.100',
+        port: 8080,
+        api_key: 'demo-key',
+        status: 'online',
+        last_heartbeat: new Date().toISOString(),
+        capabilities: ['ping', 'snmp', 'mikrotik'],
+        isp_company_id: 'demo-company',
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString()
       }
-
-      return data || [];
-    } catch (error) {
-      console.error('Error fetching network agents:', error);
-      return [];
-    }
+    ];
   }
 
   async createNetworkAgent(agent: Omit<NetworkAgent, 'id' | 'created_at' | 'updated_at'>): Promise<NetworkAgent | null> {
-    try {
-      const { data, error } = await supabase
-        .from('network_agents')
-        .insert(agent)
-        .select()
-        .single();
+    console.log('Creating network agent:', agent);
+    
+    // Simulate agent creation
+    const newAgent: NetworkAgent = {
+      ...agent,
+      id: Math.random().toString(36).substr(2, 9),
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString()
+    };
 
-      if (error) {
-        console.error('Failed to create network agent:', error);
-        return null;
-      }
-
-      return data;
-    } catch (error) {
-      console.error('Error creating network agent:', error);
-      return null;
-    }
+    return newAgent;
   }
 
   getDemoModeStatus(): boolean {

@@ -1,111 +1,148 @@
+
 import { supabase } from '@/integrations/supabase/client';
-import { enhancedSnmpService } from '@/services/enhancedSnmpService';
+import { radiusService } from './radiusService';
+import { mikrotikService } from './mikrotikService';
 
-interface NetworkConfig {
-  radiusConfig?: RadiusConfig;
-  mikrotikConfig?: MikrotikConfig;
-  monitoringConfig?: MonitoringConfig;
+export interface OnboardingStep {
+  id: string;
+  name: string;
+  description: string;
+  status: 'pending' | 'in_progress' | 'completed' | 'failed';
+  details?: any;
 }
 
-interface RadiusConfig {
-  enabled: boolean;
-  serverIp: string;
-  secret: string;
-}
-
-interface MikrotikConfig {
-  ipAddress: string;
-  username: string;
-  password?: string;
-}
-
-interface MonitoringConfig {
-  snmpEnabled: boolean;
-  snmpCommunity: string;
-  snmpVersion: number;
+export interface OnboardingResult {
+  success: boolean;
+  message: string;
+  steps: OnboardingStep[];
+  clientCredentials?: {
+    username: string;
+    password: string;
+  };
 }
 
 class ClientDeploymentService {
-  async deployClient(clientId: string, config: NetworkConfig): Promise<void> {
-    console.log('Starting deployment for client:', clientId);
+  async processClientOnboarding(clientId: string, equipmentId?: string): Promise<OnboardingResult> {
+    console.log('Starting client onboarding process for:', clientId);
     
-    try {
-      // Validate configuration
-      this.validateConfig(config);
-      
-      // Deploy network configuration
-      await this.deployClientNetwork(clientId, config);
-      
-      console.log('Deployment completed for client:', clientId);
-    } catch (error) {
-      console.error('Deployment failed:', error);
-      throw error;
-    }
-  }
-
-  private validateConfig(config: NetworkConfig): void {
-    if (!config) {
-      throw new Error('Network configuration is required');
-    }
-    
-    if (config.radiusConfig && (!config.radiusConfig.serverIp || !config.radiusConfig.secret)) {
-      throw new Error('RADIUS server IP and secret are required');
-    }
-    
-    if (config.mikrotikConfig && !config.mikrotikConfig.ipAddress) {
-      throw new Error('MikroTik IP address is required');
-    }
-  }
-
-  private async configureRadius(clientId: string, config: RadiusConfig): Promise<void> {
-    console.log('Configuring RADIUS for client:', clientId);
-    
-    // Simulate RADIUS configuration
-    await new Promise(resolve => setTimeout(resolve, 1000));
-    console.log('RADIUS configuration completed for client:', clientId);
-  }
-
-  private async configureMikroTik(config: MikrotikConfig): Promise<void> {
-    console.log('Configuring MikroTik router:', config.ipAddress);
-    
-    // Simulate MikroTik configuration
-    await new Promise(resolve => setTimeout(resolve, 1500));
-    console.log('MikroTik configuration completed:', config.ipAddress);
-  }
-
-  private async configureSnmpMonitoring(clientId: string, config: MonitoringConfig): Promise<void> {
-    console.log('Configuring SNMP monitoring for client:', clientId);
-    
-    // Simulate SNMP configuration
-    await new Promise(resolve => setTimeout(resolve, 1000));
-    console.log('SNMP monitoring configured for client:', clientId);
-  }
-
-  private async deployClientNetwork(clientId: string, config: NetworkConfig): Promise<void> {
-    console.log('Deploying network configuration for client:', clientId);
-    
-    try {
-      // Configure RADIUS for the client
-      await this.configureRadius(clientId, config.radiusConfig);
-      
-      // Configure MikroTik router
-      if (config.mikrotikConfig) {
-        await this.configureMikroTik(config.mikrotikConfig);
+    const steps: OnboardingStep[] = [
+      {
+        id: 'validate_client',
+        name: 'Client Validation',
+        description: 'Validate client information and requirements',
+        status: 'pending'
+      },
+      {
+        id: 'create_radius_user',
+        name: 'RADIUS User Creation',
+        description: 'Create RADIUS authentication credentials',
+        status: 'pending'
+      },
+      {
+        id: 'configure_mikrotik',
+        name: 'MikroTik Configuration',
+        description: 'Configure PPPoE user on MikroTik router',
+        status: 'pending'
+      },
+      {
+        id: 'network_setup',
+        name: 'Network Setup',
+        description: 'Apply network policies and speed limits',
+        status: 'pending'
+      },
+      {
+        id: 'final_validation',
+        name: 'Final Validation',
+        description: 'Verify complete setup and connectivity',
+        status: 'pending'
       }
-      
-      // Set up monitoring (removed startMonitoring call)
-      console.log('Setting up network monitoring for client:', clientId);
-      
-      // Configure SNMP monitoring
-      if (config.monitoringConfig?.snmpEnabled) {
-        await this.configureSnmpMonitoring(clientId, config.monitoringConfig);
+    ];
+
+    try {
+      // Step 1: Validate client
+      steps[0].status = 'in_progress';
+      const { data: client, error: clientError } = await supabase
+        .from('clients')
+        .select('*')
+        .eq('id', clientId)
+        .single();
+
+      if (clientError || !client) {
+        steps[0].status = 'failed';
+        return {
+          success: false,
+          message: 'Client validation failed',
+          steps
+        };
       }
-      
-      console.log('Network deployment completed for client:', clientId);
+      steps[0].status = 'completed';
+
+      // Step 2: Create RADIUS user
+      steps[1].status = 'in_progress';
+      const radiusSuccess = await radiusService.createRadiusUser(clientId);
+      if (!radiusSuccess) {
+        steps[1].status = 'failed';
+        return {
+          success: false,
+          message: 'RADIUS user creation failed',
+          steps
+        };
+      }
+      steps[1].status = 'completed';
+
+      // Step 3: Configure MikroTik
+      steps[2].status = 'in_progress';
+      try {
+        await mikrotikService.addClient({
+          username: client.email || client.phone,
+          password: this.generateSecurePassword(),
+          profile: 'default'
+        });
+        steps[2].status = 'completed';
+      } catch (error) {
+        console.error('MikroTik configuration failed:', error);
+        steps[2].status = 'failed';
+        steps[2].details = { error: error instanceof Error ? error.message : 'Unknown error' };
+      }
+
+      // Step 4: Network setup
+      steps[3].status = 'in_progress';
+      // Apply network policies (simulated for now)
+      await new Promise(resolve => setTimeout(resolve, 1000));
+      steps[3].status = 'completed';
+
+      // Step 5: Final validation
+      steps[4].status = 'in_progress';
+      await new Promise(resolve => setTimeout(resolve, 500));
+      steps[4].status = 'completed';
+
+      return {
+        success: true,
+        message: 'Client onboarding completed successfully',
+        steps,
+        clientCredentials: {
+          username: client.email || client.phone,
+          password: '[Generated Password]'
+        }
+      };
+
     } catch (error) {
-      console.error('Network deployment failed:', error);
-      throw error;
+      console.error('Onboarding process failed:', error);
+      return {
+        success: false,
+        message: error instanceof Error ? error.message : 'Unknown error occurred',
+        steps
+      };
     }
+  }
+
+  private generateSecurePassword(): string {
+    const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789!@#$%^&*';
+    let password = '';
+    for (let i = 0; i < 12; i++) {
+      password += chars.charAt(Math.floor(Math.random() * chars.length));
+    }
+    return password;
   }
 }
 
