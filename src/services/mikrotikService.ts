@@ -74,8 +74,8 @@ class MikrotikService {
       
       try {
         // Get system identity to verify connection
-        const identity = await conn.menu('/system/identity').getAll();
-        const interfaces = await conn.menu('/interface').getAll();
+        const identity = await conn.write('/system/identity/print');
+        const interfaces = await conn.write('/interface/print');
         
         return {
           success: true,
@@ -100,7 +100,7 @@ class MikrotikService {
   async addClient({ username, password, profile = 'default' }: PPPoEUser): Promise<void> {
     const conn = await this.connectToMikrotik();
     try {
-      await conn.menu('/ppp/secret').add({
+      await conn.write('/ppp/secret/add', {
         name: username,
         password,
         service: 'pppoe',
@@ -115,9 +115,13 @@ class MikrotikService {
   async disconnectClient(username: string): Promise<void> {
     const conn = await this.connectToMikrotik();
     try {
-      const active = await conn.menu('/ppp/active').where('name', username).getAll();
+      const active = await conn.write('/ppp/active/print', {
+        '?name': username
+      });
       for (const session of active) {
-        await conn.menu('/ppp/active').remove(session['.id']);
+        await conn.write('/ppp/active/remove', {
+          '.id': session['.id']
+        });
       }
       console.log(`🚫 Disconnected client: ${username}`);
     } finally {
@@ -128,15 +132,18 @@ class MikrotikService {
   async updateBandwidth(username: string, { maxDownload, maxUpload }: BandwidthLimit): Promise<void> {
     const conn = await this.connectToMikrotik();
     try {
-      const queues = await conn.menu('/queue/simple').where('name', username).getAll();
+      const queues = await conn.write('/queue/simple/print', {
+        '?name': username
+      });
       if (queues.length > 0) {
-        await conn.menu('/queue/simple').set(queues[0]['.id'], {
+        await conn.write('/queue/simple/set', {
+          '.id': queues[0]['.id'],
           'max-limit': `${maxDownload}M/${maxUpload}M`
         });
         console.log(`🔄 Updated bandwidth for ${username} to ${maxDownload}M/${maxUpload}M`);
       } else {
         // Create new queue if it doesn't exist
-        await conn.menu('/queue/simple').add({
+        await conn.write('/queue/simple/add', {
           name: username,
           target: `${username}@pppoe`,
           'max-limit': `${maxDownload}M/${maxUpload}M`
@@ -151,7 +158,7 @@ class MikrotikService {
   async listActiveClients(): Promise<any[]> {
     const conn = await this.connectToMikrotik();
     try {
-      const active = await conn.menu('/ppp/active').getAll();
+      const active = await conn.write('/ppp/active/print');
       return active;
     } finally {
       await conn.close();
@@ -161,7 +168,7 @@ class MikrotikService {
   async getInterfaces(): Promise<any[]> {
     const conn = await this.connectToMikrotik();
     try {
-      const interfaces = await conn.menu('/interface').getAll();
+      const interfaces = await conn.write('/interface/print');
       return interfaces;
     } finally {
       await conn.close();
@@ -171,7 +178,7 @@ class MikrotikService {
   async getSystemResources(): Promise<any> {
     const conn = await this.connectToMikrotik();
     try {
-      const resources = await conn.menu('/system/resource').getAll();
+      const resources = await conn.write('/system/resource/print');
       return resources[0] || {};
     } finally {
       await conn.close();

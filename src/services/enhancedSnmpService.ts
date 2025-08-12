@@ -1,6 +1,5 @@
 
 import { realNetworkService } from './realNetworkService';
-import { useToast } from '@/hooks/use-toast';
 
 export interface SNMPDevice {
   ip: string;
@@ -17,8 +16,18 @@ export interface SNMPResult {
   isDemoResult?: boolean;
 }
 
+export interface DeviceStatus {
+  isOnline: boolean;
+  uptime?: string;
+  cpuUsage?: number;
+  memoryUsage?: number;
+  interfaceCount?: number;
+  lastChecked: string;
+}
+
 class EnhancedSNMPService {
   private readonly isDemoMode: boolean;
+  private monitoringIntervals: Map<string, NodeJS.Timeout> = new Map();
 
   constructor() {
     this.isDemoMode = !import.meta.env.VITE_REAL_NETWORK_MODE || 
@@ -47,7 +56,7 @@ class EnhancedSNMPService {
 
       const result = await realNetworkService.testConnection(
         device.ip, 
-        'snmp_test'
+        'snmp'
       );
 
       return {
@@ -73,6 +82,64 @@ class EnhancedSNMPService {
     return this.queryDevice(device, '1.3.6.1.2.1.2.2.1'); // ifTable
   }
 
+  async getDeviceStatus(deviceIp: string): Promise<DeviceStatus> {
+    if (this.isDemoMode) {
+      return {
+        isOnline: Math.random() > 0.1, // 90% online in demo
+        uptime: `${Math.floor(Math.random() * 30)}d ${Math.floor(Math.random() * 24)}h`,
+        cpuUsage: Math.floor(Math.random() * 100),
+        memoryUsage: Math.floor(Math.random() * 100),
+        interfaceCount: Math.floor(Math.random() * 10) + 1,
+        lastChecked: new Date().toISOString()
+      };
+    }
+
+    try {
+      const result = await realNetworkService.testConnection(deviceIp, 'ping');
+      return {
+        isOnline: result.success,
+        lastChecked: new Date().toISOString(),
+        ...(result.isDemoResult && { 
+          uptime: '5d 12h',
+          cpuUsage: 45,
+          memoryUsage: 67,
+          interfaceCount: 4
+        })
+      };
+    } catch (error) {
+      return {
+        isOnline: false,
+        lastChecked: new Date().toISOString()
+      };
+    }
+  }
+
+  startMonitoring(deviceIp: string, intervalMs: number = 60000): void {
+    if (this.monitoringIntervals.has(deviceIp)) {
+      this.stopMonitoring(deviceIp);
+    }
+
+    const interval = setInterval(async () => {
+      try {
+        await this.getDeviceStatus(deviceIp);
+      } catch (error) {
+        console.error(`Monitoring failed for ${deviceIp}:`, error);
+      }
+    }, intervalMs);
+
+    this.monitoringIntervals.set(deviceIp, interval);
+    console.log(`Started monitoring ${deviceIp} every ${intervalMs}ms`);
+  }
+
+  stopMonitoring(deviceIp: string): void {
+    const interval = this.monitoringIntervals.get(deviceIp);
+    if (interval) {
+      clearInterval(interval);
+      this.monitoringIntervals.delete(deviceIp);
+      console.log(`Stopped monitoring ${deviceIp}`);
+    }
+  }
+
   async disconnectClient(clientId: string): Promise<boolean> {
     if (this.isDemoMode) {
       console.log('🚨 DEMO MODE: Client disconnect simulation');
@@ -80,8 +147,6 @@ class EnhancedSNMPService {
     }
 
     try {
-      // In real implementation, this would send SNMP commands to disconnect the client
-      // For now, we'll use the network task system
       const taskId = await realNetworkService.createNetworkTask(
         'mikrotik_connect',
         '192.168.1.1', // This should be the router IP
@@ -190,7 +255,6 @@ class EnhancedSNMPService {
 
   private parseSNMPResponse(result: any): any {
     // Parse the actual SNMP response from the network agent
-    // This would depend on the format returned by the network agent
     try {
       if (result.result_data) {
         return JSON.parse(result.result_data);

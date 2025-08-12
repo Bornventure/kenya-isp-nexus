@@ -1,83 +1,83 @@
 
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
-import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/hooks/use-toast';
-
-export interface RadiusSession {
-  id: string;
-  client_id?: string;
-  username: string;
-  session_id: string;
-  ip_address?: string;
-  nas_ip_address?: string;
-  start_time: string;
-  bytes_in: number;
-  bytes_out: number;
-  status: 'active' | 'disconnected';
-  equipment_id?: string;
-  last_update: string;
-  isp_company_id: string;
-  created_at: string;
-}
+import { NetworkSession } from '@/types/network';
 
 export const useRadiusSessions = () => {
-  const { profile } = useAuth();
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
-  const { data: sessions = [], isLoading } = useQuery({
-    queryKey: ['radius-sessions', profile?.isp_company_id],
+  const { data: activeSessions = [], isLoading } = useQuery({
+    queryKey: ['radius-sessions'],
     queryFn: async () => {
-      if (!profile?.isp_company_id) return [];
-
       const { data, error } = await supabase
         .from('network_sessions')
-        .select('*')
-        .eq('isp_company_id', profile.isp_company_id)
+        .select(`
+          *,
+          clients!inner(name, email)
+        `)
+        .eq('status', 'active')
         .order('start_time', { ascending: false });
 
       if (error) throw error;
-      return (data || []) as RadiusSession[];
+      return data as NetworkSession[];
     },
-    enabled: !!profile?.isp_company_id,
+    refetchInterval: 30000, // Refresh every 30 seconds
   });
 
-  const disconnectSession = useMutation({
-    mutationFn: async (username: string) => {
+  const { data: allSessions = [], isLoading: isLoadingAll } = useQuery({
+    queryKey: ['all-radius-sessions'],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('network_sessions')
+        .select(`
+          *,
+          clients!inner(name, email)
+        `)
+        .order('start_time', { ascending: false })
+        .limit(100);
+
+      if (error) throw error;
+      return data as NetworkSession[];
+    },
+  });
+
+  const terminateSessionMutation = useMutation({
+    mutationFn: async (sessionId: string) => {
       const { error } = await supabase
         .from('network_sessions')
         .update({ 
           status: 'disconnected',
           last_update: new Date().toISOString()
         })
-        .eq('username', username)
-        .eq('status', 'active');
+        .eq('id', sessionId);
 
       if (error) throw error;
-      return true;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['radius-sessions'] });
+      queryClient.invalidateQueries({ queryKey: ['all-radius-sessions'] });
       toast({
-        title: "Session Disconnected",
-        description: "Network session has been disconnected.",
-        variant: "destructive",
+        title: "Session Terminated",
+        description: "User session has been terminated successfully.",
       });
     },
     onError: (error: any) => {
-      console.error('Error disconnecting session:', error);
       toast({
-        title: "Disconnect Failed",
-        description: "Failed to disconnect session. Please try again.",
+        title: "Failed to Terminate Session",
+        description: error.message || 'Unknown error occurred',
         variant: "destructive",
       });
     },
   });
 
   return {
-    sessions,
+    activeSessions,
+    allSessions,
     isLoading,
-    disconnectSession: disconnectSession.mutateAsync,
+    isLoadingAll,
+    terminateSession: terminateSessionMutation.mutateAsync,
+    isTerminating: terminateSessionMutation.isPending,
   };
 };
