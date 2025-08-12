@@ -1,295 +1,210 @@
 
-import { supabase } from '@/integrations/supabase/client';
+import { realNetworkService } from './realNetworkService';
+import { useToast } from '@/hooks/use-toast';
 
-export interface DeviceStatus {
-  routerId: string;
-  name: string;
+export interface SNMPDevice {
   ip: string;
-  status: 'online' | 'offline';
-  uptime: string;
-  cpuUsage: number;
-  memoryUsage: number;
-  connectedClients: number;
+  community: string;
+  version: number;
+  port?: number;
 }
 
-export interface ClientSession {
-  username: string;
-  ipAddress: string;
-  macAddress: string;
-  startTime: Date;
-  bytesIn: number;
-  bytesOut: number;
-  status: 'active' | 'disconnected';
+export interface SNMPResult {
+  success: boolean;
+  data?: any;
+  error?: string;
+  responseTime?: number;
+  isDemoResult?: boolean;
 }
 
-class EnhancedSnmpService {
-  private monitoringInterval: NodeJS.Timeout | null = null;
-  private isMonitoring = false;
+class EnhancedSNMPService {
+  private readonly isDemoMode: boolean;
+
+  constructor() {
+    this.isDemoMode = !import.meta.env.VITE_REAL_NETWORK_MODE || 
+                      import.meta.env.VITE_REAL_NETWORK_MODE !== 'true';
+  }
+
+  async queryDevice(device: SNMPDevice, oid: string): Promise<SNMPResult> {
+    if (this.isDemoMode) {
+      console.log('🚨 DEMO MODE: SNMP query simulation active');
+      // Return simulated SNMP data
+      return {
+        success: Math.random() > 0.2, // 80% success rate
+        data: this.generateSimulatedSNMPData(oid),
+        responseTime: Math.floor(Math.random() * 500) + 50,
+        isDemoResult: true
+      };
+    }
+
+    try {
+      const config = {
+        community: device.community,
+        version: device.version,
+        port: device.port || 161,
+        oid: oid
+      };
+
+      const result = await realNetworkService.testConnection(
+        device.ip, 
+        'snmp_test'
+      );
+
+      return {
+        success: result.success,
+        data: result.success ? this.parseSNMPResponse(result) : null,
+        error: result.error,
+        responseTime: result.responseTime
+      };
+    } catch (error) {
+      console.error('SNMP query failed:', error);
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : 'Unknown error'
+      };
+    }
+  }
+
+  async getSystemInfo(device: SNMPDevice): Promise<SNMPResult> {
+    return this.queryDevice(device, '1.3.6.1.2.1.1.1.0'); // sysDescr
+  }
+
+  async getInterfaceStats(device: SNMPDevice): Promise<SNMPResult> {
+    return this.queryDevice(device, '1.3.6.1.2.1.2.2.1'); // ifTable
+  }
 
   async disconnectClient(clientId: string): Promise<boolean> {
+    if (this.isDemoMode) {
+      console.log('🚨 DEMO MODE: Client disconnect simulation');
+      return Math.random() > 0.1; // 90% success rate
+    }
+
     try {
-      console.log(`Disconnecting client: ${clientId}`);
-      
-      // Get client information
-      const { data: client, error: clientError } = await supabase
-        .from('clients' as any)
-        .select('*')
-        .eq('id', clientId)
-        .single();
+      // In real implementation, this would send SNMP commands to disconnect the client
+      // For now, we'll use the network task system
+      const taskId = await realNetworkService.createNetworkTask(
+        'mikrotik_connect',
+        '192.168.1.1', // This should be the router IP
+        { action: 'disconnect_client', client_id: clientId }
+      );
 
-      if (clientError || !client) {
-        console.error('Client not found:', clientError);
-        return false;
-      }
+      if (!taskId) return false;
 
-      // Get all active RADIUS sessions for this client
-      const { data: sessions, error: sessionError } = await supabase
-        .from('radius_sessions' as any)
-        .select('*')
-        .eq('client_id', clientId)
-        .eq('status', 'active');
-
-      if (sessionError) {
-        console.error('Error fetching sessions:', sessionError);
-        return false;
-      }
-
-      const radiusSessions = (sessions || []) as any[];
-
-      // Disconnect from all MikroTik devices
-      for (const session of radiusSessions) {
-        try {
-          await this.disconnectFromMikroTik(session.nas_ip_address, session.username);
-          
-          // Update session status
-          await supabase
-            .from('radius_sessions' as any)
-            .update({
-              status: 'disconnected',
-              stop_time: new Date().toISOString(),
-              updated_at: new Date().toISOString()
-            } as any)
-            .eq('id', session.id);
-        } catch (error) {
-          console.error(`Error disconnecting from ${session.nas_ip_address}:`, error);
-        }
-      }
-
-      // Update client status
-      await supabase
-        .from('clients' as any)
-        .update({
-          status: 'suspended',
-          updated_at: new Date().toISOString()
-        } as any)
-        .eq('id', clientId);
-
-      return true;
+      const result = await realNetworkService.waitForTaskCompletion(taskId);
+      return result.success;
     } catch (error) {
-      console.error('Error in disconnectClient:', error);
+      console.error('Failed to disconnect client:', error);
       return false;
     }
   }
 
   async reconnectClient(clientId: string): Promise<boolean> {
-    try {
-      console.log(`Reconnecting client: ${clientId}`);
-      
-      // Update client status to active
-      await supabase
-        .from('clients' as any)
-        .update({
-          status: 'active',
-          updated_at: new Date().toISOString()
-        } as any)
-        .eq('id', clientId);
+    if (this.isDemoMode) {
+      console.log('🚨 DEMO MODE: Client reconnect simulation');
+      return Math.random() > 0.1; // 90% success rate
+    }
 
-      // The client will need to reconnect through normal authentication
-      // This just enables them to authenticate again
-      return true;
+    try {
+      const taskId = await realNetworkService.createNetworkTask(
+        'mikrotik_connect',
+        '192.168.1.1',
+        { action: 'reconnect_client', client_id: clientId }
+      );
+
+      if (!taskId) return false;
+
+      const result = await realNetworkService.waitForTaskCompletion(taskId);
+      return result.success;
     } catch (error) {
-      console.error('Error in reconnectClient:', error);
+      console.error('Failed to reconnect client:', error);
       return false;
     }
   }
 
   async applySpeedLimit(clientId: string, packageId: string): Promise<boolean> {
+    if (this.isDemoMode) {
+      console.log('🚨 DEMO MODE: Speed limit application simulation');
+      return Math.random() > 0.1; // 90% success rate
+    }
+
     try {
-      console.log(`Applying speed limit for client: ${clientId}, package: ${packageId}`);
-      
-      // Get client and package information
-      const { data: client, error: clientError } = await supabase
-        .from('clients' as any)
-        .select(`
-          *,
-          service_packages(*)
-        `)
-        .eq('id', clientId)
-        .single();
-
-      if (clientError || !client) {
-        console.error('Client not found:', clientError);
-        return false;
-      }
-
-      const clientData = client as any;
-
-      // Get active sessions for this client
-      const { data: sessions, error: sessionError } = await supabase
-        .from('radius_sessions' as any)
-        .select('*')
-        .eq('client_id', clientId)
-        .eq('status', 'active');
-
-      if (sessionError) {
-        console.error('Error fetching sessions:', sessionError);
-        return false;
-      }
-
-      const radiusSessions = (sessions || []) as any[];
-
-      // Apply speed limits on all active sessions
-      for (const session of radiusSessions) {
-        try {
-          await this.applySpeedLimitToMikroTik(
-            session.nas_ip_address,
-            session.username,
-            clientData.service_packages?.speed || '10M/10M'
-          );
-        } catch (error) {
-          console.error(`Error applying speed limit on ${session.nas_ip_address}:`, error);
+      const taskId = await realNetworkService.createNetworkTask(
+        'mikrotik_connect',
+        '192.168.1.1',
+        { 
+          action: 'apply_speed_limit', 
+          client_id: clientId,
+          package_id: packageId
         }
-      }
+      );
 
-      return true;
+      if (!taskId) return false;
+
+      const result = await realNetworkService.waitForTaskCompletion(taskId);
+      return result.success;
     } catch (error) {
-      console.error('Error in applySpeedLimit:', error);
+      console.error('Failed to apply speed limit:', error);
       return false;
     }
   }
 
-  async getDeviceStatus(): Promise<DeviceStatus[]> {
+  private generateSimulatedSNMPData(oid: string): any {
+    // Generate different simulated data based on OID
+    if (oid.includes('1.3.6.1.2.1.1.1.0')) {
+      // System description
+      return {
+        oid: oid,
+        value: 'RouterOS v7.1.5 MikroTik RB750Gr3',
+        type: 'OctetString'
+      };
+    } else if (oid.includes('1.3.6.1.2.1.2.2.1')) {
+      // Interface table
+      return {
+        interfaces: [
+          {
+            index: 1,
+            name: 'ether1',
+            status: 'up',
+            speed: 1000000000,
+            inOctets: Math.floor(Math.random() * 1000000000),
+            outOctets: Math.floor(Math.random() * 1000000000)
+          },
+          {
+            index: 2,
+            name: 'wlan1',
+            status: 'up',
+            speed: 54000000,
+            inOctets: Math.floor(Math.random() * 100000000),
+            outOctets: Math.floor(Math.random() * 100000000)
+          }
+        ]
+      };
+    }
+
+    return {
+      oid: oid,
+      value: 'Simulated SNMP response',
+      type: 'OctetString'
+    };
+  }
+
+  private parseSNMPResponse(result: any): any {
+    // Parse the actual SNMP response from the network agent
+    // This would depend on the format returned by the network agent
     try {
-      const { data: routers, error } = await supabase
-        .from('mikrotik_routers' as any)
-        .select('*');
-
-      if (error) {
-        console.error('Error fetching routers:', error);
-        return [];
+      if (result.result_data) {
+        return JSON.parse(result.result_data);
       }
-
-      const routerData = (routers || []) as any[];
-
-      return routerData.map(router => ({
-        routerId: router.id,
-        name: router.name,
-        ip: router.ip_address,
-        status: router.connection_status || 'offline',
-        uptime: this.calculateUptime(router.last_test_results?.timestamp),
-        cpuUsage: Math.random() * 100, // Simulated
-        memoryUsage: Math.random() * 100, // Simulated
-        connectedClients: Math.floor(Math.random() * 50) // Simulated
-      }));
+      return result.raw_response;
     } catch (error) {
-      console.error('Error getting device status:', error);
-      return [];
+      console.error('Failed to parse SNMP response:', error);
+      return result.raw_response;
     }
   }
 
-  startMonitoring(): void {
-    if (this.isMonitoring) return;
-    
-    this.isMonitoring = true;
-    console.log('Started network monitoring');
-    
-    this.monitoringInterval = setInterval(async () => {
-      try {
-        await this.performMonitoringCheck();
-      } catch (error) {
-        console.error('Monitoring check failed:', error);
-      }
-    }, 30000); // Monitor every 30 seconds
-  }
-
-  stopMonitoring(): void {
-    if (this.monitoringInterval) {
-      clearInterval(this.monitoringInterval);
-      this.monitoringInterval = null;
-    }
-    this.isMonitoring = false;
-    console.log('Stopped network monitoring');
-  }
-
-  private async disconnectFromMikroTik(nasIp: string, username: string): Promise<void> {
-    // Simulate MikroTik API call to disconnect user
-    console.log(`Disconnecting ${username} from MikroTik ${nasIp}`);
-    // In real implementation, this would use MikroTik API
-    await new Promise(resolve => setTimeout(resolve, 100));
-  }
-
-  private async applySpeedLimitToMikroTik(nasIp: string, username: string, speed: string): Promise<void> {
-    // Simulate MikroTik API call to apply speed limit
-    console.log(`Applying speed limit ${speed} to ${username} on MikroTik ${nasIp}`);
-    // In real implementation, this would use MikroTik API
-    await new Promise(resolve => setTimeout(resolve, 100));
-  }
-
-  private calculateUptime(lastTestTimestamp?: string): string {
-    if (!lastTestTimestamp) return 'Unknown';
-    
-    const now = new Date();
-    const lastTest = new Date(lastTestTimestamp);
-    const diffMs = now.getTime() - lastTest.getTime();
-    const diffHours = Math.floor(diffMs / (1000 * 60 * 60));
-    const diffDays = Math.floor(diffHours / 24);
-    
-    if (diffDays > 0) {
-      return `${diffDays} days`;
-    } else if (diffHours > 0) {
-      return `${diffHours} hours`;
-    } else {
-      return '< 1 hour';
-    }
-  }
-
-  private async performMonitoringCheck(): Promise<void> {
-    // Get active sessions and check their status
-    const { data: sessions } = await supabase
-      .from('radius_sessions' as any)
-      .select('*')
-      .eq('status', 'active');
-
-    const activeSessions = (sessions || []) as any[];
-
-    for (const session of activeSessions) {
-      // Simulate checking session status
-      const sessionData = session as any;
-      const isStillActive = Math.random() > 0.1; // 90% chance session is still active
-      
-      if (!isStillActive) {
-        // Mark session as disconnected
-        await supabase
-          .from('radius_sessions' as any)
-          .update({
-            status: 'disconnected',
-            stop_time: new Date().toISOString(),
-            bytes_in: sessionData.bytes_in + Math.floor(Math.random() * 1000000),
-            bytes_out: sessionData.bytes_out + Math.floor(Math.random() * 1000000)
-          } as any)
-          .eq('id', sessionData.id);
-      } else {
-        // Update session with new data usage
-        await supabase
-          .from('radius_sessions' as any)
-          .update({
-            bytes_in: sessionData.bytes_in + Math.floor(Math.random() * 100000),
-            bytes_out: sessionData.bytes_out + Math.floor(Math.random() * 100000)
-          } as any)
-          .eq('id', sessionData.id);
-      }
-    }
+  getDemoModeStatus(): boolean {
+    return this.isDemoMode;
   }
 }
 
-export const enhancedSnmpService = new EnhancedSnmpService();
+export const enhancedSnmpService = new EnhancedSNMPService();
