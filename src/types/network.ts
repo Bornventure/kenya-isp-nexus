@@ -13,6 +13,7 @@ export interface MikrotikRouter {
   gateway?: string;
   status?: string;
   connection_status?: string;
+  last_test_results?: string;
   isp_company_id: string;
   created_at: string;
   updated_at: string;

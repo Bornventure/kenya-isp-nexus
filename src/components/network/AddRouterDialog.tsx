@@ -30,6 +30,7 @@ const AddRouterDialog: React.FC<AddRouterDialogProps> = ({ open, onClose }) => {
     gateway: '192.168.1.1',
     status: 'offline' as const,
     connection_status: 'disconnected' as const,
+    last_test_results: '',
   });
 
   const handleSubmit = (e: React.FormEvent) => {
@@ -60,6 +61,7 @@ const AddRouterDialog: React.FC<AddRouterDialogProps> = ({ open, onClose }) => {
       gateway: '192.168.1.1',
       status: 'offline',
       connection_status: 'disconnected',
+      last_test_results: '',
     });
     
     onClose();

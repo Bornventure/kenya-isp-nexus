@@ -14,14 +14,14 @@ interface ClientEditDialogProps {
   client: DatabaseClient | null;
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  onSave?: (id: string, updates: any) => void;
+  onUpdateClient?: (clientData: any) => void;
 }
 
 const ClientEditDialog: React.FC<ClientEditDialogProps> = ({ 
   client, 
   open, 
   onOpenChange,
-  onSave 
+  onUpdateClient 
 }) => {
   const { updateClient } = useClients();
   const { servicePackages } = useServicePackages();
@@ -72,8 +72,8 @@ const ClientEditDialog: React.FC<ClientEditDialogProps> = ({
     e.preventDefault();
     if (!client) return;
 
-    if (onSave) {
-      onSave(client.id, formData);
+    if (onUpdateClient) {
+      onUpdateClient(formData);
     } else {
       updateClient({
         id: client.id,

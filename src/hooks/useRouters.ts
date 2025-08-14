@@ -37,6 +37,7 @@ export const useRouters = () => {
         gateway: routerData.gateway || '192.168.1.1',
         status: routerData.status || 'offline',
         connection_status: routerData.connection_status || 'disconnected',
+        last_test_results: routerData.last_test_results || '',
         isp_company_id: routerData.isp_company_id,
       };
 
