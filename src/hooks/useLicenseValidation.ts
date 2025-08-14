@@ -20,8 +20,27 @@ export const useLicenseValidation = () => {
   const { profile } = useAuth();
 
   const { data: validation, isLoading, error } = useQuery({
-    queryKey: ['license-validation', profile?.isp_company_id],
+    queryKey: ['license-validation', profile?.isp_company_id, profile?.role],
     queryFn: async (): Promise<LicenseValidationResult> => {
+      console.log('License validation check - User role:', profile?.role);
+      
+      // Super admin bypasses ALL license checks
+      if (profile?.role === 'super_admin') {
+        console.log('Super admin detected - bypassing all license validation');
+        return {
+          isValid: true,
+          isExpired: false,
+          isActive: true,
+          isDeactivated: false,
+          daysUntilExpiry: null,
+          expiryDate: null,
+          canAccessFeatures: true,
+          restrictionMessage: null,
+          deactivationReason: null,
+          deactivatedAt: null
+        };
+      }
+
       if (!profile?.isp_company_id) {
         return {
           isValid: false,
@@ -32,22 +51,6 @@ export const useLicenseValidation = () => {
           expiryDate: null,
           canAccessFeatures: false,
           restrictionMessage: 'No company license found',
-          deactivationReason: null,
-          deactivatedAt: null
-        };
-      }
-
-      // Super admin bypasses license checks
-      if (profile.role === 'super_admin') {
-        return {
-          isValid: true,
-          isExpired: false,
-          isActive: true,
-          isDeactivated: false,
-          daysUntilExpiry: null,
-          expiryDate: null,
-          canAccessFeatures: true,
-          restrictionMessage: null,
           deactivationReason: null,
           deactivatedAt: null
         };

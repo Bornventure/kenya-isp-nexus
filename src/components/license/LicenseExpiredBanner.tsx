@@ -10,7 +10,7 @@ const LicenseExpiredBanner: React.FC = () => {
   const { validation } = useLicenseValidation();
   const { profile } = useAuth();
 
-  // Don't show banner for super admin
+  // Don't show banner for super admin - they have unlimited access
   if (profile?.role === 'super_admin') {
     return null;
   }
