@@ -6,37 +6,28 @@ import { useAuth } from '@/contexts/AuthContext';
 export interface NetworkEquipment {
   id: string;
   type: string;
-  brand: string | null;
-  model: string | null;
+  brand?: string;
+  model?: string;
   serial_number: string;
-  mac_address: string | null;
-  ip_address: string | null;
-  snmp_community: string | null;
-  snmp_version: number | null;
-  status: string | null;
-  notes: string | null;
-  location: string | null;
-  created_at: string;
-  updated_at: string;
-  isp_company_id: string | null;
-  equipment_type_id: string | null;
+  mac_address?: string;
+  ip_address?: string;
+  status: string;
+  location?: string;
+  snmp_community?: string;
+  snmp_version?: number;
+  notes?: string;
   equipment_types?: {
     name: string;
-    brand: string;
-    model: string;
-    device_type: string;
   };
-  inventory_items?: {
-    name: string;
-    type: string;
-    serial_number: string;
-  };
+  isp_company_id: string;
+  created_at: string;
+  updated_at: string;
 }
 
 export const useNetworkEquipment = () => {
   const { profile } = useAuth();
 
-  const { data: equipment = [], isLoading, error } = useQuery({
+  const { data: equipment = [], isLoading, error, refetch } = useQuery({
     queryKey: ['network-equipment', profile?.isp_company_id],
     queryFn: async () => {
       if (!profile?.isp_company_id) return [];
@@ -46,14 +37,12 @@ export const useNetworkEquipment = () => {
         .select(`
           *,
           equipment_types (
-            name,
-            brand,
-            model,
-            device_type
+            name
           )
         `)
         .eq('isp_company_id', profile.isp_company_id)
         .eq('approval_status', 'approved')
+        .in('status', ['available', 'assigned', 'deployed'])
         .order('created_at', { ascending: false });
 
       if (error) {
@@ -61,7 +50,7 @@ export const useNetworkEquipment = () => {
         throw error;
       }
 
-      return data as NetworkEquipment[];
+      return (data || []) as NetworkEquipment[];
     },
     enabled: !!profile?.isp_company_id,
   });
@@ -69,6 +58,7 @@ export const useNetworkEquipment = () => {
   return {
     equipment,
     isLoading,
-    error
+    error,
+    refetch
   };
 };

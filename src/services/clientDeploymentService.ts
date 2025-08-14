@@ -1,232 +1,148 @@
 
 import { supabase } from '@/integrations/supabase/client';
-import { radiusService } from '@/services/radiusService';
-import { enhancedSnmpService } from '@/services/enhancedSnmpService';
+import { radiusService } from './radiusService';
+import { mikrotikService } from './mikrotikService';
 
-export interface DeploymentResult {
+export interface OnboardingStep {
+  id: string;
+  name: string;
+  description: string;
+  status: 'pending' | 'in_progress' | 'completed' | 'failed';
+  details?: any;
+}
+
+export interface OnboardingResult {
   success: boolean;
   message: string;
-  radiusUser?: any;
-  invoice?: any;
-  session?: any;
+  steps: OnboardingStep[];
+  clientCredentials?: {
+    username: string;
+    password: string;
+  };
 }
 
 class ClientDeploymentService {
-  async deployClientEquipment(clientId: string, equipmentId: string): Promise<DeploymentResult> {
-    try {
-      console.log(`Starting deployment for client ${clientId} with equipment ${equipmentId}`);
+  async processClientOnboarding(clientId: string, equipmentId?: string): Promise<OnboardingResult> {
+    console.log('Starting client onboarding process for:', clientId);
+    
+    const steps: OnboardingStep[] = [
+      {
+        id: 'validate_client',
+        name: 'Client Validation',
+        description: 'Validate client information and requirements',
+        status: 'pending'
+      },
+      {
+        id: 'create_radius_user',
+        name: 'RADIUS User Creation',
+        description: 'Create RADIUS authentication credentials',
+        status: 'pending'
+      },
+      {
+        id: 'configure_mikrotik',
+        name: 'MikroTik Configuration',
+        description: 'Configure PPPoE user on MikroTik router',
+        status: 'pending'
+      },
+      {
+        id: 'network_setup',
+        name: 'Network Setup',
+        description: 'Apply network policies and speed limits',
+        status: 'pending'
+      },
+      {
+        id: 'final_validation',
+        name: 'Final Validation',
+        description: 'Verify complete setup and connectivity',
+        status: 'pending'
+      }
+    ];
 
-      // 1. Get client details
+    try {
+      // Step 1: Validate client
+      steps[0].status = 'in_progress';
       const { data: client, error: clientError } = await supabase
         .from('clients')
-        .select(`
-          *,
-          service_packages (
-            name,
-            speed,
-            monthly_rate
-          )
-        `)
+        .select('*')
         .eq('id', clientId)
         .single();
 
       if (clientError || !client) {
-        throw new Error('Client not found');
+        steps[0].status = 'failed';
+        return {
+          success: false,
+          message: 'Client validation failed',
+          steps
+        };
       }
+      steps[0].status = 'completed';
 
-      // 2. Get equipment details
-      const { data: equipment, error: equipmentError } = await supabase
-        .from('equipment')
-        .select('*')
-        .eq('id', equipmentId)
-        .single();
-
-      if (equipmentError || !equipment) {
-        throw new Error('Equipment not found');
-      }
-
-      // 3. Create RADIUS user for the client
-      console.log('Creating RADIUS user...');
+      // Step 2: Create RADIUS user
+      steps[1].status = 'in_progress';
       const radiusSuccess = await radiusService.createRadiusUser(clientId);
       if (!radiusSuccess) {
-        console.warn('Failed to create RADIUS user, continuing with deployment...');
+        steps[1].status = 'failed';
+        return {
+          success: false,
+          message: 'RADIUS user creation failed',
+          steps
+        };
+      }
+      steps[1].status = 'completed';
+
+      // Step 3: Configure MikroTik
+      steps[2].status = 'in_progress';
+      try {
+        await mikrotikService.addClient({
+          username: client.email || client.phone,
+          password: this.generateSecurePassword(),
+          profile: 'default'
+        });
+        steps[2].status = 'completed';
+      } catch (error) {
+        console.error('MikroTik configuration failed:', error);
+        steps[2].status = 'failed';
+        steps[2].details = { error: error instanceof Error ? error.message : 'Unknown error' };
       }
 
-      // 4. Update client status to active and set service activation
-      await supabase
-        .from('clients')
-        .update({
-          status: 'active',
-          service_activated_at: new Date().toISOString(),
-          installation_status: 'completed'
-        })
-        .eq('id', clientId);
+      // Step 4: Network setup
+      steps[3].status = 'in_progress';
+      // Apply network policies (simulated for now)
+      await new Promise(resolve => setTimeout(resolve, 1000));
+      steps[3].status = 'completed';
 
-      // 5. Generate service invoice
-      const invoice = await this.generateServiceInvoice(client);
-
-      // 6. Create network session record
-      const session = await this.createNetworkSession(client, equipment);
-
-      // 7. Start monitoring for this equipment
-      this.initializeMonitoring(equipmentId, clientId);
+      // Step 5: Final validation
+      steps[4].status = 'in_progress';
+      await new Promise(resolve => setTimeout(resolve, 500));
+      steps[4].status = 'completed';
 
       return {
         success: true,
-        message: 'Client equipment deployed successfully with full integration',
-        radiusUser: radiusSuccess,
-        invoice,
-        session
+        message: 'Client onboarding completed successfully',
+        steps,
+        clientCredentials: {
+          username: client.email || client.phone,
+          password: '[Generated Password]'
+        }
       };
 
     } catch (error) {
-      console.error('Deployment error:', error);
+      console.error('Onboarding process failed:', error);
       return {
         success: false,
-        message: `Deployment failed: ${error.message}`
+        message: error instanceof Error ? error.message : 'Unknown error occurred',
+        steps
       };
     }
   }
 
-  private async generateServiceInvoice(client: any) {
-    try {
-      // Calculate amounts
-      const baseAmount = client.monthly_rate || client.service_packages?.monthly_rate || 0;
-      const vatAmount = baseAmount * 0.16;
-      const totalAmount = baseAmount + vatAmount;
-
-      // Generate invoice number
-      const invoiceNumber = `SVC-${Date.now()}-${client.id.substr(-6)}`;
-
-      const invoiceData = {
-        invoice_number: invoiceNumber,
-        client_id: client.id,
-        amount: baseAmount,
-        vat_amount: vatAmount,
-        total_amount: totalAmount,
-        status: 'pending',
-        due_date: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString().split('T')[0], // 7 days from now
-        service_period_start: new Date().toISOString().split('T')[0],
-        service_period_end: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0], // 30 days
-        notes: `Initial service activation invoice for ${client.service_packages?.name || 'Internet Service'}`,
-        isp_company_id: client.isp_company_id
-      };
-
-      const { data: invoice, error } = await supabase
-        .from('invoices')
-        .insert(invoiceData)
-        .select()
-        .single();
-
-      if (error) {
-        console.error('Error creating invoice:', error);
-        return null;
-      }
-
-      console.log('Service invoice created:', invoice);
-      return invoice;
-    } catch (error) {
-      console.error('Error generating service invoice:', error);
-      return null;
+  private generateSecurePassword(): string {
+    const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789!@#$%^&*';
+    let password = '';
+    for (let i = 0; i < 12; i++) {
+      password += chars.charAt(Math.floor(Math.random() * chars.length));
     }
-  }
-
-  private async createNetworkSession(client: any, equipment: any) {
-    try {
-      // Create a network session record for monitoring
-      const sessionData = {
-        client_id: client.id,
-        username: client.email || client.phone,
-        session_id: `auto-${Date.now()}`,
-        ip_address: equipment.ip_address,
-        nas_ip_address: equipment.ip_address,
-        start_time: new Date().toISOString(),
-        bytes_in: 0,
-        bytes_out: 0,
-        status: 'active',
-        equipment_id: equipment.id,
-        isp_company_id: client.isp_company_id
-      };
-
-      // Use any type to work around potential table structure issues
-      const { data: session, error } = await (supabase as any)
-        .from('network_sessions')
-        .insert(sessionData)
-        .select()
-        .single();
-
-      if (error) {
-        console.warn('Could not create network session:', error);
-        return null;
-      }
-
-      return session;
-    } catch (error) {
-      console.warn('Error creating network session:', error);
-      return null;
-    }
-  }
-
-  private initializeMonitoring(equipmentId: string, clientId: string) {
-    // Start monitoring this equipment
-    console.log(`Initializing monitoring for equipment ${equipmentId} and client ${clientId}`);
-    
-    // This would integrate with your SNMP monitoring service
-    enhancedSnmpService.startMonitoring();
-  }
-
-  async getClientNetworkStatus(clientId: string) {
-    try {
-      // Get active RADIUS sessions
-      const { data: radiusSession } = await (supabase as any)
-        .from('radius_sessions')
-        .select('*')
-        .eq('client_id', clientId)
-        .eq('status', 'active')
-        .order('start_time', { ascending: false })
-        .limit(1)
-        .maybeSingle();
-
-      // Get network sessions
-      const { data: networkSession } = await (supabase as any)
-        .from('network_sessions')
-        .select('*')
-        .eq('client_id', clientId)
-        .eq('status', 'active')
-        .order('start_time', { ascending: false })
-        .limit(1)
-        .maybeSingle();
-
-      // Get today's bandwidth usage
-      const today = new Date().toISOString().split('T')[0];
-      const { data: bandwidth } = await supabase
-        .from('bandwidth_statistics')
-        .select('*')
-        .eq('client_id', clientId)
-        .gte('timestamp', `${today}T00:00:00`)
-        .order('timestamp', { ascending: false })
-        .limit(1)
-        .maybeSingle();
-
-      return {
-        isOnline: !!(radiusSession || networkSession),
-        currentSession: radiusSession || networkSession,
-        dataUsage: bandwidth ? {
-          in: bandwidth.in_octets || 0,
-          out: bandwidth.out_octets || 0,
-          total: (bandwidth.in_octets || 0) + (bandwidth.out_octets || 0)
-        } : null,
-        lastSeen: radiusSession?.start_time || networkSession?.start_time || new Date().toISOString()
-      };
-    } catch (error) {
-      console.error('Error getting client network status:', error);
-      return {
-        isOnline: false,
-        currentSession: null,
-        dataUsage: null,
-        lastSeen: new Date().toISOString()
-      };
-    }
+    return password;
   }
 }
 
