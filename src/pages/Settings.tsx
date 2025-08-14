@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -20,6 +19,7 @@ import {
 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { mikrotikService } from '@/services/mikrotikService';
+import { supabase } from '@/integrations/supabase/client';
 
 const SettingsPage = () => {
   const { toast } = useToast();
@@ -55,13 +55,14 @@ const SettingsPage = () => {
     use_tls: true
   });
 
-  // SMS Configuration State
+  // Celcomafrica SMS Configuration State
   const [smsConfig, setSmsConfig] = useState({
     provider: 'celcomafrica',
-    api_key: '',
-    username: '',
-    sender_id: 'ISP_MGMT',
-    is_enabled: false
+    api_url: 'https://isms.celcomafrica.com/api/services/sendsms',
+    api_key: '3230abd57d39aa89fc407618f3faaacc',
+    partner_id: '800',
+    shortcode: 'LAKELINK',
+    is_enabled: true
   });
 
   const handleTestMikroTik = async () => {
@@ -84,6 +85,45 @@ const SettingsPage = () => {
       toast({
         title: "Test Failed",
         description: "An error occurred while testing the connection.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsTesting(false);
+    }
+  };
+
+  const handleTestSMS = async () => {
+    setIsTesting(true);
+    try {
+      const { data, error } = await supabase.functions.invoke('send-sms-celcomafrica', {
+        body: {
+          phone: '+254700000000', // Test number
+          message: 'Test SMS from ISP Management System. SMS integration is working properly.',
+          type: 'test'
+        }
+      });
+
+      if (error) {
+        throw error;
+      }
+
+      if (data.success) {
+        toast({
+          title: "SMS Test Successful",
+          description: "Test SMS sent successfully via Celcomafrica.",
+        });
+      } else {
+        toast({
+          title: "SMS Test Failed",
+          description: data.error || "Failed to send test SMS.",
+          variant: "destructive",
+        });
+      }
+    } catch (error) {
+      console.error('SMS test error:', error);
+      toast({
+        title: "SMS Test Failed",
+        description: "An error occurred while testing SMS functionality.",
         variant: "destructive",
       });
     } finally {
@@ -129,13 +169,137 @@ const SettingsPage = () => {
         </p>
       </div>
 
-      <Tabs defaultValue="mikrotik">
+      <Tabs defaultValue="sms">
         <TabsList className="grid w-full grid-cols-4">
+          <TabsTrigger value="sms">SMS</TabsTrigger>
           <TabsTrigger value="mikrotik">MikroTik</TabsTrigger>
           <TabsTrigger value="radius">RADIUS</TabsTrigger>
           <TabsTrigger value="email">Email</TabsTrigger>
-          <TabsTrigger value="sms">SMS</TabsTrigger>
         </TabsList>
+
+        <TabsContent value="sms" className="space-y-6">
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <MessageSquare className="h-5 w-5" />
+                SMS Configuration - Celcomafrica
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="sms_provider">SMS Provider</Label>
+                  <Select value={smsConfig.provider} onValueChange={(value) => setSmsConfig({...smsConfig, provider: value})}>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select SMS provider" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="celcomafrica">Celcomafrica</SelectItem>
+                      <SelectItem value="africastalking">Africa's Talking</SelectItem>
+                      <SelectItem value="twilio">Twilio</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="sms_shortcode">Shortcode</Label>
+                  <Input
+                    id="sms_shortcode"
+                    value={smsConfig.shortcode}
+                    onChange={(e) => setSmsConfig({...smsConfig, shortcode: e.target.value})}
+                    placeholder="LAKELINK"
+                  />
+                </div>
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="sms_api_url">API URL</Label>
+                <Input
+                  id="sms_api_url"
+                  value={smsConfig.api_url}
+                  onChange={(e) => setSmsConfig({...smsConfig, api_url: e.target.value})}
+                  placeholder="https://isms.celcomafrica.com/api/services/sendsms"
+                />
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="sms_api_key">API Key</Label>
+                  <Input
+                    id="sms_api_key"
+                    type={showPasswords ? "text" : "password"}
+                    value={smsConfig.api_key}
+                    onChange={(e) => setSmsConfig({...smsConfig, api_key: e.target.value})}
+                    placeholder="3230abd57d39aa89fc407618f3faaacc"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="sms_partner_id">Partner ID</Label>
+                  <Input
+                    id="sms_partner_id"
+                    value={smsConfig.partner_id}
+                    onChange={(e) => setSmsConfig({...smsConfig, partner_id: e.target.value})}
+                    placeholder="800"
+                  />
+                </div>
+              </div>
+
+              <div className="flex items-center space-x-2">
+                <Switch
+                  id="sms_enabled"
+                  checked={smsConfig.is_enabled}
+                  onCheckedChange={(checked) => setSmsConfig({...smsConfig, is_enabled: checked})}
+                />
+                <Label htmlFor="sms_enabled">Enable SMS Notifications</Label>
+              </div>
+
+              <div className="bg-blue-50 p-4 rounded-lg">
+                <h4 className="font-medium text-blue-900 mb-2">SMS Notification Types</h4>
+                <div className="space-y-2 text-sm text-blue-800">
+                  <div className="flex items-center space-x-2">
+                    <Switch defaultChecked />
+                    <span>Client Registration Confirmation</span>
+                  </div>
+                  <div className="flex items-center space-x-2">
+                    <Switch defaultChecked />
+                    <span>Payment Confirmation</span>
+                  </div>
+                  <div className="flex items-center space-x-2">
+                    <Switch defaultChecked />
+                    <span>Service Activation</span>
+                  </div>
+                  <div className="flex items-center space-x-2">
+                    <Switch defaultChecked />
+                    <span>Payment Reminders</span>
+                  </div>
+                  <div className="flex items-center space-x-2">
+                    <Switch defaultChecked />
+                    <span>Service Suspension Notices</span>
+                  </div>
+                  <div className="flex items-center space-x-2">
+                    <Switch defaultChecked />
+                    <span>Network Maintenance Alerts</span>
+                  </div>
+                </div>
+              </div>
+              
+              <div className="flex gap-2 pt-4">
+                <Button onClick={handleSaveSMS} className="gap-2">
+                  <Save className="h-4 w-4" />
+                  Save Configuration
+                </Button>
+                <Button 
+                  variant="outline" 
+                  onClick={handleTestSMS}
+                  disabled={isTesting}
+                  className="gap-2"
+                >
+                  <TestTube className="h-4 w-4" />
+                  {isTesting ? 'Testing...' : 'Send Test SMS'}
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+        </TabsContent>
 
         <TabsContent value="mikrotik" className="space-y-6">
           <Card>
@@ -389,83 +553,6 @@ const SettingsPage = () => {
                 <Button variant="outline" className="gap-2">
                   <TestTube className="h-4 w-4" />
                   Send Test Email
-                </Button>
-              </div>
-            </CardContent>
-          </Card>
-        </TabsContent>
-
-        <TabsContent value="sms" className="space-y-6">
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <MessageSquare className="h-5 w-5" />
-                SMS Configuration
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label htmlFor="sms_provider">SMS Provider</Label>
-                  <Select value={smsConfig.provider} onValueChange={(value) => setSmsConfig({...smsConfig, provider: value})}>
-                    <SelectTrigger>
-                      <SelectValue placeholder="Select SMS provider" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="celcomafrica">Celcom Africa</SelectItem>
-                      <SelectItem value="africastalking">Africa's Talking</SelectItem>
-                      <SelectItem value="twilio">Twilio</SelectItem>
-                      <SelectItem value="nexmo">Nexmo</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="sms_sender_id">Sender ID</Label>
-                  <Input
-                    id="sms_sender_id"
-                    value={smsConfig.sender_id}
-                    onChange={(e) => setSmsConfig({...smsConfig, sender_id: e.target.value})}
-                    placeholder="ISP_MGMT"
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="sms_username">Username</Label>
-                  <Input
-                    id="sms_username"
-                    value={smsConfig.username}
-                    onChange={(e) => setSmsConfig({...smsConfig, username: e.target.value})}
-                    placeholder="Enter username"
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="sms_api_key">API Key</Label>
-                  <Input
-                    id="sms_api_key"
-                    type={showPasswords ? "text" : "password"}
-                    value={smsConfig.api_key}
-                    onChange={(e) => setSmsConfig({...smsConfig, api_key: e.target.value})}
-                    placeholder="Enter API key"
-                  />
-                </div>
-              </div>
-
-              <div className="flex items-center space-x-2">
-                <Switch
-                  id="sms_enabled"
-                  checked={smsConfig.is_enabled}
-                  onCheckedChange={(checked) => setSmsConfig({...smsConfig, is_enabled: checked})}
-                />
-                <Label htmlFor="sms_enabled">Enable SMS Notifications</Label>
-              </div>
-              
-              <div className="flex gap-2 pt-4">
-                <Button onClick={handleSaveSMS} className="gap-2">
-                  <Save className="h-4 w-4" />
-                  Save Configuration
-                </Button>
-                <Button variant="outline" className="gap-2">
-                  <TestTube className="h-4 w-4" />
-                  Send Test SMS
                 </Button>
               </div>
             </CardContent>

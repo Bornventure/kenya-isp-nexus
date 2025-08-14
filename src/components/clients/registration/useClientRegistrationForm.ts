@@ -1,132 +1,62 @@
 
 import { useState } from 'react';
-import { useServicePackages } from '@/hooks/useServicePackages';
-import { useToast } from '@/hooks/use-toast';
+import { useForm } from 'react-hook-form';
+import { zodResolver } from '@hookform/resolvers/zod';
+import * as z from 'zod';
 import { supabase } from '@/integrations/supabase/client';
+import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/contexts/AuthContext';
-import { useLicenseLimitCheck } from './useLicenseLimitCheck';
-import type { Client } from '@/types/client';
+import { Client } from '@/types/client';
 
-interface UseClientRegistrationFormProps {
-  onClose: () => void;
-  onSave: (client: Partial<Client>) => void;
-}
+const clientRegistrationSchema = z.object({
+  name: z.string().min(2, 'Name must be at least 2 characters'),
+  email: z.string().email('Invalid email address').optional().or(z.literal('')),
+  phone: z.string().min(10, 'Phone number must be at least 10 digits'),
+  id_number: z.string().min(5, 'ID number is required'),
+  kra_pin_number: z.string().optional(),
+  mpesa_number: z.string().min(10, 'M-Pesa number is required'),
+  address: z.string().min(5, 'Address is required'),
+  county: z.string().min(2, 'County is required'),
+  sub_county: z.string().min(2, 'Sub County is required'),
+  latitude: z.number().optional(),
+  longitude: z.number().optional(),
+  client_type: z.enum(['individual', 'business', 'corporate', 'government']),
+  connection_type: z.enum(['fiber', 'wireless', 'satellite', 'dsl']),
+  service_package_id: z.string().min(1, 'Service package is required'),
+  installation_date: z.string().optional(),
+});
 
-export const useClientRegistrationForm = ({ onClose, onSave }: UseClientRegistrationFormProps) => {
-  const { profile } = useAuth();
+export type ClientRegistrationData = z.infer<typeof clientRegistrationSchema>;
+
+export const useClientRegistrationForm = () => {
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const { toast } = useToast();
-  const { servicePackages, isLoading: packagesLoading } = useServicePackages();
-  const { checkCanAddClient } = useLicenseLimitCheck();
+  const { profile } = useAuth();
 
-  const [formData, setFormData] = useState({
-    // Personal Information
-    name: '',
-    email: '',
-    phone: '',
-    id_number: '',
-    kra_pin_number: '',
-    mpesa_number: '',
-    
-    // Location Information
-    address: '',
-    county: '',
-    sub_county: '',
-    latitude: null as number | null,
-    longitude: null as number | null,
-    
-    // Service Information
-    service_package_id: '',
-    monthly_rate: 0,
-    connection_type: 'fiber' as any,
-    client_type: 'individual' as any,
-    installation_date: '',
+  const form = useForm<ClientRegistrationData>({
+    resolver: zodResolver(clientRegistrationSchema),
+    defaultValues: {
+      name: '',
+      email: '',
+      phone: '',
+      id_number: '',
+      kra_pin_number: '',
+      mpesa_number: '',
+      address: '',
+      county: '',
+      sub_county: '',
+      client_type: 'individual',
+      connection_type: 'fiber',
+      service_package_id: '',
+      installation_date: new Date().toISOString().split('T')[0],
+    },
   });
 
-  const [errors, setErrors] = useState<Record<string, string>>({});
-  const [isSubmitting, setIsSubmitting] = useState(false);
-
-  const updateFormData = (field: string, value: any) => {
-    console.log('Updating form field:', field, 'with value:', value);
-    setFormData(prev => ({ ...prev, [field]: value }));
-    
-    // Clear error when user starts typing
-    if (errors[field]) {
-      setErrors(prev => ({ ...prev, [field]: '' }));
-    }
-
-    // Auto-fill monthly rate when service package is selected
-    if (field === 'service_package_id' && value) {
-      const selectedPackage = servicePackages.find(pkg => pkg.id === value);
-      if (selectedPackage) {
-        setFormData(prev => ({ ...prev, monthly_rate: selectedPackage.monthly_rate }));
-      }
-    }
-  };
-
-  const validateForm = () => {
-    const newErrors: Record<string, string> = {};
-
-    console.log('Validating form with data:', formData);
-
-    // Required field validation
-    if (!formData.name.trim()) newErrors.name = 'Name is required';
-    if (!formData.phone.trim()) newErrors.phone = 'Phone is required';
-    if (!formData.id_number.trim()) newErrors.id_number = 'ID Number is required';
-    if (!formData.address.trim()) newErrors.address = 'Address is required';
-    if (!formData.county.trim()) newErrors.county = 'County is required';
-    if (!formData.sub_county.trim()) newErrors.sub_county = 'Sub County is required';
-    if (!formData.service_package_id) newErrors.service_package_id = 'Service package is required';
-    if (!formData.connection_type) newErrors.connection_type = 'Connection type is required';
-    if (!formData.client_type) newErrors.client_type = 'Client type is required';
-
-    // Email validation (if provided)
-    if (formData.email && !/\S+@\S+\.\S+/.test(formData.email)) {
-      newErrors.email = 'Please enter a valid email address';
-    }
-
-    // Phone validation
-    if (formData.phone && !/^(\+254|0)[17]\d{8}$/.test(formData.phone.replace(/\s/g, ''))) {
-      newErrors.phone = 'Please enter a valid Kenyan phone number';
-    }
-
-    // M-Pesa number validation (if provided)
-    if (formData.mpesa_number && !/^(\+254|0)[17]\d{8}$/.test(formData.mpesa_number.replace(/\s/g, ''))) {
-      newErrors.mpesa_number = 'Please enter a valid M-Pesa number';
-    }
-
-    console.log('Validation errors:', newErrors);
-    setErrors(newErrors);
-    return Object.keys(newErrors).length === 0;
-  };
-
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    console.log('Form submission started');
-    
-    // Check if user profile exists
+  const onSubmit = async (data: ClientRegistrationData) => {
     if (!profile?.isp_company_id) {
-      console.error('No user profile or company ID found');
       toast({
         title: "Error",
-        description: "User profile or company not found. Please log in again.",
-        variant: "destructive",
-      });
-      return;
-    }
-
-    console.log('User profile:', profile);
-    
-    // Check license limits first
-    if (!checkCanAddClient()) {
-      console.log('License limit check failed');
-      return;
-    }
-    
-    if (!validateForm()) {
-      console.log('Form validation failed');
-      toast({
-        title: "Validation Error",
-        description: "Please fix the errors in the form before submitting.",
+        description: "Company information not found. Please log in again.",
         variant: "destructive",
       });
       return;
@@ -135,68 +65,112 @@ export const useClientRegistrationForm = ({ onClose, onSave }: UseClientRegistra
     setIsSubmitting(true);
 
     try {
+      // Get service package details
+      const { data: servicePackage, error: packageError } = await supabase
+        .from('service_packages')
+        .select('*')
+        .eq('id', data.service_package_id)
+        .single();
+
+      if (packageError || !servicePackage) {
+        throw new Error('Service package not found');
+      }
+
       // Prepare client data
-      const clientData = {
-        name: formData.name,
-        email: formData.email || null,
-        phone: formData.phone,
-        id_number: formData.id_number,
-        kra_pin_number: formData.kra_pin_number || null,
-        mpesa_number: formData.mpesa_number || formData.phone,
-        address: formData.address,
-        county: formData.county,
-        sub_county: formData.sub_county,
-        latitude: formData.latitude,
-        longitude: formData.longitude,
-        service_package_id: formData.service_package_id,
-        monthly_rate: formData.monthly_rate,
-        connection_type: formData.connection_type,
-        client_type: formData.client_type,
-        installation_date: formData.installation_date || null,
-        isp_company_id: profile.isp_company_id,
-        status: 'pending' as const,
+      const clientData: Partial<Client> = {
+        name: data.name,
+        email: data.email || undefined,
+        phone: data.phone,
+        id_number: data.id_number,
+        kra_pin_number: data.kra_pin_number || undefined,
+        mpesa_number: data.mpesa_number,
+        address: data.address,
+        county: data.county,
+        sub_county: data.sub_county,
+        latitude: data.latitude,
+        longitude: data.longitude,
+        client_type: data.client_type,
+        connection_type: data.connection_type,
+        service_package_id: data.service_package_id,
+        monthly_rate: servicePackage.monthly_rate,
+        status: 'pending',
         balance: 0,
         wallet_balance: 0,
-        is_active: true,
+        is_active: false,
+        installation_date: data.installation_date,
+        installation_status: 'pending',
         submitted_by: profile.id,
+        isp_company_id: profile.isp_company_id,
+        // Add computed fields for backward compatibility
+        location: {
+          address: data.address,
+          county: data.county,
+          subCounty: data.sub_county,
+          coordinates: data.latitude && data.longitude ? {
+            lat: data.latitude,
+            lng: data.longitude
+          } : undefined
+        },
+        servicePackage: servicePackage.name,
+        connectionType: data.connection_type,
+        clientType: data.client_type,
+        monthlyRate: servicePackage.monthly_rate,
+        installationDate: data.installation_date || new Date().toISOString(),
+        mpesaNumber: data.mpesa_number,
+        idNumber: data.id_number,
+        kraPinNumber: data.kra_pin_number,
+        equipment: {
+          router: undefined,
+          modem: undefined,
+          serialNumbers: []
+        },
+        service_packages: {
+          id: servicePackage.id,
+          name: servicePackage.name,
+          speed: servicePackage.speed,
+          monthly_rate: servicePackage.monthly_rate
+        }
       };
 
-      console.log('Submitting client data:', clientData);
-
-      // Create client record
-      const { data: client, error: clientError } = await supabase
+      // Insert client
+      const { data: newClient, error: clientError } = await supabase
         .from('clients')
         .insert(clientData)
-        .select(`
-          *,
-          service_packages (
-            name,
-            speed,
-            monthly_rate
-          )
-        `)
+        .select()
         .single();
 
       if (clientError) {
-        console.error('Error creating client:', clientError);
-        throw new Error(clientError.message);
+        throw clientError;
       }
 
-      console.log('Client created successfully:', client);
+      // Create service assignment
+      const { error: assignmentError } = await supabase
+        .from('client_service_assignments')
+        .insert({
+          client_id: newClient.id,
+          service_package_id: data.service_package_id,
+          assigned_at: new Date().toISOString(),
+          is_active: false,
+          notes: 'Initial service assignment'
+        });
+
+      if (assignmentError) {
+        console.warn('Service assignment creation failed:', assignmentError);
+      }
 
       toast({
         title: "Success",
-        description: `Client ${client.name} registered successfully and is pending approval!`,
+        description: "Client registered successfully. Awaiting approval.",
       });
 
-      onSave(client);
-      onClose();
+      form.reset();
+      return newClient;
+
     } catch (error) {
-      console.error('Error during client registration:', error);
-      const errorMessage = error instanceof Error ? error.message : 'Failed to register client. Please try again.';
+      console.error('Registration error:', error);
       toast({
         title: "Registration Failed",
-        description: errorMessage,
+        description: error instanceof Error ? error.message : "An error occurred during registration",
         variant: "destructive",
       });
     } finally {
@@ -205,12 +179,8 @@ export const useClientRegistrationForm = ({ onClose, onSave }: UseClientRegistra
   };
 
   return {
-    formData,
-    errors,
+    form,
+    onSubmit,
     isSubmitting,
-    servicePackages,
-    packagesLoading,
-    updateFormData,
-    handleSubmit,
   };
 };

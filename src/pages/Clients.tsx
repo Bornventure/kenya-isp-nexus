@@ -1,47 +1,57 @@
 
 import React, { useState } from 'react';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { 
-  Plus, 
   Search, 
+  Plus, 
   Filter, 
+  Download, 
   Users, 
-  Settings,
+  UserCheck, 
+  UserX, 
+  DollarSign,
   Eye,
   Edit,
-  Play,
-  Pause,
+  Trash2,
+  MapPin,
+  Phone,
   Mail,
-  Phone
+  Settings
 } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
-import ClientRegistrationForm from '@/components/clients/ClientRegistrationForm';
-import ClientOnboardingManager from '@/components/clients/ClientOnboardingManager';
+import { useToast } from '@/hooks/use-toast';
 import { Client } from '@/types/client';
+import ClientRegistrationForm from '@/components/clients/registration/ClientRegistrationForm';
+import ClientDetails from '@/components/clients/ClientDetails';
 
 const ClientsPage = () => {
-  const { profile } = useAuth();
-  const [showRegistrationForm, setShowRegistrationForm] = useState(false);
-  const [selectedClient, setSelectedClient] = useState<Client | null>(null);
-  const [showOnboarding, setShowOnboarding] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('all');
+  const [showRegistrationDialog, setShowRegistrationDialog] = useState(false);
+  const [selectedClient, setSelectedClient] = useState<Client | null>(null);
+  const [showDetailsDialog, setShowDetailsDialog] = useState(false);
+  
+  const { profile } = useAuth();
+  const { toast } = useToast();
+  const queryClient = useQueryClient();
 
-  const { data: clients = [], isLoading, refetch } = useQuery({
+  // Fetch clients
+  const { data: clients = [], isLoading } = useQuery({
     queryKey: ['clients', profile?.isp_company_id],
     queryFn: async () => {
-      if (!profile?.isp_company_id) return [];
-
       const { data, error } = await supabase
         .from('clients')
         .select(`
           *,
           service_packages (
+            id,
             name,
             speed,
             monthly_rate
@@ -53,283 +63,422 @@ const ClientsPage = () => {
             )
           )
         `)
-        .eq('isp_company_id', profile.isp_company_id)
+        .eq('isp_company_id', profile?.isp_company_id)
         .order('created_at', { ascending: false });
 
       if (error) throw error;
-      return data || [];
+      
+      // Transform data to match Client interface
+      return (data || []).map(client => ({
+        ...client,
+        // Add computed properties for backward compatibility
+        location: {
+          address: client.address,
+          county: client.county,
+          subCounty: client.sub_county,
+          coordinates: client.latitude && client.longitude ? {
+            lat: client.latitude,
+            lng: client.longitude
+          } : undefined
+        },
+        servicePackage: client.service_packages?.name || 'Unknown Package',
+        connectionType: client.connection_type,
+        clientType: client.client_type,
+        monthlyRate: client.monthly_rate,
+        installationDate: client.installation_date || new Date().toISOString(),
+        mpesaNumber: client.mpesa_number,
+        idNumber: client.id_number,
+        kraPinNumber: client.kra_pin_number,
+        equipment: {
+          router: client.equipment_assignments?.[0]?.equipment?.model || 'Not assigned',
+          modem: 'Not assigned',
+          serialNumbers: client.equipment_assignments?.map((eq: any) => eq.equipment.serial_number) || []
+        }
+      })) as Client[];
     },
     enabled: !!profile?.isp_company_id,
   });
 
+  // Update client status mutation
+  const updateClientStatus = useMutation({
+    mutationFn: async ({ clientId, status }: { clientId: string; status: string }) => {
+      const { error } = await supabase
+        .from('clients')
+        .update({ 
+          status,
+          is_active: status === 'active',
+          approved_at: status === 'approved' ? new Date().toISOString() : null,
+          approved_by: status === 'approved' ? profile?.id : null
+        })
+        .eq('id', clientId);
+
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['clients'] });
+      toast({
+        title: "Success",
+        description: "Client status updated successfully",
+      });
+    },
+    onError: (error) => {
+      console.error('Error updating client status:', error);
+      toast({
+        title: "Error",
+        description: "Failed to update client status",
+        variant: "destructive",
+      });
+    }
+  });
+
+  // Delete client mutation
+  const deleteClient = useMutation({
+    mutationFn: async (clientId: string) => {
+      const { error } = await supabase
+        .from('clients')
+        .delete()
+        .eq('id', clientId);
+
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['clients'] });
+      toast({
+        title: "Success",
+        description: "Client deleted successfully",
+      });
+    },
+    onError: (error) => {
+      console.error('Error deleting client:', error);
+      toast({
+        title: "Error",
+        description: "Failed to delete client",
+        variant: "destructive",
+      });
+    }
+  });
+
+  // Filter clients
   const filteredClients = clients.filter(client => {
     const matchesSearch = client.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         client.email?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         client.phone.includes(searchTerm);
+                         client.phone.includes(searchTerm) ||
+                         client.email?.toLowerCase().includes(searchTerm.toLowerCase());
+    
     const matchesStatus = statusFilter === 'all' || client.status === statusFilter;
+    
     return matchesSearch && matchesStatus;
   });
 
-  const handleClientSave = (clientData: Partial<Client>) => {
-    refetch();
-    setShowRegistrationForm(false);
+  // Statistics
+  const stats = {
+    total: clients.length,
+    active: clients.filter(c => c.status === 'active').length,
+    pending: clients.filter(c => c.status === 'pending').length,
+    suspended: clients.filter(c => c.status === 'suspended').length,
+    totalRevenue: clients.reduce((sum, c) => sum + c.monthly_rate, 0)
   };
 
-  const handleStartOnboarding = (client: Client) => {
-    setSelectedClient(client);
-    setShowOnboarding(true);
-  };
-
-  const getStatusBadgeVariant = (status: string) => {
+  const getStatusColor = (status: string) => {
     switch (status) {
-      case 'active': return 'default';
-      case 'pending': return 'secondary';
-      case 'suspended': return 'destructive';
-      case 'inactive': return 'outline';
-      default: return 'outline';
+      case 'active': return 'bg-green-100 text-green-800';
+      case 'suspended': return 'bg-red-100 text-red-800';
+      case 'pending': return 'bg-yellow-100 text-yellow-800';
+      case 'inactive': return 'bg-gray-100 text-gray-800';
+      case 'disconnected': return 'bg-orange-100 text-orange-800';
+      case 'approved': return 'bg-blue-100 text-blue-800';
+      default: return 'bg-gray-100 text-gray-800';
     }
   };
 
-  if (isLoading) {
-    return (
-      <div className="flex items-center justify-center h-64">
-        <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-primary"></div>
-      </div>
-    );
-  }
+  const handleViewClient = (client: Client) => {
+    setSelectedClient(client);
+    setShowDetailsDialog(true);
+  };
+
+  const handleRegistrationSuccess = () => {
+    setShowRegistrationDialog(false);
+    queryClient.invalidateQueries({ queryKey: ['clients'] });
+  };
 
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+      <div className="flex items-center justify-between">
         <div>
           <h1 className="text-3xl font-bold tracking-tight">Client Management</h1>
           <p className="text-muted-foreground">
-            Manage your clients and their services
+            Manage your internet service clients and their accounts
           </p>
         </div>
-        <Button onClick={() => setShowRegistrationForm(true)} className="gap-2">
-          <Plus className="h-4 w-4" />
-          Add New Client
+        <Button onClick={() => setShowRegistrationDialog(true)}>
+          <Plus className="h-4 w-4 mr-2" />
+          Register Client
         </Button>
       </div>
 
-      {/* Stats Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+      {/* Statistics Cards */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
         <Card>
-          <CardContent className="p-6">
-            <div className="flex items-center gap-2">
-              <Users className="h-5 w-5 text-blue-500" />
-              <div>
-                <p className="text-sm font-medium text-muted-foreground">Total Clients</p>
-                <p className="text-2xl font-bold">{clients.length}</p>
-              </div>
-            </div>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Total Clients</CardTitle>
+            <Users className="h-4 w-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">{stats.total}</div>
           </CardContent>
         </Card>
+        
         <Card>
-          <CardContent className="p-6">
-            <div className="flex items-center gap-2">
-              <div className="h-5 w-5 bg-green-500 rounded-full" />
-              <div>
-                <p className="text-sm font-medium text-muted-foreground">Active</p>
-                <p className="text-2xl font-bold">
-                  {clients.filter(c => c.status === 'active').length}
-                </p>
-              </div>
-            </div>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Active</CardTitle>
+            <UserCheck className="h-4 w-4 text-green-600" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold text-green-600">{stats.active}</div>
           </CardContent>
         </Card>
+        
         <Card>
-          <CardContent className="p-6">
-            <div className="flex items-center gap-2">
-              <div className="h-5 w-5 bg-yellow-500 rounded-full" />
-              <div>
-                <p className="text-sm font-medium text-muted-foreground">Pending</p>
-                <p className="text-2xl font-bold">
-                  {clients.filter(c => c.status === 'pending').length}
-                </p>
-              </div>
-            </div>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Pending</CardTitle>
+            <UserX className="h-4 w-4 text-yellow-600" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold text-yellow-600">{stats.pending}</div>
           </CardContent>
         </Card>
+        
         <Card>
-          <CardContent className="p-6">
-            <div className="flex items-center gap-2">
-              <div className="h-5 w-5 bg-red-500 rounded-full" />
-              <div>
-                <p className="text-sm font-medium text-muted-foreground">Suspended</p>
-                <p className="text-2xl font-bold">
-                  {clients.filter(c => c.status === 'suspended').length}
-                </p>
-              </div>
-            </div>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Suspended</CardTitle>
+            <UserX className="h-4 w-4 text-red-600" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold text-red-600">{stats.suspended}</div>
+          </CardContent>
+        </Card>
+        
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Monthly Revenue</CardTitle>
+            <DollarSign className="h-4 w-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">KES {stats.totalRevenue.toLocaleString()}</div>
           </CardContent>
         </Card>
       </div>
 
-      {/* Search and Filter */}
-      <Card>
-        <CardContent className="p-6">
-          <div className="flex flex-col sm:flex-row gap-4">
-            <div className="relative flex-1">
-              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-              <Input
-                placeholder="Search clients by name, email, or phone..."
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                className="pl-10"
-              />
-            </div>
-            <div className="flex gap-2">
-              <Button
-                variant={statusFilter === 'all' ? 'default' : 'outline'}
-                size="sm"
-                onClick={() => setStatusFilter('all')}
-              >
-                All
-              </Button>
-              <Button
-                variant={statusFilter === 'active' ? 'default' : 'outline'}
-                size="sm"
-                onClick={() => setStatusFilter('active')}
-              >
-                Active
-              </Button>
-              <Button
-                variant={statusFilter === 'pending' ? 'default' : 'outline'}
-                size="sm"
-                onClick={() => setStatusFilter('pending')}
-              >
-                Pending
-              </Button>
-              <Button
-                variant={statusFilter === 'suspended' ? 'default' : 'outline'}
-                size="sm"
-                onClick={() => setStatusFilter('suspended')}
-              >
-                Suspended
-              </Button>
-            </div>
+      {/* Filters and Search */}
+      <div className="flex items-center gap-4">
+        <div className="flex-1">
+          <div className="relative">
+            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
+            <Input
+              placeholder="Search clients by name, phone, or email..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="pl-10"
+            />
           </div>
+        </div>
+        
+        <select
+          value={statusFilter}
+          onChange={(e) => setStatusFilter(e.target.value)}
+          className="border border-gray-200 rounded-md px-3 py-2"
+        >
+          <option value="all">All Status</option>
+          <option value="active">Active</option>
+          <option value="pending">Pending</option>
+          <option value="suspended">Suspended</option>
+          <option value="inactive">Inactive</option>
+          <option value="approved">Approved</option>
+        </select>
+        
+        <Button variant="outline">
+          <Download className="h-4 w-4 mr-2" />
+          Export
+        </Button>
+      </div>
+
+      {/* Clients Table */}
+      <Card>
+        <CardHeader>
+          <CardTitle>Clients ({filteredClients.length})</CardTitle>
+        </CardHeader>
+        <CardContent>
+          {isLoading ? (
+            <div className="text-center py-8">Loading clients...</div>
+          ) : filteredClients.length === 0 ? (
+            <div className="text-center py-8 text-gray-500">
+              No clients found matching your criteria
+            </div>
+          ) : (
+            <div className="overflow-x-auto">
+              <table className="w-full">
+                <thead>
+                  <tr className="border-b">
+                    <th className="text-left py-3 px-4">Client</th>
+                    <th className="text-left py-3 px-4">Contact</th>
+                    <th className="text-left py-3 px-4">Service</th>
+                    <th className="text-left py-3 px-4">Status</th>
+                    <th className="text-left py-3 px-4">Balance</th>
+                    <th className="text-left py-3 px-4">Actions</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {filteredClients.map((client) => (
+                    <tr key={client.id} className="border-b hover:bg-gray-50">
+                      <td className="py-3 px-4">
+                        <div>
+                          <div className="font-medium">{client.name}</div>
+                          <div className="text-sm text-gray-500 flex items-center">
+                            <MapPin className="h-3 w-3 mr-1" />
+                            {client.location.county}
+                          </div>
+                        </div>
+                      </td>
+                      <td className="py-3 px-4">
+                        <div className="space-y-1">
+                          <div className="text-sm flex items-center">
+                            <Phone className="h-3 w-3 mr-1" />
+                            {client.phone}
+                          </div>
+                          {client.email && (
+                            <div className="text-sm flex items-center text-gray-500">
+                              <Mail className="h-3 w-3 mr-1" />
+                              {client.email}
+                            </div>
+                          )}
+                        </div>
+                      </td>
+                      <td className="py-3 px-4">
+                        <div>
+                          <div className="font-medium">{client.servicePackage}</div>
+                          <div className="text-sm text-gray-500">
+                            KES {client.monthlyRate.toLocaleString()}/month
+                          </div>
+                        </div>
+                      </td>
+                      <td className="py-3 px-4">
+                        <Badge className={getStatusColor(client.status)}>
+                          {client.status}
+                        </Badge>
+                      </td>
+                      <td className="py-3 px-4">
+                        <div className={`font-medium ${client.balance >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                          KES {client.balance.toLocaleString()}
+                        </div>
+                      </td>
+                      <td className="py-3 px-4">
+                        <div className="flex items-center gap-2">
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => handleViewClient(client)}
+                          >
+                            <Eye className="h-4 w-4" />
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => {/* Handle edit */}}
+                          >
+                            <Edit className="h-4 w-4" />
+                          </Button>
+                          {client.status === 'pending' && (
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => updateClientStatus.mutate({ 
+                                clientId: client.id, 
+                                status: 'approved' 
+                              })}
+                            >
+                              <UserCheck className="h-4 w-4 text-green-600" />
+                            </Button>
+                          )}
+                          {client.status === 'active' && (
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => updateClientStatus.mutate({ 
+                                clientId: client.id, 
+                                status: 'suspended' 
+                              })}
+                            >
+                              <UserX className="h-4 w-4 text-red-600" />
+                            </Button>
+                          )}
+                          {client.status === 'suspended' && (
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => updateClientStatus.mutate({ 
+                                clientId: client.id, 
+                                status: 'active' 
+                              })}
+                            >
+                              <UserCheck className="h-4 w-4 text-green-600" />
+                            </Button>
+                          )}
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => deleteClient.mutate(client.id)}
+                          >
+                            <Trash2 className="h-4 w-4 text-red-600" />
+                          </Button>
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
         </CardContent>
       </Card>
 
-      {/* Clients List */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-6">
-        {filteredClients.map((client) => (
-          <Card key={client.id} className="hover:shadow-md transition-shadow">
-            <CardHeader className="pb-3">
-              <div className="flex items-start justify-between">
-                <div>
-                  <CardTitle className="text-lg">{client.name}</CardTitle>
-                  <p className="text-sm text-muted-foreground">
-                    ID: {client.id.slice(0, 8)}...
-                  </p>
-                </div>
-                <Badge variant={getStatusBadgeVariant(client.status)}>
-                  {client.status}
-                </Badge>
-              </div>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="space-y-2">
-                <div className="flex items-center gap-2 text-sm">
-                  <Mail className="h-4 w-4 text-muted-foreground" />
-                  <span>{client.email || 'No email'}</span>
-                </div>
-                <div className="flex items-center gap-2 text-sm">
-                  <Phone className="h-4 w-4 text-muted-foreground" />
-                  <span>{client.phone}</span>
-                </div>
-              </div>
+      {/* Registration Dialog */}
+      <Dialog open={showRegistrationDialog} onOpenChange={setShowRegistrationDialog}>
+        <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Register New Client</DialogTitle>
+          </DialogHeader>
+          <ClientRegistrationForm onSuccess={handleRegistrationSuccess} />
+        </DialogContent>
+      </Dialog>
 
-              {client.service_packages && (
-                <div className="p-3 bg-muted rounded-lg">
-                  <p className="font-medium text-sm">{client.service_packages.name}</p>
-                  <p className="text-xs text-muted-foreground">
-                    {client.service_packages.speed} - KES {client.service_packages.monthly_rate}/month
-                  </p>
-                </div>
-              )}
-
-              <div className="flex gap-2">
-                <Button size="sm" variant="outline" className="flex-1 gap-1">
-                  <Eye className="h-3 w-3" />
-                  View
-                </Button>
-                <Button size="sm" variant="outline" className="flex-1 gap-1">
-                  <Edit className="h-3 w-3" />
-                  Edit
-                </Button>
-                {client.status === 'pending' && (
-                  <Button 
-                    size="sm" 
-                    className="flex-1 gap-1"
-                    onClick={() => handleStartOnboarding(client)}
-                  >
-                    <Play className="h-3 w-3" />
-                    Activate
-                  </Button>
-                )}
-                {client.status === 'active' && (
-                  <Button size="sm" variant="destructive" className="flex-1 gap-1">
-                    <Pause className="h-3 w-3" />
-                    Suspend
-                  </Button>
-                )}
-              </div>
-            </CardContent>
-          </Card>
-        ))}
-      </div>
-
-      {filteredClients.length === 0 && (
-        <Card>
-          <CardContent className="text-center py-12">
-            <Users className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
-            <h3 className="text-lg font-semibold mb-2">No clients found</h3>
-            <p className="text-muted-foreground mb-4">
-              {searchTerm || statusFilter !== 'all' 
-                ? 'Try adjusting your search or filter criteria' 
-                : 'Get started by adding your first client'}
-            </p>
-            {!searchTerm && statusFilter === 'all' && (
-              <Button onClick={() => setShowRegistrationForm(true)}>
-                <Plus className="h-4 w-4 mr-2" />
-                Add Your First Client
-              </Button>
-            )}
-          </CardContent>
-        </Card>
-      )}
-
-      {/* Registration Form Modal */}
-      {showRegistrationForm && (
-        <ClientRegistrationForm
-          onClose={() => setShowRegistrationForm(false)}
-          onSave={handleClientSave}
-        />
-      )}
-
-      {/* Onboarding Manager Modal */}
-      {showOnboarding && selectedClient && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-          <Card className="w-full max-w-4xl max-h-[90vh] overflow-y-auto">
-            <CardHeader>
-              <div className="flex items-center justify-between">
-                <CardTitle>Client Onboarding - {selectedClient.name}</CardTitle>
-                <Button variant="ghost" onClick={() => setShowOnboarding(false)}>
-                  ×
-                </Button>
-              </div>
-            </CardHeader>
-            <CardContent>
-              <ClientOnboardingManager clientId={selectedClient.id} />
-            </CardContent>
-          </Card>
-        </div>
-      )}
+      {/* Client Details Dialog */}
+      <Dialog open={showDetailsDialog} onOpenChange={setShowDetailsDialog}>
+        <DialogContent className="max-w-6xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Client Details</DialogTitle>
+          </DialogHeader>
+          {selectedClient && (
+            <ClientDetails
+              client={selectedClient}
+              onEdit={() => {/* Handle edit */}}
+              onSuspend={() => {
+                updateClientStatus.mutate({ 
+                  clientId: selectedClient.id, 
+                  status: 'suspended' 
+                });
+                setShowDetailsDialog(false);
+              }}
+              onActivate={() => {
+                updateClientStatus.mutate({ 
+                  clientId: selectedClient.id, 
+                  status: 'active' 
+                });
+                setShowDetailsDialog(false);
+              }}
+            />
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };
