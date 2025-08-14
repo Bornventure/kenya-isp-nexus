@@ -1,3 +1,4 @@
+
 import { useAuth } from '@/contexts/AuthContext';
 import { Navigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
@@ -21,7 +22,6 @@ const Index = () => {
   }
 
   // Only redirect if user is authenticated AND profile is loaded
-  // This prevents the navigation loop when profile is still loading
   if (user && profile) {
     return <Navigate to="/dashboard" replace />;
   }

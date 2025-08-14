@@ -1,53 +1,46 @@
 
-import { Routes, Route } from 'react-router-dom';
+import React from 'react';
+import { Routes, Route, Navigate } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
-import Navbar from '@/components/Navbar';
-import Sidebar from '@/components/Sidebar';
+import Index from '@/pages/Index';
 import Dashboard from '@/pages/Dashboard';
-import Clients from '@/pages/Clients';
-import ClientDetails from '@/components/clients/details/ClientDetailsPage';
-import Billing from '@/pages/Billing';
-import NetworkStatus from '@/pages/NetworkStatus';
-import NetworkMonitoring from '@/pages/NetworkMonitoring';
-import SystemInfrastructure from '@/pages/SystemInfrastructure';
-import Reports from '@/pages/Reports';
-import Settings from '@/pages/Settings';
-import Inventory from '@/pages/Inventory';
-import UserManagement from '@/pages/UserManagement';
-import CompanyManagement from '@/pages/CompanyManagement';
-import Hotspots from '@/pages/Hotspots';
-import Messaging from '@/pages/Messaging';
-import { Toaster } from '@/components/ui/toaster';
+import Login from '@/components/Login';
+import DashboardLayout from '@/components/dashboard/DashboardLayout';
+import LicenseExpiredBanner from '@/components/license/LicenseExpiredBanner';
 
 const AppContent = () => {
-  const { user, profile } = useAuth();
+  const { user, profile, isLoading } = useAuth();
+
+  console.log('AppContent auth state:', { user: !!user, profile: !!profile, isLoading });
+
+  if (isLoading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 to-purple-50 dark:from-gray-900 dark:to-gray-800">
+        <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-gray-900"></div>
+      </div>
+    );
+  }
 
   return (
-    <div className="min-h-screen bg-background">
-      <Navbar />
-      <div className="flex">
-        <Sidebar />
-        <main className="flex-1 p-6 ml-64">
-          <Routes>
-            <Route path="/" element={<Dashboard />} />
-            <Route path="/clients" element={<Clients />} />
-            <Route path="/clients/:id" element={<ClientDetails />} />
-            <Route path="/billing" element={<Billing />} />
-            <Route path="/network-status" element={<NetworkStatus />} />
-            <Route path="/network-monitoring" element={<NetworkMonitoring />} />
-            <Route path="/system-infrastructure" element={<SystemInfrastructure />} />
-            <Route path="/reports" element={<Reports />} />
-            <Route path="/settings" element={<Settings />} />
-            <Route path="/inventory" element={<Inventory />} />
-            <Route path="/user-management" element={<UserManagement />} />
-            <Route path="/company-management" element={<CompanyManagement />} />
-            <Route path="/hotspots" element={<Hotspots />} />
-            <Route path="/messaging" element={<Messaging />} />
-          </Routes>
-        </main>
-      </div>
-      <Toaster />
-    </div>
+    <Routes>
+      <Route path="/" element={<Index />} />
+      <Route path="/login" element={<Login />} />
+      
+      {/* Protected routes - only accessible when authenticated */}
+      <Route path="/dashboard" element={
+        user && profile ? (
+          <DashboardLayout>
+            <LicenseExpiredBanner />
+            <Dashboard />
+          </DashboardLayout>
+        ) : (
+          <Navigate to="/login" replace />
+        )
+      } />
+      
+      {/* Catch all route */}
+      <Route path="*" element={<Navigate to="/" replace />} />
+    </Routes>
   );
 };
 

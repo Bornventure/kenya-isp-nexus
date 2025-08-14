@@ -1,160 +1,100 @@
 
 import React, { useState } from 'react';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Input } from '@/components/ui/input';
-import { Button } from '@/components/ui/button';
 import { useAuth } from '@/contexts/AuthContext';
-import { AlertCircle, Mail, Shield, Building2, ArrowLeft, Key } from 'lucide-react';
-import { useNavigate } from 'react-router-dom';
-import CompanyRegistrationForm from '@/components/registration/CompanyRegistrationForm';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { ArrowLeft, LogIn } from 'lucide-react';
+import { Link } from 'react-router-dom';
 
 const Login = () => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  const [error, setError] = useState('');
-  const [showRegistration, setShowRegistration] = useState(false);
-  const { login, isLoading } = useAuth();
-  const navigate = useNavigate();
+  const [isLoading, setIsLoading] = useState(false);
+  const { login } = useAuth();
 
-  const handleLogin = async (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    setError('');
+    setIsLoading(true);
     
-    const success = await login(email, password);
-    if (success) {
-      // Redirect to dashboard after successful login
-      navigate('/dashboard');
-    } else {
-      setError('Invalid credentials. Please check your email and password.');
+    try {
+      await login(email, password);
+    } catch (error) {
+      console.error('Login error:', error);
+    } finally {
+      setIsLoading(false);
     }
   };
 
-  const handleBackToHome = () => {
-    navigate('/');
-  };
-
   return (
-    <>
-      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 to-indigo-100">
-        <div className="w-full max-w-md">
-          <div className="mb-4 flex items-center justify-between">
-            <Button 
-              variant="ghost" 
-              onClick={handleBackToHome}
-              className="flex items-center gap-2 text-gray-600 hover:text-gray-900"
-            >
-              <ArrowLeft className="h-4 w-4" />
-              Back to Home
-            </Button>
-            
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={() => navigate('/license-activation')}
-              className="text-xs text-blue-600 hover:text-blue-800 flex items-center gap-1"
-            >
-              <Key className="h-3 w-3" />
-              activate?
-            </Button>
+    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 to-purple-50 dark:from-gray-900 dark:to-gray-800 px-4">
+      <div className="w-full max-w-md space-y-6">
+        <div className="text-center space-y-4">
+          <img 
+            src="/lovable-uploads/29dec1bf-11a7-44c4-b61f-4cdfe1cbdc5c.png" 
+            alt="DataDefender Logo" 
+            className="mx-auto h-16 w-16 object-contain"
+          />
+          <div>
+            <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100">DataDefender</h1>
+            <p className="text-blue-600 dark:text-blue-400 font-medium">ISP Management System</p>
           </div>
-          
-          <Card>
-            <CardHeader className="text-center">
-              <div className="flex justify-center mb-4">
-                <img 
-                  src="/lovable-uploads/bfa196dc-eae7-40b2-826b-7a96fffbd83d.png" 
-                  alt="DataDefender Logo" 
-                  className="h-16 w-16 object-contain"
+        </div>
+
+        <Card>
+          <CardHeader>
+            <CardTitle>Sign In</CardTitle>
+            <CardDescription>
+              Enter your credentials to access the system
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <form onSubmit={handleSubmit} className="space-y-4">
+              <div className="space-y-2">
+                <Label htmlFor="email">Email</Label>
+                <Input
+                  id="email"
+                  type="email"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  placeholder="Enter your email"
+                  required
                 />
               </div>
-              <CardTitle className="text-2xl">DataDefender</CardTitle>
-              <CardDescription>
-                ISP Management Portal - For technicians and administrative staff
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              <form onSubmit={handleLogin} className="space-y-4">
-                <div className="space-y-2">
-                  <label htmlFor="email" className="text-sm font-medium flex items-center gap-2">
-                    <Mail className="h-4 w-4" />
-                    Email Address
-                  </label>
-                  <Input
-                    id="email"
-                    type="email"
-                    value={email}
-                    onChange={(e) => setEmail(e.target.value)}
-                    placeholder="Enter your email"
-                    required
-                  />
-                </div>
-                <div className="space-y-2">
-                  <label htmlFor="password" className="text-sm font-medium flex items-center gap-2">
-                    <Shield className="h-4 w-4" />
-                    Password
-                  </label>
-                  <Input
-                    id="password"
-                    type="password"
-                    value={password}
-                    onChange={(e) => setPassword(e.target.value)}
-                    placeholder="Enter your password"
-                    required
-                  />
-                </div>
-                {error && (
-                  <div className="flex items-center gap-2 text-red-600 text-sm">
-                    <AlertCircle className="h-4 w-4" />
-                    {error}
-                  </div>
+              
+              <div className="space-y-2">
+                <Label htmlFor="password">Password</Label>
+                <Input
+                  id="password"
+                  type="password"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  placeholder="Enter your password"
+                  required
+                />
+              </div>
+              
+              <Button type="submit" className="w-full" disabled={isLoading}>
+                {isLoading ? (
+                  <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2" />
+                ) : (
+                  <LogIn className="h-4 w-4 mr-2" />
                 )}
-                <Button 
-                  type="submit" 
-                  className="w-full" 
-                  disabled={isLoading}
-                >
-                  {isLoading ? 'Signing in...' : 'Sign In'}
-                </Button>
-              </form>
-              
-              <div className="mt-6 space-y-4">
-                <div className="relative">
-                  <div className="absolute inset-0 flex items-center">
-                    <span className="w-full border-t" />
-                  </div>
-                  <div className="relative flex justify-center text-xs uppercase">
-                    <span className="bg-white px-2 text-muted-foreground">Or</span>
-                  </div>
-                </div>
-                
-                <Button 
-                  variant="outline" 
-                  className="w-full" 
-                  onClick={() => setShowRegistration(true)}
-                >
-                  <Building2 className="h-4 w-4 mr-2" />
-                  New Company?
-                </Button>
-              </div>
-              
-              <div className="mt-6 p-4 bg-blue-50 rounded-lg border border-blue-200">
-                <div className="text-xs text-blue-800">
-                  <p className="font-semibold mb-2">🔧 For ISP Staff Only</p>
-                  <p>• This portal is for technicians and administrators</p>
-                  <p>• Use this to register new internet customers</p>
-                  <p>• Manage existing client accounts and billing</p>
-                  <p>• New ISP companies can request registration above</p>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
+                Sign In
+              </Button>
+            </form>
+          </CardContent>
+        </Card>
+
+        <div className="text-center">
+          <Link to="/" className="inline-flex items-center text-sm text-gray-600 hover:text-gray-900 dark:text-gray-400 dark:hover:text-gray-100">
+            <ArrowLeft className="h-4 w-4 mr-1" />
+            Back to Home
+          </Link>
         </div>
       </div>
-
-      {showRegistration && (
-        <CompanyRegistrationForm onClose={() => setShowRegistration(false)} />
-      )}
-    </>
+    </div>
   );
 };
 

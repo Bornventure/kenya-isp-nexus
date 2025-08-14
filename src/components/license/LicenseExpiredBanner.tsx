@@ -8,7 +8,12 @@ import { useAuth } from '@/contexts/AuthContext';
 
 const LicenseExpiredBanner: React.FC = () => {
   const { validation } = useLicenseValidation();
-  const { profile } = useAuth();
+  const { profile, user } = useAuth();
+
+  // Don't show banner if user is not authenticated
+  if (!user || !profile) {
+    return null;
+  }
 
   // Don't show banner for super admin - they have unlimited access
   if (profile?.role === 'super_admin') {

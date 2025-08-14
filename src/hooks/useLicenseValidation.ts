@@ -17,7 +17,7 @@ export interface LicenseValidationResult {
 }
 
 export const useLicenseValidation = () => {
-  const { profile } = useAuth();
+  const { profile, user } = useAuth();
 
   const { data: validation, isLoading, error } = useQuery({
     queryKey: ['license-validation', profile?.isp_company_id, profile?.role],
@@ -116,7 +116,7 @@ export const useLicenseValidation = () => {
         deactivatedAt: company.deactivated_at
       };
     },
-    enabled: !!profile,
+    enabled: !!profile && !!user, // Only run when user is authenticated
     refetchInterval: 300000, // Check every 5 minutes
   });
 
