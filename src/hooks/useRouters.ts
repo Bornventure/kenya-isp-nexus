@@ -25,7 +25,7 @@ export const useRouters = () => {
     mutationFn: async (routerData: Omit<MikrotikRouter, 'id' | 'created_at' | 'updated_at'>) => {
       const { data, error } = await supabase
         .from('mikrotik_routers')
-        .insert([routerData])
+        .insert(routerData)
         .select()
         .single();
 

@@ -71,6 +71,7 @@ export interface Client {
     name: string;
     speed: string;
     monthly_rate: number;
+    setup_fee?: number;
     description?: string;
     is_active: boolean;
     isp_company_id: string;
@@ -94,7 +95,10 @@ export interface ServicePackage {
   name: string;
   speed: string;
   monthly_rate: number;
+  setup_fee?: number;
+  data_limit?: number | null;
   description?: string;
+  connection_types?: string[];
   is_active: boolean;
   isp_company_id: string;
   created_at: string;
