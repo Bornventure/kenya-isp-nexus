@@ -25,9 +25,48 @@ export interface NetworkInterface {
   status: string;
 }
 
+export interface NetworkTestResult {
+  success: boolean;
+  isDemoResult?: boolean;
+  error?: string;
+  responseTime?: number;
+  status?: string;
+}
+
 export class RealNetworkService {
+  private isDemoMode = true; // Default to demo mode
+
   constructor() {
     console.log('RealNetworkService initialized');
+  }
+
+  async testConnection(ipAddress: string, testType: 'ping' | 'snmp' | 'mikrotik' = 'ping'): Promise<NetworkTestResult> {
+    console.log(`Testing connection to ${ipAddress} using ${testType}`);
+    
+    // For demo mode, return simulated results
+    if (this.isDemoMode) {
+      return {
+        success: Math.random() > 0.3, // 70% success rate
+        isDemoResult: true,
+        responseTime: Math.floor(Math.random() * 100) + 10,
+        status: 'Demo mode - simulated result'
+      };
+    }
+
+    // Real implementation would go here
+    return {
+      success: false,
+      error: 'Real network testing not implemented',
+      status: 'Not implemented'
+    };
+  }
+
+  getDemoModeStatus(): boolean {
+    return this.isDemoMode;
+  }
+
+  setDemoMode(isDemo: boolean): void {
+    this.isDemoMode = isDemo;
   }
 
   async getNetworkEquipment(): Promise<NetworkDevice[]> {
@@ -35,27 +74,27 @@ export class RealNetworkService {
       const { data, error } = await supabase
         .from('equipment')
         .select('*')
-        .eq('is_network_equipment', true);
+        .eq('status', 'deployed');
 
       if (error) {
         console.error('Error fetching network equipment:', error);
         throw error;
       }
 
-      if (!data) {
+      if (!data || data.length === 0) {
         console.log('No network equipment found');
         return [];
       }
 
       return data.map(item => ({
         id: item.id,
-        name: item.name || 'Unknown Device',
-        type: item.category || 'unknown',
-        ipAddress: item.ip_address || '0.0.0.0',
+        name: item.brand && item.model ? `${item.brand} ${item.model}` : item.type || 'Unknown Device',
+        type: item.type || 'unknown',
+        ipAddress: item.ip_address ? String(item.ip_address) : '0.0.0.0',
         status: item.status || 'unknown',
         location: item.location || 'Unknown',
-        lastSeen: item.updated_at,
-        manufacturer: item.manufacturer || 'Unknown',
+        lastSeen: item.updated_at || item.created_at,
+        manufacturer: item.brand || 'Unknown',
         model: item.model || 'Unknown',
         firmwareVersion: item.firmware_version || 'Unknown',
         uptime: 0,
@@ -89,13 +128,13 @@ export class RealNetworkService {
 
       return {
         id: data.id,
-        name: data.name || 'Unknown Device',
-        type: data.category || 'unknown',
-        ipAddress: data.ip_address || '0.0.0.0',
+        name: data.brand && data.model ? `${data.brand} ${data.model}` : data.type || 'Unknown Device',
+        type: data.type || 'unknown',
+        ipAddress: data.ip_address ? String(data.ip_address) : '0.0.0.0',
         status: data.status || 'unknown',
         location: data.location || 'Unknown',
-        lastSeen: data.updated_at,
-        manufacturer: data.manufacturer || 'Unknown',
+        lastSeen: data.updated_at || data.created_at,
+        manufacturer: data.brand || 'Unknown',
         model: data.model || 'Unknown',
         firmwareVersion: data.firmware_version || 'Unknown',
         uptime: 0,
@@ -104,7 +143,7 @@ export class RealNetworkService {
         interfaces: []
       };
     } catch (error) {
-      console.error('Error in getNetworkEquipment:', error);
+      console.error('Error in getNetworkDevice:', error);
       return null;
     }
   }
