@@ -1,5 +1,5 @@
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -8,18 +8,20 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Textarea } from '@/components/ui/textarea';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Equipment } from '@/types/equipment';
-import { Plus, X } from 'lucide-react';
+import { Save, X } from 'lucide-react';
 
-interface AddEquipmentDialogProps {
+interface EditEquipmentDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  onSubmit: (data: Partial<Equipment>) => void;
+  equipment: Equipment | null;
+  onSubmit: (id: string, data: Partial<Equipment>) => void;
   isLoading: boolean;
 }
 
-const AddEquipmentDialog: React.FC<AddEquipmentDialogProps> = ({
+const EditEquipmentDialog: React.FC<EditEquipmentDialogProps> = ({
   open,
   onOpenChange,
+  equipment,
   onSubmit,
   isLoading,
 }) => {
@@ -33,35 +35,42 @@ const AddEquipmentDialog: React.FC<AddEquipmentDialogProps> = ({
     location: '',
     notes: '',
     status: 'available' as const,
-    approval_status: 'pending' as const,
     snmp_community: 'public',
     snmp_version: 2,
   });
 
+  useEffect(() => {
+    if (equipment) {
+      setFormData({
+        type: equipment.type || '',
+        brand: equipment.brand || '',
+        model: equipment.model || '',
+        serial_number: equipment.serial_number || '',
+        mac_address: equipment.mac_address || '',
+        ip_address: equipment.ip_address?.toString() || '',
+        location: equipment.location || '',
+        notes: equipment.notes || '',
+        status: equipment.status || 'available',
+        snmp_community: equipment.snmp_community || 'public',
+        snmp_version: equipment.snmp_version || 2,
+      });
+    }
+  }, [equipment]);
+
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    onSubmit(formData);
-    setFormData({
-      type: '',
-      brand: '',
-      model: '',
-      serial_number: '',
-      mac_address: '',
-      ip_address: '',
-      location: '',
-      notes: '',
-      status: 'available',
-      approval_status: 'pending',
-      snmp_community: 'public',
-      snmp_version: 2,
-    });
+    if (equipment) {
+      onSubmit(equipment.id, formData);
+    }
   };
+
+  if (!equipment) return null;
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
         <DialogHeader className="flex flex-row items-center justify-between">
-          <DialogTitle>Add New Equipment</DialogTitle>
+          <DialogTitle>Edit Equipment</DialogTitle>
           <Button variant="ghost" size="sm" onClick={() => onOpenChange(false)}>
             <X className="h-4 w-4" />
           </Button>
@@ -97,7 +106,6 @@ const AddEquipmentDialog: React.FC<AddEquipmentDialogProps> = ({
                   id="brand"
                   value={formData.brand}
                   onChange={(e) => setFormData({ ...formData, brand: e.target.value })}
-                  placeholder="e.g., MikroTik, Ubiquiti"
                   required
                 />
               </div>
@@ -107,7 +115,6 @@ const AddEquipmentDialog: React.FC<AddEquipmentDialogProps> = ({
                   id="model"
                   value={formData.model}
                   onChange={(e) => setFormData({ ...formData, model: e.target.value })}
-                  placeholder="e.g., RB2011iL-IN"
                   required
                 />
               </div>
@@ -117,7 +124,6 @@ const AddEquipmentDialog: React.FC<AddEquipmentDialogProps> = ({
                   id="serial_number"
                   value={formData.serial_number}
                   onChange={(e) => setFormData({ ...formData, serial_number: e.target.value })}
-                  placeholder="Device serial number"
                   required
                 />
               </div>
@@ -135,7 +141,6 @@ const AddEquipmentDialog: React.FC<AddEquipmentDialogProps> = ({
                   id="mac_address"
                   value={formData.mac_address}
                   onChange={(e) => setFormData({ ...formData, mac_address: e.target.value })}
-                  placeholder="00:1A:2B:3C:4D:5E"
                 />
               </div>
               <div>
@@ -144,7 +149,6 @@ const AddEquipmentDialog: React.FC<AddEquipmentDialogProps> = ({
                   id="ip_address"
                   value={formData.ip_address}
                   onChange={(e) => setFormData({ ...formData, ip_address: e.target.value })}
-                  placeholder="192.168.1.1"
                 />
               </div>
               <div>
@@ -200,7 +204,6 @@ const AddEquipmentDialog: React.FC<AddEquipmentDialogProps> = ({
                     id="location"
                     value={formData.location}
                     onChange={(e) => setFormData({ ...formData, location: e.target.value })}
-                    placeholder="Equipment location"
                   />
                 </div>
               </div>
@@ -210,7 +213,6 @@ const AddEquipmentDialog: React.FC<AddEquipmentDialogProps> = ({
                   id="notes"
                   value={formData.notes}
                   onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
-                  placeholder="Additional notes about this equipment"
                   rows={3}
                 />
               </div>
@@ -222,8 +224,8 @@ const AddEquipmentDialog: React.FC<AddEquipmentDialogProps> = ({
               Cancel
             </Button>
             <Button type="submit" disabled={isLoading} className="gap-2">
-              <Plus className="h-4 w-4" />
-              {isLoading ? 'Adding...' : 'Add Equipment'}
+              <Save className="h-4 w-4" />
+              {isLoading ? 'Updating...' : 'Update Equipment'}
             </Button>
           </div>
         </form>
@@ -232,4 +234,4 @@ const AddEquipmentDialog: React.FC<AddEquipmentDialogProps> = ({
   );
 };
 
-export default AddEquipmentDialog;
+export default EditEquipmentDialog;

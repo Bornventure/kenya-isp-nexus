@@ -7,10 +7,12 @@ import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { Users, UserCheck, UserX, Clock, Plus, Search, Eye, Edit } from 'lucide-react';
+import { Users, UserCheck, UserX, Clock, Plus, Search, Eye, Edit, Trash2 } from 'lucide-react';
 import ClientDetails from '@/components/clients/ClientDetails';
 import CustomerRegistrationForm from '@/components/customers/CustomerRegistrationForm';
+import ClientEditDialog from '@/components/clients/ClientEditDialog';
 import { Client } from '@/types/client';
+import { useToast } from '@/hooks/use-toast';
 
 // Helper function to transform database client data to the Client interface
 const transformDatabaseClientToClient = (dbClient: any): Client => {
@@ -75,11 +77,14 @@ const transformDatabaseClientToClient = (dbClient: any): Client => {
 };
 
 const Clients = () => {
-  const { clients, isLoading, error, updateClient, approveClient, rejectClient } = useClients();
+  const { clients, isLoading, error, updateClient, approveClient, rejectClient, deleteClient } = useClients();
+  const { toast } = useToast();
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedClient, setSelectedClient] = useState<Client | null>(null);
   const [detailsOpen, setDetailsOpen] = useState(false);
   const [registrationOpen, setRegistrationOpen] = useState(false);
+  const [editOpen, setEditOpen] = useState(false);
+  const [clientToEdit, setClientToEdit] = useState<any>(null);
 
   // Filter clients based on search term
   const filteredClients = clients.filter(client =>
@@ -121,9 +126,32 @@ const Clients = () => {
   };
 
   const handleEdit = (dbClient: any) => {
-    const transformedClient = transformDatabaseClientToClient(dbClient);
-    // Handle edit logic here
-    console.log('Edit client:', transformedClient);
+    setClientToEdit(dbClient);
+    setEditOpen(true);
+  };
+
+  const handleDelete = async (clientId: string, clientName: string) => {
+    if (window.confirm(`Are you sure you want to delete client "${clientName}"? This action cannot be undone.`)) {
+      try {
+        await deleteClient(clientId);
+        toast({
+          title: "Client Deleted",
+          description: `${clientName} has been deleted successfully.`,
+        });
+      } catch (error) {
+        toast({
+          title: "Error",
+          description: "Failed to delete client. Please try again.",
+          variant: "destructive",
+        });
+      }
+    }
+  };
+
+  const handleSaveEdit = (id: string, updates: any) => {
+    updateClient({ id, updates });
+    setEditOpen(false);
+    setClientToEdit(null);
   };
 
   if (isLoading) {
@@ -204,6 +232,7 @@ const Clients = () => {
             </DialogHeader>
             <CustomerRegistrationForm
               onClose={() => setRegistrationOpen(false)}
+              onSuccess={() => setRegistrationOpen(false)}
             />
           </DialogContent>
         </Dialog>
@@ -246,6 +275,7 @@ const Clients = () => {
                         variant="outline"
                         size="sm"
                         onClick={() => handleViewDetails(client)}
+                        title="View Details"
                       >
                         <Eye className="h-4 w-4" />
                       </Button>
@@ -253,8 +283,18 @@ const Clients = () => {
                         variant="outline"
                         size="sm"
                         onClick={() => handleEdit(client)}
+                        title="Edit Client"
                       >
                         <Edit className="h-4 w-4" />
+                      </Button>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => handleDelete(client.id, client.name)}
+                        title="Delete Client"
+                        className="text-red-600 hover:text-red-700"
+                      >
+                        <Trash2 className="h-4 w-4" />
                       </Button>
                     </div>
                   </TableCell>
@@ -290,6 +330,14 @@ const Clients = () => {
           )}
         </DialogContent>
       </Dialog>
+
+      {/* Client Edit Dialog */}
+      <ClientEditDialog
+        open={editOpen}
+        onOpenChange={setEditOpen}
+        client={clientToEdit}
+        onSave={handleSaveEdit}
+      />
     </div>
   );
 };

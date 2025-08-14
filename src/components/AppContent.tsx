@@ -2,11 +2,13 @@
 import React from 'react';
 import { Routes, Route, Navigate } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
+import { ClientAuthProvider } from '@/contexts/ClientAuthContext';
 import Index from '@/pages/Index';
 import Dashboard from '@/pages/Dashboard';
 import Login from '@/components/Login';
 import DashboardLayout from '@/components/dashboard/DashboardLayout';
 import LicenseExpiredBanner from '@/components/license/LicenseExpiredBanner';
+import ClientPortal from '@/pages/ClientPortal';
 
 // Import placeholder components for all routes
 import ClientsPage from '@/pages/Clients';
@@ -47,18 +49,22 @@ const AppContent = () => {
       <Route path="/" element={<Index />} />
       <Route path="/login" element={<Login />} />
       
-      {/* Protected routes - only accessible when authenticated */}
-      {user && profile ? (
-        <Route path="/dashboard" element={
-          <DashboardLayout>
-            <LicenseExpiredBanner />
-            <Dashboard />
-          </DashboardLayout>
-        } />
-      ) : null}
+      {/* Client Portal Route - Available to all users */}
+      <Route path="/client-portal/*" element={
+        <ClientAuthProvider>
+          <ClientPortal />
+        </ClientAuthProvider>
+      } />
       
+      {/* Protected admin routes - only accessible when authenticated */}
       {user && profile ? (
         <>
+          <Route path="/dashboard" element={
+            <DashboardLayout>
+              <LicenseExpiredBanner />
+              <Dashboard />
+            </DashboardLayout>
+          } />
           <Route path="/clients" element={
             <DashboardLayout>
               <LicenseExpiredBanner />

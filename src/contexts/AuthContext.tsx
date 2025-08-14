@@ -78,50 +78,68 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     if (initializedRef.current) return;
     initializedRef.current = true;
 
-    console.log('Initializing AuthProvider...');
+    let mounted = true;
 
-    // Set up auth state listener
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      async (event, session) => {
-        console.log('Auth state changed:', event, session?.user?.email);
-        setSession(session);
-        setUser(session?.user ?? null);
+    const initAuth = async () => {
+      try {
+        // Set up auth state listener first
+        const { data: { subscription } } = supabase.auth.onAuthStateChange(
+          async (event, session) => {
+            console.log('Auth state changed:', event, session?.user?.id);
+            
+            if (!mounted) return;
+            
+            setSession(session);
+            setUser(session?.user ?? null);
+            
+            if (session?.user) {
+              // Use setTimeout to defer profile fetch and prevent callback deadlock
+              setTimeout(() => {
+                if (mounted) {
+                  fetchUserProfile(session.user.id);
+                }
+              }, 0);
+            } else {
+              setProfile(null);
+              setProfileError(null);
+            }
+            
+            if (mounted) {
+              setIsLoading(false);
+            }
+          }
+        );
+
+        // Get initial session
+        const { data: { session: initialSession } } = await supabase.auth.getSession();
+        console.log('Initial session:', initialSession?.user?.id);
         
-        if (session?.user && event !== 'TOKEN_REFRESHED') {
-          // Clear existing profile first to ensure clean state
-          setProfile(null);
-          // Defer profile fetch to avoid render loops
-          setTimeout(() => {
-            fetchUserProfile(session.user.id);
-          }, 100);
-        } else if (!session) {
-          setProfile(null);
+        if (mounted) {
+          setSession(initialSession);
+          setUser(initialSession?.user ?? null);
+          
+          if (initialSession?.user) {
+            await fetchUserProfile(initialSession.user.id);
+          }
+          
+          setIsLoading(false);
         }
-        
-        setIsLoading(false);
-      }
-    );
 
-    // Check for existing session
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      if (!initializedRef.current) return; // Safety check
-      
-      console.log('Initial session check:', session?.user?.email);
-      setSession(session);
-      setUser(session?.user ?? null);
-      
-      if (session?.user) {
-        setTimeout(() => {
-          fetchUserProfile(session.user.id);
-        }, 100);
+        return () => {
+          subscription.unsubscribe();
+        };
+      } catch (error) {
+        console.error('Error initializing auth:', error);
+        if (mounted) {
+          setIsLoading(false);
+        }
       }
-      setIsLoading(false);
-    });
+    };
+
+    initAuth();
 
     return () => {
-      subscription.unsubscribe();
-      initializedRef.current = false;
-      profileFetchingRef.current = false;
+      mounted = false;
     };
   }, []);
 
@@ -143,9 +161,19 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         return false;
       }
 
+      console.log('Login successful:', data.user?.id);
+      toast({
+        title: "Login Successful",
+        description: "Welcome back!",
+      });
       return true;
     } catch (error) {
       console.error('Login error:', error);
+      toast({
+        title: "Login Failed",
+        description: "An unexpected error occurred",
+        variant: "destructive",
+      });
       return false;
     } finally {
       setIsLoading(false);
@@ -155,18 +183,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const signup = async (email: string, password: string, userData: any): Promise<boolean> => {
     try {
       setIsLoading(true);
-      const redirectUrl = `${window.location.origin}/`;
-      
       const { data, error } = await supabase.auth.signUp({
         email,
         password,
         options: {
-          emailRedirectTo: redirectUrl,
-          data: {
-            first_name: userData.firstName,
-            last_name: userData.lastName,
-          }
-        }
+          data: userData,
+          emailRedirectTo: `${window.location.origin}/`,
+        },
       });
 
       if (error) {
@@ -179,57 +202,52 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         return false;
       }
 
-      if (data.user && !data.session) {
-        toast({
-          title: "Check Your Email",
-          description: "Please check your email and click the confirmation link to complete your registration.",
-        });
-      }
-
+      console.log('Signup successful:', data.user?.id);
+      toast({
+        title: "Signup Successful",
+        description: "Please check your email to verify your account",
+      });
       return true;
     } catch (error) {
       console.error('Signup error:', error);
+      toast({
+        title: "Signup Failed",
+        description: "An unexpected error occurred",
+        variant: "destructive",
+      });
       return false;
     } finally {
       setIsLoading(false);
     }
   };
 
-  const logout = async () => {
+  const logout = async (): Promise<void> => {
     try {
-      setIsLoading(true);
-      console.log('Signing out user...');
-      
-      // Clear local state immediately
-      setUser(null);
-      setSession(null);
-      setProfile(null);
-      setProfileError(null);
-      
       const { error } = await supabase.auth.signOut();
       if (error) {
         console.error('Logout error:', error);
         toast({
-          title: "Logout Error",
+          title: "Logout Failed",
           description: error.message,
           variant: "destructive",
         });
       } else {
-        console.log('Logout successful');
+        setUser(null);
+        setSession(null);
+        setProfile(null);
+        setProfileError(null);
         toast({
-          title: "Signed Out",
-          description: "You have been successfully signed out.",
+          title: "Logged Out",
+          description: "You have been logged out successfully",
         });
       }
     } catch (error) {
       console.error('Logout error:', error);
       toast({
-        title: "Logout Error",
-        description: "An error occurred while signing out.",
+        title: "Logout Failed",
+        description: "An unexpected error occurred",
         variant: "destructive",
       });
-    } finally {
-      setIsLoading(false);
     }
   };
 
@@ -244,31 +262,49 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
       if (error) {
         console.error('Profile update error:', error);
+        toast({
+          title: "Update Failed",
+          description: error.message,
+          variant: "destructive",
+        });
         return false;
       }
 
       // Refresh profile data
       await fetchUserProfile(user.id);
+      toast({
+        title: "Profile Updated",
+        description: "Your profile has been updated successfully",
+      });
       return true;
     } catch (error) {
       console.error('Profile update error:', error);
+      toast({
+        title: "Update Failed",
+        description: "An unexpected error occurred",
+        variant: "destructive",
+      });
       return false;
     }
   };
 
-  const value = {
-    user,
-    session,
-    profile,
-    isLoading,
-    profileError,
-    login,
-    signup,
-    logout,
-    updateProfile,
-  };
-
-  return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
+  return (
+    <AuthContext.Provider
+      value={{
+        user,
+        session,
+        profile,
+        isLoading,
+        profileError,
+        login,
+        signup,
+        logout,
+        updateProfile,
+      }}
+    >
+      {children}
+    </AuthContext.Provider>
+  );
 }
 
 export function useAuth() {
