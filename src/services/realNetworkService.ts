@@ -1,234 +1,186 @@
-
 import { supabase } from '@/integrations/supabase/client';
 
-interface ClientMonitoringConfig {
-  clientId: string;
-  equipmentId?: string;
-  monitoringInterval: number;
-  alertThresholds: {
-    bandwidth: number;
-    latency: number;
-    packetLoss: number;
-  };
+export interface NetworkDevice {
+  id: string;
+  name: string;
+  type: string;
+  ipAddress: string;
+  status: string;
+  location: string;
+  lastSeen: string;
+  manufacturer: string;
+  model: string;
+  firmwareVersion: string;
+  uptime: number;
+  cpuUsage: number;
+  memoryUsage: number;
+  interfaces: NetworkInterface[];
 }
 
-interface ConnectivityTestConfig {
-  clientId: string;
-  testEndpoints: string[];
+export interface NetworkInterface {
+  name: string;
+  ipAddress: string;
+  macAddress: string;
+  speed: number;
+  status: string;
 }
 
-interface ConnectivityTestResult {
-  success: boolean;
-  results: {
-    endpoint: string;
-    reachable: boolean;
-    latency?: number;
-    error?: string;
-  }[];
-}
-
-interface TestConnectionResult {
-  success: boolean;
-  latency?: number;
-  error?: string;
-  isDemoResult?: boolean;
-}
-
-class RealNetworkService {
-  private demoMode = true;
-
-  async testConnection(ipAddress: string, testType: 'ping' | 'snmp' | 'mikrotik' = 'ping'): Promise<TestConnectionResult> {
-    console.log(`Testing connection to ${ipAddress} using ${testType}`);
-    
-    // Simulate network test
-    const success = Math.random() > 0.2; // 80% success rate
-    const latency = success ? Math.floor(Math.random() * 50) + 10 : undefined;
-    
-    return {
-      success,
-      latency,
-      error: success ? undefined : 'Connection timeout',
-      isDemoResult: this.demoMode
-    };
+export class RealNetworkService {
+  constructor() {
+    console.log('RealNetworkService initialized');
   }
 
-  getDemoModeStatus(): boolean {
-    return this.demoMode;
-  }
+  async getNetworkEquipment(): Promise<NetworkDevice[]> {
+    try {
+      const { data, error } = await supabase
+        .from('equipment')
+        .select('*')
+        .eq('is_network_equipment', true);
 
-  async setupClientMonitoring(config: ClientMonitoringConfig): Promise<any> {
-    console.log('Setting up client monitoring:', config);
-    
-    // Create monitoring configuration in database
-    const { data, error } = await supabase
-      .from('bandwidth_statistics')
-      .insert({
-        client_id: config.clientId,
-        equipment_id: config.equipmentId || '',
-        timestamp: new Date().toISOString(),
-        in_octets: 0,
-        out_octets: 0,
-        in_packets: 0,
-        out_packets: 0
-      });
+      if (error) {
+        console.error('Error fetching network equipment:', error);
+        throw error;
+      }
 
-    if (error) {
-      console.error('Failed to setup monitoring:', error);
-      throw new Error('Failed to setup client monitoring');
-    }
+      if (!data) {
+        console.log('No network equipment found');
+        return [];
+      }
 
-    return {
-      success: true,
-      monitoringId: data && Array.isArray(data) ? data[0]?.id : data?.id,
-      config
-    };
-  }
-
-  async testClientConnectivity(config: ConnectivityTestConfig): Promise<ConnectivityTestResult> {
-    console.log('Testing client connectivity:', config);
-    
-    // Simulate connectivity tests
-    const results = config.testEndpoints.map(endpoint => ({
-      endpoint,
-      reachable: true,
-      latency: Math.floor(Math.random() * 50) + 10 // Random latency 10-60ms
-    }));
-
-    // Log connectivity test results
-    await supabase
-      .from('audit_logs')
-      .insert({
-        action: 'connectivity_test',
-        resource: 'client',
-        resource_id: config.clientId,
-        success: true,
-        changes: { testResults: results }
-      });
-
-    return {
-      success: true,
-      results
-    };
-  }
-
-  async getClientNetworkStats(clientId: string): Promise<any> {
-    const { data, error } = await supabase
-      .from('bandwidth_statistics')
-      .select('*')
-      .eq('client_id', clientId)
-      .order('timestamp', { ascending: false })
-      .limit(100);
-
-    if (error) {
-      console.error('Failed to get network stats:', error);
+      return data.map(item => ({
+        id: item.id,
+        name: item.name || 'Unknown Device',
+        type: item.category || 'unknown',
+        ipAddress: item.ip_address || '0.0.0.0',
+        status: item.status || 'unknown',
+        location: item.location || 'Unknown',
+        lastSeen: item.updated_at,
+        manufacturer: item.manufacturer || 'Unknown',
+        model: item.model || 'Unknown',
+        firmwareVersion: item.firmware_version || 'Unknown',
+        uptime: 0,
+        cpuUsage: 0,
+        memoryUsage: 0,
+        interfaces: []
+      }));
+    } catch (error) {
+      console.error('Error in getNetworkEquipment:', error);
       return [];
     }
-
-    return data || [];
   }
 
-  async updateClientBandwidth(clientId: string, uploadSpeed: string, downloadSpeed: string): Promise<boolean> {
-    console.log(`Updating bandwidth for client ${clientId}: ${uploadSpeed}/${downloadSpeed}`);
-    
-    // In a real implementation, this would update MikroTik queue configurations
-    // For now, we'll log the change
-    await supabase
-      .from('audit_logs')
-      .insert({
-        action: 'bandwidth_update',
-        resource: 'client',
-        resource_id: clientId,
-        success: true,
-        changes: { uploadSpeed, downloadSpeed }
-      });
+  async getNetworkDevice(id: string): Promise<NetworkDevice | null> {
+    try {
+      const { data, error } = await supabase
+        .from('equipment')
+        .select('*')
+        .eq('id', id)
+        .single();
 
-    return true;
+      if (error) {
+        console.error('Error fetching network equipment:', error);
+        throw error;
+      }
+
+      if (!data) {
+        console.log('No network equipment found with id:', id);
+        return null;
+      }
+
+      return {
+        id: data.id,
+        name: data.name || 'Unknown Device',
+        type: data.category || 'unknown',
+        ipAddress: data.ip_address || '0.0.0.0',
+        status: data.status || 'unknown',
+        location: data.location || 'Unknown',
+        lastSeen: data.updated_at,
+        manufacturer: data.manufacturer || 'Unknown',
+        model: data.model || 'Unknown',
+        firmwareVersion: data.firmware_version || 'Unknown',
+        uptime: 0,
+        cpuUsage: 0,
+        memoryUsage: 0,
+        interfaces: []
+      };
+    } catch (error) {
+      console.error('Error in getNetworkEquipment:', error);
+      return null;
+    }
   }
 
-  async disconnectClient(clientId: string): Promise<boolean> {
-    console.log(`Disconnecting client: ${clientId}`);
-    
-    // Log the disconnection
-    await supabase
-      .from('audit_logs')
-      .insert({
-        action: 'client_disconnect',
-        resource: 'client',
-        resource_id: clientId,
-        success: true
-      });
+  async simulateNetworkScan(): Promise<NetworkDevice[]> {
+    // Simulate fetching data from multiple sources
+    const devices: NetworkDevice[] = [
+      {
+        id: 'router-001',
+        name: 'Main Router',
+        type: 'router',
+        ipAddress: '192.168.1.1',
+        status: 'online',
+        location: 'Head Office',
+        lastSeen: new Date().toISOString(),
+        manufacturer: 'MikroTik',
+        model: 'RB4011iGS+',
+        firmwareVersion: '6.49.2',
+        uptime: 86400,
+        cpuUsage: 15,
+        memoryUsage: 60,
+        interfaces: [
+          { name: 'ether1', ipAddress: '192.168.1.1', macAddress: 'AA:BB:CC:DD:EE:01', speed: 1000, status: 'up' },
+          { name: 'ether2', ipAddress: '10.0.0.1', macAddress: 'AA:BB:CC:DD:EE:02', speed: 1000, status: 'up' }
+        ]
+      },
+      {
+        id: 'switch-001',
+        name: 'Core Switch',
+        type: 'switch',
+        ipAddress: '192.168.1.10',
+        status: 'online',
+        location: 'Server Room',
+        lastSeen: new Date().toISOString(),
+        manufacturer: 'Cisco',
+        model: 'Catalyst 2960',
+        firmwareVersion: '15.0(2)SE11',
+        uptime: 43200,
+        cpuUsage: 5,
+        memoryUsage: 30,
+        interfaces: [
+          { name: 'Gi0/1', ipAddress: '192.168.1.10', macAddress: 'FF:FF:CC:DD:EE:01', speed: 100, status: 'up' },
+          { name: 'Gi0/2', ipAddress: '192.168.1.11', macAddress: 'FF:FF:CC:DD:EE:02', speed: 100, status: 'up' }
+        ]
+      }
+    ];
 
-    return true;
+    return Promise.resolve(devices);
   }
 
-  async reconnectClient(clientId: string): Promise<boolean> {
-    console.log(`Reconnecting client: ${clientId}`);
-    
-    // Log the reconnection
-    await supabase
-      .from('audit_logs')
-      .insert({
-        action: 'client_reconnect',
-        resource: 'client',
-        resource_id: clientId,
-        success: true
-      });
+  async getClientDevices(): Promise<NetworkDevice[]> {
+    // Simulate fetching client-specific devices
+    const devices: NetworkDevice[] = [
+      {
+        id: 'client-001',
+        name: 'Client Router',
+        type: 'router',
+        ipAddress: '192.168.2.1',
+        status: 'online',
+        location: 'Client Premises',
+        lastSeen: new Date().toISOString(),
+        manufacturer: 'TP-Link',
+        model: 'Archer C7',
+        firmwareVersion: '3.16.0',
+        uptime: 20000,
+        cpuUsage: 10,
+        memoryUsage: 40,
+        interfaces: [
+          { name: 'WAN', ipAddress: '192.168.2.1', macAddress: 'BB:BB:CC:DD:EE:01', speed: 100, status: 'up' },
+          { name: 'LAN', ipAddress: '192.168.2.2', macAddress: 'BB:BB:CC:DD:EE:02', speed: 100, status: 'up' }
+        ]
+      }
+    ];
 
-    return true;
+    return Promise.resolve(devices);
   }
 }
 
 export const realNetworkService = new RealNetworkService();
-
-export const getMikroTikSystemInfo = async (): Promise<any> => {
-  try {
-    console.log('Fetching MikroTik system information...');
-    
-    // Use equipment table instead of network_devices
-    const { data, error } = await supabase
-      .from('equipment')
-      .select('*')
-      .eq('type', 'mikrotik')
-      .single();
-
-    if (error) {
-      console.error('Error fetching MikroTik info:', error);
-      // Return default values instead of throwing
-      return {
-        identity: 'No MikroTik Device',
-        version: 'Unknown',
-        uptime: '0s',
-        cpu_load: 0,
-        memory_usage: 0
-      };
-    }
-
-    // Handle null or missing data
-    if (!data) {
-      return {
-        identity: 'No MikroTik Device',
-        version: 'Unknown',
-        uptime: '0s',
-        cpu_load: 0,
-        memory_usage: 0
-      };
-    }
-
-    return {
-      identity: data.brand || 'MikroTik Router',
-      version: data.firmware_version || 'Unknown',
-      uptime: '24h 30m', // Static for demo
-      cpu_load: Math.floor(Math.random() * 30) + 10, // Random demo data
-      memory_usage: Math.floor(Math.random() * 50) + 20 // Random demo data
-    };
-  } catch (error) {
-    console.error('Error getting MikroTik system info:', error);
-    return {
-      identity: 'Error',
-      version: 'Unknown',
-      uptime: '0s',
-      cpu_load: 0,
-      memory_usage: 0
-    };
-  }
-};

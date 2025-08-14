@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -12,7 +11,11 @@ import AddInventoryItemDialog from './AddInventoryItemDialog';
 import EditInventoryItemDialog from './EditInventoryItemDialog';
 import InventoryItemDetail from './InventoryItemDetail';
 
-const InventoryListView: React.FC = () => {
+interface InventoryListViewProps {
+  initialFilter?: string;
+}
+
+const InventoryListView: React.FC<InventoryListViewProps> = ({ initialFilter = '' }) => {
   const { equipment, equipmentLoading, deleteEquipment } = useInventory();
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('all');
@@ -20,6 +23,13 @@ const InventoryListView: React.FC = () => {
   const [editDialogOpen, setEditDialogOpen] = useState(false);
   const [detailDialogOpen, setDetailDialogOpen] = useState(false);
   const [selectedItem, setSelectedItem] = useState<Equipment | null>(null);
+
+  // Apply initial filter if provided
+  React.useEffect(() => {
+    if (initialFilter) {
+      setSearchTerm(initialFilter);
+    }
+  }, [initialFilter]);
 
   const filteredEquipment = equipment.filter(item => {
     const matchesSearch = item.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||

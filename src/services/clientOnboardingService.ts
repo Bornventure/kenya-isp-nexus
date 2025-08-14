@@ -17,6 +17,10 @@ export interface OnboardingStep {
   status: 'pending' | 'in_progress' | 'completed' | 'failed';
   message?: string;
   timestamp?: string;
+  error?: string;
+  details?: string;
+  description?: string;
+  completedAt?: string;
 }
 
 export interface OnboardingResult {
@@ -55,7 +59,7 @@ export const createRadiusUser = async (clientData: any): Promise<RadiusUser> => 
       resource: 'radius_user',
       resource_id: radiusUser.id,
       success: true,
-      changes: radiusUser
+      changes: radiusUser as any
     })
     .select('*')
     .single();
@@ -91,7 +95,7 @@ export const updateClientProfile = async (clientId: string, updates: any): Promi
 
 export const createClientService = async (clientId: string, serviceData: any): Promise<any> => {
   try {
-    // Use client_service_assignments table instead of client_services
+    // Use client_service_assignments table
     const { data, error } = await supabase
       .from('client_service_assignments')
       .insert({
@@ -159,7 +163,7 @@ export const provisionClientOnMikroTik = async (clientData: any): Promise<boolea
         resource: 'client',
         resource_id: clientData.id,
         success: true,
-        changes: routerConfig
+        changes: routerConfig as any
       });
     
     // Simulate API call delay
@@ -192,7 +196,7 @@ export const sendWelcomeEmail = async (clientEmail: string): Promise<boolean> =>
         resource: 'email',
         resource_id: clientEmail,
         success: true,
-        changes: emailConfig
+        changes: emailConfig as any
       });
     
     // Simulate API call delay
@@ -227,7 +231,7 @@ export const createInitialInvoice = async (clientId: string): Promise<any> => {
         resource: 'invoice',
         resource_id: clientId,
         success: true,
-        changes: invoiceData
+        changes: invoiceData as any
       });
     
     // Simulate API call delay
@@ -243,11 +247,36 @@ export const createInitialInvoice = async (clientId: string): Promise<any> => {
 class ClientOnboardingService {
   async processClientOnboarding(clientId: string, equipmentId?: string): Promise<OnboardingResult> {
     const steps: OnboardingStep[] = [
-      { id: 'profile_update', name: 'Update Client Profile', status: 'pending' },
-      { id: 'radius_user', name: 'Create RADIUS User', status: 'pending' },
-      { id: 'mikrotik_provision', name: 'Provision MikroTik', status: 'pending' },
-      { id: 'welcome_email', name: 'Send Welcome Email', status: 'pending' },
-      { id: 'initial_invoice', name: 'Create Initial Invoice', status: 'pending' }
+      { 
+        id: 'profile_update', 
+        name: 'Update Client Profile', 
+        status: 'pending',
+        description: 'Updating client profile and status'
+      },
+      { 
+        id: 'radius_user', 
+        name: 'Create RADIUS User', 
+        status: 'pending',
+        description: 'Creating RADIUS authentication user'
+      },
+      { 
+        id: 'mikrotik_provision', 
+        name: 'Provision MikroTik', 
+        status: 'pending',
+        description: 'Configuring MikroTik router settings'
+      },
+      { 
+        id: 'welcome_email', 
+        name: 'Send Welcome Email', 
+        status: 'pending',
+        description: 'Sending welcome email to client'
+      },
+      { 
+        id: 'initial_invoice', 
+        name: 'Create Initial Invoice', 
+        status: 'pending',
+        description: 'Creating initial setup invoice'
+      }
     ];
 
     try {
@@ -266,31 +295,31 @@ class ClientOnboardingService {
       steps[0].status = 'in_progress';
       await updateClientProfile(clientId, { status: 'active' });
       steps[0].status = 'completed';
-      steps[0].timestamp = new Date().toISOString();
+      steps[0].completedAt = new Date().toISOString();
 
       // Step 2: Create RADIUS user
       steps[1].status = 'in_progress';
       await createRadiusUser(client);
       steps[1].status = 'completed';
-      steps[1].timestamp = new Date().toISOString();
+      steps[1].completedAt = new Date().toISOString();
 
       // Step 3: Provision MikroTik
       steps[2].status = 'in_progress';
       await provisionClientOnMikroTik(client);
       steps[2].status = 'completed';
-      steps[2].timestamp = new Date().toISOString();
+      steps[2].completedAt = new Date().toISOString();
 
       // Step 4: Send welcome email
       steps[3].status = 'in_progress';
       await sendWelcomeEmail(client.email);
       steps[3].status = 'completed';
-      steps[3].timestamp = new Date().toISOString();
+      steps[3].completedAt = new Date().toISOString();
 
       // Step 5: Create initial invoice
       steps[4].status = 'in_progress';
       await createInitialInvoice(clientId);
       steps[4].status = 'completed';
-      steps[4].timestamp = new Date().toISOString();
+      steps[4].completedAt = new Date().toISOString();
 
       return {
         success: true,
@@ -306,8 +335,8 @@ class ClientOnboardingService {
       const currentStep = steps.find(s => s.status === 'in_progress');
       if (currentStep) {
         currentStep.status = 'failed';
-        currentStep.message = error instanceof Error ? error.message : 'Unknown error';
-        currentStep.timestamp = new Date().toISOString();
+        currentStep.error = error instanceof Error ? error.message : 'Unknown error';
+        currentStep.completedAt = new Date().toISOString();
       }
 
       return {
