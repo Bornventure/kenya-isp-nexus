@@ -50,8 +50,8 @@ const EquipmentPage = () => {
   });
 
   const filteredEquipment = equipment.filter(item => {
-    const matchesSearch = item.model.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         item.serial_number.toLowerCase().includes(searchTerm.toLowerCase());
+    const matchesSearch = (item.model || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
+                         (item.serial_number || '').toLowerCase().includes(searchTerm.toLowerCase());
     const matchesType = typeFilter === 'all' || item.type === typeFilter;
     return matchesSearch && matchesType;
   });
@@ -209,7 +209,7 @@ const EquipmentPage = () => {
                 <div className="flex items-center gap-2">
                   {getTypeIcon(item.type)}
                   <div>
-                    <CardTitle className="text-lg">{item.model}</CardTitle>
+                    <CardTitle className="text-lg">{item.model || 'Unknown Model'}</CardTitle>
                     <p className="text-sm text-muted-foreground">
                       {item.type.replace('_', ' ').toUpperCase()}
                     </p>
@@ -241,7 +241,7 @@ const EquipmentPage = () => {
                 <div className="p-3 bg-muted rounded-lg">
                   <p className="font-medium text-sm">Assigned to:</p>
                   <p className="text-xs text-muted-foreground">
-                    {item.equipment_assignments[0].clients?.name}
+                    {item.equipment_assignments[0].clients?.name || 'Client Name'}
                   </p>
                 </div>
               )}

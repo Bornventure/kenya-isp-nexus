@@ -6,7 +6,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Switch } from '@/components/ui/switch';
-import { Textarea } from '@/components/ui/textarea';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { 
   Settings as SettingsIcon, 
   Router, 
@@ -57,7 +57,7 @@ const SettingsPage = () => {
 
   // SMS Configuration State
   const [smsConfig, setSmsConfig] = useState({
-    provider: 'africastalking',
+    provider: 'celcomafrica',
     api_key: '',
     username: '',
     sender_id: 'ISP_MGMT',
@@ -407,16 +407,17 @@ const SettingsPage = () => {
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div className="space-y-2">
                   <Label htmlFor="sms_provider">SMS Provider</Label>
-                  <select
-                    id="sms_provider"
-                    className="w-full p-2 border rounded-md"
-                    value={smsConfig.provider}
-                    onChange={(e) => setSmsConfig({...smsConfig, provider: e.target.value})}
-                  >
-                    <option value="africastalking">Africa's Talking</option>
-                    <option value="twilio">Twilio</option>
-                    <option value="nexmo">Nexmo</option>
-                  </select>
+                  <Select value={smsConfig.provider} onValueChange={(value) => setSmsConfig({...smsConfig, provider: value})}>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select SMS provider" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="celcomafrica">Celcom Africa</SelectItem>
+                      <SelectItem value="africastalking">Africa's Talking</SelectItem>
+                      <SelectItem value="twilio">Twilio</SelectItem>
+                      <SelectItem value="nexmo">Nexmo</SelectItem>
+                    </SelectContent>
+                  </Select>
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="sms_sender_id">Sender ID</Label>

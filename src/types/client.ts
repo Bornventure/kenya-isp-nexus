@@ -73,6 +73,26 @@ export interface Client {
     amount: number;
     method: 'mpesa' | 'bank' | 'cash';
   };
+  // Additional properties for client portal
+  payments?: Array<{
+    id: string;
+    amount: number;
+    date: string;
+    method: string;
+    status: string;
+  }>;
+  invoices?: Array<{
+    id: string;
+    amount: number;
+    dueDate: string;
+    status: string;
+  }>;
+  supportTickets?: Array<{
+    id: string;
+    subject: string;
+    status: string;
+    created_at: string;
+  }>;
 }
 
 export interface ServicePackage {
@@ -87,4 +107,10 @@ export interface ServicePackage {
   isp_company_id: string;
   created_at: string;
   updated_at: string;
+}
+
+export interface ClientLoginCredentials {
+  phone: string;
+  password?: string;
+  id_number: string;
 }
