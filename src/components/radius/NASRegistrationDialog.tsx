@@ -1,3 +1,4 @@
+
 import React from 'react';
 import {
   Dialog,
@@ -19,7 +20,7 @@ const NASRegistrationDialog: React.FC<NASRegistrationDialogProps> = ({
   onOpenChange,
   equipment
 }) => {
-  const { updateEquipment, isUpdating } = useUpdateInventoryItem();
+  const { mutate: updateEquipment, isPending: isUpdating } = useUpdateInventoryItem();
 
   const handleRegisterAsNAS = () => {
     updateEquipment({
