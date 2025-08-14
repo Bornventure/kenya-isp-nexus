@@ -1,4 +1,3 @@
-
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
@@ -31,9 +30,23 @@ export interface Equipment {
   approved_at: string | null;
   approval_status: string | null;
   base_station_id: string | null;
+  location: string | null;
+  firmware_version: string | null;
   clients?: {
     name: string;
   };
+  equipment_types?: {
+    name: string;
+    brand: string;
+    model: string;
+    device_type: string;
+  };
+  equipment_assignments?: Array<{
+    equipment: {
+      model: string;
+      serial_number: string;
+    };
+  }>;
 }
 
 export const useEquipment = () => {
@@ -79,7 +92,7 @@ export const useEquipment = () => {
         throw new Error('No ISP company associated with user');
       }
 
-      // Prepare the data with all required fields and defaults
+      // Prepare the data with database column names
       const completeEquipmentData = {
         type: equipmentData.type || '',
         brand: equipmentData.brand || null,
@@ -103,6 +116,8 @@ export const useEquipment = () => {
         approved_at: equipmentData.approved_at || null,
         approval_status: equipmentData.approval_status || 'pending',
         base_station_id: equipmentData.base_station_id || null,
+        location: equipmentData.location || null,
+        firmware_version: equipmentData.firmware_version || null,
         isp_company_id: profile.isp_company_id,
       };
 

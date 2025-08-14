@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -28,10 +27,10 @@ import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/hooks/use-toast';
 import { Client } from '@/types/client';
-import ClientRegistrationForm from '@/components/clients/registration/ClientRegistrationForm';
+import ClientRegistrationForm from '@/components/clients/ClientRegistrationForm';
 import ClientDetails from '@/components/clients/ClientDetails';
 
-const ClientsPage = () => {
+const Clients = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const [showRegistrationDialog, setShowRegistrationDialog] = useState(false);
@@ -180,13 +179,20 @@ const ClientsPage = () => {
 
   const getStatusColor = (status: string) => {
     switch (status) {
-      case 'active': return 'bg-green-100 text-green-800';
-      case 'suspended': return 'bg-red-100 text-red-800';
-      case 'pending': return 'bg-yellow-100 text-yellow-800';
-      case 'inactive': return 'bg-gray-100 text-gray-800';
-      case 'disconnected': return 'bg-orange-100 text-orange-800';
-      case 'approved': return 'bg-blue-100 text-blue-800';
-      default: return 'bg-gray-100 text-gray-800';
+      case 'active':
+        return 'bg-green-100 text-green-800';
+      case 'pending':
+        return 'bg-yellow-100 text-yellow-800';
+      case 'suspended':
+        return 'bg-red-100 text-red-800';
+      case 'disconnected':
+        return 'bg-gray-100 text-gray-800';
+      case 'approved':
+        return 'bg-blue-100 text-blue-800';
+      case 'inactive':
+        return 'bg-gray-100 text-gray-600';
+      default:
+        return 'bg-gray-100 text-gray-800';
     }
   };
 
@@ -483,4 +489,4 @@ const ClientsPage = () => {
   );
 };
 
-export default ClientsPage;
+export default Clients;

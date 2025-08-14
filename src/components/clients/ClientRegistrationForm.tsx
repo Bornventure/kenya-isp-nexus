@@ -25,7 +25,7 @@ const ClientRegistrationForm: React.FC<ClientRegistrationFormProps> = ({ onClose
     handleSubmit,
   } = useClientRegistrationForm({ onClose, onSave });
 
-  // Transform database format to component format
+  // Transform database format to component format for backward compatibility
   const transformedFormData = {
     name: formData.name,
     email: formData.email,
@@ -63,11 +63,6 @@ const ClientRegistrationForm: React.FC<ClientRegistrationFormProps> = ({ onClose
     updateFormData(dbField, value);
   };
 
-  console.log('Rendering ClientRegistrationForm');
-  console.log('Form data:', transformedFormData);
-  console.log('Errors:', errors);
-  console.log('Is submitting:', isSubmitting);
-
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
       <Card className="w-full max-w-4xl max-h-[90vh] overflow-y-auto">
@@ -94,7 +89,7 @@ const ClientRegistrationForm: React.FC<ClientRegistrationFormProps> = ({ onClose
               <h4 className="font-medium text-red-800 mb-2">Please fix the following errors:</h4>
               <ul className="list-disc list-inside text-sm text-red-600">
                 {Object.entries(errors).map(([field, message]) => (
-                  <li key={field}>{message}</li>
+                  <li key={field}>{String(message)}</li>
                 ))}
               </ul>
             </div>
@@ -132,7 +127,6 @@ const ClientRegistrationForm: React.FC<ClientRegistrationFormProps> = ({ onClose
                 type="submit" 
                 className="gap-2" 
                 disabled={isSubmitting || packagesLoading}
-                onClick={() => console.log('Submit button clicked')}
               >
                 {isSubmitting ? (
                   <Loader2 className="h-4 w-4 animate-spin" />
