@@ -4,7 +4,6 @@ import { useParams } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { 
@@ -41,9 +40,9 @@ const ClientDetailsPage = () => {
           *,
           service_packages (
             name,
-            price,
-            download_speed,
-            upload_speed
+            monthly_rate,
+            speed,
+            description
           )
         `)
         .eq('id', id)
@@ -240,12 +239,12 @@ const ClientDetailsPage = () => {
                     <p className="text-sm text-muted-foreground mb-2">Service Package</p>
                     <div className="grid grid-cols-2 gap-4">
                       <div>
-                        <p className="text-sm font-medium">Download Speed</p>
-                        <p className="text-lg">{client.service_packages.download_speed}</p>
+                        <p className="text-sm font-medium">Speed</p>
+                        <p className="text-lg">{client.service_packages.speed || 'N/A'}</p>
                       </div>
                       <div>
-                        <p className="text-sm font-medium">Upload Speed</p>
-                        <p className="text-lg">{client.service_packages.upload_speed}</p>
+                        <p className="text-sm font-medium">Monthly Rate</p>
+                        <p className="text-lg">KES {client.service_packages.monthly_rate?.toLocaleString() || '0'}</p>
                       </div>
                     </div>
                   </div>
@@ -317,7 +316,6 @@ const ClientDetailsPage = () => {
         <TabsContent value="onboarding">
           <ClientOnboardingManager 
             clientId={client.id}
-            clientData={client}
           />
         </TabsContent>
       </Tabs>

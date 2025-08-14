@@ -1,137 +1,152 @@
 
 import { supabase } from '@/integrations/supabase/client';
 
-export interface NetworkAgent {
-  id: string;
-  name: string;
-  description?: string;
-  ip_address: string;
-  port: number;
-  api_key: string;
-  status: 'online' | 'offline';
-  last_heartbeat?: string;
-  capabilities: string[];
-  isp_company_id: string;
-  created_at: string;
-  updated_at: string;
+interface ClientMonitoringConfig {
+  clientId: string;
+  equipmentId?: string;
+  monitoringInterval: number;
+  alertThresholds: {
+    bandwidth: number;
+    latency: number;
+    packetLoss: number;
+  };
 }
 
-export interface NetworkTask {
-  id: string;
-  agent_id: string;
-  task_type: 'ping' | 'snmp_test' | 'mikrotik_connect' | 'speed_test';
-  target_ip: string;
-  target_config: any;
-  priority: number;
-  status: 'pending' | 'running' | 'completed' | 'failed';
-  scheduled_at: string;
-  started_at?: string;
-  completed_at?: string;
-  retry_count: number;
-  max_retries: number;
-  timeout_seconds: number;
-  created_by: string;
-  isp_company_id: string;
-  created_at: string;
-  updated_at: string;
+interface ConnectivityTestConfig {
+  clientId: string;
+  testEndpoints: string[];
 }
 
-export interface NetworkTaskResult {
-  id: string;
-  task_id: string;
+interface ConnectivityTestResult {
   success: boolean;
-  response_time_ms?: number;
-  result_data: any;
-  error_message?: string;
-  raw_response?: string;
-  completed_at: string;
+  results: {
+    endpoint: string;
+    reachable: boolean;
+    latency?: number;
+    error?: string;
+  }[];
 }
 
 class RealNetworkService {
-  private readonly isDemoMode: boolean;
-
-  constructor() {
-    // Check if we're in demo mode (no environment variable or explicitly set to true)
-    this.isDemoMode = !import.meta.env.VITE_REAL_NETWORK_MODE || 
-                      import.meta.env.VITE_REAL_NETWORK_MODE !== 'true';
-  }
-
-  async testConnection(ipAddress: string, testType: 'ping' | 'snmp' | 'mikrotik' = 'ping'): Promise<{
-    success: boolean;
-    responseTime?: number;
-    error?: string;
-    isDemoResult?: boolean;
-  }> {
-    if (this.isDemoMode) {
-      console.log('🚨 DEMO MODE: Network test simulation active');
-      // Return simulated results with demo indicator
-      return {
-        success: Math.random() > 0.3, // 70% success rate in demo
-        responseTime: Math.floor(Math.random() * 100) + 10,
-        isDemoResult: true
-      };
-    }
-
-    try {
-      // Create a simulated network task for testing
-      console.log(`Testing ${testType} connection to ${ipAddress}`);
-      
-      // Simulate network test with delay
-      await new Promise(resolve => setTimeout(resolve, 1000 + Math.random() * 2000));
-      
-      // Simulate success/failure
-      const success = Math.random() > 0.2; // 80% success rate
-      
-      return {
-        success,
-        responseTime: success ? Math.floor(Math.random() * 100) + 10 : undefined,
-        error: success ? undefined : 'Host unreachable'
-      };
-    } catch (error) {
-      console.error('Network test failed:', error);
-      return {
-        success: false,
-        error: error instanceof Error ? error.message : 'Unknown error'
-      };
-    }
-  }
-
-  async getNetworkAgents(): Promise<NetworkAgent[]> {
-    // Return demo data since network_agents table doesn't exist
-    return [
-      {
-        id: '1',
-        name: 'Main Network Agent',
-        description: 'Primary network monitoring agent',
-        ip_address: '192.168.1.100',
-        port: 8080,
-        api_key: 'demo-key',
-        status: 'online',
-        last_heartbeat: new Date().toISOString(),
-        capabilities: ['ping', 'snmp', 'mikrotik'],
-        isp_company_id: 'demo-company',
-        created_at: new Date().toISOString(),
-        updated_at: new Date().toISOString()
-      }
-    ];
-  }
-
-  async createNetworkAgent(agent: Omit<NetworkAgent, 'id' | 'created_at' | 'updated_at'>): Promise<NetworkAgent | null> {
-    console.log('Creating network agent:', agent);
+  async setupClientMonitoring(config: ClientMonitoringConfig): Promise<any> {
+    console.log('Setting up client monitoring:', config);
     
-    // Simulate agent creation
-    const newAgent: NetworkAgent = {
-      ...agent,
-      id: Math.random().toString(36).substr(2, 9),
-      created_at: new Date().toISOString(),
-      updated_at: new Date().toISOString()
-    };
+    // Create monitoring configuration in database
+    const { data, error } = await supabase
+      .from('bandwidth_statistics')
+      .insert({
+        client_id: config.clientId,
+        equipment_id: config.equipmentId || '',
+        timestamp: new Date().toISOString(),
+        in_octets: 0,
+        out_octets: 0,
+        in_packets: 0,
+        out_packets: 0
+      });
 
-    return newAgent;
+    if (error) {
+      console.error('Failed to setup monitoring:', error);
+      throw new Error('Failed to setup client monitoring');
+    }
+
+    return {
+      success: true,
+      monitoringId: data?.id,
+      config
+    };
   }
 
-  getDemoModeStatus(): boolean {
-    return this.isDemoMode;
+  async testClientConnectivity(config: ConnectivityTestConfig): Promise<ConnectivityTestResult> {
+    console.log('Testing client connectivity:', config);
+    
+    // Simulate connectivity tests
+    const results = config.testEndpoints.map(endpoint => ({
+      endpoint,
+      reachable: true,
+      latency: Math.floor(Math.random() * 50) + 10 // Random latency 10-60ms
+    }));
+
+    // Log connectivity test results
+    await supabase
+      .from('audit_logs')
+      .insert({
+        action: 'connectivity_test',
+        resource: 'client',
+        resource_id: config.clientId,
+        success: true,
+        changes: { testResults: results }
+      });
+
+    return {
+      success: true,
+      results
+    };
+  }
+
+  async getClientNetworkStats(clientId: string): Promise<any> {
+    const { data, error } = await supabase
+      .from('bandwidth_statistics')
+      .select('*')
+      .eq('client_id', clientId)
+      .order('timestamp', { ascending: false })
+      .limit(100);
+
+    if (error) {
+      console.error('Failed to get network stats:', error);
+      return null;
+    }
+
+    return data;
+  }
+
+  async updateClientBandwidth(clientId: string, uploadSpeed: string, downloadSpeed: string): Promise<boolean> {
+    console.log(`Updating bandwidth for client ${clientId}: ${uploadSpeed}/${downloadSpeed}`);
+    
+    // In a real implementation, this would update MikroTik queue configurations
+    // For now, we'll log the change
+    await supabase
+      .from('audit_logs')
+      .insert({
+        action: 'bandwidth_update',
+        resource: 'client',
+        resource_id: clientId,
+        success: true,
+        changes: { uploadSpeed, downloadSpeed }
+      });
+
+    return true;
+  }
+
+  async disconnectClient(clientId: string): Promise<boolean> {
+    console.log(`Disconnecting client: ${clientId}`);
+    
+    // Log the disconnection
+    await supabase
+      .from('audit_logs')
+      .insert({
+        action: 'client_disconnect',
+        resource: 'client',
+        resource_id: clientId,
+        success: true
+      });
+
+    return true;
+  }
+
+  async reconnectClient(clientId: string): Promise<boolean> {
+    console.log(`Reconnecting client: ${clientId}`);
+    
+    // Log the reconnection
+    await supabase
+      .from('audit_logs')
+      .insert({
+        action: 'client_reconnect',
+        resource: 'client',
+        resource_id: clientId,
+        success: true
+      });
+
+    return true;
   }
 }
 

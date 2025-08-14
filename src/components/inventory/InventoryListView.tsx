@@ -1,327 +1,272 @@
+
 import React, { useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Badge } from '@/components/ui/badge';
-import { useInventoryItems, useDeleteInventoryItem } from '@/hooks/useInventory';
-import { Package, Search, Plus, Edit, Settings, Trash2 } from 'lucide-react';
-import AddInventoryItemDialog from './AddInventoryItemDialog';
-import EditInventoryItemDialog from './EditInventoryItemDialog';
-import AssignEquipmentDialog from './AssignEquipmentDialog';
+import { Input } from '@/components/ui/input';
 import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-  AlertDialogTrigger,
-} from "@/components/ui/alert-dialog";
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from '@/components/ui/table';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
+import { 
+  Search, 
+  Plus, 
+  Filter,
+  Package,
+  MapPin,
+  Calendar,
+  DollarSign,
+  AlertTriangle,
+  CheckCircle,
+  Clock,
+  Settings
+} from 'lucide-react';
+import { useInventoryItems } from '@/hooks/useInventory';
+import AddInventoryItemDialog from './AddInventoryItemDialog';
+import InventoryItemDetail from './InventoryItemDetail';
 
-interface InventoryListViewProps {
-  initialFilter?: string;
-}
-
-const InventoryListView: React.FC<InventoryListViewProps> = ({ 
-  initialFilter = '',
-}) => {
-  const [search, setSearch] = useState('');
-  const [categoryFilter, setCategoryFilter] = useState('all');
-  const [statusFilter, setStatusFilter] = useState('all');
+const InventoryListView = () => {
+  const [searchTerm, setSearchTerm] = useState('');
+  const [statusFilter, setStatusFilter] = useState<string>('');
+  const [categoryFilter, setCategoryFilter] = useState<string>('');
   const [showAddDialog, setShowAddDialog] = useState(false);
-  const [editingItem, setEditingItem] = useState<string | null>(null);
-  const [assigningItem, setAssigningItem] = useState<{ id: string; name: string } | null>(null);
+  const [selectedItemId, setSelectedItemId] = useState<string | null>(null);
 
-  const { mutate: deleteItem, isPending: isDeleting } = useDeleteInventoryItem();
+  const { data: items = [], isLoading } = useInventoryItems(
+    statusFilter ? { status: statusFilter } : undefined
+  );
 
-  // Set initial filters when component mounts or initialFilter changes
-  React.useEffect(() => {
-    if (initialFilter && initialFilter !== '') {
-      // Check if it's a status filter
-      const statuses = ['In Stock', 'Deployed', 'Maintenance', 'Out of Stock'];
-      if (statuses.includes(initialFilter)) {
-        setStatusFilter(initialFilter);
-        setCategoryFilter('all');
-      } else {
-        setCategoryFilter(initialFilter);
-        setStatusFilter('all');
-      }
-    }
-  }, [initialFilter]);
+  if (isLoading) {
+    return (
+      <Card>
+        <CardContent className="p-6">
+          <div className="animate-pulse space-y-4">
+            <div className="h-6 bg-gray-200 rounded w-1/4"></div>
+            <div className="h-4 bg-gray-200 rounded w-1/2"></div>
+            <div className="h-32 bg-gray-200 rounded"></div>
+          </div>
+        </CardContent>
+      </Card>
+    );
+  }
 
-  // Build filters object - only include non-"all" values
-  const filters = React.useMemo(() => {
-    const filterObj: { category?: string; status?: string; search?: string } = {};
+  const filteredItems = items.filter(item => {
+    const matchesSearch = !searchTerm || 
+      item.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      item.type?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      item.serial_number?.toLowerCase().includes(searchTerm.toLowerCase());
     
-    if (categoryFilter && categoryFilter !== 'all') {
-      filterObj.category = categoryFilter;
-    }
-    if (statusFilter && statusFilter !== 'all') {
-      filterObj.status = statusFilter;
-    }
-    if (search && search.trim()) {
-      filterObj.search = search.trim();
-    }
+    const matchesCategory = !categoryFilter || item.category === categoryFilter;
     
-    return filterObj;
-  }, [categoryFilter, statusFilter, search]);
+    return matchesSearch && matchesCategory;
+  });
 
-  const { data: items, isLoading, error } = useInventoryItems(filters);
-
-  const categories = ['Routers', 'Switches', 'Cables', 'Antennas', 'Power Supplies', 'Accessories'];
-  const statuses = ['In Stock', 'Deployed', 'Maintenance', 'Out of Stock'];
-
-  const handleItemAction = (itemId: string, action: 'edit' | 'assign' | 'delete') => {
-    const item = items?.find(i => i.id === itemId);
-    if (!item) return;
-
-    switch (action) {
-      case 'edit':
-        setEditingItem(itemId);
-        break;
-      case 'assign':
-        setAssigningItem({ id: itemId, name: item.name || item.model || 'Unnamed Item' });
-        break;
-      case 'delete':
-        deleteItem(itemId);
-        break;
+  const getStatusIcon = (status: string) => {
+    switch (status) {
+      case 'available':
+        return <CheckCircle className="h-4 w-4 text-green-500" />;
+      case 'deployed':
+        return <Package className="h-4 w-4 text-blue-500" />;
+      case 'maintenance':
+        return <Settings className="h-4 w-4 text-yellow-500" />;
+      case 'damaged':
+        return <AlertTriangle className="h-4 w-4 text-red-500" />;
+      default:
+        return <Clock className="h-4 w-4 text-gray-500" />;
     }
   };
 
-  const handleDeleteConfirm = (itemId: string) => {
-    deleteItem(itemId);
+  const getStatusColor = (status: string) => {
+    switch (status) {
+      case 'available':
+        return 'default';
+      case 'deployed':
+        return 'secondary';
+      case 'maintenance':
+        return 'outline';
+      case 'damaged':
+        return 'destructive';
+      default:
+        return 'secondary';
+    }
   };
+
+  const formatCurrency = (amount?: number) => {
+    if (!amount) return 'N/A';
+    return new Intl.NumberFormat('en-KE', {
+      style: 'currency',
+      currency: 'KES'
+    }).format(amount);
+  };
+
+  const formatDate = (dateString?: string) => {
+    if (!dateString) return 'N/A';
+    return new Date(dateString).toLocaleDateString();
+  };
+
+  if (selectedItemId) {
+    return (
+      <div>
+        <Button 
+          variant="outline" 
+          onClick={() => setSelectedItemId(null)}
+          className="mb-4"
+        >
+          ← Back to Inventory
+        </Button>
+        <InventoryItemDetail 
+          itemId={selectedItemId} 
+          onClose={() => setSelectedItemId(null)} 
+        />
+      </div>
+    );
+  }
+
+  const categories = [...new Set(items.map(item => item.category).filter(Boolean))];
 
   return (
-    <div className="space-y-6">
-      {/* Filters */}
-      <div className="flex flex-col sm:flex-row gap-4">
-        <div className="flex-1">
-          <div className="relative">
-            <Search className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
-            <Input
-              placeholder="Search inventory items..."
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              className="pl-10"
-            />
+    <>
+      <Card>
+        <CardHeader>
+          <div className="flex items-center justify-between">
+            <div>
+              <CardTitle className="flex items-center gap-2">
+                <Package className="h-5 w-5" />
+                Inventory Items ({filteredItems.length})
+              </CardTitle>
+            </div>
+            <Button onClick={() => setShowAddDialog(true)}>
+              <Plus className="h-4 w-4 mr-2" />
+              Add Item
+            </Button>
           </div>
-        </div>
-        
-        <Select value={categoryFilter} onValueChange={setCategoryFilter}>
-          <SelectTrigger className="w-48">
-            <SelectValue placeholder="All Categories" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">All Categories</SelectItem>
-            {categories.map((category) => (
-              <SelectItem key={category} value={category}>
-                {category}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
+        </CardHeader>
 
-        <Select value={statusFilter} onValueChange={setStatusFilter}>
-          <SelectTrigger className="w-48">
-            <SelectValue placeholder="All Statuses" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">All Statuses</SelectItem>
-            {statuses.map((status) => (
-              <SelectItem key={status} value={status}>
-                {status}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
+        <CardContent>
+          {/* Filters */}
+          <div className="flex flex-col sm:flex-row gap-4 mb-6">
+            <div className="relative flex-1">
+              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
+              <Input
+                placeholder="Search items..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                className="pl-10"
+              />
+            </div>
 
-        <Button onClick={() => setShowAddDialog(true)}>
-          <Plus className="h-4 w-4 mr-2" />
-          Add Item
-        </Button>
-      </div>
+            <Select value={statusFilter} onValueChange={setStatusFilter}>
+              <SelectTrigger className="w-full sm:w-48">
+                <SelectValue placeholder="Filter by status" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="">All Statuses</SelectItem>
+                <SelectItem value="available">Available</SelectItem>
+                <SelectItem value="deployed">Deployed</SelectItem>
+                <SelectItem value="maintenance">Maintenance</SelectItem>
+                <SelectItem value="damaged">Damaged</SelectItem>
+              </SelectContent>
+            </Select>
 
-      {/* Items Grid */}
-      {isLoading ? (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-          {[...Array(6)].map((_, i) => (
-            <Card key={i}>
-              <CardContent className="p-6">
-                <div className="animate-pulse space-y-4">
-                  <div className="h-4 bg-gray-200 rounded w-3/4"></div>
-                  <div className="h-3 bg-gray-200 rounded w-1/2"></div>
-                  <div className="h-3 bg-gray-200 rounded w-full"></div>
-                </div>
-              </CardContent>
-            </Card>
-          ))}
-        </div>
-      ) : error ? (
-        <Card>
-          <CardContent className="p-6 text-center">
-            <Package className="h-12 w-12 mx-auto mb-4 text-destructive opacity-50" />
-            <h3 className="text-lg font-medium mb-2">Error Loading Inventory</h3>
-            <p className="text-sm text-muted-foreground">
-              {error.message}
-            </p>
-          </CardContent>
-        </Card>
-      ) : items && items.length > 0 ? (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-          {items.map((item) => (
-            <Card key={item.id}>
-              <CardHeader className="pb-3">
-                <div className="flex justify-between items-start">
-                  <CardTitle className="text-lg">{item.name || item.model || 'Unnamed Item'}</CardTitle>
-                  <div className="flex gap-1">
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => handleItemAction(item.id, 'edit')}
-                    >
-                      <Edit className="h-4 w-4" />
-                    </Button>
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => handleItemAction(item.id, 'assign')}
-                    >
-                      <Settings className="h-4 w-4" />
-                    </Button>
-                    <AlertDialog>
-                      <AlertDialogTrigger asChild>
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          className="text-destructive hover:text-destructive"
-                          disabled={isDeleting}
-                        >
-                          <Trash2 className="h-4 w-4" />
-                        </Button>
-                      </AlertDialogTrigger>
-                      <AlertDialogContent>
-                        <AlertDialogHeader>
-                          <AlertDialogTitle>Are you sure?</AlertDialogTitle>
-                          <AlertDialogDescription>
-                            This will permanently delete the inventory item "{item.name || item.model || 'Unnamed Item'}". This action cannot be undone.
-                          </AlertDialogDescription>
-                        </AlertDialogHeader>
-                        <AlertDialogFooter>
-                          <AlertDialogCancel>Cancel</AlertDialogCancel>
-                          <AlertDialogAction 
-                            onClick={() => handleDeleteConfirm(item.id)}
-                            className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-                          >
-                            Delete
-                          </AlertDialogAction>
-                        </AlertDialogFooter>
-                      </AlertDialogContent>
-                    </AlertDialog>
-                  </div>
-                </div>
-              </CardHeader>
-              <CardContent className="space-y-3">
-                <div className="flex justify-between items-center">
-                  <span className="text-sm text-muted-foreground">Category:</span>
-                  <Badge variant="outline">{item.category}</Badge>
-                </div>
-                
-                <div className="flex justify-between items-center">
-                  <span className="text-sm text-muted-foreground">Status:</span>
-                  <Badge 
-                    variant={
-                      item.status === 'In Stock' ? 'default' :
-                      item.status === 'Deployed' ? 'secondary' :
-                      item.status === 'Maintenance' ? 'destructive' :
-                      'outline'
-                    }
-                  >
-                    {item.status}
-                  </Badge>
-                </div>
-                
-                <div className="flex justify-between items-center">
-                  <span className="text-sm text-muted-foreground">Stock Qty:</span>
-                  <span className="font-medium">{item.quantity_in_stock || 1}</span>
-                </div>
-                
-                {item.serial_number && (
-                  <div className="flex justify-between items-center">
-                    <span className="text-sm text-muted-foreground">Serial:</span>
-                    <span className="text-sm font-mono">{item.serial_number}</span>
-                  </div>
-                )}
-                
-                {item.location && (
-                  <div className="flex justify-between items-center">
-                    <span className="text-sm text-muted-foreground">Location:</span>
-                    <span className="text-sm">{item.location}</span>
-                  </div>
-                )}
-                
-                {item.notes && (
-                  <p className="text-xs text-muted-foreground mt-2 line-clamp-2">
-                    {item.notes}
-                  </p>
-                )}
-              </CardContent>
-            </Card>
-          ))}
-        </div>
-      ) : (
-        <Card>
-          <CardContent className="p-12 text-center">
-            <Package className="h-12 w-12 mx-auto mb-4 opacity-50" />
-            <h3 className="text-lg font-medium mb-2">No inventory items found</h3>
-            <p className="text-sm text-muted-foreground mb-4">
-              {search || categoryFilter !== 'all' || statusFilter !== 'all'
-                ? 'Try adjusting your search or filters'
-                : 'Click "Add Item" to get started'
-              }
-            </p>
-            {(search || categoryFilter !== 'all' || statusFilter !== 'all') && (
-              <Button
-                variant="outline"
-                onClick={() => {
-                  setSearch('');
-                  setCategoryFilter('all');
-                  setStatusFilter('all');
-                }}
-              >
-                Clear Filters
-              </Button>
-            )}
-          </CardContent>
-        </Card>
-      )}
+            <Select value={categoryFilter} onValueChange={setCategoryFilter}>
+              <SelectTrigger className="w-full sm:w-48">
+                <SelectValue placeholder="Filter by category" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="">All Categories</SelectItem>
+                {categories.map(category => (
+                  <SelectItem key={category} value={category || ''}>
+                    {category}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
 
-      {/* Dialogs */}
+          {filteredItems.length > 0 ? (
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Item</TableHead>
+                  <TableHead>Category</TableHead>
+                  <TableHead>Serial Number</TableHead>
+                  <TableHead>Status</TableHead>
+                  <TableHead>Cost</TableHead>
+                  <TableHead>Purchase Date</TableHead>
+                  <TableHead>Actions</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {filteredItems.map((item) => (
+                  <TableRow key={item.id}>
+                    <TableCell>
+                      <div>
+                        <div className="font-medium">{item.name || item.type}</div>
+                        <div className="text-sm text-muted-foreground">
+                          {item.manufacturer} {item.model}
+                        </div>
+                      </div>
+                    </TableCell>
+                    <TableCell>
+                      <Badge variant="outline">{item.category || 'Uncategorized'}</Badge>
+                    </TableCell>
+                    <TableCell className="font-mono text-sm">
+                      {item.serial_number || '-'}
+                    </TableCell>
+                    <TableCell>
+                      <div className="flex items-center gap-2">
+                        {getStatusIcon(item.status)}
+                        <Badge variant={getStatusColor(item.status)}>
+                          {item.status}
+                        </Badge>
+                      </div>
+                    </TableCell>
+                    <TableCell>{formatCurrency(item.cost)}</TableCell>
+                    <TableCell>{formatDate(item.purchase_date)}</TableCell>
+                    <TableCell>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => setSelectedItemId(item.id)}
+                      >
+                        View Details
+                      </Button>
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          ) : (
+            <div className="text-center py-8 text-muted-foreground">
+              <Package className="h-12 w-12 mx-auto mb-4 opacity-50" />
+              <p>No inventory items found</p>
+              <p className="text-sm">
+                {searchTerm || statusFilter || categoryFilter
+                  ? 'Try adjusting your filters'
+                  : 'Click "Add Item" to get started'
+                }
+              </p>
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
       <AddInventoryItemDialog
         open={showAddDialog}
         onOpenChange={setShowAddDialog}
       />
-
-      {editingItem && (
-        <EditInventoryItemDialog
-          itemId={editingItem}
-          open={!!editingItem}
-          onOpenChange={() => setEditingItem(null)}
-        />
-      )}
-
-      {assigningItem && (
-        <AssignEquipmentDialog
-          open={!!assigningItem}
-          onOpenChange={() => setAssigningItem(null)}
-          clientId=""
-          clientName=""
-        />
-      )}
-    </div>
+    </>
   );
 };
 
