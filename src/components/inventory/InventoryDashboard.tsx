@@ -1,45 +1,37 @@
 
 import React from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
 import { 
   Package, 
   AlertTriangle, 
-  CheckCircle, 
-  Settings, 
-  Eye,
-  TrendingUp,
-  Boxes
+  TrendingUp, 
+  Activity,
+  Plus,
+  Search,
+  Filter
 } from 'lucide-react';
 import { useInventoryStats } from '@/hooks/useInventory';
-import InventoryLowStockOverview from './InventoryLowStockOverview';
 
 interface InventoryDashboardProps {
   onFilterByStatus: (status: string) => void;
   onViewItem: (itemId: string) => void;
 }
 
-const InventoryDashboard: React.FC<InventoryDashboardProps> = ({ 
-  onFilterByStatus, 
-  onViewItem 
+const InventoryDashboard: React.FC<InventoryDashboardProps> = ({
+  onFilterByStatus,
+  onViewItem
 }) => {
   const { data: stats, isLoading } = useInventoryStats();
 
-  const handleViewLowStock = () => {
-    onFilterByStatus('low-stock');
-  };
-
   if (isLoading) {
     return (
-      <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-4">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
         {[1, 2, 3, 4].map((i) => (
-          <Card key={i}>
+          <Card key={i} className="animate-pulse">
             <CardContent className="p-6">
-              <div className="animate-pulse space-y-2">
-                <div className="h-4 bg-muted rounded w-3/4"></div>
-                <div className="h-8 bg-muted rounded w-1/2"></div>
-              </div>
+              <div className="h-16 bg-gray-200 rounded"></div>
             </CardContent>
           </Card>
         ))}
@@ -47,104 +39,148 @@ const InventoryDashboard: React.FC<InventoryDashboardProps> = ({
     );
   }
 
-  const statusCards = [
+  const dashboardStats = [
     {
       title: 'Total Items',
-      value: stats?.total || 0,
+      value: stats?.totalItems || 0,
       icon: Package,
       color: 'text-blue-600',
-      bgColor: 'bg-blue-50',
-      action: () => onFilterByStatus('')
+      bgColor: 'bg-blue-100',
+      status: ''
     },
     {
       title: 'In Stock',
-      value: stats?.in_stock || 0,
-      icon: CheckCircle,
+      value: stats?.inStock || 0,
+      icon: TrendingUp,
       color: 'text-green-600',
-      bgColor: 'bg-green-50',
-      action: () => onFilterByStatus('In Stock')
+      bgColor: 'bg-green-100',
+      status: 'In Stock'
     },
     {
       title: 'Deployed',
       value: stats?.deployed || 0,
-      icon: TrendingUp,
-      color: 'text-blue-600',
-      bgColor: 'bg-blue-50',
-      action: () => onFilterByStatus('Deployed')
+      icon: Activity,
+      color: 'text-purple-600',
+      bgColor: 'bg-purple-100',
+      status: 'Deployed'
     },
     {
       title: 'Maintenance',
       value: stats?.maintenance || 0,
-      icon: Settings,
+      icon: AlertTriangle,
       color: 'text-orange-600',
-      bgColor: 'bg-orange-50',
-      action: () => onFilterByStatus('Maintenance')
+      bgColor: 'bg-orange-100',
+      status: 'Maintenance'
     }
   ];
 
   return (
     <div className="space-y-6">
-      {/* Status Overview Cards */}
-      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-        {statusCards.map((card) => {
-          const Icon = card.icon;
-          return (
-            <Card key={card.title} className="cursor-pointer hover:shadow-md transition-shadow" onClick={card.action}>
-              <CardContent className="p-6">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="text-sm font-medium text-muted-foreground">
-                      {card.title}
-                    </p>
-                    <p className="text-2xl font-bold">{card.value}</p>
-                  </div>
-                  <div className={`p-2 rounded-lg ${card.bgColor}`}>
-                    <Icon className={`h-5 w-5 ${card.color}`} />
-                  </div>
+      {/* Stats Cards */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+        {dashboardStats.map((stat, index) => (
+          <Card 
+            key={index}
+            className="cursor-pointer hover:shadow-md transition-shadow"
+            onClick={() => onFilterByStatus(stat.status)}
+          >
+            <CardContent className="p-6">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm font-medium text-gray-600">{stat.title}</p>
+                  <p className="text-2xl font-bold">{stat.value}</p>
                 </div>
-              </CardContent>
-            </Card>
-          );
-        })}
+                <div className={`p-3 rounded-full ${stat.bgColor}`}>
+                  <stat.icon className={`h-6 w-6 ${stat.color}`} />
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        ))}
       </div>
 
-      {/* Category Breakdown and Low Stock */}
-      <div className="grid gap-6 md:grid-cols-2">
-        {/* Category Breakdown */}
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <Boxes className="h-5 w-5" />
-              Inventory by Category
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-3">
-              {stats?.by_category && Object.entries(stats.by_category).length > 0 ? (
-                Object.entries(stats.by_category).map(([category, count]) => (
-                  <div key={category} className="flex items-center justify-between p-2 bg-gray-50 rounded">
-                    <span className="font-medium">{category}</span>
-                    <Badge variant="secondary">{count}</Badge>
-                  </div>
-                ))
-              ) : (
-                <div className="space-y-2">
-                  <div className="flex items-center justify-between p-2 bg-gray-50 rounded">
-                    <span className="font-medium">CPE</span>
-                    <Badge variant="secondary">1</Badge>
-                  </div>
-                  <p className="text-xs text-muted-foreground text-center mt-2">
-                    Default categories shown - add inventory items to see actual data
-                  </p>
-                </div>
-              )}
+      {/* Quick Actions */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center justify-between">
+            <span>Quick Actions</span>
+            <div className="flex gap-2">
+              <Button variant="outline" size="sm">
+                <Search className="h-4 w-4 mr-2" />
+                Search
+              </Button>
+              <Button variant="outline" size="sm">
+                <Filter className="h-4 w-4 mr-2" />
+                Filter
+              </Button>
+              <Button size="sm">
+                <Plus className="h-4 w-4 mr-2" />
+                Add Item
+              </Button>
             </div>
-          </CardContent>
-        </Card>
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <Button 
+              variant="outline" 
+              className="h-20 flex flex-col items-center justify-center gap-2"
+              onClick={() => onFilterByStatus('low-stock')}
+            >
+              <AlertTriangle className="h-6 w-6 text-orange-500" />
+              <span>Low Stock Items</span>
+            </Button>
+            <Button 
+              variant="outline" 
+              className="h-20 flex flex-col items-center justify-center gap-2"
+              onClick={() => onFilterByStatus('')}
+            >
+              <Package className="h-6 w-6 text-blue-500" />
+              <span>All Inventory</span>
+            </Button>
+            <Button 
+              variant="outline" 
+              className="h-20 flex flex-col items-center justify-center gap-2"
+              onClick={() => onFilterByStatus('Maintenance')}
+            >
+              <Activity className="h-6 w-6 text-red-500" />
+              <span>Maintenance Items</span>
+            </Button>
+          </div>
+        </CardContent>
+      </Card>
 
-        {/* Low Stock Overview */}
-        <InventoryLowStockOverview onViewLowStock={handleViewLowStock} />
-      </div>
+      {/* Recent Activity */}
+      <Card>
+        <CardHeader>
+          <CardTitle>Recent Activity</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="space-y-4">
+            <div className="flex items-center justify-between py-2 border-b">
+              <div className="flex items-center gap-3">
+                <Badge variant="secondary">NEW</Badge>
+                <span className="text-sm">Router RT-001 added to inventory</span>
+              </div>
+              <span className="text-xs text-gray-500">2 hours ago</span>
+            </div>
+            <div className="flex items-center justify-between py-2 border-b">
+              <div className="flex items-center gap-3">
+                <Badge variant="destructive">DEPLOYED</Badge>
+                <span className="text-sm">Switch SW-005 deployed to client</span>
+              </div>
+              <span className="text-xs text-gray-500">4 hours ago</span>
+            </div>
+            <div className="flex items-center justify-between py-2">
+              <div className="flex items-center gap-3">
+                <Badge variant="outline">MAINTENANCE</Badge>
+                <span className="text-sm">ONT ONT-123 scheduled for maintenance</span>
+              </div>
+              <span className="text-xs text-gray-500">1 day ago</span>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
     </div>
   );
 };

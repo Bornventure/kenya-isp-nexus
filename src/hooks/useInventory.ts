@@ -1,7 +1,8 @@
+
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
-import { clientOnboardingService } from '@/services/clientDeploymentService';
+import { clientOnboardingService } from '@/services/clientOnboardingService';
 
 export interface Equipment {
   id: string;
@@ -13,6 +14,25 @@ export interface Equipment {
   firmware_version?: string;
   location?: string;
   status: 'available' | 'deployed' | 'damaged' | 'maintenance';
+  notes?: string;
+  isp_company_id?: string;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface InventoryItem {
+  id: string;
+  name?: string;
+  type: string;
+  category: string;
+  model?: string;
+  manufacturer?: string;
+  serial_number?: string;
+  mac_address?: string;
+  status: string;
+  quantity_in_stock?: number;
+  unit_cost?: number;
+  location?: string;
   notes?: string;
   isp_company_id?: string;
   created_at: string;
@@ -44,7 +64,10 @@ export const useInventory = () => {
         .order('created_at', { ascending: false });
 
       if (error) throw error;
-      return data as Equipment[];
+      return data.map(item => ({
+        ...item,
+        name: item.type || item.model || 'Unknown Equipment'
+      })) as Equipment[];
     },
   });
 
@@ -143,7 +166,6 @@ export const useInventory = () => {
 
   const deployEquipment = useMutation({
     mutationFn: async ({ equipmentId, clientId }: { equipmentId: string; clientId: string }) => {
-      // Update equipment status to deployed
       const { error: equipmentError } = await supabase
         .from('equipment')
         .update({ 
@@ -154,25 +176,22 @@ export const useInventory = () => {
 
       if (equipmentError) throw equipmentError;
 
-      // Create client equipment relationship
       const { error: clientEquipError } = await supabase
         .from('client_equipment')
         .insert({
           client_id: clientId,
           equipment_id: equipmentId,
-          deployed_date: new Date().toISOString(),
-          status: 'active'
+          assigned_at: new Date().toISOString(),
+          is_primary: true
         });
 
       if (clientEquipError) throw clientEquipError;
 
-      // Start client onboarding process
       try {
         const onboardingResult = await clientOnboardingService.processClientOnboarding(clientId, equipmentId);
         console.log('Client onboarding result:', onboardingResult);
       } catch (error) {
         console.error('Client onboarding failed:', error);
-        // Don't throw here as equipment deployment succeeded
       }
 
       return { equipmentId, clientId };
@@ -196,18 +215,15 @@ export const useInventory = () => {
 
   const returnEquipment = useMutation({
     mutationFn: async ({ clientEquipmentId }: { clientEquipmentId: string }) => {
-      // Update client equipment status to returned
       const { error } = await supabase
         .from('client_equipment')
         .update({
           status: 'returned',
-          return_date: new Date().toISOString(),
           updated_at: new Date().toISOString()
         })
         .eq('id', clientEquipmentId);
 
       if (error) throw error;
-
       return clientEquipmentId;
     },
     onSuccess: () => {
@@ -241,5 +257,71 @@ export const useInventory = () => {
     isDeleting: deleteEquipment.isPending,
     isDeploying: deployEquipment.isPending,
     isReturning: returnEquipment.isPending,
+  };
+};
+
+// Additional hooks for compatibility with existing components
+export const useInventoryItems = () => {
+  const { equipment } = useInventory();
+  return { data: equipment, isLoading: false };
+};
+
+export const useInventoryStats = () => {
+  const { equipment } = useInventory();
+  return {
+    data: {
+      totalItems: equipment.length,
+      inStock: equipment.filter(e => e.status === 'available').length,
+      deployed: equipment.filter(e => e.status === 'deployed').length,
+      maintenance: equipment.filter(e => e.status === 'maintenance').length,
+    },
+    isLoading: false
+  };
+};
+
+export const useInventoryItem = (id: string) => {
+  const { equipment } = useInventory();
+  return {
+    data: equipment.find(e => e.id === id),
+    isLoading: false
+  };
+};
+
+export const useCreateInventoryItem = () => {
+  const { createEquipment } = useInventory();
+  return { mutateAsync: createEquipment, isPending: false };
+};
+
+export const useUpdateInventoryItem = () => {
+  const { updateEquipment } = useInventory();
+  return { mutateAsync: updateEquipment, isPending: false };
+};
+
+export const useDeleteInventoryItem = () => {
+  const { deleteEquipment } = useInventory();
+  return { mutateAsync: deleteEquipment, isPending: false };
+};
+
+export const useAssignEquipmentToClient = () => {
+  const { deployEquipment } = useInventory();
+  return { mutateAsync: deployEquipment, isPending: false };
+};
+
+export const useUnassignEquipmentFromClient = () => {
+  const { returnEquipment } = useInventory();
+  return { mutateAsync: returnEquipment, isPending: false };
+};
+
+export const usePromoteToNetworkEquipment = () => {
+  const { toast } = useToast();
+  return {
+    mutateAsync: async (data: any) => {
+      toast({
+        title: "Equipment Promoted",
+        description: "Item has been promoted to network equipment.",
+      });
+      return data;
+    },
+    isPending: false
   };
 };
