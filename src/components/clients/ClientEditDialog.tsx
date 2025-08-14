@@ -13,12 +13,18 @@ import type { ClientType, ConnectionType, ClientStatus } from '@/types/client';
 interface ClientEditDialogProps {
   client: DatabaseClient | null;
   open: boolean;
-  onClose: () => void;
+  onOpenChange: (open: boolean) => void;
+  onSave?: (id: string, updates: any) => void;
 }
 
-export const ClientEditDialog: React.FC<ClientEditDialogProps> = ({ client, open, onClose }) => {
+const ClientEditDialog: React.FC<ClientEditDialogProps> = ({ 
+  client, 
+  open, 
+  onOpenChange,
+  onSave 
+}) => {
   const { updateClient } = useClients();
-  const { packages } = useServicePackages();
+  const { servicePackages } = useServicePackages();
   
   const [formData, setFormData] = useState({
     name: '',
@@ -66,11 +72,15 @@ export const ClientEditDialog: React.FC<ClientEditDialogProps> = ({ client, open
     e.preventDefault();
     if (!client) return;
 
-    updateClient({
-      id: client.id,
-      updates: formData
-    });
-    onClose();
+    if (onSave) {
+      onSave(client.id, formData);
+    } else {
+      updateClient({
+        id: client.id,
+        updates: formData
+      });
+    }
+    onOpenChange(false);
   };
 
   const handleInputChange = (field: string, value: any) => {
@@ -78,7 +88,7 @@ export const ClientEditDialog: React.FC<ClientEditDialogProps> = ({ client, open
   };
 
   return (
-    <Dialog open={open} onOpenChange={onClose}>
+    <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>Edit Client</DialogTitle>
@@ -207,7 +217,7 @@ export const ClientEditDialog: React.FC<ClientEditDialogProps> = ({ client, open
                   <SelectValue placeholder="Select package" />
                 </SelectTrigger>
                 <SelectContent>
-                  {packages.map((pkg) => (
+                  {servicePackages.map((pkg) => (
                     <SelectItem key={pkg.id} value={pkg.id}>
                       {pkg.name} - KES {pkg.monthly_rate}
                     </SelectItem>
@@ -230,7 +240,7 @@ export const ClientEditDialog: React.FC<ClientEditDialogProps> = ({ client, open
           </div>
 
           <div className="flex justify-end space-x-2 pt-4">
-            <Button type="button" variant="outline" onClick={onClose}>
+            <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
               Cancel
             </Button>
             <Button type="submit">
@@ -242,3 +252,5 @@ export const ClientEditDialog: React.FC<ClientEditDialogProps> = ({ client, open
     </Dialog>
   );
 };
+
+export default ClientEditDialog;

@@ -4,8 +4,9 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/u
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
-import { useMikrotikRouters } from '@/hooks/useMikrotikRouters';
+import { useRouters } from '@/hooks/useRouters';
 
 interface AddRouterDialogProps {
   open: boolean;
@@ -13,37 +14,50 @@ interface AddRouterDialogProps {
 }
 
 const AddRouterDialog: React.FC<AddRouterDialogProps> = ({ open, onClose }) => {
-  const { createRouter } = useMikrotikRouters();
+  const { createRouter } = useRouters();
   
   const [formData, setFormData] = useState({
     name: '',
     ip_address: '',
-    admin_username: 'admin',
+    admin_username: '',
     admin_password: '',
     snmp_community: 'public',
     snmp_version: 2,
-    pppoe_interface: 'pppoe-server1',
+    pppoe_interface: 'ether1',
     dns_servers: '8.8.8.8,8.8.4.4',
-    client_network: '10.0.0.0/24',
-    gateway: '',
+    client_network: '192.168.1.0/24',
+    gateway: '192.168.1.1',
+    status: 'offline' as const,
+    connection_status: 'disconnected' as const,
+    last_test_results: '',
   });
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    createRouter(formData);
-    onClose();
+    
+    createRouter({
+      ...formData,
+      snmp_version: Number(formData.snmp_version),
+    });
+    
+    // Reset form
     setFormData({
       name: '',
       ip_address: '',
-      admin_username: 'admin',
+      admin_username: '',
       admin_password: '',
       snmp_community: 'public',
       snmp_version: 2,
-      pppoe_interface: 'pppoe-server1',
+      pppoe_interface: 'ether1',
       dns_servers: '8.8.8.8,8.8.4.4',
-      client_network: '10.0.0.0/24',
-      gateway: '',
+      client_network: '192.168.1.0/24',
+      gateway: '192.168.1.1',
+      status: 'offline',
+      connection_status: 'disconnected',
+      last_test_results: '',
     });
+    
+    onClose();
   };
 
   const handleInputChange = (field: string, value: any) => {
@@ -52,7 +66,7 @@ const AddRouterDialog: React.FC<AddRouterDialogProps> = ({ open, onClose }) => {
 
   return (
     <Dialog open={open} onOpenChange={onClose}>
-      <DialogContent className="max-w-2xl">
+      <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>Add MikroTik Router</DialogTitle>
         </DialogHeader>
@@ -75,19 +89,20 @@ const AddRouterDialog: React.FC<AddRouterDialogProps> = ({ open, onClose }) => {
                 id="ip_address"
                 value={formData.ip_address}
                 onChange={(e) => handleInputChange('ip_address', e.target.value)}
-                placeholder="192.168.1.1"
                 required
+                placeholder="192.168.1.1"
               />
             </div>
           </div>
 
           <div className="grid grid-cols-2 gap-4">
             <div>
-              <Label htmlFor="admin_username">Admin Username</Label>
+              <Label htmlFor="admin_username">Admin Username *</Label>
               <Input
                 id="admin_username"
                 value={formData.admin_username}
                 onChange={(e) => handleInputChange('admin_username', e.target.value)}
+                required
               />
             </div>
             
@@ -114,15 +129,17 @@ const AddRouterDialog: React.FC<AddRouterDialogProps> = ({ open, onClose }) => {
             </div>
             
             <div>
-              <Label htmlFor="snmp_version">SNMP Version</Label>
-              <Input
-                id="snmp_version"
-                type="number"
-                value={formData.snmp_version}
-                onChange={(e) => handleInputChange('snmp_version', parseInt(e.target.value))}
-                min="1"
-                max="3"
-              />
+              <Label>SNMP Version</Label>
+              <Select value={formData.snmp_version.toString()} onValueChange={(value) => handleInputChange('snmp_version', parseInt(value))}>
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="1">v1</SelectItem>
+                  <SelectItem value="2">v2c</SelectItem>
+                  <SelectItem value="3">v3</SelectItem>
+                </SelectContent>
+              </Select>
             </div>
           </div>
 
@@ -137,24 +154,24 @@ const AddRouterDialog: React.FC<AddRouterDialogProps> = ({ open, onClose }) => {
             </div>
             
             <div>
-              <Label htmlFor="client_network">Client Network</Label>
-              <Input
-                id="client_network"
-                value={formData.client_network}
-                onChange={(e) => handleInputChange('client_network', e.target.value)}
-                placeholder="10.0.0.0/24"
-              />
-            </div>
-          </div>
-
-          <div className="grid grid-cols-2 gap-4">
-            <div>
               <Label htmlFor="dns_servers">DNS Servers</Label>
               <Input
                 id="dns_servers"
                 value={formData.dns_servers}
                 onChange={(e) => handleInputChange('dns_servers', e.target.value)}
                 placeholder="8.8.8.8,8.8.4.4"
+              />
+            </div>
+          </div>
+
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <Label htmlFor="client_network">Client Network</Label>
+              <Input
+                id="client_network"
+                value={formData.client_network}
+                onChange={(e) => handleInputChange('client_network', e.target.value)}
+                placeholder="192.168.1.0/24"
               />
             </div>
             
@@ -164,9 +181,20 @@ const AddRouterDialog: React.FC<AddRouterDialogProps> = ({ open, onClose }) => {
                 id="gateway"
                 value={formData.gateway}
                 onChange={(e) => handleInputChange('gateway', e.target.value)}
-                placeholder="Will auto-generate if empty"
+                placeholder="192.168.1.1"
               />
             </div>
+          </div>
+
+          <div>
+            <Label htmlFor="last_test_results">Notes</Label>
+            <Textarea
+              id="last_test_results"
+              value={formData.last_test_results}
+              onChange={(e) => handleInputChange('last_test_results', e.target.value)}
+              rows={3}
+              placeholder="Additional notes about this router..."
+            />
           </div>
 
           <div className="flex justify-end space-x-2 pt-4">

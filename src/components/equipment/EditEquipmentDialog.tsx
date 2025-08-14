@@ -7,7 +7,6 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
 import { useEquipment, type Equipment } from '@/hooks/useEquipment';
-import type { EquipmentStatus } from '@/types/client';
 
 interface EditEquipmentDialogProps {
   equipment: Equipment | null;
@@ -15,37 +14,41 @@ interface EditEquipmentDialogProps {
   onClose: () => void;
 }
 
-export const EditEquipmentDialog: React.FC<EditEquipmentDialogProps> = ({ equipment, open, onClose }) => {
+const EditEquipmentDialog: React.FC<EditEquipmentDialogProps> = ({ 
+  equipment, 
+  open, 
+  onClose 
+}) => {
   const { updateEquipment } = useEquipment();
   
   const [formData, setFormData] = useState({
+    name: '',
     type: '',
-    brand: '',
+    manufacturer: '',
     model: '',
     serial_number: '',
     mac_address: '',
-    ip_address: '',
+    status: 'available' as const,
     location: '',
-    status: 'available' as EquipmentStatus,
+    purchase_date: '',
+    warranty_expiry: '',
     notes: '',
-    snmp_community: 'public',
-    snmp_version: 2,
   });
 
   useEffect(() => {
     if (equipment) {
       setFormData({
+        name: equipment.name || '',
         type: equipment.type || '',
-        brand: equipment.brand || '',
+        manufacturer: equipment.manufacturer || '',
         model: equipment.model || '',
         serial_number: equipment.serial_number || '',
         mac_address: equipment.mac_address || '',
-        ip_address: equipment.ip_address || '',
+        status: equipment.status || 'available',
         location: equipment.location || '',
-        status: equipment.status as EquipmentStatus,
+        purchase_date: equipment.purchase_date ? equipment.purchase_date.split('T')[0] : '',
+        warranty_expiry: equipment.warranty_expiry ? equipment.warranty_expiry.split('T')[0] : '',
         notes: equipment.notes || '',
-        snmp_community: equipment.snmp_community || 'public',
-        snmp_version: equipment.snmp_version || 2,
       });
     }
   }, [equipment]);
@@ -67,7 +70,7 @@ export const EditEquipmentDialog: React.FC<EditEquipmentDialogProps> = ({ equipm
 
   return (
     <Dialog open={open} onOpenChange={onClose}>
-      <DialogContent className="max-w-2xl">
+      <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>Edit Equipment</DialogTitle>
         </DialogHeader>
@@ -75,7 +78,17 @@ export const EditEquipmentDialog: React.FC<EditEquipmentDialogProps> = ({ equipm
         <form onSubmit={handleSubmit} className="space-y-4">
           <div className="grid grid-cols-2 gap-4">
             <div>
-              <Label htmlFor="type">Equipment Type *</Label>
+              <Label htmlFor="name">Equipment Name *</Label>
+              <Input
+                id="name"
+                value={formData.name}
+                onChange={(e) => handleInputChange('name', e.target.value)}
+                required
+              />
+            </div>
+            
+            <div>
+              <Label htmlFor="type">Type *</Label>
               <Input
                 id="type"
                 value={formData.type}
@@ -83,18 +96,18 @@ export const EditEquipmentDialog: React.FC<EditEquipmentDialogProps> = ({ equipm
                 required
               />
             </div>
-            
-            <div>
-              <Label htmlFor="brand">Brand</Label>
-              <Input
-                id="brand"
-                value={formData.brand}
-                onChange={(e) => handleInputChange('brand', e.target.value)}
-              />
-            </div>
           </div>
 
           <div className="grid grid-cols-2 gap-4">
+            <div>
+              <Label htmlFor="manufacturer">Manufacturer</Label>
+              <Input
+                id="manufacturer"
+                value={formData.manufacturer}
+                onChange={(e) => handleInputChange('manufacturer', e.target.value)}
+              />
+            </div>
+            
             <div>
               <Label htmlFor="model">Model</Label>
               <Input
@@ -103,7 +116,9 @@ export const EditEquipmentDialog: React.FC<EditEquipmentDialogProps> = ({ equipm
                 onChange={(e) => handleInputChange('model', e.target.value)}
               />
             </div>
-            
+          </div>
+
+          <div className="grid grid-cols-2 gap-4">
             <div>
               <Label htmlFor="serial_number">Serial Number *</Label>
               <Input
@@ -113,9 +128,7 @@ export const EditEquipmentDialog: React.FC<EditEquipmentDialogProps> = ({ equipm
                 required
               />
             </div>
-          </div>
-
-          <div className="grid grid-cols-2 gap-4">
+            
             <div>
               <Label htmlFor="mac_address">MAC Address</Label>
               <Input
@@ -124,27 +137,9 @@ export const EditEquipmentDialog: React.FC<EditEquipmentDialogProps> = ({ equipm
                 onChange={(e) => handleInputChange('mac_address', e.target.value)}
               />
             </div>
-            
-            <div>
-              <Label htmlFor="ip_address">IP Address</Label>
-              <Input
-                id="ip_address"
-                value={formData.ip_address}
-                onChange={(e) => handleInputChange('ip_address', e.target.value)}
-              />
-            </div>
           </div>
 
           <div className="grid grid-cols-2 gap-4">
-            <div>
-              <Label htmlFor="location">Location</Label>
-              <Input
-                id="location"
-                value={formData.location}
-                onChange={(e) => handleInputChange('location', e.target.value)}
-              />
-            </div>
-            
             <div>
               <Label>Status</Label>
               <Select value={formData.status} onValueChange={(value) => handleInputChange('status', value)}>
@@ -159,6 +154,37 @@ export const EditEquipmentDialog: React.FC<EditEquipmentDialogProps> = ({ equipm
                 </SelectContent>
               </Select>
             </div>
+            
+            <div>
+              <Label htmlFor="location">Location</Label>
+              <Input
+                id="location"
+                value={formData.location}
+                onChange={(e) => handleInputChange('location', e.target.value)}
+              />
+            </div>
+          </div>
+
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <Label htmlFor="purchase_date">Purchase Date</Label>
+              <Input
+                id="purchase_date"
+                type="date"
+                value={formData.purchase_date}
+                onChange={(e) => handleInputChange('purchase_date', e.target.value)}
+              />
+            </div>
+            
+            <div>
+              <Label htmlFor="warranty_expiry">Warranty Expiry</Label>
+              <Input
+                id="warranty_expiry"
+                type="date"
+                value={formData.warranty_expiry}
+                onChange={(e) => handleInputChange('warranty_expiry', e.target.value)}
+              />
+            </div>
           </div>
 
           <div>
@@ -167,6 +193,7 @@ export const EditEquipmentDialog: React.FC<EditEquipmentDialogProps> = ({ equipm
               id="notes"
               value={formData.notes}
               onChange={(e) => handleInputChange('notes', e.target.value)}
+              rows={3}
             />
           </div>
 
@@ -183,3 +210,5 @@ export const EditEquipmentDialog: React.FC<EditEquipmentDialogProps> = ({ equipm
     </Dialog>
   );
 };
+
+export default EditEquipmentDialog;
