@@ -3,57 +3,26 @@ import React from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { MapPin, Phone, Mail, CreditCard, Wifi, Calendar } from 'lucide-react';
+import { Phone, Mail, MapPin, CreditCard, Wifi, Calendar, User, Building } from 'lucide-react';
 import { Client } from '@/types/client';
 
 interface ClientDetailsProps {
   client: Client;
   onEdit?: () => void;
-  onSuspend?: () => void;
-  onActivate?: () => void;
+  onStatusChange?: (status: Client['status']) => void;
 }
 
-const ClientDetails: React.FC<ClientDetailsProps> = ({ client, onEdit, onSuspend, onActivate }) => {
-  // Convert database client to display format
-  const displayClient = {
-    ...client,
-    mpesaNumber: client.mpesa_number,
-    idNumber: client.id_number,
-    kraPinNumber: client.kra_pin_number,
-    clientType: client.client_type,
-    connectionType: client.connection_type,
-    monthlyRate: client.monthly_rate,
-    installationDate: client.installation_date || new Date().toISOString(),
-    servicePackage: client.service_packages?.name || 'Unknown Package',
-    location: {
-      address: client.address,
-      county: client.county,
-      subCounty: client.sub_county,
-      coordinates: client.latitude && client.longitude ? {
-        lat: client.latitude,
-        lng: client.longitude
-      } : undefined
-    },
-    equipment: {
-      router: client.equipment_assignments?.[0]?.equipment?.model || 'Not assigned',
-      modem: 'Not assigned',
-      serialNumbers: client.equipment_assignments?.map(eq => eq.equipment.serial_number) || []
-    },
-    lastPayment: undefined
-  };
-
-  const getStatusColor = (status: string) => {
+const ClientDetails: React.FC<ClientDetailsProps> = ({ client, onEdit, onStatusChange }) => {
+  const getStatusColor = (status: Client['status']) => {
     switch (status) {
       case 'active':
         return 'bg-green-100 text-green-800';
-      case 'suspended':
-        return 'bg-red-100 text-red-800';
       case 'pending':
         return 'bg-yellow-100 text-yellow-800';
-      case 'inactive':
-        return 'bg-gray-100 text-gray-800';
+      case 'suspended':
+        return 'bg-red-100 text-red-800';
       case 'disconnected':
-        return 'bg-orange-100 text-orange-800';
+        return 'bg-gray-100 text-gray-800';
       case 'approved':
         return 'bg-blue-100 text-blue-800';
       default:
@@ -61,15 +30,16 @@ const ClientDetails: React.FC<ClientDetailsProps> = ({ client, onEdit, onSuspend
     }
   };
 
-  const getStatusText = (status: Client['status']) => {
-    switch (status) {
-      case 'active': return 'Active';
-      case 'suspended': return 'Suspended';
-      case 'pending': return 'Pending';
-      case 'inactive': return 'Inactive';
-      case 'disconnected': return 'Disconnected';
-      case 'approved': return 'Approved';
-      default: return status;
+  const formatCurrency = (amount: number) => {
+    return new Intl.NumberFormat('en-KE', {
+      style: 'currency',
+      currency: 'KES'
+    }).format(amount);
+  };
+
+  const handleStatusChange = (newStatus: Client['status']) => {
+    if (onStatusChange) {
+      onStatusChange(newStatus);
     }
   };
 
@@ -78,30 +48,29 @@ const ClientDetails: React.FC<ClientDetailsProps> = ({ client, onEdit, onSuspend
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h2 className="text-2xl font-bold">{displayClient.name}</h2>
-          <p className="text-gray-600">Client ID: {displayClient.id}</p>
-        </div>
-        <div className="flex items-center gap-3">
-          <Badge className={getStatusColor(displayClient.status)}>
-            {getStatusText(displayClient.status)}
-          </Badge>
-          <div className="flex gap-2">
-            {onEdit && (
-              <Button variant="outline" onClick={onEdit}>
-                Edit Client
-              </Button>
-            )}
-            {displayClient.status === 'active' && onSuspend && (
-              <Button variant="destructive" onClick={onSuspend}>
-                Suspend
-              </Button>
-            )}
-            {displayClient.status === 'suspended' && onActivate && (
-              <Button onClick={onActivate}>
-                Activate
-              </Button>
+          <h2 className="text-2xl font-bold text-gray-900">{client.name}</h2>
+          <div className="flex items-center gap-2 mt-1">
+            <Badge className={getStatusColor(client.status)}>
+              {client.status}
+            </Badge>
+            {client.client_type && (
+              <Badge variant="outline" className="capitalize">
+                {client.client_type.replace('_', ' ')}
+              </Badge>
             )}
           </div>
+        </div>
+        <div className="flex gap-2">
+          {onEdit && (
+            <Button onClick={onEdit} variant="outline">
+              Edit Client
+            </Button>
+          )}
+          {client.status === 'pending' && onStatusChange && (
+            <Button onClick={() => handleStatusChange('approved')}>
+              Approve
+            </Button>
+          )}
         </div>
       </div>
 
@@ -111,29 +80,32 @@ const ClientDetails: React.FC<ClientDetailsProps> = ({ client, onEdit, onSuspend
         <Card>
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
-              <Phone className="h-5 w-5" />
+              <User className="h-5 w-5" />
               Contact Information
             </CardTitle>
           </CardHeader>
           <CardContent className="space-y-3">
-            <div>
-              <label className="text-sm font-medium text-gray-500">Phone</label>
-              <p className="font-medium">{displayClient.phone}</p>
+            <div className="flex items-center gap-2">
+              <Phone className="h-4 w-4 text-gray-500" />
+              <span>{client.phone}</span>
             </div>
-            {displayClient.email && (
-              <div>
-                <label className="text-sm font-medium text-gray-500">Email</label>
-                <p className="font-medium">{displayClient.email}</p>
+            {client.email && (
+              <div className="flex items-center gap-2">
+                <Mail className="h-4 w-4 text-gray-500" />
+                <span>{client.email}</span>
               </div>
             )}
-            <div>
-              <label className="text-sm font-medium text-gray-500">ID Number</label>
-              <p className="font-medium">{displayClient.idNumber}</p>
+            <div className="text-sm text-gray-600">
+              <span className="font-medium">ID Number:</span> {client.id_number}
             </div>
-            {displayClient.kraPinNumber && (
-              <div>
-                <label className="text-sm font-medium text-gray-500">KRA PIN</label>
-                <p className="font-medium">{displayClient.kraPinNumber}</p>
+            {client.kra_pin_number && (
+              <div className="text-sm text-gray-600">
+                <span className="font-medium">KRA PIN:</span> {client.kra_pin_number}
+              </div>
+            )}
+            {client.mpesa_number && (
+              <div className="text-sm text-gray-600">
+                <span className="font-medium">M-Pesa:</span> {client.mpesa_number}
               </div>
             )}
           </CardContent>
@@ -149,23 +121,14 @@ const ClientDetails: React.FC<ClientDetailsProps> = ({ client, onEdit, onSuspend
           </CardHeader>
           <CardContent className="space-y-3">
             <div>
-              <label className="text-sm font-medium text-gray-500">Address</label>
-              <p className="font-medium">{displayClient.location.address}</p>
+              <div className="font-medium">{client.address}</div>
+              <div className="text-sm text-gray-600">
+                {client.sub_county}, {client.county}
+              </div>
             </div>
-            <div>
-              <label className="text-sm font-medium text-gray-500">County</label>
-              <p className="font-medium">{displayClient.location.county}</p>
-            </div>
-            <div>
-              <label className="text-sm font-medium text-gray-500">Sub County</label>
-              <p className="font-medium">{displayClient.location.subCounty}</p>
-            </div>
-            {displayClient.location.coordinates && (
-              <div>
-                <label className="text-sm font-medium text-gray-500">Coordinates</label>
-                <p className="font-medium text-xs">
-                  {displayClient.location.coordinates.lat.toFixed(6)}, {displayClient.location.coordinates.lng.toFixed(6)}
-                </p>
+            {client.latitude && client.longitude && (
+              <div className="text-sm text-gray-600">
+                <span className="font-medium">Coordinates:</span> {client.latitude}, {client.longitude}
               </div>
             )}
           </CardContent>
@@ -181,83 +144,39 @@ const ClientDetails: React.FC<ClientDetailsProps> = ({ client, onEdit, onSuspend
           </CardHeader>
           <CardContent className="space-y-3">
             <div>
-              <label className="text-sm font-medium text-gray-500">Package</label>
-              <p className="font-medium">{displayClient.servicePackage}</p>
+              <div className="font-medium">{client.service_packages?.name || 'N/A'}</div>
+              <div className="text-sm text-gray-600">
+                Speed: {client.service_packages?.speed || 'N/A'}
+              </div>
             </div>
-            <div>
-              <label className="text-sm font-medium text-gray-500">Connection Type</label>
-              <p className="font-medium capitalize">{displayClient.connectionType}</p>
+            <div className="text-sm">
+              <span className="font-medium">Connection:</span> {client.connection_type}
             </div>
-            <div>
-              <label className="text-sm font-medium text-gray-500">Monthly Rate</label>
-              <p className="font-medium">KES {displayClient.monthlyRate.toLocaleString()}</p>
-            </div>
-            <div>
-              <label className="text-sm font-medium text-gray-500">Client Type</label>
-              <p className="font-medium capitalize">{displayClient.clientType}</p>
+            <div className="text-sm">
+              <span className="font-medium">Monthly Rate:</span> {formatCurrency(client.monthly_rate)}
             </div>
           </CardContent>
         </Card>
 
-        {/* Payment Information */}
+        {/* Financial Information */}
         <Card>
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
               <CreditCard className="h-5 w-5" />
-              Payment Information
+              Financial
             </CardTitle>
           </CardHeader>
           <CardContent className="space-y-3">
-            <div>
-              <label className="text-sm font-medium text-gray-500">M-Pesa Number</label>
-              <p className="font-medium">{displayClient.mpesaNumber}</p>
+            <div className="flex justify-between">
+              <span className="text-sm font-medium">Balance:</span>
+              <span className={`text-sm font-bold ${client.balance < 0 ? 'text-red-600' : 'text-green-600'}`}>
+                {formatCurrency(client.balance)}
+              </span>
             </div>
-            <div>
-              <label className="text-sm font-medium text-gray-500">Account Balance</label>
-              <p className={`font-medium ${displayClient.balance >= 0 ? 'text-green-600' : 'text-red-600'}`}>
-                KES {displayClient.balance.toLocaleString()}
-              </p>
+            <div className="flex justify-between">
+              <span className="text-sm font-medium">Wallet:</span>
+              <span className="text-sm">{formatCurrency(client.wallet_balance || 0)}</span>
             </div>
-            <div>
-              <label className="text-sm font-medium text-gray-500">Wallet Balance</label>
-              <p className="font-medium">KES {displayClient.wallet_balance.toLocaleString()}</p>
-            </div>
-            {displayClient.lastPayment && (
-              <div>
-                <label className="text-sm font-medium text-gray-500">Last Payment</label>
-                <p className="font-medium">
-                  KES {displayClient.lastPayment.amount.toLocaleString()}
-                </p>
-                <p className="text-sm text-gray-500">{displayClient.lastPayment.date}</p>
-              </div>
-            )}
-          </CardContent>
-        </Card>
-
-        {/* Equipment Information */}
-        <Card>
-          <CardHeader>
-            <CardTitle>Equipment</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-3">
-            <div>
-              <label className="text-sm font-medium text-gray-500">Router</label>
-              <p className="font-medium">{displayClient.equipment?.router}</p>
-            </div>
-            <div>
-              <label className="text-sm font-medium text-gray-500">Modem</label>
-              <p className="font-medium">{displayClient.equipment?.modem}</p>
-            </div>
-            {displayClient.equipment?.serialNumbers && displayClient.equipment.serialNumbers.length > 0 && (
-              <div>
-                <label className="text-sm font-medium text-gray-500">Serial Numbers</label>
-                <div className="space-y-1">
-                  {displayClient.equipment.serialNumbers.map((serial, index) => (
-                    <p key={index} className="text-sm font-mono">{serial}</p>
-                  ))}
-                </div>
-              </div>
-            )}
           </CardContent>
         </Card>
 
@@ -270,31 +189,42 @@ const ClientDetails: React.FC<ClientDetailsProps> = ({ client, onEdit, onSuspend
             </CardTitle>
           </CardHeader>
           <CardContent className="space-y-3">
-            <div>
-              <label className="text-sm font-medium text-gray-500">Installation Date</label>
-              <p className="font-medium">
-                {new Date(displayClient.installationDate).toLocaleDateString()}
-              </p>
+            {client.installation_date && (
+              <div className="text-sm">
+                <span className="font-medium">Date:</span> {new Date(client.installation_date).toLocaleDateString()}
+              </div>
+            )}
+            <div className="text-sm">
+              <span className="font-medium">Status:</span> {client.installation_status || 'N/A'}
             </div>
-            {displayClient.installation_status && (
-              <div>
-                <label className="text-sm font-medium text-gray-500">Installation Status</label>
-                <p className="font-medium capitalize">{displayClient.installation_status}</p>
+            {client.service_activated_at && (
+              <div className="text-sm">
+                <span className="font-medium">Activated:</span> {new Date(client.service_activated_at).toLocaleDateString()}
               </div>
             )}
-            {displayClient.installation_completed_at && (
-              <div>
-                <label className="text-sm font-medium text-gray-500">Completed At</label>
-                <p className="font-medium">
-                  {new Date(displayClient.installation_completed_at).toLocaleDateString()}
-                </p>
+          </CardContent>
+        </Card>
+
+        {/* Equipment Information */}
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Building className="h-5 w-5" />
+              Equipment
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            {client.equipment_assignments && client.equipment_assignments.length > 0 ? (
+              <div className="space-y-2">
+                {client.equipment_assignments.map((assignment, index) => (
+                  <div key={index} className="text-sm">
+                    <div className="font-medium">{assignment.equipment.model}</div>
+                    <div className="text-gray-600">SN: {assignment.equipment.serial_number}</div>
+                  </div>
+                ))}
               </div>
-            )}
-            {displayClient.installation_completed_by && (
-              <div>
-                <label className="text-sm font-medium text-gray-500">Completed By</label>
-                <p className="font-medium">{displayClient.installation_completed_by}</p>
-              </div>
+            ) : (
+              <div className="text-sm text-gray-500">No equipment assigned</div>
             )}
           </CardContent>
         </Card>

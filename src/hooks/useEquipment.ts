@@ -1,58 +1,16 @@
+
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/hooks/use-toast';
-
-export interface Equipment {
-  id: string;
-  type: string;
-  brand: string | null;
-  model: string | null;
-  serial_number: string;
-  mac_address: string | null;
-  status: string;
-  client_id: string | null;
-  purchase_date: string | null;
-  warranty_end_date: string | null;
-  notes: string | null;
-  isp_company_id: string;
-  created_at: string;
-  updated_at: string;
-  equipment_type_id: string | null;
-  ip_address: string | null;
-  snmp_community: string | null;
-  snmp_version: number | null;
-  port_number: number | null;
-  vlan_id: number | null;
-  location_coordinates: any | null;
-  auto_discovered: boolean | null;
-  approved_by: string | null;
-  approved_at: string | null;
-  approval_status: string | null;
-  base_station_id: string | null;
-  location: string | null;
-  firmware_version: string | null;
-  clients?: {
-    name: string;
-  };
-  equipment_types?: {
-    name: string;
-    brand: string;
-    model: string;
-    device_type: string;
-  };
-  equipment_assignments?: Array<{
-    equipment: {
-      model: string;
-      serial_number: string;
-    };
-  }>;
-}
+import { Equipment } from '@/types/equipment';
+import { useEquipmentTypes } from './useEquipmentTypes';
 
 export const useEquipment = () => {
   const { profile } = useAuth();
   const { toast } = useToast();
   const queryClient = useQueryClient();
+  const { data: equipmentTypes = [], isLoading: typesLoading } = useEquipmentTypes();
 
   const { data: equipment = [], isLoading, error } = useQuery({
     queryKey: ['equipment', profile?.isp_company_id],
@@ -63,14 +21,8 @@ export const useEquipment = () => {
         .from('equipment')
         .select(`
           *,
-          clients (
-            name
-          ),
           equipment_types (
-            name,
-            brand,
-            model,
-            device_type
+            name
           )
         `)
         .eq('isp_company_id', profile.isp_company_id)
@@ -81,49 +33,49 @@ export const useEquipment = () => {
         throw error;
       }
 
-      return data as Equipment[];
+      return (data || []).map(item => ({
+        id: item.id,
+        serial_number: item.serial_number,
+        model: item.model,
+        type: item.type || item.equipment_types?.name || 'Unknown',
+        brand: item.brand,
+        status: item.status as Equipment['status'],
+        purchase_date: item.purchase_date,
+        warranty_end_date: item.warranty_end_date,
+        mac_address: item.mac_address,
+        location: item.location,
+        notes: item.notes,
+        equipment_type_id: item.equipment_type_id,
+        equipment_types: item.equipment_types,
+        isp_company_id: item.isp_company_id,
+        created_at: item.created_at,
+        updated_at: item.updated_at,
+        client_id: item.client_id,
+        ip_address: item.ip_address,
+        approval_status: item.approval_status,
+        approved_at: item.approved_at,
+        approved_by: item.approved_by,
+        auto_discovered: item.auto_discovered,
+        base_station_id: item.base_station_id,
+        firmware_version: item.firmware_version,
+        port_number: item.port_number,
+        snmp_community: item.snmp_community,
+        snmp_version: item.snmp_version,
+        vlan_id: item.vlan_id,
+        location_coordinates: item.location_coordinates
+      })) as Equipment[];
     },
     enabled: !!profile?.isp_company_id,
   });
 
   const createEquipmentMutation = useMutation({
     mutationFn: async (equipmentData: Partial<Equipment>) => {
-      if (!profile?.isp_company_id) {
-        throw new Error('No ISP company associated with user');
-      }
-
-      // Prepare the data with database column names
-      const completeEquipmentData = {
-        type: equipmentData.type || '',
-        brand: equipmentData.brand || null,
-        model: equipmentData.model || null,
-        serial_number: equipmentData.serial_number || '',
-        mac_address: equipmentData.mac_address || null,
-        status: equipmentData.status || 'available',
-        client_id: equipmentData.client_id || null,
-        purchase_date: equipmentData.purchase_date || null,
-        warranty_end_date: equipmentData.warranty_end_date || null,
-        notes: equipmentData.notes || null,
-        equipment_type_id: equipmentData.equipment_type_id || null,
-        ip_address: equipmentData.ip_address || null,
-        snmp_community: equipmentData.snmp_community || 'public',
-        snmp_version: equipmentData.snmp_version || 2,
-        port_number: equipmentData.port_number || null,
-        vlan_id: equipmentData.vlan_id || null,
-        location_coordinates: equipmentData.location_coordinates || null,
-        auto_discovered: equipmentData.auto_discovered || false,
-        approved_by: equipmentData.approved_by || null,
-        approved_at: equipmentData.approved_at || null,
-        approval_status: equipmentData.approval_status || 'pending',
-        base_station_id: equipmentData.base_station_id || null,
-        location: equipmentData.location || null,
-        firmware_version: equipmentData.firmware_version || null,
-        isp_company_id: profile.isp_company_id,
-      };
-
       const { data, error } = await supabase
         .from('equipment')
-        .insert(completeEquipmentData)
+        .insert({
+          ...equipmentData,
+          isp_company_id: profile?.isp_company_id,
+        })
         .select()
         .single();
 
@@ -133,17 +85,17 @@ export const useEquipment = () => {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['equipment'] });
       toast({
-        title: "Equipment Added",
-        description: "New equipment has been successfully added and is pending approval.",
+        title: "Success",
+        description: "Equipment created successfully",
       });
     },
     onError: (error) => {
-      console.error('Error creating equipment:', error);
       toast({
         title: "Error",
-        description: "Failed to add equipment. Please try again.",
+        description: "Failed to create equipment",
         variant: "destructive",
       });
+      console.error('Error creating equipment:', error);
     },
   });
 
@@ -161,61 +113,18 @@ export const useEquipment = () => {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['equipment'] });
-      toast({
-        title: "Equipment Updated",
-        description: "Equipment has been updated successfully.",
-      });
-    },
-    onError: (error) => {
-      console.error('Error updating equipment:', error);
-      toast({
-        title: "Error",
-        description: "Failed to update equipment. Please try again.",
-        variant: "destructive",
-      });
     },
   });
 
-  const approveEquipmentMutation = useMutation({
-    mutationFn: async ({ id, notes }: { id: string; notes?: string }) => {
-      const { data, error } = await supabase
+  const deleteEquipmentMutation = useMutation({
+    mutationFn: async (id: string) => {
+      const { error } = await supabase
         .from('equipment')
-        .update({
-          approval_status: 'approved',
-          approved_by: profile?.id,
-          approved_at: new Date().toISOString(),
-          status: 'active',
-          notes: notes || null
-        })
-        .eq('id', id)
-        .select()
-        .single();
+        .delete()
+        .eq('id', id);
 
       if (error) throw error;
-      return data;
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['equipment'] });
-    },
-  });
-
-  const rejectEquipmentMutation = useMutation({
-    mutationFn: async ({ id, notes }: { id: string; notes: string }) => {
-      const { data, error } = await supabase
-        .from('equipment')
-        .update({
-          approval_status: 'rejected',
-          approved_by: profile?.id,
-          approved_at: new Date().toISOString(),
-          status: 'inactive',
-          notes
-        })
-        .eq('id', id)
-        .select()
-        .single();
-
-      if (error) throw error;
-      return data;
+      return id;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['equipment'] });
@@ -224,15 +133,16 @@ export const useEquipment = () => {
 
   return {
     equipment,
+    equipmentTypes,
     isLoading,
+    typesLoading,
     error,
     createEquipment: createEquipmentMutation.mutate,
     updateEquipment: updateEquipmentMutation.mutate,
-    approveEquipment: approveEquipmentMutation.mutate,
-    rejectEquipment: rejectEquipmentMutation.mutate,
+    deleteEquipment: deleteEquipmentMutation.mutate,
+    addEquipment: createEquipmentMutation,
     isCreating: createEquipmentMutation.isPending,
     isUpdating: updateEquipmentMutation.isPending,
-    isApproving: approveEquipmentMutation.isPending,
-    isRejecting: rejectEquipmentMutation.isPending,
+    isDeleting: deleteEquipmentMutation.isPending,
   };
 };

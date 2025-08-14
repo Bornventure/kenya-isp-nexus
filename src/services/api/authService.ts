@@ -1,4 +1,3 @@
-
 import { supabase } from '@/integrations/supabase/client';
 import { sendSMS } from '@/services/smsService';
 
@@ -76,13 +75,13 @@ export class AuthService {
 
       const user: User = {
         id: profile.id,
-        name: profile.full_name || profile.phone,
-        firstName: profile.full_name?.split(' ')[0] || '',
-        lastName: profile.full_name?.split(' ').slice(1).join(' ') || '',
+        name: `${profile.first_name} ${profile.last_name}`.trim() || profile.phone,
+        firstName: profile.first_name || '',
+        lastName: profile.last_name || '',
         email: profile.email || '',
         phone: profile.phone,
-        role: profile.role,
-        accountType: profile.role === 'client' ? 'client' : 'admin',
+        role: this.mapRole(profile.role),
+        accountType: this.mapRole(profile.role) === 'client' ? 'client' : 'admin',
         isVerified: true,
         isp_company_id: profile.isp_company_id,
       };
@@ -93,6 +92,29 @@ export class AuthService {
     } catch (error) {
       console.error('AuthService: Login error:', error);
       throw error;
+    }
+  }
+
+  private static mapRole(dbRole: string): 'admin' | 'technician' | 'client' | 'super_admin' {
+    switch (dbRole) {
+      case 'super_admin':
+        return 'super_admin';
+      case 'technician':
+        return 'technician';
+      case 'isp_admin':
+      case 'manager':
+      case 'support':
+      case 'billing':
+      case 'readonly':
+      case 'customer_support':
+      case 'sales_manager':
+      case 'billing_admin':
+      case 'network_engineer':
+      case 'infrastructure_manager':
+      case 'hotspot_admin':
+        return 'admin';
+      default:
+        return 'admin';
     }
   }
 
@@ -144,10 +166,11 @@ export class AuthService {
           .from('profiles')
           .insert({
             id: authUser.id,
-            full_name: client.name,
+            first_name: client.name.split(' ')[0] || '',
+            last_name: client.name.split(' ').slice(1).join(' ') || '',
             email: client.email,
             phone: client.phone,
-            role: 'client',
+            role: 'readonly',
             isp_company_id: client.isp_company_id,
           });
 
@@ -200,10 +223,11 @@ export class AuthService {
         .from('profiles')
         .insert({
           id: authData.user.id,
-          full_name: data.name,
+          first_name: data.name.split(' ')[0] || '',
+          last_name: data.name.split(' ').slice(1).join(' ') || '',
           email: data.email,
           phone: data.phone,
-          role: data.role || 'admin',
+          role: data.role === 'technician' ? 'technician' : 'isp_admin',
         });
 
       if (profileError) {
@@ -274,13 +298,13 @@ export class AuthService {
 
       const user: User = {
         id: profile.id,
-        name: profile.full_name || profile.phone,
-        firstName: profile.full_name?.split(' ')[0] || '',
-        lastName: profile.full_name?.split(' ').slice(1).join(' ') || '',
+        name: `${profile.first_name} ${profile.last_name}`.trim() || profile.phone,
+        firstName: profile.first_name || '',
+        lastName: profile.last_name || '',
         email: profile.email || '',
         phone: profile.phone,
-        role: profile.role,
-        accountType: profile.role === 'client' ? 'client' : 'admin',
+        role: this.mapRole(profile.role),
+        accountType: this.mapRole(profile.role) === 'client' ? 'client' : 'admin',
         isVerified: true,
         isp_company_id: profile.isp_company_id,
       };

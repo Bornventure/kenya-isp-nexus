@@ -1,167 +1,108 @@
 
-import { supabase } from '@/integrations/supabase/client';
-
-export interface SMSNotification {
-  client_id: string;
-  phone: string;
-  message: string;
-  type: 'registration' | 'payment_confirmation' | 'service_activation' | 'payment_reminder' | 'service_suspension' | 'network_maintenance' | 'test';
-  client_name?: string;
+interface SMSConfig {
+  url: string;
+  apiKey: string;
+  partnerId: string;
+  shortcode: string;
 }
 
-class SMSService {
-  private readonly apiUrl = 'https://isms.celcomafrica.com/api/services/sendsms';
-  private readonly apiKey = '3230abd57d39aa89fc407618f3faaacc';
-  private readonly partnerId = '800';
-  private readonly shortcode = 'LAKELINK';
+const SMS_CONFIG: SMSConfig = {
+  url: 'https://isms.celcomafrica.com/api/services/sendsms',
+  apiKey: '3230abd57d39aa89fc407618f3faaacc',
+  partnerId: '800',
+  shortcode: 'LAKELINK'
+};
 
-  async sendSMS(notification: SMSNotification): Promise<{ success: boolean; message?: string; error?: string }> {
-    try {
-      console.log('Sending SMS via Celcomafrica:', {
-        phone: notification.phone,
-        type: notification.type,
-        message: notification.message.substring(0, 50) + '...'
-      });
+export const sendSMS = async (phoneNumber: string, message: string): Promise<boolean> => {
+  try {
+    console.log('Sending SMS to:', phoneNumber, 'Message:', message);
 
-      const { data, error } = await supabase.functions.invoke('send-sms-celcomafrica', {
-        body: {
-          phone: notification.phone,
-          message: notification.message,
-          client_id: notification.client_id,
-          type: notification.type
-        }
-      });
-
-      if (error) {
-        console.error('SMS sending failed:', error);
-        return {
-          success: false,
-          error: error.message || 'Failed to send SMS'
-        };
-      }
-
-      if (data.success) {
-        console.log('SMS sent successfully:', data);
-        return {
-          success: true,
-          message: 'SMS sent successfully'
-        };
-      } else {
-        console.error('SMS API returned error:', data);
-        return {
-          success: false,
-          error: data.error || 'SMS service returned an error'
-        };
-      }
-    } catch (error) {
-      console.error('SMS service error:', error);
-      return {
-        success: false,
-        error: error instanceof Error ? error.message : 'Unknown error occurred'
-      };
+    // Format phone number to international format
+    let formattedPhone = phoneNumber;
+    if (formattedPhone.startsWith('0')) {
+      formattedPhone = '+254' + formattedPhone.substring(1);
+    } else if (formattedPhone.startsWith('254')) {
+      formattedPhone = '+' + formattedPhone;
+    } else if (!formattedPhone.startsWith('+254')) {
+      formattedPhone = '+254' + formattedPhone;
     }
-  }
 
-  // Message templates
-  generateRegistrationMessage(clientName: string, clientId: string): string {
-    return `Dear ${clientName}, welcome to our ISP! Your registration (ID: ${clientId}) has been received and is under review. You will receive a confirmation SMS once approved. Thank you for choosing us!`;
-  }
+    const payload = {
+      apikey: SMS_CONFIG.apiKey,
+      partnerID: SMS_CONFIG.partnerId,
+      shortcode: SMS_CONFIG.shortcode,
+      mobile: formattedPhone,
+      message: message
+    };
 
-  generatePaymentConfirmationMessage(clientName: string, amount: number, receiptNumber: string): string {
-    return `Dear ${clientName}, your payment of KES ${amount.toLocaleString()} has been received successfully. Receipt: ${receiptNumber}. Your service will be activated shortly. Thank you!`;
-  }
+    console.log('SMS Payload:', payload);
 
-  generateServiceActivationMessage(clientName: string, packageName: string, expiryDate: string): string {
-    return `Dear ${clientName}, your internet service (${packageName}) has been successfully activated. Service valid until ${expiryDate}. Welcome to our network!`;
-  }
-
-  generatePaymentReminderMessage(clientName: string, amount: number, daysRemaining: number): string {
-    return `Dear ${clientName}, your internet service expires in ${daysRemaining} days. Please pay KES ${amount.toLocaleString()} to continue enjoying our service. Pay via M-PESA Paybill 522522, Account: ${clientName.replace(/\s+/g, '').toUpperCase()}.`;
-  }
-
-  generateServiceSuspensionMessage(clientName: string, amount: number): string {
-    return `Dear ${clientName}, your internet service has been suspended due to non-payment. Please pay KES ${amount.toLocaleString()} to reactivate your service immediately. Contact our support team for assistance.`;
-  }
-
-  generateNetworkMaintenanceMessage(clientName: string, maintenanceDate: string, startTime: string, endTime: string): string {
-    return `Dear ${clientName}, scheduled network maintenance on ${maintenanceDate} from ${startTime} to ${endTime}. Internet service may be interrupted during this time. We apologize for any inconvenience.`;
-  }
-
-  // Convenience methods for different notification types
-  async sendRegistrationSMS(clientId: string, clientName: string, phone: string): Promise<{ success: boolean; message?: string; error?: string }> {
-    const message = this.generateRegistrationMessage(clientName, clientId);
-    return this.sendSMS({
-      client_id: clientId,
-      phone,
-      message,
-      type: 'registration',
-      client_name: clientName
+    const response = await fetch(SMS_CONFIG.url, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(payload),
     });
-  }
 
-  async sendPaymentConfirmationSMS(clientId: string, clientName: string, phone: string, amount: number, receiptNumber: string): Promise<{ success: boolean; message?: string; error?: string }> {
-    const message = this.generatePaymentConfirmationMessage(clientName, amount, receiptNumber);
-    return this.sendSMS({
-      client_id: clientId,
-      phone,
-      message,
-      type: 'payment_confirmation',
-      client_name: clientName
-    });
-  }
+    const result = await response.json();
+    console.log('SMS Response:', result);
 
-  async sendServiceActivationSMS(clientId: string, clientName: string, phone: string, packageName: string, expiryDate: string): Promise<{ success: boolean; message?: string; error?: string }> {
-    const message = this.generateServiceActivationMessage(clientName, packageName, expiryDate);
-    return this.sendSMS({
-      client_id: clientId,
-      phone,
-      message,
-      type: 'service_activation',
-      client_name: clientName
-    });
+    if (response.ok && result.success) {
+      console.log('SMS sent successfully');
+      return true;
+    } else {
+      console.error('SMS sending failed:', result);
+      return false;
+    }
+  } catch (error) {
+    console.error('Error sending SMS:', error);
+    return false;
   }
+};
 
-  async sendPaymentReminderSMS(clientId: string, clientName: string, phone: string, amount: number, daysRemaining: number): Promise<{ success: boolean; message?: string; error?: string }> {
-    const message = this.generatePaymentReminderMessage(clientName, amount, daysRemaining);
-    return this.sendSMS({
-      client_id: clientId,
-      phone,
-      message,
-      type: 'payment_reminder',
-      client_name: clientName
-    });
-  }
+// Send client registration SMS
+export const sendClientRegistrationSMS = async (
+  phoneNumber: string, 
+  clientName: string, 
+  packageName: string
+): Promise<boolean> => {
+  const message = `Welcome to LAKELINK, ${clientName}! Your ${packageName} service registration has been received and is being processed. We'll contact you soon for installation. Thank you for choosing LAKELINK!`;
+  return sendSMS(phoneNumber, message);
+};
 
-  async sendServiceSuspensionSMS(clientId: string, clientName: string, phone: string, amount: number): Promise<{ success: boolean; message?: string; error?: string }> {
-    const message = this.generateServiceSuspensionMessage(clientName, amount);
-    return this.sendSMS({
-      client_id: clientId,
-      phone,
-      message,
-      type: 'service_suspension',
-      client_name: clientName
-    });
-  }
+// Send service activation SMS
+export const sendServiceActivationSMS = async (
+  phoneNumber: string, 
+  clientName: string, 
+  packageName: string
+): Promise<boolean> => {
+  const message = `Hello ${clientName}, your ${packageName} service has been activated! Welcome to LAKELINK high-speed internet. For support, contact our team. Enjoy your connection!`;
+  return sendSMS(phoneNumber, message);
+};
 
-  async sendNetworkMaintenanceSMS(clientId: string, clientName: string, phone: string, maintenanceDate: string, startTime: string, endTime: string): Promise<{ success: boolean; message?: string; error?: string }> {
-    const message = this.generateNetworkMaintenanceMessage(clientName, maintenanceDate, startTime, endTime);
-    return this.sendSMS({
-      client_id: clientId,
-      phone,
-      message,
-      type: 'network_maintenance',
-      client_name: clientName
-    });
-  }
+// Send payment confirmation SMS
+export const sendPaymentConfirmationSMS = async (
+  phoneNumber: string, 
+  amount: number, 
+  reference: string
+): Promise<boolean> => {
+  const message = `Payment of KES ${amount.toFixed(2)} received successfully. Reference: ${reference}. Thank you for your payment to LAKELINK!`;
+  return sendSMS(phoneNumber, message);
+};
 
-  async sendTestSMS(phone: string): Promise<{ success: boolean; message?: string; error?: string }> {
-    return this.sendSMS({
-      client_id: 'test',
-      phone,
-      message: 'Test SMS from ISP Management System. SMS integration is working properly!',
-      type: 'test'
-    });
-  }
-}
+// Send service suspension SMS
+export const sendServiceSuspensionSMS = async (
+  phoneNumber: string, 
+  clientName: string, 
+  reason: string
+): Promise<boolean> => {
+  const message = `Hello ${clientName}, your LAKELINK service has been suspended. Reason: ${reason}. Please contact our support team to restore your service.`;
+  return sendSMS(phoneNumber, message);
+};
 
-export const smsService = new SMSService();
+// Send OTP SMS
+export const sendOTPSMS = async (phoneNumber: string, otp: string): Promise<boolean> => {
+  const message = `Your LAKELINK verification code is: ${otp}. This code expires in 10 minutes. Do not share this code with anyone.`;
+  return sendSMS(phoneNumber, message);
+};

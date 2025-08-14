@@ -12,7 +12,10 @@ export const servicePackages: ServicePackage[] = [
     is_active: true,
     created_at: new Date().toISOString(),
     updated_at: new Date().toISOString(),
-    isp_company_id: ''
+    isp_company_id: '',
+    connection_types: ['fiber', 'wireless'],
+    setup_fee: 2000,
+    data_limit: null
   },
   {
     id: '7b2d7e69-f1a5-413e-9597-31cda65d03f1',
@@ -23,7 +26,10 @@ export const servicePackages: ServicePackage[] = [
     is_active: true,
     created_at: new Date().toISOString(),
     updated_at: new Date().toISOString(),
-    isp_company_id: ''
+    isp_company_id: '',
+    connection_types: ['fiber', 'wireless'],
+    setup_fee: 2500,
+    data_limit: null
   },
   {
     id: 'df4712c7-7582-46c9-a72c-049fd2b4c378',
@@ -34,7 +40,10 @@ export const servicePackages: ServicePackage[] = [
     is_active: true,
     created_at: new Date().toISOString(),
     updated_at: new Date().toISOString(),
-    isp_company_id: ''
+    isp_company_id: '',
+    connection_types: ['fiber', 'wireless'],
+    setup_fee: 3000,
+    data_limit: null
   },
   {
     id: '02d16326-a1bb-47c3-8045-0ae11b8c3c57',
@@ -45,7 +54,10 @@ export const servicePackages: ServicePackage[] = [
     is_active: true,
     created_at: new Date().toISOString(),
     updated_at: new Date().toISOString(),
-    isp_company_id: ''
+    isp_company_id: '',
+    connection_types: ['fiber'],
+    setup_fee: 5000,
+    data_limit: null
   },
   {
     id: '550e8400-e29b-41d4-a716-446655440005',
@@ -56,7 +68,10 @@ export const servicePackages: ServicePackage[] = [
     is_active: true,
     created_at: new Date().toISOString(),
     updated_at: new Date().toISOString(),
-    isp_company_id: ''
+    isp_company_id: '',
+    connection_types: ['fiber'],
+    setup_fee: 8000,
+    data_limit: null
   }
 ];
 

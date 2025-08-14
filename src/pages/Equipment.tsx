@@ -8,11 +8,9 @@ import { Badge } from '@/components/ui/badge';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { 
   Search, 
   Plus, 
-  Filter, 
   Download, 
   Router, 
   Wifi, 
@@ -20,7 +18,6 @@ import {
   Settings,
   Edit,
   Trash2,
-  Eye,
   CheckCircle,
   XCircle,
   Clock,
@@ -30,15 +27,15 @@ import {
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/hooks/use-toast';
-import type { Equipment as EquipmentType } from '@/types/equipment';
+import { Equipment } from '@/types/equipment';
 import { useEquipment } from '@/hooks/useEquipment';
 
-const Equipment = () => {
+const EquipmentPage = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const [typeFilter, setTypeFilter] = useState<string>('all');
   const [showAddDialog, setShowAddDialog] = useState(false);
-  const [editingEquipment, setEditingEquipment] = useState<EquipmentType | null>(null);
+  const [editingEquipment, setEditingEquipment] = useState<Equipment | null>(null);
   
   const { profile } = useAuth();
   const { toast } = useToast();
@@ -49,18 +46,18 @@ const Equipment = () => {
     equipmentTypes,
     isLoading: equipmentLoading,
     typesLoading,
-    addEquipment,
+    createEquipment,
     updateEquipment,
     deleteEquipment
   } = useEquipment();
 
-  const [newEquipment, setNewEquipment] = useState<Partial<EquipmentType>>({
+  const [newEquipment, setNewEquipment] = useState<Partial<Equipment>>({
     serial_number: '',
     model: '',
-    equipment_type: '',
+    type: '',
     status: 'available',
     purchase_date: new Date().toISOString().split('T')[0],
-    warranty_expiry: '',
+    warranty_end_date: '',
     mac_address: '',
     location: '',
     notes: ''
@@ -73,7 +70,7 @@ const Equipment = () => {
                          item.mac_address?.toLowerCase().includes(searchTerm.toLowerCase());
     
     const matchesStatus = statusFilter === 'all' || item.status === statusFilter;
-    const matchesType = typeFilter === 'all' || item.equipment_type === typeFilter;
+    const matchesType = typeFilter === 'all' || item.type === typeFilter;
     
     return matchesSearch && matchesStatus && matchesType;
   });
@@ -119,15 +116,15 @@ const Equipment = () => {
     e.preventDefault();
     
     try {
-      await addEquipment.mutateAsync(newEquipment as EquipmentType);
+      await createEquipment(newEquipment);
       setShowAddDialog(false);
       setNewEquipment({
         serial_number: '',
         model: '',
-        equipment_type: '',
+        type: '',
         status: 'available',
         purchase_date: new Date().toISOString().split('T')[0],
-        warranty_expiry: '',
+        warranty_end_date: '',
         mac_address: '',
         location: '',
         notes: ''
@@ -146,9 +143,9 @@ const Equipment = () => {
     }
   };
 
-  const handleUpdateEquipment = async (equipment: EquipmentType) => {
+  const handleUpdateEquipment = async (equipment: Equipment) => {
     try {
-      await updateEquipment.mutateAsync({ id: equipment.id, updates: equipment });
+      await updateEquipment({ id: equipment.id, updates: equipment });
       setEditingEquipment(null);
       toast({
         title: "Success",
@@ -168,7 +165,7 @@ const Equipment = () => {
     if (!confirm('Are you sure you want to delete this equipment?')) return;
     
     try {
-      await deleteEquipment.mutateAsync(id);
+      await deleteEquipment(id);
       toast({
         title: "Success",
         description: "Equipment deleted successfully",
@@ -334,8 +331,8 @@ const Equipment = () => {
                       </td>
                       <td className="py-3 px-4">
                         <div className="flex items-center gap-2">
-                          {getTypeIcon(item.equipment_type)}
-                          {item.equipment_type}
+                          {getTypeIcon(item.type)}
+                          {item.type}
                         </div>
                       </td>
                       <td className="py-3 px-4">
@@ -351,10 +348,10 @@ const Equipment = () => {
                       </td>
                       <td className="py-3 px-4">
                         <div className="text-sm">
-                          {item.warranty_expiry ? (
+                          {item.warranty_end_date ? (
                             <div className="flex items-center gap-1">
                               <Calendar className="h-3 w-3 text-gray-400" />
-                              {new Date(item.warranty_expiry).toLocaleDateString()}
+                              {new Date(item.warranty_end_date).toLocaleDateString()}
                             </div>
                           ) : (
                             'Not specified'
@@ -415,11 +412,11 @@ const Equipment = () => {
                 />
               </div>
               <div>
-                <Label htmlFor="equipment_type">Equipment Type *</Label>
+                <Label htmlFor="type">Equipment Type *</Label>
                 <select
-                  id="equipment_type"
-                  value={newEquipment.equipment_type}
-                  onChange={(e) => setNewEquipment(prev => ({ ...prev, equipment_type: e.target.value }))}
+                  id="type"
+                  value={newEquipment.type}
+                  onChange={(e) => setNewEquipment(prev => ({ ...prev, type: e.target.value }))}
                   className="w-full px-3 py-2 border border-gray-300 rounded-md"
                   required
                 >
@@ -434,7 +431,7 @@ const Equipment = () => {
                 <select
                   id="status"
                   value={newEquipment.status}
-                  onChange={(e) => setNewEquipment(prev => ({ ...prev, status: e.target.value as EquipmentType['status'] }))}
+                  onChange={(e) => setNewEquipment(prev => ({ ...prev, status: e.target.value as Equipment['status'] }))}
                   className="w-full px-3 py-2 border border-gray-300 rounded-md"
                 >
                   <option value="available">Available</option>
@@ -453,12 +450,12 @@ const Equipment = () => {
                 />
               </div>
               <div>
-                <Label htmlFor="warranty_expiry">Warranty Expiry</Label>
+                <Label htmlFor="warranty_end_date">Warranty Expiry</Label>
                 <Input
-                  id="warranty_expiry"
+                  id="warranty_end_date"
                   type="date"
-                  value={newEquipment.warranty_expiry}
-                  onChange={(e) => setNewEquipment(prev => ({ ...prev, warranty_expiry: e.target.value }))}
+                  value={newEquipment.warranty_end_date}
+                  onChange={(e) => setNewEquipment(prev => ({ ...prev, warranty_end_date: e.target.value }))}
                 />
               </div>
               <div>
@@ -501,4 +498,4 @@ const Equipment = () => {
   );
 };
 
-export default Equipment;
+export default EquipmentPage;
