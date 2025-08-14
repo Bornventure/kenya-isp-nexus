@@ -16,7 +16,7 @@ export interface Client {
   connection_type: 'fiber' | 'wireless' | 'satellite' | 'dsl';
   service_package_id: string;
   monthly_rate: number;
-  status: 'active' | 'pending' | 'suspended' | 'inactive' | 'disconnected' | 'approved';
+  status: 'active' | 'pending' | 'suspended' | 'disconnected' | 'approved';
   balance: number;
   wallet_balance: number;
   is_active: boolean;
@@ -103,6 +103,7 @@ export interface ServicePackage {
   monthly_rate: number;
   setup_fee?: number;
   data_limit?: number;
+  connection_types: string[];
   is_active: boolean;
   isp_company_id: string;
   created_at: string;

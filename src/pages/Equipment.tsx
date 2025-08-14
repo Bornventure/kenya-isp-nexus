@@ -1,857 +1,503 @@
+
 import React, { useState } from 'react';
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card"
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { Badge } from '@/components/ui/badge';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Label } from '@/components/ui/label';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import {
-  Table,
-  TableBody,
-  TableCaption,
-  TableCell,
-  TableFooter,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table"
-import { Plus, Edit, Trash2, Eye, CheckCircle, XCircle } from 'lucide-react';
-import { useEquipment, Equipment } from '@/hooks/useEquipment';
-import { Badge } from "@/components/ui/badge"
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from "@/components/ui/dialog"
-import { Textarea } from "@/components/ui/textarea"
-import { useToast } from '@/hooks/use-toast';
-import { Calendar } from "@/components/ui/calendar"
-import {
-  Popover,
-  PopoverContent,
-  PopoverTrigger,
-} from "@/components/ui/popover"
-import { cn } from "@/lib/utils"
-import { format } from "date-fns"
-import { CalendarIcon } from "lucide-react"
-import { DatePicker } from "@/components/ui/date-picker"
-import { useMutation, useQueryClient } from '@tanstack/react-query';
+import { Textarea } from '@/components/ui/textarea';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { 
+  Search, 
+  Plus, 
+  Filter, 
+  Download, 
+  Router, 
+  Wifi, 
+  Smartphone,
+  Settings,
+  Edit,
+  Trash2,
+  Eye,
+  CheckCircle,
+  XCircle,
+  Clock,
+  Calendar,
+  MapPin
+} from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
+import { useToast } from '@/hooks/use-toast';
+import type { Equipment as EquipmentType } from '@/types/equipment';
+import { useEquipment } from '@/hooks/useEquipment';
 
 const Equipment = () => {
-  const [showAddModal, setShowAddModal] = useState(false);
-  const [showEditModal, setShowEditModal] = useState(false);
-  const [selectedEquipment, setSelectedEquipment] = useState<Equipment | null>(null);
-  const { equipment, isLoading, error, createEquipment, updateEquipment, approveEquipment, rejectEquipment } = useEquipment();
-  const { toast } = useToast();
-  const [isApprovingEquipment, setIsApprovingEquipment] = useState(false);
-  const [isRejectingEquipment, setIsRejectingEquipment] = useState(false);
+  const [searchTerm, setSearchTerm] = useState('');
+  const [statusFilter, setStatusFilter] = useState<string>('all');
+  const [typeFilter, setTypeFilter] = useState<string>('all');
+  const [showAddDialog, setShowAddDialog] = useState(false);
+  const [editingEquipment, setEditingEquipment] = useState<EquipmentType | null>(null);
+  
   const { profile } = useAuth();
+  const { toast } = useToast();
   const queryClient = useQueryClient();
 
-  const handleAddEquipment = async (equipmentData: any) => {
-    try {
-      // Prepare data with correct database field names
-      const dbEquipmentData = {
-        type: equipmentData.equipment_type || equipmentData.type,
-        brand: equipmentData.brand,
-        model: equipmentData.model,
-        serial_number: equipmentData.serial_number,
-        mac_address: equipmentData.mac_address,
-        status: equipmentData.status || 'available',
-        location: equipmentData.location,
-        notes: equipmentData.notes,
-        purchase_date: equipmentData.purchase_date,
-        warranty_end_date: equipmentData.warranty_expiry || equipmentData.warranty_end_date,
-        equipment_type_id: equipmentData.equipment_type_id,
-      };
+  const {
+    equipment,
+    equipmentTypes,
+    isLoading: equipmentLoading,
+    typesLoading,
+    addEquipment,
+    updateEquipment,
+    deleteEquipment
+  } = useEquipment();
 
-      createEquipment(dbEquipmentData);
-      setShowAddModal(false);
+  const [newEquipment, setNewEquipment] = useState<Partial<EquipmentType>>({
+    serial_number: '',
+    model: '',
+    equipment_type: '',
+    status: 'available',
+    purchase_date: new Date().toISOString().split('T')[0],
+    warranty_expiry: '',
+    mac_address: '',
+    location: '',
+    notes: ''
+  });
+
+  // Filter equipment
+  const filteredEquipment = equipment.filter(item => {
+    const matchesSearch = item.serial_number.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                         item.model.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                         item.mac_address?.toLowerCase().includes(searchTerm.toLowerCase());
+    
+    const matchesStatus = statusFilter === 'all' || item.status === statusFilter;
+    const matchesType = typeFilter === 'all' || item.equipment_type === typeFilter;
+    
+    return matchesSearch && matchesStatus && matchesType;
+  });
+
+  // Statistics
+  const stats = {
+    total: equipment.length,
+    available: equipment.filter(e => e.status === 'available').length,
+    deployed: equipment.filter(e => e.status === 'deployed').length,
+    maintenance: equipment.filter(e => e.status === 'maintenance').length,
+    retired: equipment.filter(e => e.status === 'retired').length
+  };
+
+  const getStatusColor = (status: string) => {
+    switch (status) {
+      case 'available':
+        return 'bg-green-100 text-green-800';
+      case 'deployed':
+        return 'bg-blue-100 text-blue-800';
+      case 'maintenance':
+        return 'bg-yellow-100 text-yellow-800';
+      case 'retired':
+        return 'bg-red-100 text-red-800';
+      default:
+        return 'bg-gray-100 text-gray-800';
+    }
+  };
+
+  const getTypeIcon = (type: string) => {
+    switch (type.toLowerCase()) {
+      case 'router':
+        return <Router className="h-4 w-4" />;
+      case 'access point':
+        return <Wifi className="h-4 w-4" />;
+      case 'modem':
+        return <Smartphone className="h-4 w-4" />;
+      default:
+        return <Settings className="h-4 w-4" />;
+    }
+  };
+
+  const handleAddEquipment = async (e: React.FormEvent) => {
+    e.preventDefault();
+    
+    try {
+      await addEquipment.mutateAsync(newEquipment as EquipmentType);
+      setShowAddDialog(false);
+      setNewEquipment({
+        serial_number: '',
+        model: '',
+        equipment_type: '',
+        status: 'available',
+        purchase_date: new Date().toISOString().split('T')[0],
+        warranty_expiry: '',
+        mac_address: '',
+        location: '',
+        notes: ''
+      });
+      toast({
+        title: "Success",
+        description: "Equipment added successfully",
+      });
     } catch (error) {
       console.error('Error adding equipment:', error);
+      toast({
+        title: "Error",
+        description: "Failed to add equipment",
+        variant: "destructive",
+      });
     }
   };
 
-  const handleEditEquipment = (equipment: Equipment) => {
-    setSelectedEquipment(equipment);
-    setShowEditModal(true);
-  };
-
-  const handleUpdateEquipment = async (equipmentData: any) => {
-    if (!selectedEquipment) return;
-
+  const handleUpdateEquipment = async (equipment: EquipmentType) => {
     try {
-      await updateEquipment({ id: selectedEquipment.id, updates: equipmentData });
-      setShowEditModal(false);
-      setSelectedEquipment(null);
+      await updateEquipment.mutateAsync({ id: equipment.id, updates: equipment });
+      setEditingEquipment(null);
+      toast({
+        title: "Success",
+        description: "Equipment updated successfully",
+      });
     } catch (error) {
       console.error('Error updating equipment:', error);
-    }
-  };
-
-  const handleApproveEquipment = async (equipmentId: string) => {
-    setIsApprovingEquipment(true);
-    try {
-      await approveEquipment({ id: equipmentId });
-      toast({
-        title: "Equipment Approved",
-        description: "Equipment has been approved successfully.",
-      });
-    } catch (error) {
-      console.error('Error approving equipment:', error);
       toast({
         title: "Error",
-        description: "Failed to approve equipment. Please try again.",
+        description: "Failed to update equipment",
         variant: "destructive",
       });
-    } finally {
-      setIsApprovingEquipment(false);
     }
   };
 
-  const handleRejectEquipment = async (equipmentId: string, rejectionNotes: string) => {
-    setIsRejectingEquipment(true);
+  const handleDeleteEquipment = async (id: string) => {
+    if (!confirm('Are you sure you want to delete this equipment?')) return;
+    
     try {
-      await rejectEquipment({ id: equipmentId, notes: rejectionNotes });
+      await deleteEquipment.mutateAsync(id);
       toast({
-        title: "Equipment Rejected",
-        description: "Equipment has been rejected successfully.",
+        title: "Success",
+        description: "Equipment deleted successfully",
       });
     } catch (error) {
-      console.error('Error rejecting equipment:', error);
+      console.error('Error deleting equipment:', error);
       toast({
         title: "Error",
-        description: "Failed to reject equipment. Please try again.",
+        description: "Failed to delete equipment",
         variant: "destructive",
       });
-    } finally {
-      setIsRejectingEquipment(false);
     }
   };
-
-  if (isLoading) return <div>Loading equipment...</div>;
-  if (error) return <div>Error: {error.message}</div>;
 
   return (
-    <div className="container mx-auto py-10">
+    <div className="space-y-6">
+      {/* Header */}
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-3xl font-bold tracking-tight">Equipment Management</h1>
+          <p className="text-muted-foreground">
+            Manage your network equipment inventory and assignments
+          </p>
+        </div>
+        <Button onClick={() => setShowAddDialog(true)}>
+          <Plus className="h-4 w-4 mr-2" />
+          Add Equipment
+        </Button>
+      </div>
+
+      {/* Statistics Cards */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Total Equipment</CardTitle>
+            <Settings className="h-4 w-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">{stats.total}</div>
+          </CardContent>
+        </Card>
+        
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Available</CardTitle>
+            <CheckCircle className="h-4 w-4 text-green-600" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold text-green-600">{stats.available}</div>
+          </CardContent>
+        </Card>
+        
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Deployed</CardTitle>
+            <Router className="h-4 w-4 text-blue-600" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold text-blue-600">{stats.deployed}</div>
+          </CardContent>
+        </Card>
+        
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Maintenance</CardTitle>
+            <Clock className="h-4 w-4 text-yellow-600" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold text-yellow-600">{stats.maintenance}</div>
+          </CardContent>
+        </Card>
+        
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Retired</CardTitle>
+            <XCircle className="h-4 w-4 text-red-600" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold text-red-600">{stats.retired}</div>
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* Filters and Search */}
+      <div className="flex items-center gap-4">
+        <div className="flex-1">
+          <div className="relative">
+            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
+            <Input
+              placeholder="Search equipment by serial number, model, or MAC address..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="pl-10"
+            />
+          </div>
+        </div>
+        
+        <select
+          value={statusFilter}
+          onChange={(e) => setStatusFilter(e.target.value)}
+          className="border border-gray-200 rounded-md px-3 py-2"
+        >
+          <option value="all">All Status</option>
+          <option value="available">Available</option>
+          <option value="deployed">Deployed</option>
+          <option value="maintenance">Maintenance</option>
+          <option value="retired">Retired</option>
+        </select>
+        
+        <select
+          value={typeFilter}
+          onChange={(e) => setTypeFilter(e.target.value)}
+          className="border border-gray-200 rounded-md px-3 py-2"
+        >
+          <option value="all">All Types</option>
+          {equipmentTypes.map(type => (
+            <option key={type.id} value={type.name}>{type.name}</option>
+          ))}
+        </select>
+        
+        <Button variant="outline">
+          <Download className="h-4 w-4 mr-2" />
+          Export
+        </Button>
+      </div>
+
+      {/* Equipment Table */}
       <Card>
         <CardHeader>
-          <CardTitle>Equipment Management</CardTitle>
-          <CardDescription>Manage and monitor your network equipment.</CardDescription>
+          <CardTitle>Equipment ({filteredEquipment.length})</CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="mb-4">
-            <Button onClick={() => setShowAddModal(true)}>
-              <Plus className="mr-2 h-4 w-4" />
-              Add Equipment
-            </Button>
-          </div>
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Type</TableHead>
-                <TableHead>Brand</TableHead>
-                <TableHead>Model</TableHead>
-                <TableHead>Serial Number</TableHead>
-                <TableHead>MAC Address</TableHead>
-                <TableHead>Status</TableHead>
-                <TableHead>Actions</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {equipment.map((equipment) => (
-                <TableRow key={equipment.id}>
-                  <TableCell>{equipment.equipment_types?.name || equipment.type}</TableCell>
-                  <TableCell>{equipment.equipment_types?.brand || equipment.brand || 'N/A'}</TableCell>
-                  <TableCell>{equipment.equipment_types?.model || equipment.model || 'N/A'}</TableCell>
-                  <TableCell>{equipment.serial_number}</TableCell>
-                  <TableCell>{equipment.mac_address || 'N/A'}</TableCell>
-                  <TableCell>
-                    <Badge variant="secondary">{equipment.status}</Badge>
-                  </TableCell>
-                  <TableCell>
-                    <div className="flex items-center space-x-2">
-                      <Button variant="ghost" size="sm" onClick={() => handleEditEquipment(equipment)}>
-                        <Edit className="h-4 w-4" />
-                      </Button>
-                      <Dialog>
-                        <DialogTrigger asChild>
-                          <Button variant="ghost" size="sm">
-                            <Eye className="h-4 w-4" />
-                          </Button>
-                        </DialogTrigger>
-                        <DialogContent className="sm:max-w-[425px]">
-                          <DialogHeader>
-                            <DialogTitle>Equipment Details</DialogTitle>
-                            <DialogDescription>
-                              View detailed information about this equipment.
-                            </DialogDescription>
-                          </DialogHeader>
-                          <div className="grid gap-4 py-4">
-                            <div className="grid grid-cols-4 items-center gap-4">
-                              <Label htmlFor="type" className="text-right">
-                                Type
-                              </Label>
-                              <Input type="text" id="type" value={equipment.type} className="col-span-3" readOnly />
+          {equipmentLoading ? (
+            <div className="text-center py-8">Loading equipment...</div>
+          ) : filteredEquipment.length === 0 ? (
+            <div className="text-center py-8 text-gray-500">
+              No equipment found matching your criteria
+            </div>
+          ) : (
+            <div className="overflow-x-auto">
+              <table className="w-full">
+                <thead>
+                  <tr className="border-b">
+                    <th className="text-left py-3 px-4">Equipment</th>
+                    <th className="text-left py-3 px-4">Type</th>
+                    <th className="text-left py-3 px-4">Status</th>
+                    <th className="text-left py-3 px-4">Location</th>
+                    <th className="text-left py-3 px-4">Warranty</th>
+                    <th className="text-left py-3 px-4">Actions</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {filteredEquipment.map((item) => (
+                    <tr key={item.id} className="border-b hover:bg-gray-50">
+                      <td className="py-3 px-4">
+                        <div>
+                          <div className="font-medium">{item.model}</div>
+                          <div className="text-sm text-gray-500">SN: {item.serial_number}</div>
+                          {item.mac_address && (
+                            <div className="text-sm text-gray-500">MAC: {item.mac_address}</div>
+                          )}
+                        </div>
+                      </td>
+                      <td className="py-3 px-4">
+                        <div className="flex items-center gap-2">
+                          {getTypeIcon(item.equipment_type)}
+                          {item.equipment_type}
+                        </div>
+                      </td>
+                      <td className="py-3 px-4">
+                        <Badge className={getStatusColor(item.status)}>
+                          {item.status}
+                        </Badge>
+                      </td>
+                      <td className="py-3 px-4">
+                        <div className="flex items-center gap-1">
+                          <MapPin className="h-3 w-3 text-gray-400" />
+                          {item.location || 'Not specified'}
+                        </div>
+                      </td>
+                      <td className="py-3 px-4">
+                        <div className="text-sm">
+                          {item.warranty_expiry ? (
+                            <div className="flex items-center gap-1">
+                              <Calendar className="h-3 w-3 text-gray-400" />
+                              {new Date(item.warranty_expiry).toLocaleDateString()}
                             </div>
-                            <div className="grid grid-cols-4 items-center gap-4">
-                              <Label htmlFor="brand" className="text-right">
-                                Brand
-                              </Label>
-                              <Input type="text" id="brand" value={equipment.brand || 'N/A'} className="col-span-3" readOnly />
-                            </div>
-                            <div className="grid grid-cols-4 items-center gap-4">
-                              <Label htmlFor="model" className="text-right">
-                                Model
-                              </Label>
-                              <Input type="text" id="model" value={equipment.model || 'N/A'} className="col-span-3" readOnly />
-                            </div>
-                            <div className="grid grid-cols-4 items-center gap-4">
-                              <Label htmlFor="serial" className="text-right">
-                                Serial Number
-                              </Label>
-                              <Input type="text" id="serial" value={equipment.serial_number} className="col-span-3" readOnly />
-                            </div>
-                            <div className="grid grid-cols-4 items-center gap-4">
-                              <Label htmlFor="mac" className="text-right">
-                                MAC Address
-                              </Label>
-                              <Input type="text" id="mac" value={equipment.mac_address || 'N/A'} className="col-span-3" readOnly />
-                            </div>
-                            <div className="grid grid-cols-4 items-center gap-4">
-                              <Label htmlFor="status" className="text-right">
-                                Status
-                              </Label>
-                              <Input type="text" id="status" value={equipment.status} className="col-span-3" readOnly />
-                            </div>
-                            <div className="grid grid-cols-4 items-center gap-4">
-                              <Label htmlFor="notes" className="text-right">
-                                Notes
-                              </Label>
-                              <Textarea id="notes" value={equipment.notes || 'N/A'} className="col-span-3" readOnly />
-                            </div>
-                          </div>
-                        </DialogContent>
-                      </Dialog>
-                      {equipment.approval_status === 'pending' && (
-                        <>
+                          ) : (
+                            'Not specified'
+                          )}
+                        </div>
+                      </td>
+                      <td className="py-3 px-4">
+                        <div className="flex items-center gap-2">
                           <Button
                             variant="ghost"
                             size="sm"
-                            onClick={() => handleApproveEquipment(equipment.id)}
-                            disabled={isApprovingEquipment}
+                            onClick={() => setEditingEquipment(item)}
                           >
-                            <CheckCircle className="h-4 w-4 text-green-500" />
+                            <Edit className="h-4 w-4" />
                           </Button>
-                          <Dialog>
-                            <DialogTrigger asChild>
-                              <Button variant="ghost" size="sm">
-                                <XCircle className="h-4 w-4 text-red-500" />
-                              </Button>
-                            </DialogTrigger>
-                            <DialogContent className="sm:max-w-[425px]">
-                              <DialogHeader>
-                                <DialogTitle>Reject Equipment</DialogTitle>
-                                <DialogDescription>
-                                  Are you sure you want to reject this equipment? Please provide a reason.
-                                </DialogDescription>
-                              </DialogHeader>
-                              <div className="grid gap-4 py-4">
-                                <div className="grid grid-cols-4 items-center gap-4">
-                                  <Label htmlFor="rejectionNotes" className="text-right">
-                                    Rejection Notes
-                                  </Label>
-                                  <Textarea id="rejectionNotes" className="col-span-3" />
-                                </div>
-                              </div>
-                              <DialogFooter>
-                                <Button type="button" variant="secondary" onClick={() => {
-                                  const rejectionNotes = (document.getElementById('rejectionNotes') as HTMLTextAreaElement).value;
-                                  handleRejectEquipment(equipment.id, rejectionNotes);
-                                }}>
-                                  Reject
-                                </Button>
-                              </DialogFooter>
-                            </DialogContent>
-                          </Dialog>
-                        </>
-                      )}
-                    </div>
-                  </TableCell>
-                </TableRow>
-              ))}
-            </TableBody>
-          </Table>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => handleDeleteEquipment(item.id)}
+                          >
+                            <Trash2 className="h-4 w-4 text-red-600" />
+                          </Button>
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
         </CardContent>
       </Card>
 
-      {/* Add Equipment Modal */}
-      <Dialog open={showAddModal} onOpenChange={setShowAddModal}>
-        <DialogContent className="sm:max-w-[425px]">
+      {/* Add Equipment Dialog */}
+      <Dialog open={showAddDialog} onOpenChange={setShowAddDialog}>
+        <DialogContent className="max-w-2xl">
           <DialogHeader>
-            <DialogTitle>Add Equipment</DialogTitle>
-            <DialogDescription>
-              Add new equipment to the inventory.
-            </DialogDescription>
+            <DialogTitle>Add New Equipment</DialogTitle>
           </DialogHeader>
-          <AddEquipmentForm onSubmit={handleAddEquipment} onClose={() => setShowAddModal(false)} />
-        </DialogContent>
-      </Dialog>
-
-      {/* Edit Equipment Modal */}
-      <Dialog open={showEditModal} onOpenChange={setShowEditModal}>
-        <DialogContent className="sm:max-w-[425px]">
-          <DialogHeader>
-            <DialogTitle>Edit Equipment</DialogTitle>
-            <DialogDescription>
-              Edit the details of the selected equipment.
-            </DialogDescription>
-          </DialogHeader>
-          <EditEquipmentForm
-            equipment={selectedEquipment}
-            onSubmit={handleUpdateEquipment}
-            onClose={() => {
-              setShowEditModal(false);
-              setSelectedEquipment(null);
-            }}
-          />
+          <form onSubmit={handleAddEquipment} className="space-y-4">
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <Label htmlFor="serial_number">Serial Number *</Label>
+                <Input
+                  id="serial_number"
+                  value={newEquipment.serial_number}
+                  onChange={(e) => setNewEquipment(prev => ({ ...prev, serial_number: e.target.value }))}
+                  required
+                />
+              </div>
+              <div>
+                <Label htmlFor="model">Model *</Label>
+                <Input
+                  id="model"
+                  value={newEquipment.model}
+                  onChange={(e) => setNewEquipment(prev => ({ ...prev, model: e.target.value }))}
+                  required
+                />
+              </div>
+              <div>
+                <Label htmlFor="equipment_type">Equipment Type *</Label>
+                <select
+                  id="equipment_type"
+                  value={newEquipment.equipment_type}
+                  onChange={(e) => setNewEquipment(prev => ({ ...prev, equipment_type: e.target.value }))}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md"
+                  required
+                >
+                  <option value="">Select Type</option>
+                  {equipmentTypes.map(type => (
+                    <option key={type.id} value={type.name}>{type.name}</option>
+                  ))}
+                </select>
+              </div>
+              <div>
+                <Label htmlFor="status">Status</Label>
+                <select
+                  id="status"
+                  value={newEquipment.status}
+                  onChange={(e) => setNewEquipment(prev => ({ ...prev, status: e.target.value as EquipmentType['status'] }))}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md"
+                >
+                  <option value="available">Available</option>
+                  <option value="deployed">Deployed</option>
+                  <option value="maintenance">Maintenance</option>
+                  <option value="retired">Retired</option>
+                </select>
+              </div>
+              <div>
+                <Label htmlFor="purchase_date">Purchase Date</Label>
+                <Input
+                  id="purchase_date"
+                  type="date"
+                  value={newEquipment.purchase_date}
+                  onChange={(e) => setNewEquipment(prev => ({ ...prev, purchase_date: e.target.value }))}
+                />
+              </div>
+              <div>
+                <Label htmlFor="warranty_expiry">Warranty Expiry</Label>
+                <Input
+                  id="warranty_expiry"
+                  type="date"
+                  value={newEquipment.warranty_expiry}
+                  onChange={(e) => setNewEquipment(prev => ({ ...prev, warranty_expiry: e.target.value }))}
+                />
+              </div>
+              <div>
+                <Label htmlFor="mac_address">MAC Address</Label>
+                <Input
+                  id="mac_address"
+                  value={newEquipment.mac_address}
+                  onChange={(e) => setNewEquipment(prev => ({ ...prev, mac_address: e.target.value }))}
+                  placeholder="XX:XX:XX:XX:XX:XX"
+                />
+              </div>
+              <div>
+                <Label htmlFor="location">Location</Label>
+                <Input
+                  id="location"
+                  value={newEquipment.location}
+                  onChange={(e) => setNewEquipment(prev => ({ ...prev, location: e.target.value }))}
+                />
+              </div>
+            </div>
+            <div>
+              <Label htmlFor="notes">Notes</Label>
+              <Textarea
+                id="notes"
+                value={newEquipment.notes}
+                onChange={(e) => setNewEquipment(prev => ({ ...prev, notes: e.target.value }))}
+                rows={3}
+              />
+            </div>
+            <div className="flex justify-end gap-3">
+              <Button type="button" variant="outline" onClick={() => setShowAddDialog(false)}>
+                Cancel
+              </Button>
+              <Button type="submit">Add Equipment</Button>
+            </div>
+          </form>
         </DialogContent>
       </Dialog>
     </div>
-  );
-};
-
-interface AddEquipmentFormProps {
-  onSubmit: (data: any) => void;
-  onClose: () => void;
-}
-
-const AddEquipmentForm: React.FC<AddEquipmentFormProps> = ({ onSubmit, onClose }) => {
-  const [equipmentType, setEquipmentType] = useState('');
-  const [brand, setBrand] = useState('');
-  const [model, setModel] = useState('');
-  const [serialNumber, setSerialNumber] = useState('');
-  const [macAddress, setMacAddress] = useState('');
-  const [status, setStatus] = useState('available');
-  const [location, setLocation] = useState('');
-  const [notes, setNotes] = useState('');
-  const [purchaseDate, setPurchaseDate] = React.useState<Date | undefined>(new Date());
-  const [warrantyExpiry, setWarrantyExpiry] = React.useState<Date | undefined>(new Date());
-  const [equipmentTypeId, setEquipmentTypeId] = useState('');
-  const { profile } = useAuth();
-  const [equipmentTypes, setEquipmentTypes] = useState([]);
-  const { toast } = useToast();
-
-  React.useEffect(() => {
-    const fetchEquipmentTypes = async () => {
-      if (!profile?.isp_company_id) {
-        toast({
-          title: "Error",
-          description: "Company information not found. Please log in again.",
-          variant: "destructive",
-        });
-        return;
-      }
-      const { data, error } = await supabase
-        .from('equipment_types')
-        .select('*')
-        .eq('isp_company_id', profile.isp_company_id);
-
-      if (error) {
-        console.error('Error fetching equipment types:', error);
-        return;
-      }
-
-      setEquipmentTypes(data);
-    };
-
-    fetchEquipmentTypes();
-  }, [profile?.isp_company_id, toast]);
-
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    onSubmit({
-      equipment_type: equipmentType,
-      brand,
-      model,
-      serial_number: serialNumber,
-      mac_address: macAddress,
-      status,
-      location,
-      notes,
-      purchase_date: purchaseDate?.toISOString(),
-      warranty_expiry: warrantyExpiry?.toISOString(),
-      equipment_type_id: equipmentTypeId,
-    });
-    onClose();
-  };
-
-  return (
-    <form onSubmit={handleSubmit} className="grid gap-4 py-4">
-      <div className="grid grid-cols-4 items-center gap-4">
-        <Label htmlFor="equipmentType" className="text-right">
-          Equipment Type
-        </Label>
-        <Input
-          type="text"
-          id="equipmentType"
-          className="col-span-3"
-          value={equipmentType}
-          onChange={(e) => setEquipmentType(e.target.value)}
-        />
-      </div>
-      <div className="grid grid-cols-4 items-center gap-4">
-        <Label htmlFor="brand" className="text-right">
-          Brand
-        </Label>
-        <Input
-          type="text"
-          id="brand"
-          className="col-span-3"
-          value={brand}
-          onChange={(e) => setBrand(e.target.value)}
-        />
-      </div>
-      <div className="grid grid-cols-4 items-center gap-4">
-        <Label htmlFor="model" className="text-right">
-          Model
-        </Label>
-        <Input
-          type="text"
-          id="model"
-          className="col-span-3"
-          value={model}
-          onChange={(e) => setModel(e.target.value)}
-        />
-      </div>
-      <div className="grid grid-cols-4 items-center gap-4">
-        <Label htmlFor="serialNumber" className="text-right">
-          Serial Number
-        </Label>
-        <Input
-          type="text"
-          id="serialNumber"
-          className="col-span-3"
-          value={serialNumber}
-          onChange={(e) => setSerialNumber(e.target.value)}
-        />
-      </div>
-      <div className="grid grid-cols-4 items-center gap-4">
-        <Label htmlFor="macAddress" className="text-right">
-          MAC Address
-        </Label>
-        <Input
-          type="text"
-          id="macAddress"
-          className="col-span-3"
-          value={macAddress}
-          onChange={(e) => setMacAddress(e.target.value)}
-        />
-      </div>
-      <div className="grid grid-cols-4 items-center gap-4">
-        <Label htmlFor="status" className="text-right">
-          Status
-        </Label>
-        <Select value={status} onValueChange={setStatus}>
-          <SelectTrigger className="col-span-3">
-            <SelectValue placeholder="Select a status" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="available">Available</SelectItem>
-            <SelectItem value="in_use">In Use</SelectItem>
-            <SelectItem value="maintenance">Maintenance</SelectItem>
-            <SelectItem value="damaged">Damaged</SelectItem>
-            <SelectItem value="lost">Lost</SelectItem>
-            <SelectItem value="stolen">Stolen</SelectItem>
-          </SelectContent>
-        </Select>
-      </div>
-      <div className="grid grid-cols-4 items-center gap-4">
-        <Label htmlFor="location" className="text-right">
-          Location
-        </Label>
-        <Input
-          type="text"
-          id="location"
-          className="col-span-3"
-          value={location}
-          onChange={(e) => setLocation(e.target.value)}
-        />
-      </div>
-      <div className="grid grid-cols-4 items-center gap-4">
-        <Label htmlFor="notes" className="text-right">
-          Notes
-        </Label>
-        <Textarea
-          id="notes"
-          className="col-span-3"
-          value={notes}
-          onChange={(e) => setNotes(e.target.value)}
-        />
-      </div>
-      <div className="grid grid-cols-4 items-center gap-4">
-        <Label htmlFor="purchaseDate" className="text-right">
-          Purchase Date
-        </Label>
-        <Popover>
-          <PopoverTrigger asChild>
-            <Button
-              variant={"outline"}
-              className={cn(
-                "w-[240px] pl-3 text-left font-normal",
-                !purchaseDate && "text-muted-foreground"
-              )}
-            >
-              {purchaseDate ? format(purchaseDate, "PPP") : (
-                <span>Pick a date</span>
-              )}
-              <CalendarIcon className="ml-auto h-4 w-4 opacity-50" />
-            </Button>
-          </PopoverTrigger>
-          <PopoverContent className="w-auto p-0" align="start">
-            <DatePicker
-              mode="single"
-              selected={purchaseDate}
-              onSelect={setPurchaseDate}
-              disabled={(date) =>
-                date > new Date()
-              }
-              initialFocus
-            />
-          </PopoverContent>
-        </Popover>
-      </div>
-      <div className="grid grid-cols-4 items-center gap-4">
-        <Label htmlFor="warrantyExpiry" className="text-right">
-          Warranty Expiry
-        </Label>
-        <Popover>
-          <PopoverTrigger asChild>
-            <Button
-              variant={"outline"}
-              className={cn(
-                "w-[240px] pl-3 text-left font-normal",
-                !warrantyExpiry && "text-muted-foreground"
-              )}
-            >
-              {warrantyExpiry ? format(warrantyExpiry, "PPP") : (
-                <span>Pick a date</span>
-              )}
-              <CalendarIcon className="ml-auto h-4 w-4 opacity-50" />
-            </Button>
-          </PopoverTrigger>
-          <PopoverContent className="w-auto p-0" align="start">
-            <DatePicker
-              mode="single"
-              selected={warrantyExpiry}
-              onSelect={setWarrantyExpiry}
-              disabled={(date) =>
-                date < new Date()
-              }
-              initialFocus
-            />
-          </PopoverContent>
-        </Popover>
-      </div>
-      <div className="grid grid-cols-4 items-center gap-4">
-        <Label htmlFor="equipmentTypeId" className="text-right">
-          Equipment Type ID
-        </Label>
-        <Select value={equipmentTypeId} onValueChange={setEquipmentTypeId}>
-          <SelectTrigger className="col-span-3">
-            <SelectValue placeholder="Select an equipment type" />
-          </SelectTrigger>
-          <SelectContent>
-            {equipmentTypes.map((type: any) => (
-              <SelectItem key={type.id} value={type.id}>{type.name}</SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-      </div>
-      <DialogFooter>
-        <Button type="button" variant="secondary" onClick={onClose}>
-          Cancel
-        </Button>
-        <Button type="submit">Add Equipment</Button>
-      </DialogFooter>
-    </form>
-  );
-};
-
-interface EditEquipmentFormProps {
-  equipment: Equipment | null;
-  onSubmit: (data: any) => void;
-  onClose: () => void;
-}
-
-const EditEquipmentForm: React.FC<EditEquipmentFormProps> = ({ equipment, onSubmit, onClose }) => {
-  const [type, setType] = useState(equipment?.type || '');
-  const [brand, setBrand] = useState(equipment?.brand || '');
-  const [model, setModel] = useState(equipment?.model || '');
-  const [serialNumber, setSerialNumber] = useState(equipment?.serial_number || '');
-  const [macAddress, setMacAddress] = useState(equipment?.mac_address || '');
-  const [status, setStatus] = useState(equipment?.status || 'available');
-  const [location, setLocation] = useState(equipment?.location || '');
-  const [notes, setNotes] = useState(equipment?.notes || '');
-  const [purchaseDate, setPurchaseDate] = React.useState<Date | undefined>(equipment?.purchase_date ? new Date(equipment.purchase_date) : undefined);
-  const [warrantyExpiry, setWarrantyExpiry] = React.useState<Date | undefined>(equipment?.warranty_end_date ? new Date(equipment.warranty_end_date) : undefined);
-  const [equipmentTypeId, setEquipmentTypeId] = useState(equipment?.equipment_type_id || '');
-  const { profile } = useAuth();
-  const [equipmentTypes, setEquipmentTypes] = useState([]);
-  const { toast } = useToast();
-
-  React.useEffect(() => {
-    const fetchEquipmentTypes = async () => {
-      if (!profile?.isp_company_id) {
-        toast({
-          title: "Error",
-          description: "Company information not found. Please log in again.",
-          variant: "destructive",
-        });
-        return;
-      }
-      const { data, error } = await supabase
-        .from('equipment_types')
-        .select('*')
-        .eq('isp_company_id', profile.isp_company_id);
-
-      if (error) {
-        console.error('Error fetching equipment types:', error);
-        return;
-      }
-
-      setEquipmentTypes(data);
-    };
-
-    fetchEquipmentTypes();
-  }, [profile?.isp_company_id, toast]);
-
-  React.useEffect(() => {
-    if (equipment) {
-      setType(equipment.type || '');
-      setBrand(equipment.brand || '');
-      setModel(equipment.model || '');
-      setSerialNumber(equipment.serial_number || '');
-      setMacAddress(equipment.mac_address || '');
-      setStatus(equipment.status || 'available');
-      setLocation(equipment.location || '');
-      setNotes(equipment.notes || '');
-      setPurchaseDate(equipment.purchase_date ? new Date(equipment.purchase_date) : undefined);
-      setWarrantyExpiry(equipment.warranty_end_date ? new Date(equipment.warranty_end_date) : undefined);
-      setEquipmentTypeId(equipment.equipment_type_id || '');
-    }
-  }, [equipment]);
-
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    onSubmit({
-      type,
-      brand,
-      model,
-      serial_number: serialNumber,
-      mac_address: macAddress,
-      status,
-      location,
-      notes,
-      purchase_date: purchaseDate?.toISOString(),
-      warranty_end_date: warrantyExpiry?.toISOString(),
-      equipment_type_id: equipmentTypeId,
-    });
-    onClose();
-  };
-
-  return (
-    <form onSubmit={handleSubmit} className="grid gap-4 py-4">
-      <div className="grid grid-cols-4 items-center gap-4">
-        <Label htmlFor="type" className="text-right">
-          Type
-        </Label>
-        <Input
-          type="text"
-          id="type"
-          className="col-span-3"
-          value={type}
-          onChange={(e) => setType(e.target.value)}
-        />
-      </div>
-      <div className="grid grid-cols-4 items-center gap-4">
-        <Label htmlFor="brand" className="text-right">
-          Brand
-        </Label>
-        <Input
-          type="text"
-          id="brand"
-          className="col-span-3"
-          value={brand}
-          onChange={(e) => setBrand(e.target.value)}
-        />
-      </div>
-      <div className="grid grid-cols-4 items-center gap-4">
-        <Label htmlFor="model" className="text-right">
-          Model
-        </Label>
-        <Input
-          type="text"
-          id="model"
-          className="col-span-3"
-          value={model}
-          onChange={(e) => setModel(e.target.value)}
-        />
-      </div>
-      <div className="grid grid-cols-4 items-center gap-4">
-        <Label htmlFor="serialNumber" className="text-right">
-          Serial Number
-        </Label>
-        <Input
-          type="text"
-          id="serialNumber"
-          className="col-span-3"
-          value={serialNumber}
-          onChange={(e) => setSerialNumber(e.target.value)}
-        />
-      </div>
-      <div className="grid grid-cols-4 items-center gap-4">
-        <Label htmlFor="macAddress" className="text-right">
-          MAC Address
-        </Label>
-        <Input
-          type="text"
-          id="macAddress"
-          className="col-span-3"
-          value={macAddress}
-          onChange={(e) => setMacAddress(e.target.value)}
-        />
-      </div>
-      <div className="grid grid-cols-4 items-center gap-4">
-        <Label htmlFor="status" className="text-right">
-          Status
-        </Label>
-        <Select value={status} onValueChange={setStatus}>
-          <SelectTrigger className="col-span-3">
-            <SelectValue placeholder="Select a status" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="available">Available</SelectItem>
-            <SelectItem value="in_use">In Use</SelectItem>
-            <SelectItem value="maintenance">Maintenance</SelectItem>
-            <SelectItem value="damaged">Damaged</SelectItem>
-            <SelectItem value="lost">Lost</SelectItem>
-            <SelectItem value="stolen">Stolen</SelectItem>
-          </SelectContent>
-        </Select>
-      </div>
-      <div className="grid grid-cols-4 items-center gap-4">
-        <Label htmlFor="location" className="text-right">
-          Location
-        </Label>
-        <Input
-          type="text"
-          id="location"
-          className="col-span-3"
-          value={location}
-          onChange={(e) => setLocation(e.target.value)}
-        />
-      </div>
-      <div className="grid grid-cols-4 items-center gap-4">
-        <Label htmlFor="notes" className="text-right">
-          Notes
-        </Label>
-        <Textarea
-          id="notes"
-          className="col-span-3"
-          value={notes}
-          onChange={(e) => setNotes(e.target.value)}
-        />
-      </div>
-      <div className="grid grid-cols-4 items-center gap-4">
-        <Label htmlFor="purchaseDate" className="text-right">
-          Purchase Date
-        </Label>
-        <Popover>
-          <PopoverTrigger asChild>
-            <Button
-              variant={"outline"}
-              className={cn(
-                "w-[240px] pl-3 text-left font-normal",
-                !purchaseDate && "text-muted-foreground"
-              )}
-            >
-              {purchaseDate ? format(purchaseDate, "PPP") : (
-                <span>Pick a date</span>
-              )}
-              <CalendarIcon className="ml-auto h-4 w-4 opacity-50" />
-            </Button>
-          </PopoverTrigger>
-          <PopoverContent className="w-auto p-0" align="start">
-            <DatePicker
-              mode="single"
-              selected={purchaseDate}
-              onSelect={setPurchaseDate}
-              disabled={(date) =>
-                date > new Date()
-              }
-              initialFocus
-            />
-          </PopoverContent>
-        </Popover>
-      </div>
-      <div className="grid grid-cols-4 items-center gap-4">
-        <Label htmlFor="warrantyExpiry" className="text-right">
-          Warranty Expiry
-        </Label>
-        <Popover>
-          <PopoverTrigger asChild>
-            <Button
-              variant={"outline"}
-              className={cn(
-                "w-[240px] pl-3 text-left font-normal",
-                !warrantyExpiry && "text-muted-foreground"
-              )}
-            >
-              {warrantyExpiry ? format(warrantyExpiry, "PPP") : (
-                <span>Pick a date</span>
-              )}
-              <CalendarIcon className="ml-auto h-4 w-4 opacity-50" />
-            </Button>
-          </PopoverTrigger>
-          <PopoverContent className="w-auto p-0" align="start">
-            <DatePicker
-              mode="single"
-              selected={warrantyExpiry}
-              onSelect={setWarrantyExpiry}
-              disabled={(date) =>
-                date < new Date()
-              }
-              initialFocus
-            />
-          </PopoverContent>
-        </Popover>
-      </div>
-      <div className="grid grid-cols-4 items-center gap-4">
-        <Label htmlFor="equipmentTypeId" className="text-right">
-          Equipment Type ID
-        </Label>
-        <Select value={equipmentTypeId} onValueChange={setEquipmentTypeId}>
-          <SelectTrigger className="col-span-3">
-            <SelectValue placeholder="Select an equipment type" />
-          </SelectTrigger>
-          <SelectContent>
-            {equipmentTypes.map((type: any) => (
-              <SelectItem key={type.id} value={type.id}>{type.name}</SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-      </div>
-      <DialogFooter>
-        <Button type="button" variant="secondary" onClick={onClose}>
-          Cancel
-        </Button>
-        <Button type="submit">Update Equipment</Button>
-      </DialogFooter>
-    </form>
   );
 };
 

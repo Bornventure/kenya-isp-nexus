@@ -100,7 +100,7 @@ const Clients = () => {
 
   // Update client status mutation
   const updateClientStatus = useMutation({
-    mutationFn: async ({ clientId, status }: { clientId: string; status: string }) => {
+    mutationFn: async ({ clientId, status }: { clientId: string; status: 'active' | 'suspended' | 'disconnected' | 'pending' | 'approved' }) => {
       const { error } = await supabase
         .from('clients')
         .update({ 
@@ -201,7 +201,7 @@ const Clients = () => {
     setShowDetailsDialog(true);
   };
 
-  const handleRegistrationSuccess = () => {
+  const handleRegistrationSuccess = (client: Partial<Client>) => {
     setShowRegistrationDialog(false);
     queryClient.invalidateQueries({ queryKey: ['clients'] });
   };
@@ -230,7 +230,7 @@ const Clients = () => {
             <Users className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{stats.total}</div>
+            <div className="text-2xl font-bold">{clients.length}</div>
           </CardContent>
         </Card>
         
@@ -240,7 +240,7 @@ const Clients = () => {
             <UserCheck className="h-4 w-4 text-green-600" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-green-600">{stats.active}</div>
+            <div className="text-2xl font-bold text-green-600">{clients.filter(c => c.status === 'active').length}</div>
           </CardContent>
         </Card>
         
@@ -250,7 +250,7 @@ const Clients = () => {
             <UserX className="h-4 w-4 text-yellow-600" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-yellow-600">{stats.pending}</div>
+            <div className="text-2xl font-bold text-yellow-600">{clients.filter(c => c.status === 'pending').length}</div>
           </CardContent>
         </Card>
         
@@ -260,7 +260,7 @@ const Clients = () => {
             <UserX className="h-4 w-4 text-red-600" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-red-600">{stats.suspended}</div>
+            <div className="text-2xl font-bold text-red-600">{clients.filter(c => c.status === 'suspended').length}</div>
           </CardContent>
         </Card>
         
@@ -270,7 +270,7 @@ const Clients = () => {
             <DollarSign className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">KES {stats.totalRevenue.toLocaleString()}</div>
+            <div className="text-2xl font-bold">KES {clients.reduce((sum, c) => sum + c.monthly_rate, 0).toLocaleString()}</div>
           </CardContent>
         </Card>
       </div>
@@ -298,7 +298,6 @@ const Clients = () => {
           <option value="active">Active</option>
           <option value="pending">Pending</option>
           <option value="suspended">Suspended</option>
-          <option value="inactive">Inactive</option>
           <option value="approved">Approved</option>
         </select>
         
@@ -453,17 +452,20 @@ const Clients = () => {
           <DialogHeader>
             <DialogTitle>Register New Client</DialogTitle>
           </DialogHeader>
-          <ClientRegistrationForm onSuccess={handleRegistrationSuccess} />
+          <ClientRegistrationForm 
+            onClose={() => setShowRegistrationDialog(false)} 
+            onSave={handleRegistrationSuccess} 
+          />
         </DialogContent>
       </Dialog>
 
       {/* Client Details Dialog */}
-      <Dialog open={showDetailsDialog} onOpenChange={setShowDetailsDialog}>
-        <DialogContent className="max-w-6xl max-h-[90vh] overflow-y-auto">
-          <DialogHeader>
-            <DialogTitle>Client Details</DialogTitle>
-          </DialogHeader>
-          {selectedClient && (
+      {selectedClient && (
+        <Dialog open={showDetailsDialog} onOpenChange={setShowDetailsDialog}>
+          <DialogContent className="max-w-6xl max-h-[90vh] overflow-y-auto">
+            <DialogHeader>
+              <DialogTitle>Client Details</DialogTitle>
+            </DialogHeader>
             <ClientDetails
               client={selectedClient}
               onEdit={() => {/* Handle edit */}}
@@ -482,9 +484,9 @@ const Clients = () => {
                 setShowDetailsDialog(false);
               }}
             />
-          )}
-        </DialogContent>
-      </Dialog>
+          </DialogContent>
+        </Dialog>
+      )}
     </div>
   );
 };
