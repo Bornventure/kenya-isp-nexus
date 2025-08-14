@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { useServicePackages } from '@/hooks/useServicePackages';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -10,10 +9,10 @@ import { Badge } from '@/components/ui/badge';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Plus, Edit, Trash2, Package, Wifi, DollarSign, Users } from 'lucide-react';
-import { ServicePackage } from '@/types/client';
+import { ServicePackage } from '@/hooks/useServicePackages';
 
 const Packages = () => {
-  const { servicePackages: packages, isLoading, error, createPackage, updatePackage, deletePackage } = useServicePackages();
+  const { servicePackages, isLoading, error, createPackage, updatePackage, deletePackage } = useServicePackages();
   const [selectedPackage, setSelectedPackage] = useState<ServicePackage | null>(null);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
@@ -86,11 +85,25 @@ const Packages = () => {
     }
   };
 
+  const handleConnectionTypeChange = (type: 'fiber' | 'wireless' | 'satellite' | 'dsl', checked: boolean) => {
+    if (checked) {
+      setFormData(prev => ({
+        ...prev,
+        connection_types: [...prev.connection_types, type]
+      }));
+    } else {
+      setFormData(prev => ({
+        ...prev,
+        connection_types: prev.connection_types.filter(t => t !== type)
+      }));
+    }
+  };
+
   // Statistics
-  const totalPackages = packages.length;
-  const activePackages = packages.filter(p => p.is_active).length;
-  const averageRate = packages.length > 0 
-    ? packages.reduce((sum, p) => sum + p.monthly_rate, 0) / packages.length 
+  const totalPackages = servicePackages.length;
+  const activePackages = servicePackages.filter(p => p.is_active).length;
+  const averageRate = servicePackages.length > 0 
+    ? servicePackages.reduce((sum, p) => sum + p.monthly_rate, 0) / servicePackages.length 
     : 0;
 
   if (isLoading) {
@@ -254,19 +267,7 @@ const Packages = () => {
                       <input
                         type="checkbox"
                         checked={formData.connection_types.includes(type)}
-                        onChange={(e) => {
-                          if (e.target.checked) {
-                            setFormData(prev => ({
-                              ...prev,
-                              connection_types: [...prev.connection_types, type]
-                            }));
-                          } else {
-                            setFormData(prev => ({
-                              ...prev,
-                              connection_types: prev.connection_types.filter(t => t !== type)
-                            }));
-                          }
-                        }}
+                        onChange={(e) => handleConnectionTypeChange(type, e.target.checked)}
                       />
                       {type.charAt(0).toUpperCase() + type.slice(1)}
                     </label>
@@ -305,7 +306,7 @@ const Packages = () => {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {packages.map((pkg) => (
+              {servicePackages.map((pkg) => (
                 <TableRow key={pkg.id}>
                   <TableCell className="font-medium">{pkg.name}</TableCell>
                   <TableCell>{pkg.speed}</TableCell>

@@ -1,3 +1,4 @@
+
 import React, { useState } from 'react';
 import { useClients } from '@/hooks/useClients';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -8,7 +9,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Users, UserCheck, UserX, Clock, Plus, Search, Eye, Edit } from 'lucide-react';
 import ClientDetails from '@/components/clients/ClientDetails';
-import ClientRegistrationForm from '@/components/customers/CustomerRegistrationForm';
+import CustomerRegistrationForm from '@/components/customers/CustomerRegistrationForm';
 import { Client } from '@/types/client';
 
 // Helper function to transform database client data to the Client interface
@@ -274,12 +275,12 @@ const Clients = () => {
             <ClientDetails
               client={selectedClient}
               onClose={() => setDetailsOpen(false)}
-              onApprove={(id, notes) => {
-                approveClient(id, notes);
+              onApprove={(params) => {
+                approveClient(params);
                 setDetailsOpen(false);
               }}
-              onReject={(id, reason) => {
-                rejectClient(id, reason);
+              onReject={(params) => {
+                rejectClient(params);
                 setDetailsOpen(false);
               }}
               onUpdate={(id, updates) => {

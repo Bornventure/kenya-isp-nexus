@@ -11,6 +11,8 @@ export interface ServicePackage {
   monthly_rate: number;
   connection_types: ('fiber' | 'wireless' | 'satellite' | 'dsl')[];
   description: string | null;
+  setup_fee?: number;
+  data_limit?: number;
   is_active: boolean;
   isp_company_id: string;
   created_at: string;
@@ -31,7 +33,6 @@ export const useServicePackages = () => {
         .from('service_packages')
         .select('*')
         .eq('isp_company_id', profile.isp_company_id)
-        .eq('is_active', true)
         .order('monthly_rate', { ascending: true });
 
       if (error) {
@@ -135,13 +136,42 @@ export const useServicePackages = () => {
     },
   });
 
+  const deletePackageMutation = useMutation({
+    mutationFn: async (packageId: string) => {
+      const { error } = await supabase
+        .from('service_packages')
+        .delete()
+        .eq('id', packageId);
+
+      if (error) throw error;
+      return packageId;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['service-packages'] });
+      toast({
+        title: "Service Package Deleted",
+        description: "Service package has been deleted successfully.",
+      });
+    },
+    onError: (error) => {
+      console.error('Error deleting service package:', error);
+      toast({
+        title: "Error",
+        description: "Failed to delete service package. Please try again.",
+        variant: "destructive",
+      });
+    },
+  });
+
   return {
     servicePackages,
     isLoading,
     error,
     createPackage: createPackageMutation.mutate,
     updatePackage: updatePackageMutation.mutate,
+    deletePackage: deletePackageMutation.mutate,
     isCreating: createPackageMutation.isPending,
     isUpdating: updatePackageMutation.isPending,
+    isDeleting: deletePackageMutation.isPending,
   };
 };

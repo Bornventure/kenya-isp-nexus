@@ -1,3 +1,4 @@
+
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
@@ -11,7 +12,7 @@ export interface DatabaseClient {
   id_number: string;
   mpesa_number: string | null;
   client_type: 'individual' | 'business' | 'corporate' | 'government';
-  status: 'active' | 'suspended' | 'disconnected' | 'pending' | 'approved' | 'inactive';
+  status: 'active' | 'suspended' | 'disconnected' | 'pending' | 'approved';
   connection_type: 'fiber' | 'wireless' | 'satellite' | 'dsl';
   monthly_rate: number;
   installation_date: string | null;
@@ -43,6 +44,7 @@ export interface DatabaseClient {
     speed: string;
     monthly_rate: number;
   };
+  equipment_assignments?: any[];
 }
 
 // Legacy Client interface for backwards compatibility
@@ -83,6 +85,26 @@ export interface Client {
   payments?: any[];
   invoices?: any[];
   supportTickets?: any[];
+  // Database fields for direct access
+  id_number: string;
+  mpesa_number: string | null;
+  client_type: 'individual' | 'business' | 'corporate' | 'government';
+  connection_type: 'fiber' | 'wireless' | 'satellite' | 'dsl';
+  monthly_rate: number;
+  address: string;
+  county: string;
+  sub_county: string;
+  wallet_balance: number;
+  subscription_start_date: string | null;
+  subscription_end_date: string | null;
+  approved_at: string | null;
+  approved_by: string | null;
+  service_packages?: {
+    name: string;
+    speed: string;
+    monthly_rate: number;
+  };
+  equipment_assignments?: any[];
 }
 
 export const useClients = () => {
@@ -155,6 +177,11 @@ export const useClients = () => {
             name,
             speed,
             monthly_rate
+          ),
+          equipment_assignments (
+            equipment (
+              serial_number
+            )
           )
         `)
         .eq('isp_company_id', profile.isp_company_id)
@@ -172,7 +199,7 @@ export const useClients = () => {
   });
 
   const updateClientMutation = useMutation({
-    mutationFn: async ({ id, updates }: { id: string; updates: Partial<DatabaseClient> }) => {
+    mutationFn: async ({ id, updates }: { id: string; updates: Partial<Omit<DatabaseClient, 'id' | 'created_at' | 'updated_at' | 'service_packages' | 'equipment_assignments'>> }) => {
       const { data, error } = await supabase
         .from('clients')
         .update(updates)
@@ -201,17 +228,10 @@ export const useClients = () => {
   });
 
   const createClientMutation = useMutation({
-    mutationFn: async (clientData: Omit<DatabaseClient, 'id' | 'created_at' | 'updated_at' | 'service_packages'>) => {
-      if (!profile?.isp_company_id) {
-        throw new Error('No ISP company associated with user');
-      }
-
+    mutationFn: async (clientData: Omit<DatabaseClient, 'id' | 'created_at' | 'updated_at' | 'service_packages' | 'equipment_assignments'>) => {
       const { data, error } = await supabase
         .from('clients')
-        .insert({
-          ...clientData,
-          isp_company_id: profile.isp_company_id,
-        })
+        .insert(clientData)
         .select()
         .single();
 

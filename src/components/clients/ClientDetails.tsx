@@ -11,13 +11,15 @@ import { Client } from '@/types/client';
 
 export interface ClientDetailsProps {
   client: Client;
-  onApprove?: (id: string, notes?: string) => void;
-  onReject?: (id: string, reason: string) => void;
+  onClose?: () => void;
+  onApprove?: (params: { id: string; notes?: string }) => void;
+  onReject?: (params: { id: string; reason: string }) => void;
   onUpdate?: (id: string, updates: any) => void;
 }
 
 const ClientDetails: React.FC<ClientDetailsProps> = ({ 
   client, 
+  onClose,
   onApprove, 
   onReject, 
   onUpdate 
@@ -46,13 +48,13 @@ const ClientDetails: React.FC<ClientDetailsProps> = ({
 
   const handleApprove = () => {
     if (onApprove) {
-      onApprove(client.id, approvalNotes);
+      onApprove({ id: client.id, notes: approvalNotes });
     }
   };
 
   const handleReject = () => {
     if (onReject && rejectionReason) {
-      onReject(client.id, rejectionReason);
+      onReject({ id: client.id, reason: rejectionReason });
     }
   };
 
@@ -165,7 +167,7 @@ const ClientDetails: React.FC<ClientDetailsProps> = ({
                 </div>
                 <div>
                   <Label>Installation Date</Label>
-                  <p className="font-medium">{client.installation_date || 'Not scheduled'}</p>
+                  <p className="font-medium">{client.installationDate || 'Not scheduled'}</p>
                 </div>
               </div>
             </CardContent>

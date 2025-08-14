@@ -7,14 +7,17 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { useClients } from '@/hooks/useClients';
 import { useServicePackages } from '@/hooks/useServicePackages';
+import { useAuth } from '@/contexts/AuthContext';
 
 interface CustomerRegistrationFormProps {
   onClose: () => void;
+  onSuccess?: (client: any) => void;
 }
 
-const CustomerRegistrationForm: React.FC<CustomerRegistrationFormProps> = ({ onClose }) => {
+const CustomerRegistrationForm: React.FC<CustomerRegistrationFormProps> = ({ onClose, onSuccess }) => {
   const { createClient } = useClients();
   const { servicePackages } = useServicePackages();
+  const { profile } = useAuth();
   
   const [formData, setFormData] = useState({
     name: '',
@@ -34,9 +37,14 @@ const CustomerRegistrationForm: React.FC<CustomerRegistrationFormProps> = ({ onC
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     
-    createClient({
+    if (!profile?.isp_company_id) {
+      console.error('No ISP company ID found');
+      return;
+    }
+    
+    const clientData = {
       ...formData,
-      status: 'pending',
+      status: 'pending' as const,
       balance: 0,
       wallet_balance: 0,
       subscription_type: 'monthly',
@@ -54,7 +62,14 @@ const CustomerRegistrationForm: React.FC<CustomerRegistrationFormProps> = ({ onC
       installation_completed_by: null,
       installation_completed_at: null,
       service_activated_at: null,
-    });
+      isp_company_id: profile.isp_company_id,
+    };
+    
+    createClient(clientData);
+    
+    if (onSuccess) {
+      onSuccess(clientData);
+    }
     
     onClose();
   };
