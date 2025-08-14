@@ -73,7 +73,7 @@ export class AuthService {
         lastName: profile.last_name || '',
         phone: profile.phone,
         role: this.mapRole(profile.role),
-        accountType: profile.role === 'client' ? 'client' : 'staff',
+        accountType: this.mapRole(profile.role) === 'client' ? 'client' : 'staff',
         isVerified: true,
         isp_company_id: profile.isp_company_id
       };
@@ -241,6 +241,8 @@ export class AuthService {
       case 'admin':
       case 'manager':
         return 'admin';
+      case 'client':
+        return 'client';
       default:
         return 'technician';
     }

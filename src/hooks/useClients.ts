@@ -1,4 +1,3 @@
-
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
@@ -12,7 +11,7 @@ export interface DatabaseClient {
   id_number: string;
   mpesa_number: string | null;
   client_type: 'individual' | 'business' | 'corporate' | 'government';
-  status: 'active' | 'suspended' | 'disconnected' | 'pending' | 'approved';
+  status: 'active' | 'suspended' | 'disconnected' | 'pending' | 'approved' | 'inactive';
   connection_type: 'fiber' | 'wireless' | 'satellite' | 'dsl';
   monthly_rate: number;
   installation_date: string | null;
@@ -263,6 +262,57 @@ export const useClients = () => {
     },
   });
 
+  const approveClientMutation = useMutation({
+    mutationFn: async ({ id, notes }: { id: string; notes?: string }) => {
+      const { data, error } = await supabase
+        .from('clients')
+        .update({
+          status: 'approved',
+          approved_at: new Date().toISOString(),
+          approved_by: profile?.id,
+        })
+        .eq('id', id)
+        .select()
+        .single();
+
+      if (error) throw error;
+      return data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['clients'] });
+      toast({
+        title: "Client Approved",
+        description: "Client has been approved successfully.",
+      });
+    },
+  });
+
+  const rejectClientMutation = useMutation({
+    mutationFn: async ({ id, reason }: { id: string; reason: string }) => {
+      const { data, error } = await supabase
+        .from('clients')
+        .update({
+          status: 'pending',
+          notes: reason,
+          updated_at: new Date().toISOString(),
+        })
+        .eq('id', id)
+        .select()
+        .single();
+
+      if (error) throw error;
+      return data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['clients'] });
+      toast({
+        title: "Client Rejected",
+        description: "Client has been rejected.",
+        variant: "destructive",
+      });
+    },
+  });
+
   // Helper functions for client statistics
   const getClientStats = () => {
     const totalClients = clients.length;
@@ -290,6 +340,8 @@ export const useClients = () => {
     updateClient: updateClientMutation.mutate,
     createClient: createClientMutation.mutate,
     deleteClient: deleteClientMutation.mutate,
+    approveClient: approveClientMutation.mutate,
+    rejectClient: rejectClientMutation.mutate,
     isUpdating: updateClientMutation.isPending,
     isCreating: createClientMutation.isPending,
     isDeleting: deleteClientMutation.isPending,

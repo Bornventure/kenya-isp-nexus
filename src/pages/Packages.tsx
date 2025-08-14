@@ -13,7 +13,7 @@ import { Plus, Edit, Trash2, Package, Wifi, DollarSign, Users } from 'lucide-rea
 import { ServicePackage } from '@/types/client';
 
 const Packages = () => {
-  const { packages, isLoading, error, createPackage, updatePackage, deletePackage } = useServicePackages();
+  const { servicePackages: packages, isLoading, error, createPackage, updatePackage, deletePackage } = useServicePackages();
   const [selectedPackage, setSelectedPackage] = useState<ServicePackage | null>(null);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
@@ -25,7 +25,7 @@ const Packages = () => {
     monthly_rate: 0,
     setup_fee: 0,
     data_limit: 0,
-    connection_types: [] as string[],
+    connection_types: [] as ('fiber' | 'wireless' | 'satellite' | 'dsl')[],
     is_active: true
   });
 
@@ -51,7 +51,7 @@ const Packages = () => {
       ...formData,
       connection_types: formData.connection_types.length > 0 
         ? formData.connection_types 
-        : ['fiber', 'wireless'] // Default connection types
+        : ['fiber', 'wireless'] as ('fiber' | 'wireless')[]
     };
 
     if (isEditing && selectedPackage) {
@@ -71,8 +71,8 @@ const Packages = () => {
       description: pkg.description || '',
       speed: pkg.speed,
       monthly_rate: pkg.monthly_rate,
-      setup_fee: 0, // Default since property doesn't exist
-      data_limit: 0, // Default since property doesn't exist
+      setup_fee: pkg.setup_fee || 0,
+      data_limit: pkg.data_limit || 0,
       connection_types: pkg.connection_types || [],
       is_active: pkg.is_active
     });
@@ -249,7 +249,7 @@ const Packages = () => {
               <div>
                 <Label>Connection Types</Label>
                 <div className="flex gap-4 mt-2">
-                  {['fiber', 'wireless', 'satellite', 'dsl'].map(type => (
+                  {(['fiber', 'wireless', 'satellite', 'dsl'] as const).map(type => (
                     <label key={type} className="flex items-center gap-2">
                       <input
                         type="checkbox"

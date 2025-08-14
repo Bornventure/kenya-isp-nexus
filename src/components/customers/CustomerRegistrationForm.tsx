@@ -2,157 +2,217 @@
 import React, { useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { useToast } from '@/hooks/use-toast';
-import { registerClient } from '@/services/customerPortalApi';
-import { supabase } from '@/integrations/supabase/client';
-import { X, Save, Loader2 } from 'lucide-react';
-import { CustomerFormData, validateCustomerForm } from './registration/formValidation';
-import PersonalInfoSection from './registration/PersonalInfoSection';
-import LocationInfoSection from './registration/LocationInfoSection';
-import ServiceInfoSection from './registration/ServiceInfoSection';
-import FormHeader from './registration/FormHeader';
-import { ThemeToggle } from '@/components/ui/theme-toggle';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Textarea } from '@/components/ui/textarea';
+import { useClients } from '@/hooks/useClients';
+import { useServicePackages } from '@/hooks/useServicePackages';
 
 interface CustomerRegistrationFormProps {
   onClose: () => void;
-  onSuccess?: (client: any) => void;
 }
 
-const CustomerRegistrationForm: React.FC<CustomerRegistrationFormProps> = ({ onClose, onSuccess }) => {
-  const { toast } = useToast();
-  const [isSubmitting, setIsSubmitting] = useState(false);
-  const [formData, setFormData] = useState<CustomerFormData>({
+const CustomerRegistrationForm: React.FC<CustomerRegistrationFormProps> = ({ onClose }) => {
+  const { createClient } = useClients();
+  const { servicePackages } = useServicePackages();
+  
+  const [formData, setFormData] = useState({
     name: '',
     email: '',
     phone: '',
-    mpesa_number: '',
     id_number: '',
-    kra_pin_number: '',
-    client_type: 'individual',
-    connection_type: 'fiber',
+    mpesa_number: '',
     address: '',
-    county: 'Kisumu',
+    county: '',
     sub_county: '',
+    client_type: 'individual' as const,
+    connection_type: 'fiber' as const,
     service_package_id: '',
-    isp_company_id: 'default-isp-company'
+    monthly_rate: 0,
   });
 
-  const [errors, setErrors] = useState<Record<string, string>>({});
-
-  const updateFormData = (field: string, value: string) => {
-    setFormData(prev => ({ ...prev, [field]: value }));
-    if (errors[field]) {
-      setErrors(prev => ({ ...prev, [field]: '' }));
-    }
-  };
-
-  const handleSubmit = async (e: React.FormEvent) => {
+  const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     
-    const validationErrors = validateCustomerForm(formData);
-    if (Object.keys(validationErrors).length > 0) {
-      setErrors(validationErrors);
-      return;
-    }
+    createClient({
+      ...formData,
+      status: 'pending',
+      balance: 0,
+      wallet_balance: 0,
+      subscription_type: 'monthly',
+      is_active: false,
+      submitted_by: 'sales',
+      latitude: null,
+      longitude: null,
+      kra_pin_number: null,
+      installation_date: null,
+      subscription_start_date: null,
+      subscription_end_date: null,
+      approved_by: null,
+      approved_at: null,
+      installation_status: null,
+      installation_completed_by: null,
+      installation_completed_at: null,
+      service_activated_at: null,
+    });
+    
+    onClose();
+  };
 
-    setIsSubmitting(true);
-    console.log('Submitting customer registration form with data:', formData);
-
-    try {
-      const { data: sessionData } = await supabase.auth.getSession();
-      if (!sessionData.session?.access_token) {
-        throw new Error('No valid session found. Please log in first.');
-      }
-
-      const result = await registerClient(formData, sessionData.session.access_token);
-      console.log('Registration successful:', result);
-      
-      toast({
-        title: "Registration Successful",
-        description: result.message || "Your application has been submitted successfully. You will receive login credentials via email.",
-      });
-      
-      if (onSuccess) {
-        onSuccess(result.client);
-      }
-      onClose();
-    } catch (error: any) {
-      console.error('Registration failed:', error);
-      toast({
-        title: "Registration Failed",
-        description: error.message || "Failed to register client. Please try again.",
-        variant: "destructive",
-      });
-    } finally {
-      setIsSubmitting(false);
-    }
+  const handlePackageChange = (packageId: string) => {
+    const selectedPackage = servicePackages.find(p => p.id === packageId);
+    setFormData(prev => ({
+      ...prev,
+      service_package_id: packageId,
+      monthly_rate: selectedPackage?.monthly_rate || 0
+    }));
   };
 
   return (
-    <div className="fixed inset-0 bg-black/50 dark:bg-black/70 flex items-center justify-center z-50 p-4">
-      <Card className="w-full max-w-4xl max-h-[90vh] overflow-y-auto bg-white dark:bg-gray-900 border-gray-200 dark:border-gray-700">
-        <CardHeader className="flex flex-row items-center justify-between border-b border-gray-200 dark:border-gray-700">
-          <CardTitle className="text-xl font-semibold text-gray-900 dark:text-gray-100">
-            Register for Internet Service
-          </CardTitle>
-          <div className="flex items-center gap-2">
-            <ThemeToggle />
-            <Button variant="ghost" size="sm" onClick={onClose} disabled={isSubmitting}>
-              <X className="h-4 w-4" />
+    <Card>
+      <CardHeader>
+        <CardTitle>Customer Registration</CardTitle>
+      </CardHeader>
+      <CardContent>
+        <form onSubmit={handleSubmit} className="space-y-4">
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <Label htmlFor="name">Full Name *</Label>
+              <Input
+                id="name"
+                value={formData.name}
+                onChange={(e) => setFormData(prev => ({ ...prev, name: e.target.value }))}
+                required
+              />
+            </div>
+            
+            <div>
+              <Label htmlFor="phone">Phone Number *</Label>
+              <Input
+                id="phone"
+                value={formData.phone}
+                onChange={(e) => setFormData(prev => ({ ...prev, phone: e.target.value }))}
+                required
+              />
+            </div>
+            
+            <div>
+              <Label htmlFor="email">Email</Label>
+              <Input
+                id="email"
+                type="email"
+                value={formData.email}
+                onChange={(e) => setFormData(prev => ({ ...prev, email: e.target.value }))}
+              />
+            </div>
+            
+            <div>
+              <Label htmlFor="id_number">ID Number *</Label>
+              <Input
+                id="id_number"
+                value={formData.id_number}
+                onChange={(e) => setFormData(prev => ({ ...prev, id_number: e.target.value }))}
+                required
+              />
+            </div>
+            
+            <div>
+              <Label htmlFor="mpesa_number">M-Pesa Number</Label>
+              <Input
+                id="mpesa_number"
+                value={formData.mpesa_number}
+                onChange={(e) => setFormData(prev => ({ ...prev, mpesa_number: e.target.value }))}
+              />
+            </div>
+            
+            <div>
+              <Label htmlFor="county">County *</Label>
+              <Input
+                id="county"
+                value={formData.county}
+                onChange={(e) => setFormData(prev => ({ ...prev, county: e.target.value }))}
+                required
+              />
+            </div>
+            
+            <div>
+              <Label htmlFor="sub_county">Sub County</Label>
+              <Input
+                id="sub_county"
+                value={formData.sub_county}
+                onChange={(e) => setFormData(prev => ({ ...prev, sub_county: e.target.value }))}
+              />
+            </div>
+            
+            <div>
+              <Label htmlFor="client_type">Client Type</Label>
+              <select
+                id="client_type"
+                value={formData.client_type}
+                onChange={(e) => setFormData(prev => ({ ...prev, client_type: e.target.value as any }))}
+                className="w-full p-2 border rounded"
+              >
+                <option value="individual">Individual</option>
+                <option value="business">Business</option>
+                <option value="corporate">Corporate</option>
+                <option value="government">Government</option>
+              </select>
+            </div>
+            
+            <div>
+              <Label htmlFor="connection_type">Connection Type</Label>
+              <select
+                id="connection_type"
+                value={formData.connection_type}
+                onChange={(e) => setFormData(prev => ({ ...prev, connection_type: e.target.value as any }))}
+                className="w-full p-2 border rounded"
+              >
+                <option value="fiber">Fiber</option>
+                <option value="wireless">Wireless</option>
+                <option value="satellite">Satellite</option>
+                <option value="dsl">DSL</option>
+              </select>
+            </div>
+            
+            <div>
+              <Label htmlFor="service_package_id">Service Package</Label>
+              <select
+                id="service_package_id"
+                value={formData.service_package_id}
+                onChange={(e) => handlePackageChange(e.target.value)}
+                className="w-full p-2 border rounded"
+              >
+                <option value="">Select a package</option>
+                {servicePackages.map(pkg => (
+                  <option key={pkg.id} value={pkg.id}>
+                    {pkg.name} - KSh {pkg.monthly_rate.toLocaleString()}
+                  </option>
+                ))}
+              </select>
+            </div>
+          </div>
+          
+          <div>
+            <Label htmlFor="address">Address *</Label>
+            <Textarea
+              id="address"
+              value={formData.address}
+              onChange={(e) => setFormData(prev => ({ ...prev, address: e.target.value }))}
+              required
+            />
+          </div>
+          
+          <div className="flex justify-end gap-3">
+            <Button type="button" variant="outline" onClick={onClose}>
+              Cancel
+            </Button>
+            <Button type="submit">
+              Register Customer
             </Button>
           </div>
-        </CardHeader>
-        <CardContent className="p-6">
-          <FormHeader />
-
-          <form onSubmit={handleSubmit} className="space-y-6">
-            <PersonalInfoSection 
-              formData={formData}
-              errors={errors}
-              isSubmitting={isSubmitting}
-              updateFormData={updateFormData}
-            />
-
-            <LocationInfoSection 
-              formData={formData}
-              errors={errors}
-              isSubmitting={isSubmitting}
-              updateFormData={updateFormData}
-            />
-
-            <ServiceInfoSection 
-              formData={formData}
-              isSubmitting={isSubmitting}
-              updateFormData={updateFormData}
-            />
-
-            <div className="flex justify-end gap-3 pt-4 border-t border-gray-200 dark:border-gray-700">
-              <Button 
-                type="button" 
-                variant="outline" 
-                onClick={onClose} 
-                disabled={isSubmitting}
-                className="border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800"
-              >
-                Cancel
-              </Button>
-              <Button 
-                type="submit" 
-                className="gap-2 bg-blue-600 hover:bg-blue-700 dark:bg-blue-600 dark:hover:bg-blue-700" 
-                disabled={isSubmitting}
-              >
-                {isSubmitting ? (
-                  <Loader2 className="h-4 w-4 animate-spin" />
-                ) : (
-                  <Save className="h-4 w-4" />
-                )}
-                {isSubmitting ? 'Registering...' : 'Submit Application'}
-              </Button>
-            </div>
-          </form>
-        </CardContent>
-      </Card>
-    </div>
+        </form>
+      </CardContent>
+    </Card>
   );
 };
 

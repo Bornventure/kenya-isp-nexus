@@ -1,7 +1,8 @@
 
 import { AuthService } from './api/authService';
 import { supabase } from '@/integrations/supabase/client';
-import { Client } from '@/types/client';
+
+type ClientStatus = 'active' | 'suspended' | 'disconnected' | 'pending' | 'approved';
 
 export class ISPApiService {
   private authService: AuthService;
@@ -33,7 +34,7 @@ export class ISPApiService {
     }
   }
 
-  async updateClientStatus(clientId: string, status: Client['status'], reason?: string) {
+  async updateClientStatus(clientId: string, status: ClientStatus, reason?: string) {
     try {
       const { data, error } = await supabase
         .from('clients')
