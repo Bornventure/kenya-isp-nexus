@@ -3,7 +3,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/hooks/use-toast';
-import { Equipment } from '@/types/equipment';
+import { Equipment, EquipmentType } from '@/types/equipment';
 import { useEquipmentTypes } from './useEquipmentTypes';
 
 export const useEquipment = () => {
@@ -131,6 +131,59 @@ export const useEquipment = () => {
     },
   });
 
+  const approveEquipmentMutation = useMutation({
+    mutationFn: async ({ id, notes }: { id: string; notes?: string }) => {
+      const { data, error } = await supabase
+        .from('equipment')
+        .update({
+          approval_status: 'approved',
+          approved_at: new Date().toISOString(),
+          approved_by: profile?.id,
+          notes: notes || undefined
+        })
+        .eq('id', id)
+        .select()
+        .single();
+
+      if (error) throw error;
+      return data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['equipment'] });
+      toast({
+        title: "Equipment Approved",
+        description: "Equipment has been approved successfully",
+      });
+    },
+  });
+
+  const rejectEquipmentMutation = useMutation({
+    mutationFn: async ({ id, notes }: { id: string; notes: string }) => {
+      const { data, error } = await supabase
+        .from('equipment')
+        .update({
+          approval_status: 'rejected',
+          approved_at: new Date().toISOString(),
+          approved_by: profile?.id,
+          notes
+        })
+        .eq('id', id)
+        .select()
+        .single();
+
+      if (error) throw error;
+      return data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['equipment'] });
+      toast({
+        title: "Equipment Rejected",
+        description: "Equipment has been rejected",
+        variant: "destructive",
+      });
+    },
+  });
+
   return {
     equipment,
     equipmentTypes,
@@ -140,9 +193,15 @@ export const useEquipment = () => {
     createEquipment: createEquipmentMutation.mutate,
     updateEquipment: updateEquipmentMutation.mutate,
     deleteEquipment: deleteEquipmentMutation.mutate,
+    approveEquipment: approveEquipmentMutation.mutate,
+    rejectEquipment: rejectEquipmentMutation.mutate,
     addEquipment: createEquipmentMutation,
     isCreating: createEquipmentMutation.isPending,
     isUpdating: updateEquipmentMutation.isPending,
     isDeleting: deleteEquipmentMutation.isPending,
+    isApproving: approveEquipmentMutation.isPending,
+    isRejecting: rejectEquipmentMutation.isPending,
   };
 };
+
+export { Equipment, EquipmentType };

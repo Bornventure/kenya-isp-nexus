@@ -1,15 +1,16 @@
+
 import { supabase } from '@/integrations/supabase/client';
-import { sendSMS } from '@/services/smsService';
+import { AuthService as CelcoAfricaAuth } from './celcoAfricaAuthService';
+import { SmsService } from '../smsService';
 
 export interface User {
   id: string;
-  name: string;
+  email: string;
   firstName: string;
   lastName: string;
-  email: string;
   phone: string;
-  role: 'admin' | 'technician' | 'client' | 'super_admin';
-  accountType: 'admin' | 'client';
+  role: 'super_admin' | 'technician' | 'client' | 'admin';
+  accountType: 'client' | 'staff';
   isVerified: boolean;
   client_id?: string;
   isp_company_id?: string;
@@ -22,360 +23,307 @@ export interface LoginCredentials {
 }
 
 export interface RegistrationData {
-  name: string;
-  email: string;
   phone: string;
   password: string;
-  id_number: string;
-  role?: 'admin' | 'technician';
+  firstName: string;
+  lastName: string;
+  role?: string;
+  client_id?: string;
 }
 
 export class AuthService {
-  static async login(credentials: LoginCredentials): Promise<{ user: User; session: any }> {
-    console.log('AuthService: Starting login process', { phone: credentials.phone });
+  private celcoAuth: CelcoAfricaAuth;
+  private smsService: SmsService;
 
+  constructor() {
+    this.celcoAuth = new CelcoAfricaAuth();
+    this.smsService = new SmsService();
+  }
+
+  async login(credentials: LoginCredentials): Promise<{ success: boolean; user?: User; error?: string }> {
     try {
-      // First check if this is a client login (has id_number but no password)
+      console.log('Login attempt for phone:', credentials.phone);
+
+      // First check if this is a client login (phone + ID number)
       if (credentials.id_number && !credentials.password) {
-        console.log('AuthService: Attempting client login');
-        return await this.clientLogin(credentials);
+        return await this.loginClient(credentials.phone, credentials.id_number);
       }
 
-      // Admin/Staff login with password
+      // Staff/admin login with password
       if (!credentials.password) {
-        throw new Error('Password is required for admin login');
+        return { success: false, error: 'Password is required for staff login' };
       }
 
-      console.log('AuthService: Attempting admin/staff login');
       const { data, error } = await supabase.auth.signInWithPassword({
-        email: credentials.phone + '@temp.com', // Temporary email format
+        email: credentials.phone,
         password: credentials.password,
       });
 
       if (error) {
-        console.error('AuthService: Supabase auth error:', error);
-        throw error;
+        console.error('Auth error:', error);
+        return { success: false, error: error.message };
       }
 
-      if (!data.user) {
-        throw new Error('Login failed - no user returned');
-      }
-
-      // Get user profile
-      const { data: profile, error: profileError } = await supabase
-        .from('profiles')
-        .select('*')
-        .eq('id', data.user.id)
-        .single();
-
-      if (profileError) {
-        console.error('AuthService: Profile fetch error:', profileError);
-        throw new Error('Failed to fetch user profile');
+      const profile = await this.getUserProfile(data.user.id);
+      if (!profile) {
+        return { success: false, error: 'User profile not found' };
       }
 
       const user: User = {
         id: profile.id,
-        name: `${profile.first_name} ${profile.last_name}`.trim() || profile.phone,
-        firstName: profile.first_name || '',
+        email: profile.phone, // Using phone as email for compatibility
+        firstName: profile.first_name || profile.phone,
         lastName: profile.last_name || '',
-        email: profile.email || '',
         phone: profile.phone,
         role: this.mapRole(profile.role),
-        accountType: this.mapRole(profile.role) === 'client' ? 'client' : 'admin',
+        accountType: profile.role === 'client' ? 'client' : 'staff',
         isVerified: true,
-        isp_company_id: profile.isp_company_id,
+        isp_company_id: profile.isp_company_id
       };
 
-      console.log('AuthService: Admin login successful', { userId: user.id, role: user.role });
-      return { user, session: data.session };
-
+      return { success: true, user };
     } catch (error) {
-      console.error('AuthService: Login error:', error);
-      throw error;
+      console.error('Login error:', error);
+      return { success: false, error: 'Login failed. Please try again.' };
     }
   }
 
-  private static mapRole(dbRole: string): 'admin' | 'technician' | 'client' | 'super_admin' {
-    switch (dbRole) {
-      case 'super_admin':
-        return 'super_admin';
-      case 'technician':
-        return 'technician';
-      case 'isp_admin':
-      case 'manager':
-      case 'support':
-      case 'billing':
-      case 'readonly':
-      case 'customer_support':
-      case 'sales_manager':
-      case 'billing_admin':
-      case 'network_engineer':
-      case 'infrastructure_manager':
-      case 'hotspot_admin':
-        return 'admin';
-      default:
-        return 'admin';
-    }
-  }
-
-  static async clientLogin(credentials: LoginCredentials): Promise<{ user: User; session: any }> {
-    if (!credentials.phone || !credentials.id_number) {
-      throw new Error('Phone number and ID number are required for client login');
-    }
-
+  private async loginClient(phone: string, idNumber: string): Promise<{ success: boolean; user?: User; error?: string }> {
     try {
       // Find client by phone and ID number
       const { data: client, error: clientError } = await supabase
         .from('clients')
         .select('*')
-        .eq('phone', credentials.phone)
-        .eq('id_number', credentials.id_number)
-        .eq('is_active', true)
+        .eq('phone', phone)
+        .eq('id_number', idNumber)
         .single();
 
       if (clientError || !client) {
-        console.error('AuthService: Client not found:', clientError);
-        throw new Error('Invalid credentials or inactive account');
+        return { success: false, error: 'Invalid phone number or ID number' };
       }
 
-      // Create or get existing auth user for this client
-      const { data: authData, error: authError } = await supabase.auth.signInWithPassword({
-        email: `client_${client.id}@temp.com`,
-        password: client.id_number, // Use ID number as password for clients
-      });
+      // Check if client can login
+      if (!['active', 'approved'].includes(client.status)) {
+        return { success: false, error: `Account is ${client.status}. Please contact support.` };
+      }
 
-      let authUser = authData?.user;
-
-      // If auth user doesn't exist, create one
-      if (authError || !authUser) {
-        console.log('AuthService: Creating new auth user for client');
-        const { data: newAuthData, error: signUpError } = await supabase.auth.signUp({
-          email: `client_${client.id}@temp.com`,
-          password: client.id_number,
-        });
-
-        if (signUpError || !newAuthData.user) {
-          console.error('AuthService: Failed to create auth user:', signUpError);
-          throw new Error('Failed to create client account');
-        }
-
-        authUser = newAuthData.user;
-
-        // Create profile for the new auth user
-        const { error: profileError } = await supabase
+      // Check if client profile exists
+      let profile = await this.getUserProfile(client.id);
+      
+      if (!profile) {
+        // Create profile for client if it doesn't exist
+        const { data: newProfile, error: profileError } = await supabase
           .from('profiles')
           .insert({
-            id: authUser.id,
-            first_name: client.name.split(' ')[0] || '',
-            last_name: client.name.split(' ').slice(1).join(' ') || '',
-            email: client.email,
+            id: client.id,
+            first_name: client.name.split(' ')[0],
+            last_name: client.name.split(' ').slice(1).join(' '),
             phone: client.phone,
-            role: 'readonly',
-            isp_company_id: client.isp_company_id,
-          });
+            role: 'client' as any, // Cast to bypass type checking temporarily
+            isp_company_id: client.isp_company_id
+          })
+          .select()
+          .single();
 
         if (profileError) {
-          console.error('AuthService: Failed to create profile:', profileError);
-          // Continue anyway as the main auth worked
+          console.error('Error creating client profile:', profileError);
+          return { success: false, error: 'Failed to create client profile' };
         }
+
+        profile = newProfile;
       }
 
       const user: User = {
-        id: authUser.id,
-        name: client.name,
-        firstName: client.name.split(' ')[0] || '',
-        lastName: client.name.split(' ').slice(1).join(' ') || '',
-        email: client.email || '',
+        id: client.id,
+        email: client.email || client.phone,
+        firstName: client.name.split(' ')[0],
+        lastName: client.name.split(' ').slice(1).join(' '),
         phone: client.phone,
         role: 'client',
         accountType: 'client',
         isVerified: true,
         client_id: client.id,
-        isp_company_id: client.isp_company_id,
+        isp_company_id: client.isp_company_id
       };
 
-      console.log('AuthService: Client login successful', { userId: user.id, clientId: client.id });
-      return { user, session: authData?.session || { access_token: 'temp', refresh_token: 'temp' } };
-
+      return { success: true, user };
     } catch (error) {
-      console.error('AuthService: Client login error:', error);
-      throw error;
+      console.error('Client login error:', error);
+      return { success: false, error: 'Client login failed. Please try again.' };
     }
   }
 
-  static async register(data: RegistrationData): Promise<{ user: User; session: any }> {
-    console.log('AuthService: Starting registration process', { phone: data.phone, email: data.email });
-
+  private async getUserProfile(userId: string) {
     try {
-      // Create auth user
-      const { data: authData, error: authError } = await supabase.auth.signUp({
-        email: data.email,
-        password: data.password,
-      });
-
-      if (authError || !authData.user) {
-        console.error('AuthService: Supabase auth registration error:', authError);
-        throw authError || new Error('Registration failed');
-      }
-
-      // Create profile
-      const { error: profileError } = await supabase
-        .from('profiles')
-        .insert({
-          id: authData.user.id,
-          first_name: data.name.split(' ')[0] || '',
-          last_name: data.name.split(' ').slice(1).join(' ') || '',
-          email: data.email,
-          phone: data.phone,
-          role: data.role === 'technician' ? 'technician' : 'isp_admin',
-        });
-
-      if (profileError) {
-        console.error('AuthService: Profile creation error:', profileError);
-        throw new Error('Failed to create user profile');
-      }
-
-      const user: User = {
-        id: authData.user.id,
-        name: data.name,
-        firstName: data.name.split(' ')[0] || '',
-        lastName: data.name.split(' ').slice(1).join(' ') || '',
-        email: data.email,
-        phone: data.phone,
-        role: data.role || 'admin',
-        accountType: 'admin',
-        isVerified: false,
-      };
-
-      // Send welcome SMS
-      try {
-        await sendSMS(
-          data.phone,
-          `Welcome to LAKELINK! Your account has been created successfully. Please verify your account to get started.`
-        );
-      } catch (smsError) {
-        console.error('AuthService: Failed to send welcome SMS:', smsError);
-        // Don't fail registration if SMS fails
-      }
-
-      console.log('AuthService: Registration successful', { userId: user.id });
-      return { user, session: authData.session };
-
-    } catch (error) {
-      console.error('AuthService: Registration error:', error);
-      throw error;
-    }
-  }
-
-  static async logout(): Promise<void> {
-    console.log('AuthService: Logging out user');
-    const { error } = await supabase.auth.signOut();
-    if (error) {
-      console.error('AuthService: Logout error:', error);
-      throw error;
-    }
-  }
-
-  static async getCurrentUser(): Promise<User | null> {
-    try {
-      const { data: { user: authUser } } = await supabase.auth.getUser();
-      
-      if (!authUser) {
-        return null;
-      }
-
-      // Get user profile
-      const { data: profile, error: profileError } = await supabase
+      const { data, error } = await supabase
         .from('profiles')
         .select('*')
-        .eq('id', authUser.id)
+        .eq('id', userId)
         .single();
 
-      if (profileError) {
-        console.error('AuthService: Profile fetch error:', profileError);
+      if (error) {
+        console.error('Error fetching user profile:', error);
         return null;
       }
 
-      const user: User = {
-        id: profile.id,
-        name: `${profile.first_name} ${profile.last_name}`.trim() || profile.phone,
-        firstName: profile.first_name || '',
-        lastName: profile.last_name || '',
-        email: profile.email || '',
-        phone: profile.phone,
-        role: this.mapRole(profile.role),
-        accountType: this.mapRole(profile.role) === 'client' ? 'client' : 'admin',
-        isVerified: true,
-        isp_company_id: profile.isp_company_id,
-      };
-
-      return user;
-
+      return data;
     } catch (error) {
-      console.error('AuthService: Get current user error:', error);
+      console.error('Error in getUserProfile:', error);
       return null;
     }
   }
 
-  static async requestPasswordReset(phone: string): Promise<void> {
-    console.log('AuthService: Requesting password reset for:', phone);
-    
+  async register(data: RegistrationData): Promise<{ success: boolean; user?: User; error?: string }> {
     try {
-      // Generate OTP
-      const otp = Math.floor(100000 + Math.random() * 900000).toString();
-      
-      // Store OTP in database (you might want to create an OTPs table)
-      // For now, we'll just send the SMS
-      
-      await sendSMS(
-        phone,
-        `Your LAKELINK password reset code is: ${otp}. This code expires in 10 minutes.`
-      );
+      // Register with Supabase Auth
+      const { data: authData, error: authError } = await supabase.auth.signUp({
+        email: data.phone,
+        password: data.password,
+        options: {
+          data: {
+            first_name: data.firstName,
+            last_name: data.lastName,
+            phone: data.phone,
+          }
+        }
+      });
 
-      console.log('AuthService: Password reset SMS sent successfully');
+      if (authError) {
+        return { success: false, error: authError.message };
+      }
+
+      if (!authData.user) {
+        return { success: false, error: 'Registration failed' };
+      }
+
+      // Create profile
+      const { data: profile, error: profileError } = await supabase
+        .from('profiles')
+        .insert({
+          id: authData.user.id,
+          first_name: data.firstName,
+          last_name: data.lastName,
+          phone: data.phone,
+          role: (data.role || 'technician') as any,
+        })
+        .select()
+        .single();
+
+      if (profileError) {
+        console.error('Profile creation error:', profileError);
+        return { success: false, error: 'Failed to create user profile' };
+      }
+
+      const user: User = {
+        id: authData.user.id,
+        email: data.phone,
+        firstName: data.firstName,
+        lastName: data.lastName,
+        phone: data.phone,
+        role: this.mapRole(data.role || 'technician'),
+        accountType: 'staff',
+        isVerified: false,
+        isp_company_id: profile.isp_company_id
+      };
+
+      // Send welcome SMS
+      await this.sendWelcomeSMS(data.phone, data.firstName);
+
+      return { success: true, user };
     } catch (error) {
-      console.error('AuthService: Password reset error:', error);
-      throw error;
+      console.error('Registration error:', error);
+      return { success: false, error: 'Registration failed. Please try again.' };
     }
   }
 
-  static async resetPassword(phone: string, otp: string, newPassword: string): Promise<void> {
-    console.log('AuthService: Resetting password for:', phone);
-    
+  private mapRole(role: string): 'super_admin' | 'technician' | 'client' | 'admin' {
+    switch (role) {
+      case 'super_admin':
+        return 'super_admin';
+      case 'isp_admin':
+      case 'admin':
+        return 'admin';
+      case 'client':
+        return 'client';
+      default:
+        return 'technician';
+    }
+  }
+
+  async logout(): Promise<void> {
+    await supabase.auth.signOut();
+  }
+
+  async getCurrentUser(): Promise<User | null> {
     try {
-      // In a real implementation, you would verify the OTP here
-      // For now, we'll just update the password
+      const { data: { user } } = await supabase.auth.getUser();
       
-      // Find user by phone
-      const { data: profile, error: profileError } = await supabase
-        .from('profiles')
-        .select('*')
-        .eq('phone', phone)
-        .single();
+      if (!user) return null;
 
-      if (profileError || !profile) {
-        throw new Error('User not found');
-      }
+      const profile = await this.getUserProfile(user.id);
+      if (!profile) return null;
 
-      // Update password
-      const { error: updateError } = await supabase.auth.updateUser({
-        password: newPassword,
-      });
-
-      if (updateError) {
-        throw updateError;
-      }
-
-      // Send confirmation SMS
-      await sendSMS(
-        phone,
-        `Your LAKELINK password has been successfully reset. You can now log in with your new password.`
-      );
-
-      console.log('AuthService: Password reset successful');
+      return {
+        id: user.id,
+        email: profile.phone || user.email || '',
+        firstName: profile.first_name || '',
+        lastName: profile.last_name || '',
+        phone: profile.phone || '',
+        role: this.mapRole(profile.role),
+        accountType: profile.role === 'client' ? 'client' : 'staff',
+        isVerified: true,
+        isp_company_id: profile.isp_company_id
+      };
     } catch (error) {
-      console.error('AuthService: Password reset error:', error);
-      throw error;
+      console.error('Error getting current user:', error);
+      return null;
+    }
+  }
+
+  async sendWelcomeSMS(phone: string, firstName: string): Promise<boolean> {
+    try {
+      const message = `Welcome ${firstName}! Your account has been created successfully. You can now access the ISP management system.`;
+      return await this.smsService.sendSMS(phone, message);
+    } catch (error) {
+      console.error('Error sending welcome SMS:', error);
+      return false;
+    }
+  }
+
+  async sendClientWelcomeSMS(phone: string, data: { name: string; package: string }): Promise<boolean> {
+    try {
+      const message = `Welcome ${data.name}! Your ${data.package} internet service is being set up. You will receive connection details soon.`;
+      return await this.smsService.sendSMS(phone, message);
+    } catch (error) {
+      console.error('Error sending client welcome SMS:', error);
+      return false;
+    }
+  }
+
+  async sendClientStatusSMS(phone: string, data: { name: string; status: string; reason?: string }): Promise<boolean> {
+    try {
+      let message = `Hello ${data.name}, your service status has been updated to: ${data.status.toUpperCase()}.`;
+      if (data.reason) {
+        message += ` Reason: ${data.reason}`;
+      }
+      message += ' For assistance, contact our support team.';
+      
+      return await this.smsService.sendSMS(phone, message);
+    } catch (error) {
+      console.error('Error sending status SMS:', error);
+      return false;
+    }
+  }
+
+  async sendVerificationSMS(phone: string, code: string): Promise<boolean> {
+    try {
+      const message = `Your verification code is: ${code}. Please enter this code to verify your account.`;
+      return await this.smsService.sendSMS(phone, message);
+    } catch (error) {
+      console.error('Error sending verification SMS:', error);
+      return false;
     }
   }
 }
+
+export { AuthService as default };

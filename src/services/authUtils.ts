@@ -1,55 +1,33 @@
 
-import { Client } from '@/types/client';
-
-export const isClientActive = (client: Client): boolean => {
-  return client.status === 'active' && client.is_active;
+export const validateClientStatus = (status: string): boolean => {
+  const validStatuses = ['active', 'pending', 'suspended', 'disconnected', 'approved', 'inactive'];
+  return validStatuses.includes(status);
 };
 
-export const getAccountStatusMessage = (client: Client): string => {
-  switch (client.status) {
+export const isClientActive = (client: any): boolean => {
+  return client.status === 'active';
+};
+
+export const canClientLogin = (client: any): boolean => {
+  const allowedStatuses = ['active', 'approved'];
+  return allowedStatuses.includes(client.status);
+};
+
+export const getClientDisplayStatus = (status: string): string => {
+  switch (status) {
     case 'active':
-      return 'Account is active and in good standing';
-    case 'suspended':
-      return 'Account is suspended due to non-payment';
+      return 'Active';
     case 'pending':
-      return 'Account is pending approval';
-    case 'inactive':
-      return 'Account is inactive';
+      return 'Pending Approval';
+    case 'suspended':
+      return 'Suspended';
     case 'disconnected':
-      return 'Account has been disconnected';
+      return 'Disconnected';
     case 'approved':
-      return 'Account is approved and ready for activation';
+      return 'Approved';
+    case 'inactive':
+      return 'Inactive';
     default:
-      return 'Account status unknown';
+      return 'Unknown';
   }
-};
-
-export const formatCurrency = (amount: number): string => {
-  return new Intl.NumberFormat('en-KE', {
-    style: 'currency',
-    currency: 'KES',
-  }).format(amount);
-};
-
-export const hasOverdueInvoices = (client: Client): boolean => {
-  return client.balance < 0;
-};
-
-export const getNextPaymentDue = (client: Client): string | null => {
-  if (client.subscription_end_date) {
-    return new Date(client.subscription_end_date).toLocaleDateString();
-  }
-  return null;
-};
-
-export const clientToUser = (client: Client) => {
-  return {
-    id: client.id,
-    name: client.name,
-    email: client.email,
-    phone: client.phone,
-    role: 'client' as const,
-    client_id: client.id,
-    isp_company_id: client.isp_company_id,
-  };
 };

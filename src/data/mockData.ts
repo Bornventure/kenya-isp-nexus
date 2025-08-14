@@ -1,79 +1,75 @@
 
 import { ServicePackage } from '@/types/client';
 
-// Keep only service packages as these are template data for package creation
-export const servicePackages: ServicePackage[] = [
+export const mockServicePackages: ServicePackage[] = [
   {
-    id: '84ea1832-7fc7-45a2-a3af-4fb8eef40ba6',
-    name: 'Basic 5Mbps',
-    speed: '5 Mbps',
-    monthly_rate: 2500,
-    description: 'Perfect for basic internet browsing and email',
-    is_active: true,
-    created_at: new Date().toISOString(),
-    updated_at: new Date().toISOString(),
-    isp_company_id: '',
-    connection_types: ['fiber', 'wireless'],
-    setup_fee: 2000,
-    data_limit: null
-  },
-  {
-    id: '7b2d7e69-f1a5-413e-9597-31cda65d03f1',
-    name: 'Standard 10Mbps',
+    id: 'pkg-1',
+    name: 'Basic Home',
     speed: '10 Mbps',
-    monthly_rate: 3500,
-    description: 'Ideal for streaming and video calls',
-    is_active: true,
-    created_at: new Date().toISOString(),
-    updated_at: new Date().toISOString(),
-    isp_company_id: '',
+    monthly_rate: 2500,
+    setup_fee: 500,
+    data_limit: null,
+    description: 'Perfect for basic home internet needs',
     connection_types: ['fiber', 'wireless'],
-    setup_fee: 2500,
-    data_limit: null
+    is_active: true,
+    created_at: '2024-01-01',
+    updated_at: '2024-01-01',
+    isp_company_id: 'company-1'
   },
   {
-    id: 'df4712c7-7582-46c9-a72c-049fd2b4c378',
-    name: 'Premium 25Mbps',
+    id: 'pkg-2',
+    name: 'Premium Home',
     speed: '25 Mbps',
-    monthly_rate: 5000,
-    description: 'High-speed for multiple devices and HD streaming',
-    is_active: true,
-    created_at: new Date().toISOString(),
-    updated_at: new Date().toISOString(),
-    isp_company_id: '',
+    monthly_rate: 4500,
+    setup_fee: 1000,
+    data_limit: null,
+    description: 'High-speed internet for streaming and gaming',
     connection_types: ['fiber', 'wireless'],
-    setup_fee: 3000,
-    data_limit: null
+    is_active: true,
+    created_at: '2024-01-01',
+    updated_at: '2024-01-01',
+    isp_company_id: 'company-1'
   },
   {
-    id: '02d16326-a1bb-47c3-8045-0ae11b8c3c57',
-    name: 'Business 50Mbps',
+    id: 'pkg-3',
+    name: 'Business Basic',
     speed: '50 Mbps',
-    monthly_rate: 8000,
-    description: 'Enterprise-grade connectivity for business use',
+    monthly_rate: 8500,
+    setup_fee: 2000,
+    data_limit: null,
+    description: 'Reliable internet for small businesses',
+    connection_types: ['fiber', 'wireless'],
     is_active: true,
-    created_at: new Date().toISOString(),
-    updated_at: new Date().toISOString(),
-    isp_company_id: '',
-    connection_types: ['fiber'],
-    setup_fee: 5000,
-    data_limit: null
+    created_at: '2024-01-01',
+    updated_at: '2024-01-01',
+    isp_company_id: 'company-1'
   },
   {
-    id: '550e8400-e29b-41d4-a716-446655440005',
-    name: 'Enterprise 100Mbps',
+    id: 'pkg-4',
+    name: 'Business Premium',
     speed: '100 Mbps',
-    monthly_rate: 12000,
-    description: 'Maximum speed for large organizations',
-    is_active: true,
-    created_at: new Date().toISOString(),
-    updated_at: new Date().toISOString(),
-    isp_company_id: '',
+    monthly_rate: 15000,
+    setup_fee: 5000,
+    data_limit: null,
+    description: 'High-performance internet for large businesses',
     connection_types: ['fiber'],
-    setup_fee: 8000,
-    data_limit: null
+    is_active: true,
+    created_at: '2024-01-01',
+    updated_at: '2024-01-01',
+    isp_company_id: 'company-1'
+  },
+  {
+    id: 'pkg-5',
+    name: 'Enterprise',
+    speed: '1 Gbps',
+    monthly_rate: 35000,
+    setup_fee: 10000,
+    data_limit: null,
+    description: 'Ultra-fast internet for enterprise clients',
+    connection_types: ['fiber'],
+    is_active: true,
+    created_at: '2024-01-01',
+    updated_at: '2024-01-01',
+    isp_company_id: 'company-1'
   }
 ];
-
-// All mock client data removed - now using real database data exclusively
-export const mockClients: any[] = [];

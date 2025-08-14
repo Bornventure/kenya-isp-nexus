@@ -4,55 +4,92 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
-import { Plus, Search, Package, Eye, Edit, Trash2 } from 'lucide-react';
+import { 
+  Package, 
+  Plus, 
+  Search, 
+  Filter,
+  AlertTriangle,
+  TrendingDown,
+  CheckCircle
+} from 'lucide-react';
 import { useEquipment } from '@/hooks/useEquipment';
-import InventoryDashboard from '@/components/inventory/InventoryDashboard';
 
-const InventoryPage = () => {
+const Inventory = () => {
+  const { equipment, isLoading } = useEquipment();
   const [searchTerm, setSearchTerm] = useState('');
-  const [statusFilter, setStatusFilter] = useState<string>('all');
-  const [showCreateForm, setShowCreateForm] = useState(false);
-  const [selectedItem, setSelectedItem] = useState(null);
+  const [statusFilter, setStatusFilter] = useState('all');
 
-  const {
-    equipment,
-    isLoading,
-    createEquipment,
-    updateEquipment,
-    isCreating,
-    isUpdating,
-  } = useEquipment();
-
-  const handleFilterByStatus = (status: string) => {
-    setStatusFilter(status);
-  };
-
-  const handleViewItem = (item: any) => {
-    setSelectedItem(item);
-  };
-
+  // Filter equipment
   const filteredEquipment = equipment.filter(item => {
-    const matchesSearch = (item.model || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         (item.serial_number || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         (item.type || '').toLowerCase().includes(searchTerm.toLowerCase());
+    const matchesSearch = item.serial_number.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                         item.model.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                         item.brand?.toLowerCase().includes(searchTerm.toLowerCase());
+    
     const matchesStatus = statusFilter === 'all' || item.status === statusFilter;
+    
     return matchesSearch && matchesStatus;
   });
 
-  const getStatusBadgeVariant = (status: string) => {
+  // Calculate inventory metrics
+  const inventoryStats = {
+    totalItems: equipment.length,
+    available: equipment.filter(e => e.status === 'available').length,
+    deployed: equipment.filter(e => e.status === 'deployed').length,
+    maintenance: equipment.filter(e => e.status === 'maintenance').length,
+    retired: equipment.filter(e => e.status === 'retired').length
+  };
+
+  // Low stock items (items in maintenance or nearing warranty expiry)
+  const lowStockItems = equipment.filter(item => 
+    item.status === 'maintenance' || 
+    (item.warranty_end_date && new Date(item.warranty_end_date) < new Date(Date.now() + 30 * 24 * 60 * 60 * 1000))
+  );
+
+  // Items by category
+  const itemsByCategory = equipment.reduce((acc, item) => {
+    const category = item.type || 'Unknown';
+    acc[category] = (acc[category] || 0) + 1;
+    return acc;
+  }, {} as Record<string, number>);
+
+  const getStatusColor = (status: string) => {
     switch (status) {
-      case 'active': return 'default';
-      case 'available': return 'secondary';
-      case 'maintenance': return 'destructive';
-      case 'retired': return 'outline';
-      default: return 'outline';
+      case 'available':
+        return 'bg-green-100 text-green-800';
+      case 'deployed':
+        return 'bg-blue-100 text-blue-800';
+      case 'maintenance':
+        return 'bg-yellow-100 text-yellow-800';
+      case 'retired':
+        return 'bg-red-100 text-red-800';
+      default:
+        return 'bg-gray-100 text-gray-800';
+    }
+  };
+
+  const getStatusIcon = (status: string) => {
+    switch (status) {
+      case 'available':
+        return <CheckCircle className="h-4 w-4 text-green-500" />;
+      case 'deployed':
+        return <Package className="h-4 w-4 text-blue-500" />;
+      case 'maintenance':
+        return <AlertTriangle className="h-4 w-4 text-yellow-500" />;
+      case 'retired':
+        return <TrendingDown className="h-4 w-4 text-red-500" />;
+      default:
+        return <Package className="h-4 w-4 text-gray-500" />;
     }
   };
 
   if (isLoading) {
     return (
       <div className="flex items-center justify-center h-64">
-        <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-primary"></div>
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto"></div>
+          <p className="mt-2 text-muted-foreground">Loading inventory...</p>
+        </div>
       </div>
     );
   }
@@ -60,202 +97,277 @@ const InventoryPage = () => {
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+      <div className="flex items-center justify-between">
         <div>
           <h1 className="text-3xl font-bold tracking-tight">Inventory Management</h1>
           <p className="text-muted-foreground">
-            Manage your equipment inventory and stock levels
+            Track and manage your equipment inventory
           </p>
         </div>
-        <Button onClick={() => setShowCreateForm(true)} className="gap-2">
-          <Plus className="h-4 w-4" />
+        <Button>
+          <Plus className="h-4 w-4 mr-2" />
           Add Inventory Item
         </Button>
       </div>
 
-      {/* Dashboard Component */}
-      <InventoryDashboard 
-        onFilterByStatus={handleFilterByStatus}
-        onViewItem={handleViewItem}
-      />
-
-      {/* Stats Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+      {/* Inventory Overview Cards */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
         <Card>
-          <CardContent className="p-6">
-            <div className="flex items-center gap-2">
-              <Package className="h-5 w-5 text-blue-500" />
-              <div>
-                <p className="text-sm font-medium text-muted-foreground">Total Items</p>
-                <p className="text-2xl font-bold">{equipment.length}</p>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardContent className="p-6">
-            <div className="flex items-center gap-2">
-              <div className="h-5 w-5 bg-green-500 rounded-full" />
-              <div>
-                <p className="text-sm font-medium text-muted-foreground">Available</p>
-                <p className="text-2xl font-bold">
-                  {equipment.filter(e => e.status === 'available').length}
-                </p>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardContent className="p-6">
-            <div className="flex items-center gap-2">
-              <div className="h-5 w-5 bg-orange-500 rounded-full" />
-              <div>
-                <p className="text-sm font-medium text-muted-foreground">In Use</p>
-                <p className="text-2xl font-bold">
-                  {equipment.filter(e => e.status === 'active').length}
-                </p>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardContent className="p-6">
-            <div className="flex items-center gap-2">
-              <div className="h-5 w-5 bg-red-500 rounded-full" />
-              <div>
-                <p className="text-sm font-medium text-muted-foreground">Maintenance</p>
-                <p className="text-2xl font-bold">
-                  {equipment.filter(e => e.status === 'maintenance').length}
-                </p>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-      </div>
-
-      {/* Search and Filter */}
-      <Card>
-        <CardContent className="p-6">
-          <div className="flex flex-col sm:flex-row gap-4">
-            <div className="relative flex-1">
-              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-              <Input
-                placeholder="Search inventory items..."
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                className="pl-10"
-              />
-            </div>
-            <div className="flex gap-2">
-              <Button
-                variant={statusFilter === 'all' ? 'default' : 'outline'}
-                size="sm"
-                onClick={() => setStatusFilter('all')}
-              >
-                All
-              </Button>
-              <Button
-                variant={statusFilter === 'available' ? 'default' : 'outline'}
-                size="sm"
-                onClick={() => setStatusFilter('available')}
-              >
-                Available
-              </Button>
-              <Button
-                variant={statusFilter === 'active' ? 'default' : 'outline'}
-                size="sm"
-                onClick={() => setStatusFilter('active')}
-              >
-                In Use
-              </Button>
-              <Button
-                variant={statusFilter === 'maintenance' ? 'default' : 'outline'}
-                size="sm"
-                onClick={() => setStatusFilter('maintenance')}
-              >
-                Maintenance
-              </Button>
-            </div>
-          </div>
-        </CardContent>
-      </Card>
-
-      {/* Equipment List */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-6">
-        {filteredEquipment.map((item) => (
-          <Card key={item.id} className="hover:shadow-md transition-shadow">
-            <CardHeader className="pb-3">
-              <div className="flex items-start justify-between">
-                <div className="flex items-center gap-2">
-                  <Package className="h-5 w-5" />
-                  <div>
-                    <CardTitle className="text-lg">{item.model || item.type}</CardTitle>
-                    <p className="text-sm text-muted-foreground">
-                      {item.brand} - {item.type}
-                    </p>
-                  </div>
-                </div>
-                <Badge variant={getStatusBadgeVariant(item.status)}>
-                  {item.status}
-                </Badge>
-              </div>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="space-y-2">
-                <div className="text-sm">
-                  <span className="font-medium">Serial:</span> {item.serial_number}
-                </div>
-                {item.mac_address && (
-                  <div className="text-sm">
-                    <span className="font-medium">MAC:</span> {item.mac_address}
-                  </div>
-                )}
-                {item.ip_address && (
-                  <div className="text-sm">
-                    <span className="font-medium">IP:</span> {item.ip_address}
-                  </div>
-                )}
-              </div>
-
-              <div className="flex gap-2">
-                <Button size="sm" variant="outline" className="flex-1 gap-1">
-                  <Eye className="h-3 w-3" />
-                  View
-                </Button>
-                <Button size="sm" variant="outline" className="flex-1 gap-1">
-                  <Edit className="h-3 w-3" />
-                  Edit
-                </Button>
-                <Button size="sm" variant="destructive" className="gap-1">
-                  <Trash2 className="h-3 w-3" />
-                </Button>
-              </div>
-            </CardContent>
-          </Card>
-        ))}
-      </div>
-
-      {filteredEquipment.length === 0 && (
-        <Card>
-          <CardContent className="text-center py-12">
-            <Package className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
-            <h3 className="text-lg font-semibold mb-2">No inventory items found</h3>
-            <p className="text-muted-foreground mb-4">
-              {searchTerm || statusFilter !== 'all' 
-                ? 'Try adjusting your search or filter criteria' 
-                : 'Get started by adding your first inventory item'}
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Total Items</CardTitle>
+            <Package className="h-4 w-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">{inventoryStats.totalItems}</div>
+            <p className="text-xs text-muted-foreground">
+              All equipment
             </p>
-            {!searchTerm && statusFilter === 'all' && (
-              <Button onClick={() => setShowCreateForm(true)}>
-                <Plus className="h-4 w-4 mr-2" />
-                Add Your First Item
-              </Button>
-            )}
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Available</CardTitle>
+            <CheckCircle className="h-4 w-4 text-green-600" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold text-green-600">{inventoryStats.available}</div>
+            <p className="text-xs text-muted-foreground">
+              Ready for deployment
+            </p>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Deployed</CardTitle>
+            <Package className="h-4 w-4 text-blue-600" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold text-blue-600">{inventoryStats.deployed}</div>
+            <p className="text-xs text-muted-foreground">
+              In active use
+            </p>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Maintenance</CardTitle>
+            <AlertTriangle className="h-4 w-4 text-yellow-600" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold text-yellow-600">{inventoryStats.maintenance}</div>
+            <p className="text-xs text-muted-foreground">
+              Needs attention
+            </p>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Low Stock Alert</CardTitle>
+            <TrendingDown className="h-4 w-4 text-red-600" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold text-red-600">{lowStockItems.length}</div>
+            <p className="text-xs text-muted-foreground">
+              Items need attention
+            </p>
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* Low Stock Alert */}
+      {lowStockItems.length > 0 && (
+        <Card className="border-yellow-200 bg-yellow-50">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2 text-yellow-800">
+              <AlertTriangle className="h-5 w-5" />
+              Low Stock / Maintenance Alert ({lowStockItems.length} items)
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-2">
+              {lowStockItems.slice(0, 5).map((item) => (
+                <div key={item.id} className="flex items-center justify-between p-3 bg-white rounded border">
+                  <div className="flex items-center gap-3">
+                    {getStatusIcon(item.status)}
+                    <div>
+                      <span className="font-medium">{item.brand} {item.model}</span>
+                      <div className="text-sm text-muted-foreground">
+                        Serial: {item.serial_number}
+                        {item.warranty_end_date && (
+                          <span className="ml-2">
+                            • Warranty expires: {new Date(item.warranty_end_date).toLocaleDateString()}
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                  <Badge className={getStatusColor(item.status)}>
+                    {item.status}
+                  </Badge>
+                </div>
+              ))}
+              {lowStockItems.length > 5 && (
+                <p className="text-sm text-muted-foreground mt-2">
+                  ...and {lowStockItems.length - 5} more items requiring attention
+                </p>
+              )}
+            </div>
           </CardContent>
         </Card>
       )}
+
+      {/* Categories Overview */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+        <Card>
+          <CardHeader>
+            <CardTitle>Inventory by Category</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-3">
+              {Object.entries(itemsByCategory).map(([category, count]) => (
+                <div key={category} className="flex items-center justify-between">
+                  <span className="text-sm font-medium">{category}</span>
+                  <Badge variant="outline">{count} items</Badge>
+                </div>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader>
+            <CardTitle>Recent Activity</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-3">
+              <div className="flex items-center gap-3 text-sm">
+                <CheckCircle className="h-4 w-4 text-green-500" />
+                <span>Router added to inventory</span>
+                <span className="text-muted-foreground ml-auto">2 hours ago</span>
+              </div>
+              <div className="flex items-center gap-3 text-sm">
+                <Package className="h-4 w-4 text-blue-500" />
+                <span>Access Point deployed</span>
+                <span className="text-muted-foreground ml-auto">4 hours ago</span>
+              </div>
+              <div className="flex items-center gap-3 text-sm">
+                <AlertTriangle className="h-4 w-4 text-yellow-500" />
+                <span>Switch marked for maintenance</span>
+                <span className="text-muted-foreground ml-auto">6 hours ago</span>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* Search and Filters */}
+      <div className="flex items-center gap-4">
+        <div className="flex-1">
+          <div className="relative">
+            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
+            <Input
+              placeholder="Search by serial number, model, or brand..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="pl-10"
+            />
+          </div>
+        </div>
+        
+        <select
+          value={statusFilter}
+          onChange={(e) => setStatusFilter(e.target.value)}
+          className="border border-gray-200 rounded-md px-3 py-2"
+        >
+          <option value="all">All Status</option>
+          <option value="available">Available</option>
+          <option value="deployed">Deployed</option>
+          <option value="maintenance">Maintenance</option>
+          <option value="retired">Retired</option>
+        </select>
+        
+        <Button variant="outline">
+          <Filter className="h-4 w-4 mr-2" />
+          More Filters
+        </Button>
+      </div>
+
+      {/* Equipment Table */}
+      <Card>
+        <CardHeader>
+          <CardTitle>Equipment Inventory ({filteredEquipment.length})</CardTitle>
+        </CardHeader>
+        <CardContent>
+          {filteredEquipment.length === 0 ? (
+            <div className="text-center py-8 text-gray-500">
+              No equipment found matching your criteria
+            </div>
+          ) : (
+            <div className="overflow-x-auto">
+              <table className="w-full">
+                <thead>
+                  <tr className="border-b">
+                    <th className="text-left py-3 px-4">Equipment</th>
+                    <th className="text-left py-3 px-4">Category</th>
+                    <th className="text-left py-3 px-4">Status</th>
+                    <th className="text-left py-3 px-4">Location</th>
+                    <th className="text-left py-3 px-4">Warranty</th>
+                    <th className="text-left py-3 px-4">Actions</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {filteredEquipment.map((item) => (
+                    <tr key={item.id} className="border-b hover:bg-gray-50">
+                      <td className="py-3 px-4">
+                        <div className="flex items-center gap-3">
+                          {getStatusIcon(item.status)}
+                          <div>
+                            <div className="font-medium">{item.brand} {item.model}</div>
+                            <div className="text-sm text-gray-500">SN: {item.serial_number}</div>
+                            {item.mac_address && (
+                              <div className="text-sm text-gray-500">MAC: {item.mac_address}</div>
+                            )}
+                          </div>
+                        </div>
+                      </td>
+                      <td className="py-3 px-4">{item.type}</td>
+                      <td className="py-3 px-4">
+                        <Badge className={getStatusColor(item.status)}>
+                          {item.status}
+                        </Badge>
+                      </td>
+                      <td className="py-3 px-4">{item.location || 'Not specified'}</td>
+                      <td className="py-3 px-4">
+                        {item.warranty_end_date ? (
+                          <div className="text-sm">
+                            {new Date(item.warranty_end_date).toLocaleDateString()}
+                            {new Date(item.warranty_end_date) < new Date(Date.now() + 30 * 24 * 60 * 60 * 1000) && (
+                              <span className="text-red-600 ml-1">⚠️</span>
+                            )}
+                          </div>
+                        ) : (
+                          <span className="text-gray-400">Not specified</span>
+                        )}
+                      </td>
+                      <td className="py-3 px-4">
+                        <Button size="sm" variant="ghost">
+                          View Details
+                        </Button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </CardContent>
+      </Card>
     </div>
   );
 };
 
-export default InventoryPage;
+export default Inventory;

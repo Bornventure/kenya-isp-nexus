@@ -16,7 +16,7 @@ export interface Client {
   connection_type: 'fiber' | 'wireless' | 'satellite' | 'dsl';
   service_package_id: string;
   monthly_rate: number;
-  status: 'active' | 'pending' | 'suspended' | 'disconnected' | 'approved';
+  status: 'active' | 'pending' | 'suspended' | 'disconnected' | 'approved' | 'inactive';
   balance: number;
   wallet_balance: number;
   is_active: boolean;

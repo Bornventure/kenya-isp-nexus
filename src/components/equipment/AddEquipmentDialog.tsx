@@ -4,81 +4,69 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/u
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
-import { useEquipment } from '@/hooks/useEquipment';
-import { useToast } from '@/hooks/use-toast';
+import { Equipment, EquipmentType } from '@/types/equipment';
 
 interface AddEquipmentDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
+  onAdd: (equipment: Partial<Equipment>) => void;
+  equipmentTypes: EquipmentType[];
 }
 
-const AddEquipmentDialog = ({ open, onOpenChange }: AddEquipmentDialogProps) => {
-  const { createEquipment, isCreating } = useEquipment();
-  const { toast } = useToast();
-  
+const AddEquipmentDialog: React.FC<AddEquipmentDialogProps> = ({
+  open,
+  onOpenChange,
+  onAdd,
+  equipmentTypes
+}) => {
   const [formData, setFormData] = useState({
     type: '',
     brand: '',
     model: '',
     serial_number: '',
     mac_address: '',
+    location: '',
+    notes: '',
     ip_address: '',
     snmp_community: 'public',
     snmp_version: 2,
-    notes: '',
-    status: 'available'
+    status: 'available' as Equipment['status'],
+    approval_status: 'pending'
   });
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     
-    if (!formData.type || !formData.serial_number) {
-      toast({
-        title: "Validation Error",
-        description: "Equipment type and serial number are required.",
-        variant: "destructive",
-      });
-      return;
-    }
-
-    try {
-      await createEquipment({
-        ...formData,
-        approval_status: 'pending'
-      });
-      
-      // Reset form
-      setFormData({
-        type: '',
-        brand: '',
-        model: '',
-        serial_number: '',
-        mac_address: '',
-        ip_address: '',
-        snmp_community: 'public',
-        snmp_version: 2,
-        notes: '',
-        status: 'available'
-      });
-      
-      onOpenChange(false);
-    } catch (error) {
-      console.error('Error adding equipment:', error);
-    }
-  };
-
-  const handleInputChange = (field: string, value: any) => {
-    setFormData(prev => ({
-      ...prev,
-      [field]: value
-    }));
+    const equipmentData: Partial<Equipment> = {
+      ...formData,
+      status: formData.status as Equipment['status']
+    };
+    
+    onAdd(equipmentData);
+    
+    // Reset form
+    setFormData({
+      type: '',
+      brand: '',
+      model: '',
+      serial_number: '',
+      mac_address: '',
+      location: '',
+      notes: '',
+      ip_address: '',
+      snmp_community: 'public',
+      snmp_version: 2,
+      status: 'available',
+      approval_status: 'pending'
+    });
+    
+    onOpenChange(false);
   };
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
+      <DialogContent className="max-w-2xl">
         <DialogHeader>
           <DialogTitle>Add New Equipment</DialogTitle>
         </DialogHeader>
@@ -87,118 +75,126 @@ const AddEquipmentDialog = ({ open, onOpenChange }: AddEquipmentDialogProps) => 
           <div className="grid grid-cols-2 gap-4">
             <div>
               <Label htmlFor="type">Equipment Type *</Label>
-              <Select value={formData.type} onValueChange={(value) => handleInputChange('type', value)}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Select equipment type" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="Router">Router</SelectItem>
-                  <SelectItem value="Switch">Switch</SelectItem>
-                  <SelectItem value="Access Point">Access Point</SelectItem>
-                  <SelectItem value="Modem">Modem</SelectItem>
-                  <SelectItem value="Firewall">Firewall</SelectItem>
-                  <SelectItem value="Server">Server</SelectItem>
-                  <SelectItem value="Antenna">Antenna</SelectItem>
-                  <SelectItem value="Cable">Cable</SelectItem>
-                  <SelectItem value="Other">Other</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-
-            <div>
-              <Label htmlFor="serial_number">Serial Number *</Label>
               <Input
-                id="serial_number"
-                value={formData.serial_number}
-                onChange={(e) => handleInputChange('serial_number', e.target.value)}
-                placeholder="Enter serial number"
+                id="type"
+                value={formData.type}
+                onChange={(e) => setFormData(prev => ({ ...prev, type: e.target.value }))}
                 required
               />
             </div>
-
+            
             <div>
               <Label htmlFor="brand">Brand</Label>
               <Input
                 id="brand"
                 value={formData.brand}
-                onChange={(e) => handleInputChange('brand', e.target.value)}
-                placeholder="Enter brand"
+                onChange={(e) => setFormData(prev => ({ ...prev, brand: e.target.value }))}
               />
             </div>
-
+            
             <div>
-              <Label htmlFor="model">Model</Label>
+              <Label htmlFor="model">Model *</Label>
               <Input
                 id="model"
                 value={formData.model}
-                onChange={(e) => handleInputChange('model', e.target.value)}
-                placeholder="Enter model"
+                onChange={(e) => setFormData(prev => ({ ...prev, model: e.target.value }))}
+                required
               />
             </div>
-
+            
+            <div>
+              <Label htmlFor="serial_number">Serial Number *</Label>
+              <Input
+                id="serial_number"
+                value={formData.serial_number}
+                onChange={(e) => setFormData(prev => ({ ...prev, serial_number: e.target.value }))}
+                required
+              />
+            </div>
+            
             <div>
               <Label htmlFor="mac_address">MAC Address</Label>
               <Input
                 id="mac_address"
                 value={formData.mac_address}
-                onChange={(e) => handleInputChange('mac_address', e.target.value)}
-                placeholder="00:00:00:00:00:00"
+                onChange={(e) => setFormData(prev => ({ ...prev, mac_address: e.target.value }))}
+                placeholder="XX:XX:XX:XX:XX:XX"
               />
             </div>
-
+            
             <div>
               <Label htmlFor="ip_address">IP Address</Label>
               <Input
                 id="ip_address"
                 value={formData.ip_address}
-                onChange={(e) => handleInputChange('ip_address', e.target.value)}
+                onChange={(e) => setFormData(prev => ({ ...prev, ip_address: e.target.value }))}
                 placeholder="192.168.1.1"
               />
             </div>
-
+            
             <div>
               <Label htmlFor="snmp_community">SNMP Community</Label>
               <Input
                 id="snmp_community"
                 value={formData.snmp_community}
-                onChange={(e) => handleInputChange('snmp_community', e.target.value)}
-                placeholder="public"
+                onChange={(e) => setFormData(prev => ({ ...prev, snmp_community: e.target.value }))}
               />
             </div>
-
+            
             <div>
               <Label htmlFor="snmp_version">SNMP Version</Label>
-              <Select value={formData.snmp_version.toString()} onValueChange={(value) => handleInputChange('snmp_version', parseInt(value))}>
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="1">v1</SelectItem>
-                  <SelectItem value="2">v2c</SelectItem>
-                  <SelectItem value="3">v3</SelectItem>
-                </SelectContent>
-              </Select>
+              <select
+                id="snmp_version"
+                value={formData.snmp_version}
+                onChange={(e) => setFormData(prev => ({ ...prev, snmp_version: parseInt(e.target.value) }))}
+                className="w-full p-2 border rounded"
+              >
+                <option value={1}>Version 1</option>
+                <option value={2}>Version 2c</option>
+                <option value={3}>Version 3</option>
+              </select>
+            </div>
+            
+            <div>
+              <Label htmlFor="status">Status</Label>
+              <select
+                id="status"
+                value={formData.status}
+                onChange={(e) => setFormData(prev => ({ ...prev, status: e.target.value as Equipment['status'] }))}
+                className="w-full p-2 border rounded"
+              >
+                <option value="available">Available</option>
+                <option value="deployed">Deployed</option>
+                <option value="maintenance">Maintenance</option>
+                <option value="retired">Retired</option>
+              </select>
+            </div>
+            
+            <div>
+              <Label htmlFor="location">Location</Label>
+              <Input
+                id="location"
+                value={formData.location}
+                onChange={(e) => setFormData(prev => ({ ...prev, location: e.target.value }))}
+              />
             </div>
           </div>
-
+          
           <div>
             <Label htmlFor="notes">Notes</Label>
             <Textarea
               id="notes"
               value={formData.notes}
-              onChange={(e) => handleInputChange('notes', e.target.value)}
-              placeholder="Additional notes about this equipment..."
+              onChange={(e) => setFormData(prev => ({ ...prev, notes: e.target.value }))}
               rows={3}
             />
           </div>
-
-          <div className="flex justify-end gap-2 pt-4">
+          
+          <div className="flex justify-end gap-3">
             <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
               Cancel
             </Button>
-            <Button type="submit" disabled={isCreating}>
-              {isCreating ? 'Adding...' : 'Add Equipment'}
-            </Button>
+            <Button type="submit">Add Equipment</Button>
           </div>
         </form>
       </DialogContent>

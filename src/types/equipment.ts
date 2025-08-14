@@ -20,7 +20,7 @@ export interface Equipment {
   updated_at: string;
   client_id?: string;
   ip_address?: string;
-  approval_status?: string;
+  approval_status?: 'pending' | 'approved' | 'rejected';
   approved_at?: string;
   approved_by?: string;
   auto_discovered?: boolean;
@@ -31,4 +31,16 @@ export interface Equipment {
   snmp_version?: number;
   vlan_id?: number;
   location_coordinates?: any;
+}
+
+export interface EquipmentType {
+  id: string;
+  name: string;
+  brand: string;
+  model: string;
+  device_type: string;
+  default_config?: any;
+  snmp_settings?: any;
+  created_at: string;
+  updated_at: string;
 }

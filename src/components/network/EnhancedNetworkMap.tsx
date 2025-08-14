@@ -1,243 +1,199 @@
 
-import React, { useState, useEffect } from 'react';
-import { MapContainer, TileLayer, Marker, Popup, Circle, useMap } from 'react-leaflet';
+import React, { useMemo } from 'react';
+import { MapContainer, TileLayer, Marker, Popup, Circle } from 'react-leaflet';
+import L from 'leaflet';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { Button } from '@/components/ui/button';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { LatLngBounds, Icon } from 'leaflet';
-import { useClients } from '@/hooks/useClients';
-import { useEquipment } from '@/hooks/useEquipment';
-import { supabase } from '@/integrations/supabase/client';
-import { useAuth } from '@/contexts/AuthContext';
-import { MapPin, Router, Server, Wifi, Cable } from 'lucide-react';
-import 'leaflet/dist/leaflet.css';
+import { Client } from '@/types/client';
+import { Equipment } from '@/types/equipment';
+import { MikrotikRouter } from '@/hooks/useMikrotikRouters';
 
-// Custom icons for different equipment types (reduced size)
-const createCustomIcon = (color: string, type: string) => {
-  return new Icon({
-    iconUrl: `data:image/svg+xml;base64,${btoa(`
-      <svg width="24" height="24" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-        <circle cx="12" cy="12" r="10" fill="${color}" stroke="white" stroke-width="2"/>
-        <text x="12" y="16" text-anchor="middle" fill="white" font-size="10" font-family="Arial">
-          ${type === 'router' ? 'R' : type === 'switch' ? 'S' : type === 'access_point' ? 'AP' : 'E'}
-        </text>
-      </svg>
-    `)}`,
-    iconSize: [24, 24], // Reduced from [32, 32]
-    iconAnchor: [12, 24], // Reduced from [16, 32]
-    popupAnchor: [0, -24], // Reduced from [0, -32]
-  });
-};
+// Fix for default markers
+import iconRetinaUrl from 'leaflet/dist/images/marker-icon-2x.png';
+import iconUrl from 'leaflet/dist/images/marker-icon.png';
+import shadowUrl from 'leaflet/dist/images/marker-shadow.png';
 
-// Client status colors
-const getClientColor = (status: string) => {
-  switch (status) {
-    case 'active': return '#22c55e';
-    case 'suspended': return '#ef4444';
-    case 'pending': return '#f59e0b';
-    default: return '#6b7280';
-  }
-};
+delete (L.Icon.Default.prototype as any)._getIconUrl;
+L.Icon.Default.mergeOptions({
+  iconRetinaUrl,
+  iconUrl,
+  shadowUrl,
+});
 
-// Equipment type colors
-const getEquipmentColor = (type: string) => {
-  switch (type) {
-    case 'router': return '#3b82f6';
-    case 'switch': return '#8b5cf6';
-    case 'access_point': return '#06b6d4';
-    default: return '#6b7280';
-  }
-};
-
-interface BaseStation {
-  id: string;
-  name: string;
-  latitude: number;
-  longitude: number;
-  coverage_radius: number;
-  status: string;
+interface EnhancedNetworkMapProps {
+  clients: Client[];
+  equipment: Equipment[];
+  routers: MikrotikRouter[];
 }
 
-const MapBoundsUpdater: React.FC<{ markers: Array<{lat: number, lng: number}> }> = ({ markers }) => {
-  const map = useMap();
+const EnhancedNetworkMap: React.FC<EnhancedNetworkMapProps> = ({
+  clients,
+  equipment,
+  routers
+}) => {
+  // Default center for Kenya
+  const defaultCenter: [number, number] = [-0.0236, 37.9062];
+  const defaultZoom = 7;
 
-  useEffect(() => {
-    if (markers.length > 0) {
-      const bounds = new LatLngBounds(markers.map(m => [m.lat, m.lng]));
-      // Add more padding for better visibility and zoom out more
-      map.fitBounds(bounds, { padding: [50, 50], maxZoom: 13 });
+  // Create custom icons
+  const createIcon = (color: string, type: 'client' | 'equipment' | 'router') => {
+    const iconSize: [number, number] = type === 'client' ? [25, 25] : [30, 30];
+    return L.divIcon({
+      className: 'custom-div-icon',
+      html: `<div style="background-color: ${color}; width: ${iconSize[0]}px; height: ${iconSize[1]}px; border-radius: 50%; border: 2px solid white; box-shadow: 0 2px 4px rgba(0,0,0,0.3);"></div>`,
+      iconSize,
+      iconAnchor: [iconSize[0] / 2, iconSize[1] / 2],
+    });
+  };
+
+  // Filter clients with valid coordinates
+  const validClients = useMemo(() => {
+    return clients.filter(client => 
+      client.latitude && 
+      client.longitude && 
+      !isNaN(Number(client.latitude)) && 
+      !isNaN(Number(client.longitude))
+    );
+  }, [clients]);
+
+  // Filter equipment with valid coordinates
+  const validEquipment = useMemo(() => {
+    return equipment.filter(eq => 
+      eq.location_coordinates && 
+      Array.isArray(eq.location_coordinates) &&
+      eq.location_coordinates.length >= 2 &&
+      !isNaN(Number(eq.location_coordinates[0])) &&
+      !isNaN(Number(eq.location_coordinates[1]))
+    );
+  }, [equipment]);
+
+  // Mock router coordinates (in real implementation, this would come from the database)
+  const routerLocations = useMemo(() => {
+    return routers.map((router, index) => ({
+      ...router,
+      lat: -0.0236 + (index * 0.01), // Mock coordinates around Nairobi
+      lng: 37.9062 + (index * 0.01)
+    }));
+  }, [routers]);
+
+  const getClientStatusColor = (status: string) => {
+    switch (status) {
+      case 'active': return '#10b981'; // green
+      case 'suspended': return '#ef4444'; // red
+      case 'pending': return '#f59e0b'; // yellow
+      case 'approved': return '#3b82f6'; // blue
+      case 'disconnected': return '#6b7280'; // gray
+      default: return '#6b7280';
     }
-  }, [map, markers]);
+  };
 
-  return null;
-};
+  const getEquipmentStatusColor = (status: string) => {
+    switch (status) {
+      case 'deployed': return '#10b981'; // green
+      case 'available': return '#3b82f6'; // blue
+      case 'maintenance': return '#f59e0b'; // yellow
+      case 'retired': return '#ef4444'; // red
+      default: return '#6b7280';
+    }
+  };
 
-const EnhancedNetworkMap: React.FC = () => {
-  const [filter, setFilter] = useState<string>('all');
-  const [baseStations, setBaseStations] = useState<BaseStation[]>([]);
-  const { clients } = useClients();
-  const { equipment } = useEquipment();
-  const { profile } = useAuth();
-
-  // Fetch base stations
-  useEffect(() => {
-    const fetchBaseStations = async () => {
-      if (!profile?.isp_company_id) return;
-
-      const { data } = await supabase
-        .from('base_stations')
-        .select('*')
-        .eq('isp_company_id', profile.isp_company_id);
-
-      if (data) {
-        setBaseStations(data);
-      }
-    };
-
-    fetchBaseStations();
-  }, [profile?.isp_company_id]);
-
-  // Filter clients based on status and ensure they have coordinates
-  const filteredClients = clients.filter(client => {
-    const hasCoordinates = client.latitude && client.longitude;
-    if (!hasCoordinates) return false;
-    
-    if (filter === 'all') return true;
-    return client.status === filter;
-  });
-
-  // Filter equipment with coordinates
-  const filteredEquipment = equipment.filter(eq => 
-    eq.location_coordinates && eq.approval_status === 'approved'
-  );
-
-  // Prepare all markers for bounds calculation
-  const allMarkers = [
-    ...filteredClients.map(client => ({ lat: client.latitude!, lng: client.longitude! })),
-    ...filteredEquipment.map(eq => {
-      const coords = eq.location_coordinates as any;
-      return { lat: coords.x || coords.lat, lng: coords.y || coords.lng };
-    }),
-    ...baseStations.map(bs => ({ lat: bs.latitude, lng: bs.longitude }))
-  ];
-
-  // Default center (Kisumu, Kenya)
-  const defaultCenter = { lat: -0.0917, lng: 34.7680 };
-  const mapCenter = allMarkers.length > 0 ? 
-    { lat: allMarkers[0].lat, lng: allMarkers[0].lng } : defaultCenter;
+  const getRouterStatusColor = (status: string) => {
+    switch (status) {
+      case 'online': return '#10b981'; // green
+      case 'offline': return '#ef4444'; // red
+      case 'testing': return '#f59e0b'; // yellow
+      default: return '#6b7280';
+    }
+  };
 
   return (
     <div className="space-y-4">
-      {/* Controls */}
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-4">
-          <Select value={filter} onValueChange={setFilter}>
-            <SelectTrigger className="w-40">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">All Clients</SelectItem>
-              <SelectItem value="active">Active</SelectItem>
-              <SelectItem value="suspended">Suspended</SelectItem>
-              <SelectItem value="pending">Pending</SelectItem>
-            </SelectContent>
-          </Select>
-        </div>
+      {/* Map Statistics */}
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+        <Card>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm">Clients on Map</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold text-blue-600">{validClients.length}</div>
+            <p className="text-xs text-muted-foreground">of {clients.length} total</p>
+          </CardContent>
+        </Card>
 
-        {/* Legend */}
-        <div className="flex items-center gap-4 text-sm">
-          <div className="flex items-center gap-2">
-            <div className="w-3 h-3 rounded-full bg-green-500"></div>
-            <span>Active</span>
-          </div>
-          <div className="flex items-center gap-2">
-            <div className="w-3 h-3 rounded-full bg-red-500"></div>
-            <span>Suspended</span>
-          </div>
-          <div className="flex items-center gap-2">
-            <div className="w-3 h-3 rounded-full bg-yellow-500"></div>
-            <span>Pending</span>
-          </div>
-          <div className="flex items-center gap-2">
-            <div className="w-3 h-3 rounded-full bg-blue-500"></div>
-            <span>Equipment</span>
-          </div>
-        </div>
+        <Card>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm">Active Clients</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold text-green-600">
+              {validClients.filter(c => c.status === 'active').length}
+            </div>
+            <p className="text-xs text-muted-foreground">online now</p>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm">Network Equipment</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold text-purple-600">{validEquipment.length}</div>
+            <p className="text-xs text-muted-foreground">deployed devices</p>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm">MikroTik Routers</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold text-orange-600">{routers.length}</div>
+            <p className="text-xs text-muted-foreground">
+              {routers.filter(r => r.connection_status === 'online').length} online
+            </p>
+          </CardContent>
+        </Card>
       </div>
 
       {/* Map */}
       <Card>
-        <CardContent className="p-0">
+        <CardHeader>
+          <CardTitle>Network Coverage Map</CardTitle>
+        </CardHeader>
+        <CardContent>
           <div className="h-[600px] w-full">
             <MapContainer
-              center={[mapCenter.lat, mapCenter.lng]}
-              zoom={12}
+              center={defaultCenter}
+              zoom={defaultZoom}
               style={{ height: '100%', width: '100%' }}
+              className="rounded-lg"
             >
               <TileLayer
-                attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
                 url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+                attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
               />
-              
-              <MapBoundsUpdater markers={allMarkers} />
-
-              {/* Base Stations with Coverage */}
-              {baseStations.map((station) => (
-                <React.Fragment key={station.id}>
-                  <Marker
-                    position={[station.latitude, station.longitude]}
-                    icon={createCustomIcon('#dc2626', 'BS')}
-                  >
-                    <Popup>
-                      <div className="p-2">
-                        <h3 className="font-semibold">{station.name}</h3>
-                        <p className="text-sm text-gray-600">Base Station</p>
-                        <Badge variant={station.status === 'active' ? 'default' : 'destructive'}>
-                          {station.status}
-                        </Badge>
-                      </div>
-                    </Popup>
-                  </Marker>
-                  
-                  {/* Coverage Circle */}
-                  <Circle
-                    center={[station.latitude, station.longitude]}
-                    radius={station.coverage_radius}
-                    fillColor="#dc2626"
-                    fillOpacity={0.1}
-                    color="#dc2626"
-                    weight={2}
-                  />
-                </React.Fragment>
-              ))}
 
               {/* Client Markers */}
-              {filteredClients.map((client) => (
+              {validClients.map((client) => (
                 <Marker
-                  key={client.id}
-                  position={[client.latitude!, client.longitude!]}
-                  icon={createCustomIcon(getClientColor(client.status), 'C')}
+                  key={`client-${client.id}`}
+                  position={[Number(client.latitude), Number(client.longitude)]}
+                  icon={createIcon(getClientStatusColor(client.status), 'client')}
                 >
                   <Popup>
-                    <div className="p-2 min-w-[200px]">
+                    <div className="p-2">
                       <h3 className="font-semibold">{client.name}</h3>
                       <div className="space-y-1 text-sm">
-                        <p><span className="font-medium">Phone:</span> {client.phone}</p>
-                        <p><span className="font-medium">Type:</span> {client.connection_type}</p>
-                        <p><span className="font-medium">Package:</span> KES {client.monthly_rate}/month</p>
-                        <p><span className="font-medium">Address:</span> {client.address}</p>
-                        <div className="flex items-center gap-2 mt-2">
-                          <Badge variant={
-                            client.status === 'active' ? 'default' : 
-                            client.status === 'suspended' ? 'destructive' : 'secondary'
-                          }>
+                        <div className="flex items-center gap-2">
+                          <span>Status:</span>
+                          <Badge variant={client.status === 'active' ? 'default' : 'secondary'}>
                             {client.status}
                           </Badge>
-                          <span className="text-xs bg-gray-100 px-2 py-1 rounded">
-                            Wallet: KES {client.wallet_balance || 0}
-                          </span>
                         </div>
+                        <div>Phone: {client.phone}</div>
+                        <div>Package: {client.service_packages?.name || 'Not assigned'}</div>
+                        <div>Location: {client.address}</div>
+                        <div>Monthly Rate: KES {client.monthly_rate.toLocaleString()}</div>
                       </div>
                     </div>
                   </Popup>
@@ -245,96 +201,153 @@ const EnhancedNetworkMap: React.FC = () => {
               ))}
 
               {/* Equipment Markers */}
-              {filteredEquipment.map((eq) => {
-                const coords = eq.location_coordinates as any;
-                const lat = coords?.x || coords?.lat;
-                const lng = coords?.y || coords?.lng;
-                
-                if (!lat || !lng) return null;
-
-                return (
-                  <Marker
-                    key={eq.id}
-                    position={[lat, lng]}
-                    icon={createCustomIcon(getEquipmentColor(eq.type), eq.type.charAt(0).toUpperCase())}
-                  >
-                    <Popup>
-                      <div className="p-2 min-w-[200px]">
-                        <h3 className="font-semibold">{eq.brand} {eq.model}</h3>
-                        <div className="space-y-1 text-sm">
-                          <p><span className="font-medium">Type:</span> {eq.type}</p>
-                          <p><span className="font-medium">Serial:</span> {eq.serial_number}</p>
-                          {eq.ip_address && (
-                            <p><span className="font-medium">IP:</span> {eq.ip_address}</p>
-                          )}
-                          {eq.mac_address && (
-                            <p><span className="font-medium">MAC:</span> {eq.mac_address}</p>
-                          )}
-                          {eq.clients && (
-                            <p><span className="font-medium">Assigned to:</span> {eq.clients.name}</p>
-                          )}
-                          <div className="mt-2">
-                            <Badge variant={eq.status === 'active' ? 'default' : 'secondary'}>
-                              {eq.status}
-                            </Badge>
-                          </div>
+              {validEquipment.map((eq) => (
+                <Marker
+                  key={`equipment-${eq.id}`}
+                  position={[Number(eq.location_coordinates[0]), Number(eq.location_coordinates[1])]}
+                  icon={createIcon(getEquipmentStatusColor(eq.status), 'equipment')}
+                >
+                  <Popup>
+                    <div className="p-2">
+                      <h3 className="font-semibold">{eq.brand} {eq.model}</h3>
+                      <div className="space-y-1 text-sm">
+                        <div className="flex items-center gap-2">
+                          <span>Status:</span>
+                          <Badge variant={eq.status === 'deployed' ? 'default' : 'secondary'}>
+                            {eq.status}
+                          </Badge>
                         </div>
+                        <div>Type: {eq.type}</div>
+                        <div>Serial: {eq.serial_number}</div>
+                        {eq.ip_address && <div>IP: {eq.ip_address}</div>}
+                        {eq.location && <div>Location: {eq.location}</div>}
                       </div>
-                    </Popup>
-                  </Marker>
-                );
-              })}
+                    </div>
+                  </Popup>
+                </Marker>
+              ))}
+
+              {/* Router Markers */}
+              {routerLocations.map((router) => (
+                <Marker
+                  key={`router-${router.id}`}
+                  position={[router.lat, router.lng]}
+                  icon={createIcon(getRouterStatusColor(router.connection_status), 'router')}
+                >
+                  <Popup>
+                    <div className="p-2">
+                      <h3 className="font-semibold">{router.name}</h3>
+                      <div className="space-y-1 text-sm">
+                        <div className="flex items-center gap-2">
+                          <span>Status:</span>
+                          <Badge variant={router.connection_status === 'online' ? 'default' : 'destructive'}>
+                            {router.connection_status}
+                          </Badge>
+                        </div>
+                        <div>IP: {router.ip_address}</div>
+                        <div>Network: {router.client_network}</div>
+                        <div>Gateway: {router.gateway}</div>
+                        {router.last_test_results && (
+                          <div>Last Test: {new Date(router.last_test_results.timestamp).toLocaleString()}</div>
+                        )}
+                      </div>
+                    </div>
+                  </Popup>
+                </Marker>
+              ))}
+
+              {/* Coverage areas for routers */}
+              {routerLocations.filter(r => r.connection_status === 'online').map((router) => (
+                <Circle
+                  key={`coverage-${router.id}`}
+                  center={[router.lat, router.lng]}
+                  radius={2000} // 2km coverage radius
+                  fillColor="#3b82f6"
+                  fillOpacity={0.1}
+                  color="#3b82f6"
+                  weight={1}
+                />
+              ))}
             </MapContainer>
           </div>
         </CardContent>
       </Card>
 
-      {/* Statistics */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-        <Card>
-          <CardContent className="p-4">
-            <div className="text-center">
-              <div className="text-2xl font-bold text-green-600">
-                {clients.filter(c => c.status === 'active').length}
+      {/* Legend */}
+      <Card>
+        <CardHeader>
+          <CardTitle>Map Legend</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div>
+              <h4 className="font-semibold mb-2">Clients</h4>
+              <div className="space-y-1 text-sm">
+                <div className="flex items-center gap-2">
+                  <div className="w-4 h-4 rounded-full bg-green-500 border border-white"></div>
+                  <span>Active</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <div className="w-4 h-4 rounded-full bg-red-500 border border-white"></div>
+                  <span>Suspended</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <div className="w-4 h-4 rounded-full bg-yellow-500 border border-white"></div>
+                  <span>Pending</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <div className="w-4 h-4 rounded-full bg-gray-500 border border-white"></div>
+                  <span>Disconnected</span>
+                </div>
               </div>
-              <div className="text-sm text-muted-foreground">Active Clients</div>
             </div>
-          </CardContent>
-        </Card>
-        
-        <Card>
-          <CardContent className="p-4">
-            <div className="text-center">
-              <div className="text-2xl font-bold text-red-600">
-                {clients.filter(c => c.status === 'suspended').length}
+
+            <div>
+              <h4 className="font-semibold mb-2">Equipment</h4>
+              <div className="space-y-1 text-sm">
+                <div className="flex items-center gap-2">
+                  <div className="w-5 h-5 rounded-full bg-green-500 border border-white"></div>
+                  <span>Deployed</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <div className="w-5 h-5 rounded-full bg-blue-500 border border-white"></div>
+                  <span>Available</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <div className="w-5 h-5 rounded-full bg-yellow-500 border border-white"></div>
+                  <span>Maintenance</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <div className="w-5 h-5 rounded-full bg-red-500 border border-white"></div>
+                  <span>Retired</span>
+                </div>
               </div>
-              <div className="text-sm text-muted-foreground">Suspended Clients</div>
             </div>
-          </CardContent>
-        </Card>
-        
-        <Card>
-          <CardContent className="p-4">
-            <div className="text-center">
-              <div className="text-2xl font-bold text-blue-600">
-                {equipment.filter(e => e.approval_status === 'approved').length}
+
+            <div>
+              <h4 className="font-semibold mb-2">MikroTik Routers</h4>
+              <div className="space-y-1 text-sm">
+                <div className="flex items-center gap-2">
+                  <div className="w-5 h-5 rounded-full bg-green-500 border border-white"></div>
+                  <span>Online</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <div className="w-5 h-5 rounded-full bg-red-500 border border-white"></div>
+                  <span>Offline</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <div className="w-5 h-5 rounded-full bg-yellow-500 border border-white"></div>
+                  <span>Testing</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <div className="w-3 h-3 rounded-full border-2 border-blue-500 bg-blue-100"></div>
+                  <span>Coverage Area (2km)</span>
+                </div>
               </div>
-              <div className="text-sm text-muted-foreground">Active Equipment</div>
             </div>
-          </CardContent>
-        </Card>
-        
-        <Card>
-          <CardContent className="p-4">
-            <div className="text-center">
-              <div className="text-2xl font-bold text-purple-600">
-                {baseStations.length}
-              </div>
-              <div className="text-sm text-muted-foreground">Base Stations</div>
-            </div>
-          </CardContent>
-        </Card>
-      </div>
+          </div>
+        </CardContent>
+      </Card>
     </div>
   );
 };

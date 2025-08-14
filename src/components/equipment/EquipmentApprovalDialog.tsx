@@ -7,7 +7,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
 import { CheckCircle, XCircle, Clock } from 'lucide-react';
-import { Equipment } from '@/hooks/useEquipment';
+import { Equipment } from '@/types/equipment';
 
 interface EquipmentApprovalDialogProps {
   open: boolean;

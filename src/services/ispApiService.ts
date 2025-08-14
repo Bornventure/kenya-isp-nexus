@@ -1,27 +1,64 @@
 
-import { authService } from './api/authService';
-import { servicePackageService } from './api/servicePackageService';
-import { isClientActive, getAccountStatusMessage, formatCurrency, hasOverdueInvoices, getNextPaymentDue } from './authUtils';
+import { AuthService } from './api/authService';
+import { supabase } from '@/integrations/supabase/client';
 
-class IspApiService {
-  // Delegate authentication to the auth service
-  async loginClient(credentials: any) {
-    return authService.loginClient(credentials);
+export class ISPApiService {
+  private authService: AuthService;
+
+  constructor() {
+    this.authService = new AuthService();
   }
 
-  // Delegate service package retrieval to the service package service
-  async getServicePackages() {
-    return servicePackageService.getServicePackages();
+  async createClient(clientData: any) {
+    try {
+      const { data, error } = await supabase
+        .from('clients')
+        .insert(clientData)
+        .select()
+        .single();
+
+      if (error) throw error;
+
+      // Send SMS notification
+      await this.authService.sendClientWelcomeSMS(data.phone, {
+        name: data.name,
+        package: clientData.package_name || 'Standard'
+      });
+
+      return { success: true, data };
+    } catch (error) {
+      console.error('Error creating client:', error);
+      return { success: false, error: error.message };
+    }
   }
 
-  // Helper methods from authUtils
-  isClientActive = isClientActive;
-  getAccountStatusMessage = getAccountStatusMessage;
-  formatCurrency = formatCurrency;
-  hasOverdueInvoices = hasOverdueInvoices;
-  getNextPaymentDue = getNextPaymentDue;
+  async updateClientStatus(clientId: string, status: string, reason?: string) {
+    try {
+      const { data, error } = await supabase
+        .from('clients')
+        .update({ 
+          status,
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', clientId)
+        .select()
+        .single();
+
+      if (error) throw error;
+
+      // Send status change SMS
+      await this.authService.sendClientStatusSMS(data.phone, {
+        name: data.name,
+        status,
+        reason
+      });
+
+      return { success: true, data };
+    } catch (error) {
+      console.error('Error updating client status:', error);
+      return { success: false, error: error.message };
+    }
+  }
 }
 
-export const ispApiService = new IspApiService();
-export type { Client, ServicePackage, ClientLoginCredentials } from '@/types/client';
-export * from '@/types/client';
+export const ispApiService = new ISPApiService();
