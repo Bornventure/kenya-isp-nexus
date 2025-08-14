@@ -1,166 +1,229 @@
 
 import React, { useState } from 'react';
+import { useParams } from 'react-router-dom';
+import { useQuery } from '@tanstack/react-query';
+import { supabase } from '@/integrations/supabase/client';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { 
   User, 
   MapPin, 
   Phone, 
   Mail, 
-  CreditCard, 
+  Calendar,
+  CreditCard,
   Wifi,
+  Router,
+  Activity,
   Settings,
-  PlayCircle
+  FileText,
+  AlertCircle
 } from 'lucide-react';
-import ClientNetworkControl from './ClientNetworkControl';
-import ClientOnboardingManager from '../ClientOnboardingManager';
 import AssignedEquipmentSection from './AssignedEquipmentSection';
+import ClientNetworkControl from './ClientNetworkControl';
 import ClientNetworkMonitoring from './ClientNetworkMonitoring';
+import ClientOnboardingManager from '../ClientOnboardingManager';
 
-interface ClientDetailsPageProps {
-  client: any;
-  onUpdate?: () => void;
-}
-
-const ClientDetailsPage: React.FC<ClientDetailsPageProps> = ({ client, onUpdate }) => {
+const ClientDetailsPage = () => {
+  const { id } = useParams<{ id: string }>();
   const [activeTab, setActiveTab] = useState('overview');
 
-  const getStatusBadgeVariant = (status: string) => {
-    switch (status.toLowerCase()) {
+  const { data: client, isLoading } = useQuery({
+    queryKey: ['client', id],
+    queryFn: async () => {
+      if (!id) throw new Error('No client ID provided');
+      
+      const { data, error } = await supabase
+        .from('clients')
+        .select(`
+          *,
+          service_packages (
+            name,
+            price,
+            download_speed,
+            upload_speed
+          )
+        `)
+        .eq('id', id)
+        .single();
+
+      if (error) throw error;
+      return data;
+    },
+    enabled: !!id,
+  });
+
+  if (isLoading) {
+    return (
+      <div className="container mx-auto p-6">
+        <div className="animate-pulse space-y-6">
+          <div className="h-8 bg-gray-200 rounded w-1/3"></div>
+          <div className="h-64 bg-gray-200 rounded"></div>
+        </div>
+      </div>
+    );
+  }
+
+  if (!client) {
+    return (
+      <div className="container mx-auto p-6">
+        <Card>
+          <CardContent className="p-6">
+            <div className="text-center">
+              <AlertCircle className="h-12 w-12 text-red-500 mx-auto mb-4" />
+              <h2 className="text-xl font-semibold mb-2">Client Not Found</h2>
+              <p className="text-gray-600">The requested client could not be found.</p>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
+
+  const getStatusColor = (status: string) => {
+    switch (status) {
       case 'active':
         return 'default';
-      case 'suspended':
-        return 'destructive';
       case 'pending':
         return 'secondary';
-      case 'approved':
+      case 'suspended':
+        return 'destructive';
+      case 'cancelled':
         return 'outline';
       default:
-        return 'outline';
+        return 'secondary';
     }
   };
 
   return (
-    <div className="space-y-6">
-      {/* Client Header */}
-      <Card>
-        <CardHeader>
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-4">
-              <div className="p-3 bg-blue-100 rounded-full">
-                <User className="h-6 w-6 text-blue-600" />
-              </div>
-              <div>
-                <h1 className="text-2xl font-bold">{client.name}</h1>
-                <p className="text-gray-600">{client.email || client.phone}</p>
-              </div>
-            </div>
-            <div className="flex items-center gap-2">
-              <Badge variant={getStatusBadgeVariant(client.status)}>
-                {client.status?.toUpperCase() || 'UNKNOWN'}
-              </Badge>
-              {client.status === 'approved' && (
-                <Button onClick={() => setActiveTab('onboarding')} className="gap-2">
-                  <PlayCircle className="h-4 w-4" />
-                  Start Onboarding
-                </Button>
-              )}
-            </div>
-          </div>
-        </CardHeader>
-      </Card>
+    <div className="container mx-auto p-6 space-y-6">
+      {/* Header Section */}
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-3xl font-bold">{client.name}</h1>
+          <p className="text-muted-foreground">Client ID: {client.id}</p>
+        </div>
+        <Badge variant={getStatusColor(client.status)} className="text-sm px-3 py-1">
+          {client.status?.charAt(0).toUpperCase() + client.status?.slice(1)}
+        </Badge>
+      </div>
 
-      {/* Client Details Tabs */}
+      {/* Quick Stats Cards */}
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Monthly Rate</CardTitle>
+            <CreditCard className="h-4 w-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">KES {client.monthly_rate?.toLocaleString() || '0'}</div>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Balance</CardTitle>
+            <CreditCard className="h-4 w-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">KES {client.balance?.toLocaleString() || '0'}</div>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Connection Type</CardTitle>
+            <Wifi className="h-4 w-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold capitalize">{client.connection_type}</div>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Installation</CardTitle>
+            <Calendar className="h-4 w-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold capitalize">{client.installation_status}</div>
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* Tabbed Content */}
       <Tabs value={activeTab} onValueChange={setActiveTab}>
         <TabsList className="grid w-full grid-cols-6">
-          <TabsTrigger value="overview">Overview</TabsTrigger>
-          <TabsTrigger value="onboarding">Onboarding</TabsTrigger>
-          <TabsTrigger value="network">Network</TabsTrigger>
-          <TabsTrigger value="equipment">Equipment</TabsTrigger>
-          <TabsTrigger value="monitoring">Monitoring</TabsTrigger>
-          <TabsTrigger value="settings">Settings</TabsTrigger>
+          <TabsTrigger value="overview">
+            <User className="h-4 w-4 mr-2" />
+            Overview
+          </TabsTrigger>
+          <TabsTrigger value="equipment">
+            <Router className="h-4 w-4 mr-2" />
+            Equipment
+          </TabsTrigger>
+          <TabsTrigger value="network">
+            <Activity className="h-4 w-4 mr-2" />
+            Network
+          </TabsTrigger>
+          <TabsTrigger value="monitoring">
+            <Settings className="h-4 w-4 mr-2" />
+            Monitoring
+          </TabsTrigger>
+          <TabsTrigger value="billing">
+            <FileText className="h-4 w-4 mr-2" />
+            Billing
+          </TabsTrigger>
+          <TabsTrigger value="onboarding">
+            <Settings className="h-4 w-4 mr-2" />
+            Onboarding
+          </TabsTrigger>
         </TabsList>
 
         <TabsContent value="overview" className="space-y-6">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            {/* Personal Information */}
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            {/* Contact Information */}
             <Card>
               <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <User className="h-5 w-5" />
-                  Personal Information
-                </CardTitle>
+                <CardTitle>Contact Information</CardTitle>
               </CardHeader>
               <CardContent className="space-y-4">
-                <div className="grid grid-cols-2 gap-4 text-sm">
+                <div className="flex items-center gap-3">
+                  <User className="h-4 w-4 text-muted-foreground" />
                   <div>
-                    <span className="font-medium">Name:</span>
-                    <p>{client.name}</p>
-                  </div>
-                  <div>
-                    <span className="font-medium">ID Number:</span>
-                    <p>{client.id_number}</p>
-                  </div>
-                  <div>
-                    <span className="font-medium">Phone:</span>
-                    <p className="flex items-center gap-1">
-                      <Phone className="h-4 w-4" />
-                      {client.phone}
+                    <p className="font-medium">{client.name}</p>
+                    <p className="text-sm text-muted-foreground">
+                      {client.client_type?.charAt(0).toUpperCase() + client.client_type?.slice(1)} Client
                     </p>
-                  </div>
-                  <div>
-                    <span className="font-medium">Email:</span>
-                    <p className="flex items-center gap-1">
-                      <Mail className="h-4 w-4" />
-                      {client.email || 'Not provided'}
-                    </p>
-                  </div>
-                  <div>
-                    <span className="font-medium">KRA PIN:</span>
-                    <p>{client.kra_pin_number || 'Not provided'}</p>
-                  </div>
-                  <div>
-                    <span className="font-medium">M-Pesa:</span>
-                    <p>{client.mpesa_number || client.phone}</p>
                   </div>
                 </div>
-              </CardContent>
-            </Card>
 
-            {/* Location Information */}
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <MapPin className="h-5 w-5" />
-                  Location Information
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <div className="space-y-2 text-sm">
+                <div className="flex items-center gap-3">
+                  <Mail className="h-4 w-4 text-muted-foreground" />
                   <div>
-                    <span className="font-medium">Address:</span>
-                    <p>{client.address}</p>
+                    <p className="font-medium">{client.email || 'No email provided'}</p>
+                    <p className="text-sm text-muted-foreground">Email Address</p>
                   </div>
-                  <div className="grid grid-cols-2 gap-4">
-                    <div>
-                      <span className="font-medium">County:</span>
-                      <p>{client.county}</p>
-                    </div>
-                    <div>
-                      <span className="font-medium">Sub County:</span>
-                      <p>{client.sub_county}</p>
-                    </div>
+                </div>
+
+                <div className="flex items-center gap-3">
+                  <Phone className="h-4 w-4 text-muted-foreground" />
+                  <div>
+                    <p className="font-medium">{client.phone}</p>
+                    <p className="text-sm text-muted-foreground">Phone Number</p>
                   </div>
-                  {client.latitude && client.longitude && (
-                    <div>
-                      <span className="font-medium">Coordinates:</span>
-                      <p className="font-mono text-xs">
-                        {client.latitude}, {client.longitude}
-                      </p>
-                    </div>
-                  )}
+                </div>
+
+                <div className="flex items-center gap-3">
+                  <MapPin className="h-4 w-4 text-muted-foreground" />
+                  <div>
+                    <p className="font-medium">{client.address}</p>
+                    <p className="text-sm text-muted-foreground">
+                      {client.sub_county}, {client.county}
+                    </p>
+                  </div>
                 </div>
               </CardContent>
             </Card>
@@ -168,70 +231,46 @@ const ClientDetailsPage: React.FC<ClientDetailsPageProps> = ({ client, onUpdate 
             {/* Service Information */}
             <Card>
               <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <Wifi className="h-5 w-5" />
-                  Service Information
-                </CardTitle>
+                <CardTitle>Service Information</CardTitle>
               </CardHeader>
               <CardContent className="space-y-4">
-                <div className="grid grid-cols-2 gap-4 text-sm">
+                {client.service_packages && (
                   <div>
-                    <span className="font-medium">Package:</span>
-                    <p>{client.service_packages?.name || 'Not assigned'}</p>
+                    <p className="font-medium text-lg">{client.service_packages.name}</p>
+                    <p className="text-sm text-muted-foreground mb-2">Service Package</p>
+                    <div className="grid grid-cols-2 gap-4">
+                      <div>
+                        <p className="text-sm font-medium">Download Speed</p>
+                        <p className="text-lg">{client.service_packages.download_speed}</p>
+                      </div>
+                      <div>
+                        <p className="text-sm font-medium">Upload Speed</p>
+                        <p className="text-lg">{client.service_packages.upload_speed}</p>
+                      </div>
+                    </div>
                   </div>
-                  <div>
-                    <span className="font-medium">Monthly Rate:</span>
-                    <p>KES {client.monthly_rate?.toLocaleString() || '0'}</p>
-                  </div>
-                  <div>
-                    <span className="font-medium">Connection Type:</span>
-                    <p className="capitalize">{client.connection_type}</p>
-                  </div>
-                  <div>
-                    <span className="font-medium">Client Type:</span>
-                    <p className="capitalize">{client.client_type}</p>
-                  </div>
-                  <div>
-                    <span className="font-medium">Installation Date:</span>
-                    <p>{client.installation_date ? new Date(client.installation_date).toLocaleDateString() : 'Not scheduled'}</p>
-                  </div>
-                  <div>
-                    <span className="font-medium">Installation Status:</span>
-                    <Badge variant="outline">{client.installation_status}</Badge>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
+                )}
 
-            {/* Financial Information */}
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <CreditCard className="h-5 w-5" />
-                  Financial Information
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <div className="grid grid-cols-2 gap-4 text-sm">
-                  <div>
-                    <span className="font-medium">Account Balance:</span>
-                    <p className={`font-bold ${client.balance >= 0 ? 'text-green-600' : 'text-red-600'}`}>
-                      KES {client.balance?.toLocaleString() || '0'}
-                    </p>
-                  </div>
-                  <div>
-                    <span className="font-medium">Wallet Balance:</span>
-                    <p className="font-bold text-blue-600">
-                      KES {client.wallet_balance?.toLocaleString() || '0'}
-                    </p>
-                  </div>
-                  <div>
-                    <span className="font-medium">Subscription Start:</span>
-                    <p>{client.subscription_start_date ? new Date(client.subscription_start_date).toLocaleDateString() : 'Not started'}</p>
-                  </div>
-                  <div>
-                    <span className="font-medium">Subscription End:</span>
-                    <p>{client.subscription_end_date ? new Date(client.subscription_end_date).toLocaleDateString() : 'Not set'}</p>
+                <div className="pt-4 border-t">
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <p className="text-sm font-medium">Installation Date</p>
+                      <p className="text-sm text-muted-foreground">
+                        {client.installation_date 
+                          ? new Date(client.installation_date).toLocaleDateString()
+                          : 'Not scheduled'
+                        }
+                      </p>
+                    </div>
+                    <div>
+                      <p className="text-sm font-medium">Service Activated</p>
+                      <p className="text-sm text-muted-foreground">
+                        {client.service_activated_at 
+                          ? new Date(client.service_activated_at).toLocaleDateString()
+                          : 'Not activated'
+                        }
+                      </p>
+                    </div>
                   </div>
                 </div>
               </CardContent>
@@ -239,46 +278,47 @@ const ClientDetailsPage: React.FC<ClientDetailsPageProps> = ({ client, onUpdate 
           </div>
         </TabsContent>
 
-        <TabsContent value="onboarding">
-          <ClientOnboardingManager
-            clientId={client.id}
+        <TabsContent value="equipment">
+          <AssignedEquipmentSection 
+            clientId={client.id} 
             clientName={client.name}
-            onComplete={() => {
-              if (onUpdate) onUpdate();
-              setActiveTab('network');
-            }}
           />
         </TabsContent>
 
         <TabsContent value="network">
-          <ClientNetworkControl
-            clientId={client.id}
+          <ClientNetworkControl 
+            clientId={client.id} 
             clientName={client.name}
           />
         </TabsContent>
 
-        <TabsContent value="equipment">
-          <AssignedEquipmentSection clientId={client.id} />
-        </TabsContent>
-
         <TabsContent value="monitoring">
-          <ClientNetworkMonitoring clientId={client.id} />
+          <ClientNetworkMonitoring 
+            clientId={client.id} 
+            clientName={client.name}
+          />
         </TabsContent>
 
-        <TabsContent value="settings">
+        <TabsContent value="billing">
           <Card>
             <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <Settings className="h-5 w-5" />
-                Client Settings
-              </CardTitle>
+              <CardTitle>Billing Information</CardTitle>
             </CardHeader>
             <CardContent>
-              <p className="text-muted-foreground">
-                Client settings and configuration options will be available here.
-              </p>
+              <div className="text-center py-8 text-muted-foreground">
+                <FileText className="h-12 w-12 mx-auto mb-4 opacity-50" />
+                <p>Billing information will be displayed here</p>
+                <p className="text-sm">Invoice history, payment records, and billing preferences</p>
+              </div>
             </CardContent>
           </Card>
+        </TabsContent>
+
+        <TabsContent value="onboarding">
+          <ClientOnboardingManager 
+            clientId={client.id}
+            clientData={client}
+          />
         </TabsContent>
       </Tabs>
     </div>
