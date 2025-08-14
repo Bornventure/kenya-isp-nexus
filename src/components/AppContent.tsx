@@ -24,18 +24,15 @@ const AppContent = () => {
   const location = useLocation();
 
   useEffect(() => {
-    // Handle authentication redirect after login
-    if (user && profile && !isLoading) {
-      // If user just logged in and is on login page, redirect to dashboard
-      if (location.pathname === '/login') {
-        navigate('/dashboard', { replace: true });
-      }
+    // Only redirect authenticated users away from login
+    if (user && profile && !isLoading && location.pathname === '/login') {
+      navigate('/dashboard', { replace: true });
     }
   }, [user, profile, isLoading, location.pathname, navigate]);
 
   if (isLoading) {
     return (
-      <div className="min-h-screen flex items-center justify-center">
+      <div className="min-h-screen flex items-center justify-center bg-background">
         <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
       </div>
     );
@@ -44,7 +41,13 @@ const AppContent = () => {
   return (
     <>
       <Routes>
-        <Route path="/login" element={<Login />} />
+        {/* Public routes */}
+        <Route 
+          path="/login" 
+          element={
+            user ? <Navigate to="/dashboard" replace /> : <Login />
+          } 
+        />
         <Route 
           path="/client-portal" 
           element={
@@ -53,6 +56,8 @@ const AppContent = () => {
             </ClientAuthProvider>
           } 
         />
+        
+        {/* Protected routes */}
         <Route
           path="/*"
           element={
