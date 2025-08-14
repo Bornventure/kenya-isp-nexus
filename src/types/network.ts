@@ -17,3 +17,30 @@ export interface MikrotikRouter {
   created_at: string;
   updated_at: string;
 }
+
+export interface NetworkSession {
+  id: string;
+  client_id: string;
+  username: string;
+  ip_address: string;
+  nas_ip_address: string;
+  session_id: string;
+  start_time: string;
+  bytes_in: number;
+  bytes_out: number;
+  status: 'active' | 'disconnected';
+  last_update: string;
+  created_at: string;
+}
+
+export interface ClientNetworkStatus {
+  client_id: string;
+  is_online: boolean;
+  current_session?: NetworkSession;
+  data_usage_today: number;
+  speed_limit: {
+    download: string;
+    upload: string;
+  };
+  last_seen: string;
+}

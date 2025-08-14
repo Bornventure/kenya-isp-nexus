@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
@@ -7,6 +6,7 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
 import { useRouters } from '@/hooks/useRouters';
+import { useAuth } from '@/contexts/AuthContext';
 
 interface AddRouterDialogProps {
   open: boolean;
@@ -15,6 +15,7 @@ interface AddRouterDialogProps {
 
 const AddRouterDialog: React.FC<AddRouterDialogProps> = ({ open, onClose }) => {
   const { createRouter } = useRouters();
+  const { profile } = useAuth();
   
   const [formData, setFormData] = useState({
     name: '',
@@ -29,15 +30,20 @@ const AddRouterDialog: React.FC<AddRouterDialogProps> = ({ open, onClose }) => {
     gateway: '192.168.1.1',
     status: 'offline' as const,
     connection_status: 'disconnected' as const,
-    last_test_results: '',
   });
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     
+    if (!profile?.isp_company_id) {
+      console.error('No ISP company ID found');
+      return;
+    }
+    
     createRouter({
       ...formData,
       snmp_version: Number(formData.snmp_version),
+      isp_company_id: profile.isp_company_id,
     });
     
     // Reset form
@@ -54,7 +60,6 @@ const AddRouterDialog: React.FC<AddRouterDialogProps> = ({ open, onClose }) => {
       gateway: '192.168.1.1',
       status: 'offline',
       connection_status: 'disconnected',
-      last_test_results: '',
     });
     
     onClose();

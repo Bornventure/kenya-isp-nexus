@@ -6,16 +6,15 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Search, MapPin, Phone, Mail, Edit, Trash2 } from 'lucide-react';
-import { useClients } from '@/hooks/useClients';
+import { useClients, type DatabaseClient } from '@/hooks/useClients';
 import ClientAddDialog from '@/components/clients/ClientAddDialog';
 import ClientEditDialog from '@/components/clients/ClientEditDialog';
-import { Client } from '@/types/client';
 
 const Clients = () => {
   const { clients, isLoading, createClient, updateClient, deleteClient } = useClients();
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
-  const [selectedClient, setSelectedClient] = useState<Client | null>(null);
+  const [selectedClient, setSelectedClient] = useState<DatabaseClient | null>(null);
 
   const filteredClients = clients.filter(client => {
     const matchesSearch = client.name.toLowerCase().includes(searchTerm.toLowerCase()) ||

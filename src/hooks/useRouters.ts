@@ -23,9 +23,26 @@ export const useRouters = () => {
 
   const createRouter = useMutation({
     mutationFn: async (routerData: Omit<MikrotikRouter, 'id' | 'created_at' | 'updated_at'>) => {
+      // Ensure all required fields are present
+      const insertData = {
+        name: routerData.name,
+        ip_address: routerData.ip_address,
+        admin_username: routerData.admin_username,
+        admin_password: routerData.admin_password,
+        snmp_community: routerData.snmp_community || 'public',
+        snmp_version: routerData.snmp_version || 2,
+        pppoe_interface: routerData.pppoe_interface || 'ether1',
+        dns_servers: routerData.dns_servers || '8.8.8.8,8.8.4.4',
+        client_network: routerData.client_network || '192.168.1.0/24',
+        gateway: routerData.gateway || '192.168.1.1',
+        status: routerData.status || 'offline',
+        connection_status: routerData.connection_status || 'disconnected',
+        isp_company_id: routerData.isp_company_id,
+      };
+
       const { data, error } = await supabase
         .from('mikrotik_routers')
-        .insert(routerData)
+        .insert(insertData)
         .select()
         .single();
 
