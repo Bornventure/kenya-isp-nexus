@@ -16,7 +16,7 @@ export interface Client {
   connection_type: 'fiber' | 'wireless' | 'satellite' | 'dsl';
   service_package_id: string;
   monthly_rate: number;
-  status: 'active' | 'pending' | 'suspended' | 'inactive';
+  status: 'active' | 'pending' | 'suspended' | 'inactive' | 'disconnected' | 'approved';
   balance: number;
   wallet_balance: number;
   is_active: boolean;
@@ -45,6 +45,34 @@ export interface Client {
       serial_number: string;
     };
   }>;
+  // Computed properties for backward compatibility
+  location: {
+    address: string;
+    county: string;
+    subCounty: string;
+    coordinates?: {
+      lat: number;
+      lng: number;
+    };
+  };
+  equipment?: {
+    router?: string;
+    modem?: string;
+    serialNumbers: string[];
+  };
+  servicePackage: string;
+  connectionType: 'fiber' | 'wireless' | 'satellite' | 'dsl';
+  clientType: 'individual' | 'business' | 'corporate' | 'government';
+  monthlyRate: number;
+  installationDate: string;
+  mpesaNumber: string;
+  idNumber: string;
+  kraPinNumber?: string;
+  lastPayment?: {
+    date: string;
+    amount: number;
+    method: 'mpesa' | 'bank' | 'cash';
+  };
 }
 
 export interface ServicePackage {
