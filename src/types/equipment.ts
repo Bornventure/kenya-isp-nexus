@@ -1,12 +1,15 @@
 
 export interface Equipment {
   id: string;
+  name?: string;
   serial_number: string;
   model: string;
   type: string;
   brand?: string;
+  manufacturer?: string;
   status: 'available' | 'deployed' | 'maintenance' | 'retired';
   purchase_date?: string;
+  warranty_expiry?: string;
   warranty_end_date?: string;
   mac_address?: string;
   location?: string;
@@ -31,6 +34,7 @@ export interface Equipment {
   snmp_version?: number;
   vlan_id?: number;
   location_coordinates?: any;
+  connection_status?: 'connected' | 'disconnected';
 }
 
 export interface EquipmentType {

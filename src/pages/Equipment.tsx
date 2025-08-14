@@ -1,3 +1,4 @@
+
 import React, { useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -12,17 +13,15 @@ import { useEquipment } from '@/hooks/useEquipment';
 
 const Equipment = () => {
   const { 
-    equipmentList, 
+    equipment, 
     isLoading, 
     error, 
     createEquipment, 
     updateEquipment, 
     deleteEquipment,
-    testEquipmentConnection,
     isCreating,
     isUpdating,
-    isDeleting,
-    isTestingConnection
+    isDeleting
   } = useEquipment();
 
   const [searchTerm, setSearchTerm] = useState('');
@@ -34,7 +33,7 @@ const Equipment = () => {
   const [selectedEquipment, setSelectedEquipment] = useState<any>(null);
 
   // Filter equipment items
-  const filteredItems = equipmentList.filter(item => {
+  const filteredItems = equipment.filter(item => {
     const matchesSearch = item.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
                          item.type?.toLowerCase().includes(searchTerm.toLowerCase()) ||
                          item.serial_number?.toLowerCase().includes(searchTerm.toLowerCase());
@@ -44,12 +43,12 @@ const Equipment = () => {
   });
 
   const handleEdit = (item: any) => {
-    setSelectedItem(item);
+    setSelectedEquipment(item);
     setShowEditDialog(true);
   };
 
   const handleDetails = (item: any) => {
-    setSelectedItem(item);
+    setSelectedEquipment(item);
     setShowDetailsDialog(true);
   };
 
@@ -59,16 +58,12 @@ const Equipment = () => {
     }
   };
 
-  const handleTestConnection = (item: any) => {
-    testEquipmentConnection(item.id);
-  };
-
   const getStatusColor = (status: string) => {
     switch (status) {
       case 'available': return 'default';
-      case 'deployed': return 'green';
-      case 'maintenance': return 'orange';
-      case 'retired': return 'secondary';
+      case 'deployed': return 'secondary';
+      case 'maintenance': return 'destructive';
+      case 'retired': return 'outline';
       default: return 'outline';
     }
   };
@@ -122,7 +117,7 @@ const Equipment = () => {
             <Package className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{equipmentList.length}</div>
+            <div className="text-2xl font-bold">{equipment.length}</div>
           </CardContent>
         </Card>
         
@@ -133,7 +128,7 @@ const Equipment = () => {
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold text-green-600">
-              {equipmentList.filter(item => item.status === 'available').length}
+              {equipment.filter(item => item.status === 'available').length}
             </div>
           </CardContent>
         </Card>
@@ -145,7 +140,7 @@ const Equipment = () => {
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold text-orange-600">
-              {equipmentList.filter(item => item.status === 'deployed').length}
+              {equipment.filter(item => item.status === 'deployed').length}
             </div>
           </CardContent>
         </Card>
@@ -157,7 +152,7 @@ const Equipment = () => {
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold text-blue-600">
-              {equipmentList.filter(item => item.status === 'maintenance').length}
+              {equipment.filter(item => item.status === 'maintenance').length}
             </div>
           </CardContent>
         </Card>
@@ -241,10 +236,10 @@ const Equipment = () => {
                       <td className="p-2">
                         <div>
                           <div className="font-medium">
-                            {item.name || `${item.manufacturer} ${item.model}` || item.type}
+                            {item.name || `${item.manufacturer || item.brand} ${item.model}` || item.type}
                           </div>
                           <div className="text-sm text-muted-foreground">
-                            {item.manufacturer} {item.model}
+                            {item.manufacturer || item.brand} {item.model}
                           </div>
                         </div>
                       </td>
@@ -284,8 +279,6 @@ const Equipment = () => {
                           <Button
                             variant="ghost"
                             size="sm"
-                            onClick={() => handleTestConnection(item)}
-                            disabled={isTestingConnection}
                           >
                             {item.connection_status === 'connected' ? (
                               <CheckCircle className="h-4 w-4 text-green-500" />
@@ -307,24 +300,24 @@ const Equipment = () => {
       {/* Dialogs */}
       <AddEquipmentDialog
         open={showAddDialog}
-        onClose={() => setShowAddDialog(false)}
+        onOpenChange={setShowAddDialog}
       />
       
       <EditEquipmentDialog
         equipment={selectedEquipment}
         open={showEditDialog}
-        onClose={() => {
-          setShowEditDialog(false);
-          setSelectedItem(null);
+        onOpenChange={(open) => {
+          setShowEditDialog(open);
+          if (!open) setSelectedEquipment(null);
         }}
       />
       
       <EquipmentDetailsDialog
         equipment={selectedEquipment}
         open={showDetailsDialog}
-        onClose={() => {
-          setShowDetailsDialog(false);
-          setSelectedItem(null);
+        onOpenChange={(open) => {
+          setShowDetailsDialog(open);
+          if (!open) setSelectedEquipment(null);
         }}
       />
     </div>

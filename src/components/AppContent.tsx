@@ -1,192 +1,82 @@
 
-import React from 'react';
-import { Routes, Route, Navigate } from 'react-router-dom';
+import React, { useEffect } from 'react';
+import { Routes, Route, Navigate, useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
 import { ClientAuthProvider } from '@/contexts/ClientAuthContext';
+import Layout from './Layout';
+import Login from './Login';
+import ProtectedRoute from './auth/ProtectedRoute';
 import Index from '@/pages/Index';
-import Dashboard from '@/pages/Dashboard';
-import Login from '@/components/Login';
-import DashboardLayout from '@/components/dashboard/DashboardLayout';
-import LicenseExpiredBanner from '@/components/license/LicenseExpiredBanner';
+import Clients from '@/pages/Clients';
+import Equipment from '@/pages/Equipment';
+import Inventory from '@/pages/Inventory';
+import NetworkManagement from '@/pages/NetworkManagement';
+import NetworkMap from '@/pages/NetworkMap';
+import Billing from '@/pages/Billing';
+import Support from '@/pages/Support';
+import Settings from '@/pages/Settings';
 import ClientPortal from '@/pages/ClientPortal';
-
-// Import placeholder components for all routes
-import ClientsPage from '@/pages/Clients';
-import EquipmentPage from '@/pages/Equipment';
-import InventoryPage from '@/pages/Inventory';
-import NetworkPage from '@/pages/Network';
-import NetworkMapPage from '@/pages/NetworkMap';
-import NetworkStatusPage from '@/pages/NetworkStatus';
-import SystemInfrastructurePage from '@/pages/SystemInfrastructure';
-import HotspotsPage from '@/pages/Hotspots';
-import BillingPage from '@/pages/Billing';
-import InvoicesPage from '@/pages/Invoices';
-import SupportPage from '@/pages/Support';
-import MessagesPage from '@/pages/Messages';
-import AnalyticsPage from '@/pages/Analytics';
-import PackagesPage from '@/pages/Packages';
-import LicenseManagementPage from '@/pages/LicenseManagement';
-import SystemLicenseAdminPage from '@/pages/SystemLicenseAdmin';
-import DataMigrationPage from '@/pages/DataMigration';
-import DeveloperPortalPage from '@/pages/DeveloperPortal';
-import SettingsPage from '@/pages/Settings';
+import { Toaster } from '@/components/ui/toaster';
 
 const AppContent = () => {
   const { user, profile, isLoading } = useAuth();
+  const navigate = useNavigate();
+  const location = useLocation();
 
-  console.log('AppContent auth state:', { user: !!user, profile: !!profile, isLoading });
+  useEffect(() => {
+    // Handle authentication redirect after login
+    if (user && profile && !isLoading) {
+      // If user just logged in and is on login page, redirect to dashboard
+      if (location.pathname === '/login') {
+        navigate('/dashboard', { replace: true });
+      }
+    }
+  }, [user, profile, isLoading, location.pathname, navigate]);
 
   if (isLoading) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 to-purple-50 dark:from-gray-900 dark:to-gray-800">
-        <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-gray-900"></div>
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
       </div>
     );
   }
 
   return (
-    <Routes>
-      <Route path="/" element={<Index />} />
-      <Route path="/login" element={<Login />} />
-      
-      {/* Client Portal Route - Available to all users */}
-      <Route path="/client-portal/*" element={
-        <ClientAuthProvider>
-          <ClientPortal />
-        </ClientAuthProvider>
-      } />
-      
-      {/* Protected admin routes - only accessible when authenticated */}
-      {user && profile ? (
-        <>
-          <Route path="/dashboard" element={
-            <DashboardLayout>
-              <LicenseExpiredBanner />
-              <Dashboard />
-            </DashboardLayout>
-          } />
-          <Route path="/clients" element={
-            <DashboardLayout>
-              <LicenseExpiredBanner />
-              <ClientsPage />
-            </DashboardLayout>
-          } />
-          <Route path="/equipment" element={
-            <DashboardLayout>
-              <LicenseExpiredBanner />
-              <EquipmentPage />
-            </DashboardLayout>
-          } />
-          <Route path="/inventory" element={
-            <DashboardLayout>
-              <LicenseExpiredBanner />
-              <InventoryPage />
-            </DashboardLayout>
-          } />
-          <Route path="/network" element={
-            <DashboardLayout>
-              <LicenseExpiredBanner />
-              <NetworkPage />
-            </DashboardLayout>
-          } />
-          <Route path="/network-map" element={
-            <DashboardLayout>
-              <LicenseExpiredBanner />
-              <NetworkMapPage />
-            </DashboardLayout>
-          } />
-          <Route path="/network-status" element={
-            <DashboardLayout>
-              <LicenseExpiredBanner />
-              <NetworkStatusPage />
-            </DashboardLayout>
-          } />
-          <Route path="/system-infrastructure" element={
-            <DashboardLayout>
-              <LicenseExpiredBanner />
-              <SystemInfrastructurePage />
-            </DashboardLayout>
-          } />
-          <Route path="/hotspots" element={
-            <DashboardLayout>
-              <LicenseExpiredBanner />
-              <HotspotsPage />
-            </DashboardLayout>
-          } />
-          <Route path="/billing" element={
-            <DashboardLayout>
-              <LicenseExpiredBanner />
-              <BillingPage />
-            </DashboardLayout>
-          } />
-          <Route path="/invoices" element={
-            <DashboardLayout>
-              <LicenseExpiredBanner />
-              <InvoicesPage />
-            </DashboardLayout>
-          } />
-          <Route path="/support" element={
-            <DashboardLayout>
-              <LicenseExpiredBanner />
-              <SupportPage />
-            </DashboardLayout>
-          } />
-          <Route path="/messages" element={
-            <DashboardLayout>
-              <LicenseExpiredBanner />
-              <MessagesPage />
-            </DashboardLayout>
-          } />
-          <Route path="/analytics" element={
-            <DashboardLayout>
-              <LicenseExpiredBanner />
-              <AnalyticsPage />
-            </DashboardLayout>
-          } />
-          <Route path="/packages" element={
-            <DashboardLayout>
-              <LicenseExpiredBanner />
-              <PackagesPage />
-            </DashboardLayout>
-          } />
-          <Route path="/license-management" element={
-            <DashboardLayout>
-              <LicenseExpiredBanner />
-              <LicenseManagementPage />
-            </DashboardLayout>
-          } />
-          <Route path="/system-license-admin" element={
-            <DashboardLayout>
-              <LicenseExpiredBanner />
-              <SystemLicenseAdminPage />
-            </DashboardLayout>
-          } />
-          <Route path="/data-migration" element={
-            <DashboardLayout>
-              <LicenseExpiredBanner />
-              <DataMigrationPage />
-            </DashboardLayout>
-          } />
-          <Route path="/developer-portal" element={
-            <DashboardLayout>
-              <LicenseExpiredBanner />
-              <DeveloperPortalPage />
-            </DashboardLayout>
-          } />
-          <Route path="/settings" element={
-            <DashboardLayout>
-              <LicenseExpiredBanner />
-              <SettingsPage />
-            </DashboardLayout>
-          } />
-        </>
-      ) : null}
-      
-      {/* Redirect unauthenticated users */}
-      <Route path="*" element={
-        user && profile ? <Navigate to="/dashboard" replace /> : <Navigate to="/" replace />
-      } />
-    </Routes>
+    <>
+      <Routes>
+        <Route path="/login" element={<Login />} />
+        <Route 
+          path="/client-portal" 
+          element={
+            <ClientAuthProvider>
+              <ClientPortal />
+            </ClientAuthProvider>
+          } 
+        />
+        <Route
+          path="/*"
+          element={
+            <ProtectedRoute>
+              <Layout>
+                <Routes>
+                  <Route path="/" element={<Navigate to="/dashboard" replace />} />
+                  <Route path="/dashboard" element={<Index />} />
+                  <Route path="/clients" element={<Clients />} />
+                  <Route path="/equipment" element={<Equipment />} />
+                  <Route path="/inventory" element={<Inventory />} />
+                  <Route path="/network-management" element={<NetworkManagement />} />
+                  <Route path="/network-map" element={<NetworkMap />} />
+                  <Route path="/billing" element={<Billing />} />
+                  <Route path="/support" element={<Support />} />
+                  <Route path="/settings" element={<Settings />} />
+                </Routes>
+              </Layout>
+            </ProtectedRoute>
+          }
+        />
+      </Routes>
+      <Toaster />
+    </>
   );
 };
 

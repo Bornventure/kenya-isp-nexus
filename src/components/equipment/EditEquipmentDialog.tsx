@@ -11,13 +11,13 @@ import { useEquipment, type Equipment } from '@/hooks/useEquipment';
 interface EditEquipmentDialogProps {
   equipment: Equipment | null;
   open: boolean;
-  onClose: () => void;
+  onOpenChange: (open: boolean) => void;
 }
 
 const EditEquipmentDialog: React.FC<EditEquipmentDialogProps> = ({ 
   equipment, 
   open, 
-  onClose 
+  onOpenChange 
 }) => {
   const { updateEquipment } = useEquipment();
   
@@ -28,7 +28,7 @@ const EditEquipmentDialog: React.FC<EditEquipmentDialogProps> = ({
     model: '',
     serial_number: '',
     mac_address: '',
-    status: 'available' as const,
+    status: 'available' as 'available' | 'deployed' | 'maintenance' | 'retired',
     location: '',
     purchase_date: '',
     warranty_expiry: '',
@@ -40,14 +40,14 @@ const EditEquipmentDialog: React.FC<EditEquipmentDialogProps> = ({
       setFormData({
         name: equipment.name || '',
         type: equipment.type || '',
-        manufacturer: equipment.manufacturer || '',
+        manufacturer: equipment.manufacturer || equipment.brand || '',
         model: equipment.model || '',
         serial_number: equipment.serial_number || '',
         mac_address: equipment.mac_address || '',
         status: equipment.status || 'available',
         location: equipment.location || '',
         purchase_date: equipment.purchase_date ? equipment.purchase_date.split('T')[0] : '',
-        warranty_expiry: equipment.warranty_expiry ? equipment.warranty_expiry.split('T')[0] : '',
+        warranty_expiry: equipment.warranty_expiry || equipment.warranty_end_date ? (equipment.warranty_expiry || equipment.warranty_end_date)!.split('T')[0] : '',
         notes: equipment.notes || '',
       });
     }
@@ -61,7 +61,7 @@ const EditEquipmentDialog: React.FC<EditEquipmentDialogProps> = ({
       id: equipment.id,
       updates: formData
     });
-    onClose();
+    onOpenChange(false);
   };
 
   const handleInputChange = (field: string, value: any) => {
@@ -69,7 +69,7 @@ const EditEquipmentDialog: React.FC<EditEquipmentDialogProps> = ({
   };
 
   return (
-    <Dialog open={open} onOpenChange={onClose}>
+    <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>Edit Equipment</DialogTitle>
@@ -198,7 +198,7 @@ const EditEquipmentDialog: React.FC<EditEquipmentDialogProps> = ({
           </div>
 
           <div className="flex justify-end space-x-2 pt-4">
-            <Button type="button" variant="outline" onClick={onClose}>
+            <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
               Cancel
             </Button>
             <Button type="submit">

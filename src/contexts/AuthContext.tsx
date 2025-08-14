@@ -1,4 +1,3 @@
-
 import React, { createContext, useContext, useEffect, useState, useRef } from 'react';
 import { User, Session } from '@supabase/supabase-js';
 import { supabase } from '@/integrations/supabase/client';
@@ -82,7 +81,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
     const initAuth = async () => {
       try {
-        // Set up auth state listener first
         const { data: { subscription } } = supabase.auth.onAuthStateChange(
           async (event, session) => {
             console.log('Auth state changed:', event, session?.user?.id);
@@ -93,7 +91,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             setUser(session?.user ?? null);
             
             if (session?.user) {
-              // Use setTimeout to defer profile fetch and prevent callback deadlock
               setTimeout(() => {
                 if (mounted) {
                   fetchUserProfile(session.user.id);
@@ -110,7 +107,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           }
         );
 
-        // Get initial session
         const { data: { session: initialSession } } = await supabase.auth.getSession();
         console.log('Initial session:', initialSession?.user?.id);
         
@@ -166,6 +162,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         title: "Login Successful",
         description: "Welcome back!",
       });
+      
+      // The auth state change will handle the redirect via AppContent
       return true;
     } catch (error) {
       console.error('Login error:', error);
