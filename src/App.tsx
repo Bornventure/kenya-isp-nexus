@@ -2,9 +2,9 @@
 import React from 'react';
 import { BrowserRouter } from 'react-router-dom';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { ReactQueryDevtools } from '@tanstack/react-query-devtools';
 import { Toaster } from '@/components/ui/toaster';
 import { AuthProvider } from '@/contexts/AuthContext';
+import { ThemeProvider } from '@/components/ui/theme-provider';
 import AppContent from '@/components/AppContent';
 
 const queryClient = new QueryClient({
@@ -18,17 +18,16 @@ const queryClient = new QueryClient({
 
 function App() {
   return (
-    <QueryClientProvider client={queryClient}>
-      <BrowserRouter>
-        <AuthProvider>
-          <div className="min-h-screen bg-background">
+    <BrowserRouter>
+      <QueryClientProvider client={queryClient}>
+        <ThemeProvider defaultTheme="light" storageKey="datadefender-theme">
+          <AuthProvider>
             <AppContent />
-          </div>
-          <Toaster />
-          <ReactQueryDevtools initialIsOpen={false} />
-        </AuthProvider>
-      </BrowserRouter>
-    </QueryClientProvider>
+            <Toaster />
+          </AuthProvider>
+        </ThemeProvider>
+      </QueryClientProvider>
+    </BrowserRouter>
   );
 }
 

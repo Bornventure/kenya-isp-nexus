@@ -2,26 +2,26 @@
 import React from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 
-const DataMigrationPage = () => {
+const PackagesPage = () => {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-3xl font-bold tracking-tight">Data Migration</h1>
+        <h1 className="text-3xl font-bold tracking-tight">Packages</h1>
         <p className="text-muted-foreground">
-          Manage data migration and import/export processes.
+          Manage service packages and pricing plans.
         </p>
       </div>
 
       <Card>
         <CardHeader>
-          <CardTitle>Migration Tools</CardTitle>
+          <CardTitle>Package Management</CardTitle>
         </CardHeader>
         <CardContent>
-          <p>Data migration features will be available here.</p>
+          <p>Package management features will be available here.</p>
         </CardContent>
       </Card>
     </div>
   );
 };
 
-export default DataMigrationPage;
+export default PackagesPage;

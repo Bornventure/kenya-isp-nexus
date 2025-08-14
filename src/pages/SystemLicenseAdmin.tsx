@@ -2,26 +2,26 @@
 import React from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 
-const DataMigrationPage = () => {
+const SystemLicenseAdminPage = () => {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-3xl font-bold tracking-tight">Data Migration</h1>
+        <h1 className="text-3xl font-bold tracking-tight">System License Admin</h1>
         <p className="text-muted-foreground">
-          Manage data migration and import/export processes.
+          Advanced system license administration.
         </p>
       </div>
 
       <Card>
         <CardHeader>
-          <CardTitle>Migration Tools</CardTitle>
+          <CardTitle>System License Control</CardTitle>
         </CardHeader>
         <CardContent>
-          <p>Data migration features will be available here.</p>
+          <p>System license administration features will be available here.</p>
         </CardContent>
       </Card>
     </div>
   );
 };
 
-export default DataMigrationPage;
+export default SystemLicenseAdminPage;
