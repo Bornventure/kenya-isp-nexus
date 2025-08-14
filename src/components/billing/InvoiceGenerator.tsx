@@ -1,177 +1,167 @@
+
 import React, { useState } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Calendar } from 'lucide-react';
-import { Calendar as CalendarIcon } from "@/components/ui/calendar"
-import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
-import { cn } from "@/lib/utils"
-import { format } from "date-fns"
-import { DatePicker } from "@/components/ui/date-picker"
-import { useInvoices } from '@/hooks/useInvoices';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Textarea } from '@/components/ui/textarea';
+import { DatePicker } from '@/components/ui/date-picker';
 import { useClients } from '@/hooks/useClients';
+import { useInvoices } from '@/hooks/useInvoices';
 
 interface InvoiceGeneratorProps {
   open: boolean;
-  onClose: () => void;
+  onOpenChange: (open: boolean) => void;
 }
 
-const InvoiceGenerator: React.FC<InvoiceGeneratorProps> = ({ open, onClose }) => {
-  const { createInvoice } = useInvoices();
+const InvoiceGenerator: React.FC<InvoiceGeneratorProps> = ({ open, onOpenChange }) => {
   const { clients } = useClients();
-  const [selectedClient, setSelectedClient] = useState<any>(null);
-  const [amount, setAmount] = useState('');
-  const [dueDate, setDueDate] = useState('');
-  const [servicePeriodStart, setServicePeriodStart] = useState('');
-  const [servicePeriodEnd, setServicePeriodEnd] = useState('');
-  const [notes, setNotes] = useState('');
+  const { createInvoice } = useInvoices();
+  
+  const [formData, setFormData] = useState({
+    client_id: '',
+    amount: 0,
+    vat_amount: 0,
+    total_amount: 0,
+    status: 'pending',
+    due_date: new Date(),
+    service_period_start: new Date(),
+    service_period_end: new Date(),
+    notes: '',
+  });
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!selectedClient) return;
-
     const invoiceData = {
-      client_id: selectedClient.id,
+      ...formData,
       invoice_number: `INV-${Date.now()}`,
-      amount: parseFloat(amount),
-      vat_amount: parseFloat(amount) * 0.16,
-      total_amount: parseFloat(amount) * 1.16,
-      due_date: dueDate,
-      service_period_start: servicePeriodStart,
-      service_period_end: servicePeriodEnd,
-      notes: notes || undefined,
-      status: 'pending' as const,
+      due_date: formData.due_date.toISOString(),
+      service_period_start: formData.service_period_start.toISOString(),
+      service_period_end: formData.service_period_end.toISOString(),
     };
-
-    try {
-      await createInvoice(invoiceData);
-      // Reset form
-      setSelectedClient(null);
-      setAmount('');
-      setDueDate('');
-      setServicePeriodStart('');
-      setServicePeriodEnd('');
-      setNotes('');
-      onClose();
-    } catch (error) {
-      console.error('Error creating invoice:', error);
-    }
+    
+    createInvoice(invoiceData);
+    onOpenChange(false);
   };
 
-  const handleInputChange = (field: string, value: any) => {
-    switch (field) {
-      case 'client':
-        setSelectedClient(value);
-        break;
-      case 'amount':
-        setAmount(value);
-        break;
-      case 'dueDate':
-        setDueDate(value);
-        break;
-      case 'servicePeriodStart':
-        setServicePeriodStart(value);
-        break;
-      case 'servicePeriodEnd':
-        setServicePeriodEnd(value);
-        break;
-      case 'notes':
-        setNotes(value);
-        break;
-      default:
-        break;
-    }
+  const handleAmountChange = (amount: number) => {
+    const vatAmount = amount * 0.16; // 16% VAT
+    const totalAmount = amount + vatAmount;
+    
+    setFormData(prev => ({
+      ...prev,
+      amount,
+      vat_amount: vatAmount,
+      total_amount: totalAmount,
+    }));
   };
 
   return (
-    <Dialog open={open} onOpenChange={onClose}>
-      <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="max-w-2xl">
         <DialogHeader>
           <DialogTitle>Generate Invoice</DialogTitle>
         </DialogHeader>
         
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>
-            <Label htmlFor="client">Client *</Label>
-            <select
-              id="client"
-              className="w-full px-3 py-2 border rounded-md"
-              value={selectedClient ? selectedClient.id : ''}
-              onChange={(e) => {
-                const selected = clients.find(client => client.id === e.target.value);
-                handleInputChange('client', selected || null);
-              }}
-              required
-            >
-              <option value="">Select a client</option>
-              {clients.map((client) => (
-                <option key={client.id} value={client.id}>
-                  {client.name} ({client.email})
-                </option>
-              ))}
-            </select>
+            <Label>Client</Label>
+            <Select value={formData.client_id} onValueChange={(value) => setFormData(prev => ({ ...prev, client_id: value }))}>
+              <SelectTrigger>
+                <SelectValue placeholder="Select client" />
+              </SelectTrigger>
+              <SelectContent>
+                {clients.map((client) => (
+                  <SelectItem key={client.id} value={client.id}>
+                    {client.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
           </div>
 
           <div className="grid grid-cols-2 gap-4">
             <div>
-              <Label htmlFor="amount">Amount (KES) *</Label>
+              <Label htmlFor="amount">Amount (KES)</Label>
               <Input
                 id="amount"
                 type="number"
-                value={amount}
-                onChange={(e) => handleInputChange('amount', e.target.value)}
+                value={formData.amount}
+                onChange={(e) => handleAmountChange(Number(e.target.value))}
                 required
               />
             </div>
             
             <div>
-              <Label htmlFor="dueDate">Due Date *</Label>
-              <Input
-                id="dueDate"
-                type="date"
-                value={dueDate}
-                onChange={(e) => handleInputChange('dueDate', e.target.value)}
-                required
+              <Label>Status</Label>
+              <Select value={formData.status} onValueChange={(value) => setFormData(prev => ({ ...prev, status: value }))}>
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="pending">Pending</SelectItem>
+                  <SelectItem value="paid">Paid</SelectItem>
+                  <SelectItem value="overdue">Overdue</SelectItem>
+                  <SelectItem value="cancelled">Cancelled</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-3 gap-4">
+            <div>
+              <Label>Due Date</Label>
+              <DatePicker
+                date={formData.due_date}
+                onDateChange={(date) => setFormData(prev => ({ ...prev, due_date: date || new Date() }))}
+              />
+            </div>
+            
+            <div>
+              <Label>Service Period Start</Label>
+              <DatePicker
+                date={formData.service_period_start}
+                onDateChange={(date) => setFormData(prev => ({ ...prev, service_period_start: date || new Date() }))}
+              />
+            </div>
+            
+            <div>
+              <Label>Service Period End</Label>
+              <DatePicker
+                date={formData.service_period_end}
+                onDateChange={(date) => setFormData(prev => ({ ...prev, service_period_end: date || new Date() }))}
               />
             </div>
           </div>
 
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-3 gap-4 p-4 bg-muted rounded-lg">
             <div>
-              <Label htmlFor="servicePeriodStart">Service Period Start *</Label>
-              <Input
-                id="servicePeriodStart"
-                type="date"
-                value={servicePeriodStart}
-                onChange={(e) => handleInputChange('servicePeriodStart', e.target.value)}
-                required
-              />
+              <Label>Subtotal</Label>
+              <div className="text-lg font-semibold">KES {formData.amount.toFixed(2)}</div>
             </div>
-            
             <div>
-              <Label htmlFor="servicePeriodEnd">Service Period End *</Label>
-              <Input
-                id="servicePeriodEnd"
-                type="date"
-                value={servicePeriodEnd}
-                onChange={(e) => handleInputChange('servicePeriodEnd', e.target.value)}
-                required
-              />
+              <Label>VAT (16%)</Label>
+              <div className="text-lg font-semibold">KES {formData.vat_amount.toFixed(2)}</div>
+            </div>
+            <div>
+              <Label>Total</Label>
+              <div className="text-lg font-bold">KES {formData.total_amount.toFixed(2)}</div>
             </div>
           </div>
 
           <div>
             <Label htmlFor="notes">Notes</Label>
-            <Input
+            <Textarea
               id="notes"
-              value={notes}
-              onChange={(e) => handleInputChange('notes', e.target.value)}
+              value={formData.notes}
+              onChange={(e) => setFormData(prev => ({ ...prev, notes: e.target.value }))}
+              rows={3}
             />
           </div>
 
           <div className="flex justify-end space-x-2 pt-4">
-            <Button type="button" variant="outline" onClick={onClose}>
+            <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
               Cancel
             </Button>
             <Button type="submit">

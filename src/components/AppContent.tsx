@@ -3,7 +3,7 @@ import React, { useEffect } from 'react';
 import { Routes, Route, Navigate, useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
 import { ClientAuthProvider } from '@/contexts/ClientAuthContext';
-import Layout from './Layout';
+import Layout from '@/components/layout/Layout';
 import Login from './Login';
 import ProtectedRoute from './auth/ProtectedRoute';
 import Index from '@/pages/Index';

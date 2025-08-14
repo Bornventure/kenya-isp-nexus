@@ -24,6 +24,69 @@ export interface Client {
   isp_company_id: string;
   created_at: string;
   updated_at: string;
+  balance?: number;
+  wallet_balance?: number;
+  subscription_start_date?: string;
+  subscription_end_date?: string;
+  subscription_type?: string;
+  is_active?: boolean;
+  submitted_by?: string;
+  approved_by?: string;
+  approved_at?: string;
+  installation_status?: string;
+  installation_completed_by?: string;
+  installation_completed_at?: string;
+  service_activated_at?: string;
+  installation_date?: string;
+  
+  // Legacy camelCase properties for backwards compatibility
+  clientType: ClientType;
+  connectionType: ConnectionType;
+  servicePackage?: string;
+  monthlyRate: number;
+  installationDate?: string;
+  idNumber: string;
+  kraPinNumber?: string;
+  mpesaNumber?: string;
+  
+  // Nested objects
+  location?: {
+    address: string;
+    county: string;
+    subCounty: string;
+    coordinates?: {
+      lat: number;
+      lng: number;
+    };
+  };
+  
+  equipment?: {
+    router?: string;
+    modem?: string;
+    serialNumbers: string[];
+  };
+  
+  service_packages?: {
+    id: string;
+    name: string;
+    speed: string;
+    monthly_rate: number;
+    description?: string;
+    is_active: boolean;
+    isp_company_id: string;
+    created_at: string;
+    updated_at: string;
+  };
+  
+  equipment_assignments?: any[];
+  lastPayment?: {
+    date: string;
+    amount: number;
+    method: 'mpesa' | 'bank' | 'cash';
+  };
+  payments?: any[];
+  invoices?: any[];
+  supportTickets?: any[];
 }
 
 export interface ServicePackage {

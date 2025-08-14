@@ -1,6 +1,5 @@
 
 import React from 'react';
-import { Outlet } from 'react-router-dom';
 import {
   SidebarProvider,
   SidebarInset,
@@ -8,7 +7,11 @@ import {
 } from '@/components/ui/sidebar';
 import Sidebar from '@/components/layout/Sidebar';
 
-const Layout = () => {
+interface LayoutProps {
+  children: React.ReactNode;
+}
+
+const Layout: React.FC<LayoutProps> = ({ children }) => {
   return (
     <SidebarProvider>
       <div className="flex min-h-screen">
@@ -21,7 +24,7 @@ const Layout = () => {
             <div className="flex-1" />
           </div>
           <main className="flex-1 p-6">
-            <Outlet />
+            {children}
           </main>
         </SidebarInset>
       </div>
