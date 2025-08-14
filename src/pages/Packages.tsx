@@ -1,371 +1,355 @@
 
 import React, { useState } from 'react';
+import { useServicePackages } from '@/hooks/useServicePackages';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Textarea } from '@/components/ui/textarea';
 import { Badge } from '@/components/ui/badge';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { 
-  Plus, 
-  Search, 
-  Wifi, 
-  DollarSign,
-  Users,
-  Activity,
-  Edit,
-  Trash2,
-  Eye,
-  Settings
-} from 'lucide-react';
-import { useServicePackages } from '@/hooks/useServicePackages';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { Plus, Edit, Trash2, Package, Wifi, DollarSign, Users } from 'lucide-react';
+import { ServicePackage } from '@/types/client';
 
-const PackagesPage = () => {
-  const [searchTerm, setSearchTerm] = useState('');
-  const [statusFilter, setStatusFilter] = useState<string>('all');
-  const [showAddForm, setShowAddForm] = useState(false);
+const Packages = () => {
+  const { packages, isLoading, error, createPackage, updatePackage, deletePackage } = useServicePackages();
+  const [selectedPackage, setSelectedPackage] = useState<ServicePackage | null>(null);
+  const [dialogOpen, setDialogOpen] = useState(false);
+  const [isEditing, setIsEditing] = useState(false);
 
-  const { servicePackages, isLoading } = useServicePackages();
-
-  const filteredPackages = servicePackages.filter(pkg => {
-    const matchesSearch = pkg.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         pkg.speed.toLowerCase().includes(searchTerm.toLowerCase());
-    const matchesStatus = statusFilter === 'all' || 
-                         (statusFilter === 'active' && pkg.is_active) ||
-                         (statusFilter === 'inactive' && !pkg.is_active);
-    return matchesSearch && matchesStatus;
+  const [formData, setFormData] = useState({
+    name: '',
+    description: '',
+    speed: '',
+    monthly_rate: 0,
+    setup_fee: 0,
+    data_limit: 0,
+    connection_types: [] as string[],
+    is_active: true
   });
 
-  const formatCurrency = (amount: number) => {
-    return new Intl.NumberFormat('en-KE', {
-      style: 'currency',
-      currency: 'KES',
-      minimumFractionDigits: 0
-    }).format(amount);
+  const resetForm = () => {
+    setFormData({
+      name: '',
+      description: '',
+      speed: '',
+      monthly_rate: 0,
+      setup_fee: 0,
+      data_limit: 0,
+      connection_types: [],
+      is_active: true
+    });
+    setSelectedPackage(null);
+    setIsEditing(false);
   };
 
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    
+    const packageData = {
+      ...formData,
+      connection_types: formData.connection_types.length > 0 
+        ? formData.connection_types 
+        : ['fiber', 'wireless'] // Default connection types
+    };
+
+    if (isEditing && selectedPackage) {
+      updatePackage({ id: selectedPackage.id, updates: packageData });
+    } else {
+      createPackage(packageData);
+    }
+    
+    setDialogOpen(false);
+    resetForm();
+  };
+
+  const handleEdit = (pkg: ServicePackage) => {
+    setSelectedPackage(pkg);
+    setFormData({
+      name: pkg.name,
+      description: pkg.description || '',
+      speed: pkg.speed,
+      monthly_rate: pkg.monthly_rate,
+      setup_fee: 0, // Default since property doesn't exist
+      data_limit: 0, // Default since property doesn't exist
+      connection_types: pkg.connection_types || [],
+      is_active: pkg.is_active
+    });
+    setIsEditing(true);
+    setDialogOpen(true);
+  };
+
+  const handleDelete = (id: string) => {
+    if (confirm('Are you sure you want to delete this package?')) {
+      deletePackage(id);
+    }
+  };
+
+  // Statistics
+  const totalPackages = packages.length;
+  const activePackages = packages.filter(p => p.is_active).length;
+  const averageRate = packages.length > 0 
+    ? packages.reduce((sum, p) => sum + p.monthly_rate, 0) / packages.length 
+    : 0;
+
   if (isLoading) {
-    return (
-      <div className="flex items-center justify-center h-64">
-        <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-primary"></div>
-      </div>
-    );
+    return <div className="flex justify-center p-8">Loading packages...</div>;
+  }
+
+  if (error) {
+    return <div className="text-red-500 p-8">Error loading packages: {error.message}</div>;
   }
 
   return (
     <div className="space-y-6">
-      {/* Header */}
-      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-        <div>
-          <h1 className="text-3xl font-bold tracking-tight">Service Packages</h1>
-          <p className="text-muted-foreground">
-            Manage your internet service packages and pricing
-          </p>
-        </div>
-        <Button onClick={() => setShowAddForm(true)} className="gap-2">
-          <Plus className="h-4 w-4" />
-          Create Package
-        </Button>
+      {/* Statistics Cards */}
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Total Packages</CardTitle>
+            <Package className="h-4 w-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">{totalPackages}</div>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Active Packages</CardTitle>
+            <Wifi className="h-4 w-4 text-green-600" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold text-green-600">{activePackages}</div>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Average Rate</CardTitle>
+            <DollarSign className="h-4 w-4 text-blue-600" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold text-blue-600">
+              KSh {averageRate.toLocaleString()}
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Subscribers</CardTitle>
+            <Users className="h-4 w-4 text-purple-600" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold text-purple-600">0</div>
+            <p className="text-xs text-muted-foreground">Total subscribers</p>
+          </CardContent>
+        </Card>
       </div>
 
-      <Tabs defaultValue="packages" className="space-y-6">
-        <TabsList className="grid w-full grid-cols-3">
-          <TabsTrigger value="packages">All Packages</TabsTrigger>
-          <TabsTrigger value="analytics">Analytics</TabsTrigger>
-          <TabsTrigger value="pricing">Pricing Matrix</TabsTrigger>
-        </TabsList>
-
-        <TabsContent value="packages" className="space-y-6">
-          {/* Stats Cards */}
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-            <Card>
-              <CardContent className="p-6">
-                <div className="flex items-center gap-2">
-                  <Wifi className="h-5 w-5 text-blue-500" />
-                  <div>
-                    <p className="text-sm font-medium text-muted-foreground">Total Packages</p>
-                    <p className="text-2xl font-bold">{servicePackages.length}</p>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-            <Card>
-              <CardContent className="p-6">
-                <div className="flex items-center gap-2">
-                  <Activity className="h-5 w-5 text-green-500" />
-                  <div>
-                    <p className="text-sm font-medium text-muted-foreground">Active</p>
-                    <p className="text-2xl font-bold">
-                      {servicePackages.filter(pkg => pkg.is_active).length}
-                    </p>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-            <Card>
-              <CardContent className="p-6">
-                <div className="flex items-center gap-2">
-                  <DollarSign className="h-5 w-5 text-purple-500" />
-                  <div>
-                    <p className="text-sm font-medium text-muted-foreground">Avg. Price</p>
-                    <p className="text-2xl font-bold">
-                      {formatCurrency(servicePackages.reduce((sum, pkg) => sum + pkg.monthly_rate, 0) / servicePackages.length || 0)}
-                    </p>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-            <Card>
-              <CardContent className="p-6">
-                <div className="flex items-center gap-2">
-                  <Users className="h-5 w-5 text-orange-500" />
-                  <div>
-                    <p className="text-sm font-medium text-muted-foreground">Most Popular</p>
-                    <p className="text-lg font-bold">
-                      {servicePackages.length > 0 ? servicePackages[0].name : 'N/A'}
-                    </p>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-          </div>
-
-          {/* Search and Filter */}
-          <Card>
-            <CardContent className="p-6">
-              <div className="flex flex-col sm:flex-row gap-4">
-                <div className="relative flex-1">
-                  <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+      {/* Header with Add Button */}
+      <div className="flex justify-between items-center">
+        <h1 className="text-3xl font-bold">Service Packages</h1>
+        
+        <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
+          <DialogTrigger asChild>
+            <Button className="gap-2" onClick={resetForm}>
+              <Plus className="h-4 w-4" />
+              Add Package
+            </Button>
+          </DialogTrigger>
+          <DialogContent className="max-w-2xl">
+            <DialogHeader>
+              <DialogTitle>
+                {isEditing ? 'Edit Package' : 'Create New Package'}
+              </DialogTitle>
+            </DialogHeader>
+            
+            <form onSubmit={handleSubmit} className="space-y-4">
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <Label htmlFor="name">Package Name *</Label>
                   <Input
-                    placeholder="Search packages by name or speed..."
-                    value={searchTerm}
-                    onChange={(e) => setSearchTerm(e.target.value)}
-                    className="pl-10"
+                    id="name"
+                    value={formData.name}
+                    onChange={(e) => setFormData(prev => ({ ...prev, name: e.target.value }))}
+                    required
                   />
                 </div>
-                <div className="flex gap-2">
-                  <Button
-                    variant={statusFilter === 'all' ? 'default' : 'outline'}
-                    size="sm"
-                    onClick={() => setStatusFilter('all')}
+                
+                <div>
+                  <Label htmlFor="speed">Speed *</Label>
+                  <Input
+                    id="speed"
+                    value={formData.speed}
+                    onChange={(e) => setFormData(prev => ({ ...prev, speed: e.target.value }))}
+                    placeholder="e.g., 10 Mbps"
+                    required
+                  />
+                </div>
+                
+                <div>
+                  <Label htmlFor="monthly_rate">Monthly Rate (KSh) *</Label>
+                  <Input
+                    id="monthly_rate"
+                    type="number"
+                    value={formData.monthly_rate}
+                    onChange={(e) => setFormData(prev => ({ ...prev, monthly_rate: parseFloat(e.target.value) || 0 }))}
+                    required
+                  />
+                </div>
+                
+                <div>
+                  <Label htmlFor="setup_fee">Setup Fee (KSh)</Label>
+                  <Input
+                    id="setup_fee"
+                    type="number"
+                    value={formData.setup_fee}
+                    onChange={(e) => setFormData(prev => ({ ...prev, setup_fee: parseFloat(e.target.value) || 0 }))}
+                  />
+                </div>
+                
+                <div>
+                  <Label htmlFor="data_limit">Data Limit (GB)</Label>
+                  <Input
+                    id="data_limit"
+                    type="number"
+                    value={formData.data_limit}
+                    onChange={(e) => setFormData(prev => ({ ...prev, data_limit: parseFloat(e.target.value) || 0 }))}
+                    placeholder="0 for unlimited"
+                  />
+                </div>
+                
+                <div>
+                  <Label htmlFor="is_active">Status</Label>
+                  <select
+                    id="is_active"
+                    value={formData.is_active.toString()}
+                    onChange={(e) => setFormData(prev => ({ ...prev, is_active: e.target.value === 'true' }))}
+                    className="w-full p-2 border rounded"
                   >
-                    All
-                  </Button>
-                  <Button
-                    variant={statusFilter === 'active' ? 'default' : 'outline'}
-                    size="sm"
-                    onClick={() => setStatusFilter('active')}
-                  >
-                    Active
-                  </Button>
-                  <Button
-                    variant={statusFilter === 'inactive' ? 'default' : 'outline'}
-                    size="sm"
-                    onClick={() => setStatusFilter('inactive')}
-                  >
-                    Inactive
-                  </Button>
+                    <option value="true">Active</option>
+                    <option value="false">Inactive</option>
+                  </select>
                 </div>
               </div>
-            </CardContent>
-          </Card>
+              
+              <div>
+                <Label htmlFor="description">Description</Label>
+                <Textarea
+                  id="description"
+                  value={formData.description}
+                  onChange={(e) => setFormData(prev => ({ ...prev, description: e.target.value }))}
+                  rows={3}
+                />
+              </div>
+              
+              <div>
+                <Label>Connection Types</Label>
+                <div className="flex gap-4 mt-2">
+                  {['fiber', 'wireless', 'satellite', 'dsl'].map(type => (
+                    <label key={type} className="flex items-center gap-2">
+                      <input
+                        type="checkbox"
+                        checked={formData.connection_types.includes(type)}
+                        onChange={(e) => {
+                          if (e.target.checked) {
+                            setFormData(prev => ({
+                              ...prev,
+                              connection_types: [...prev.connection_types, type]
+                            }));
+                          } else {
+                            setFormData(prev => ({
+                              ...prev,
+                              connection_types: prev.connection_types.filter(t => t !== type)
+                            }));
+                          }
+                        }}
+                      />
+                      {type.charAt(0).toUpperCase() + type.slice(1)}
+                    </label>
+                  ))}
+                </div>
+              </div>
+              
+              <div className="flex justify-end gap-3">
+                <Button type="button" variant="outline" onClick={() => setDialogOpen(false)}>
+                  Cancel
+                </Button>
+                <Button type="submit">
+                  {isEditing ? 'Update Package' : 'Create Package'}
+                </Button>
+              </div>
+            </form>
+          </DialogContent>
+        </Dialog>
+      </div>
 
-          {/* Packages Grid */}
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {filteredPackages.map((pkg) => (
-              <Card key={pkg.id} className="hover:shadow-lg transition-shadow">
-                <CardHeader className="pb-3">
-                  <div className="flex items-start justify-between">
-                    <div>
-                      <CardTitle className="text-xl">{pkg.name}</CardTitle>
-                      <p className="text-sm text-muted-foreground">{pkg.speed}</p>
+      {/* Packages Table */}
+      <Card>
+        <CardHeader>
+          <CardTitle>Service Packages</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>Name</TableHead>
+                <TableHead>Speed</TableHead>
+                <TableHead>Monthly Rate</TableHead>
+                <TableHead>Connection Types</TableHead>
+                <TableHead>Status</TableHead>
+                <TableHead>Actions</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {packages.map((pkg) => (
+                <TableRow key={pkg.id}>
+                  <TableCell className="font-medium">{pkg.name}</TableCell>
+                  <TableCell>{pkg.speed}</TableCell>
+                  <TableCell>KSh {pkg.monthly_rate.toLocaleString()}</TableCell>
+                  <TableCell>
+                    <div className="flex gap-1 flex-wrap">
+                      {pkg.connection_types.map(type => (
+                        <Badge key={type} variant="outline" className="text-xs">
+                          {type}
+                        </Badge>
+                      ))}
                     </div>
+                  </TableCell>
+                  <TableCell>
                     <Badge variant={pkg.is_active ? 'default' : 'secondary'}>
                       {pkg.is_active ? 'Active' : 'Inactive'}
                     </Badge>
-                  </div>
-                </CardHeader>
-                <CardContent className="space-y-4">
-                  <div className="text-center py-4 bg-muted rounded-lg">
-                    <div className="text-3xl font-bold text-primary">
-                      {formatCurrency(pkg.monthly_rate)}
+                  </TableCell>
+                  <TableCell>
+                    <div className="flex gap-2">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => handleEdit(pkg)}
+                      >
+                        <Edit className="h-4 w-4" />
+                      </Button>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => handleDelete(pkg.id)}
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
                     </div>
-                    <p className="text-sm text-muted-foreground">per month</p>
-                  </div>
-
-                  <div className="space-y-2">
-                    <div className="flex justify-between text-sm">
-                      <span>Speed:</span>
-                      <span className="font-medium">{pkg.speed}</span>
-                    </div>
-                    {pkg.setup_fee && (
-                      <div className="flex justify-between text-sm">
-                        <span>Setup Fee:</span>
-                        <span className="font-medium">{formatCurrency(pkg.setup_fee)}</span>
-                      </div>
-                    )}
-                    {pkg.data_limit && (
-                      <div className="flex justify-between text-sm">
-                        <span>Data Limit:</span>
-                        <span className="font-medium">{pkg.data_limit} GB</span>
-                      </div>
-                    )}
-                    <div className="flex justify-between text-sm">
-                      <span>Status:</span>
-                      <span className={`font-medium ${pkg.is_active ? 'text-green-600' : 'text-gray-600'}`}>
-                        {pkg.is_active ? 'Active' : 'Inactive'}
-                      </span>
-                    </div>
-                  </div>
-
-                  {pkg.description && (
-                    <div className="p-3 bg-muted rounded-lg">
-                      <p className="text-sm">{pkg.description}</p>
-                    </div>
-                  )}
-
-                  <div className="flex gap-2">
-                    <Button size="sm" variant="outline" className="flex-1 gap-1">
-                      <Eye className="h-3 w-3" />
-                      View
-                    </Button>
-                    <Button size="sm" variant="outline" className="flex-1 gap-1">
-                      <Edit className="h-3 w-3" />
-                      Edit
-                    </Button>
-                    <Button size="sm" variant="outline" className="text-red-600 hover:text-red-700">
-                      <Trash2 className="h-3 w-3" />
-                    </Button>
-                  </div>
-                </CardContent>
-              </Card>
-            ))}
-          </div>
-
-          {filteredPackages.length === 0 && (
-            <Card>
-              <CardContent className="text-center py-12">
-                <Wifi className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
-                <h3 className="text-lg font-semibold mb-2">No packages found</h3>
-                <p className="text-muted-foreground mb-4">
-                  {searchTerm || statusFilter !== 'all' 
-                    ? 'Try adjusting your search or filter criteria' 
-                    : 'Get started by creating your first service package'}
-                </p>
-                {!searchTerm && statusFilter === 'all' && (
-                  <Button onClick={() => setShowAddForm(true)}>
-                    <Plus className="h-4 w-4 mr-2" />
-                    Create Your First Package
-                  </Button>
-                )}
-              </CardContent>
-            </Card>
-          )}
-        </TabsContent>
-
-        <TabsContent value="analytics" className="space-y-6">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            <Card>
-              <CardHeader>
-                <CardTitle>Package Popularity</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-3">
-                  {servicePackages.map((pkg, index) => {
-                    const percentage = ((servicePackages.length - index) / servicePackages.length) * 100;
-                    return (
-                      <div key={pkg.id} className="space-y-1">
-                        <div className="flex justify-between text-sm">
-                          <span>{pkg.name}</span>
-                          <span>{percentage.toFixed(1)}%</span>
-                        </div>
-                        <div className="w-full bg-gray-200 rounded-full h-2">
-                          <div 
-                            className="bg-blue-600 h-2 rounded-full" 
-                            style={{ width: `${percentage}%` }}
-                          ></div>
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
-              </CardContent>
-            </Card>
-
-            <Card>
-              <CardHeader>
-                <CardTitle>Revenue Distribution</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-3">
-                  {servicePackages.map((pkg) => {
-                    const totalRevenue = servicePackages.reduce((sum, p) => sum + p.monthly_rate, 0);
-                    const percentage = totalRevenue > 0 ? (pkg.monthly_rate / totalRevenue) * 100 : 0;
-                    return (
-                      <div key={pkg.id} className="space-y-1">
-                        <div className="flex justify-between text-sm">
-                          <span>{pkg.name}</span>
-                          <span>{formatCurrency(pkg.monthly_rate)} ({percentage.toFixed(1)}%)</span>
-                        </div>
-                        <div className="w-full bg-gray-200 rounded-full h-2">
-                          <div 
-                            className="bg-green-600 h-2 rounded-full" 
-                            style={{ width: `${percentage}%` }}
-                          ></div>
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
-              </CardContent>
-            </Card>
-          </div>
-        </TabsContent>
-
-        <TabsContent value="pricing" className="space-y-6">
-          <Card>
-            <CardHeader>
-              <CardTitle>Pricing Matrix</CardTitle>
-              <p className="text-sm text-muted-foreground">
-                Compare all service packages and their pricing
-              </p>
-            </CardHeader>
-            <CardContent>
-              <div className="overflow-x-auto">
-                <table className="w-full border-collapse">
-                  <thead>
-                    <tr className="border-b">
-                      <th className="text-left p-3">Package Name</th>
-                      <th className="text-left p-3">Speed</th>
-                      <th className="text-left p-3">Monthly Rate</th>
-                      <th className="text-left p-3">Setup Fee</th>
-                      <th className="text-left p-3">Data Limit</th>
-                      <th className="text-left p-3">Status</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {servicePackages.map((pkg) => (
-                      <tr key={pkg.id} className="border-b hover:bg-muted/50">
-                        <td className="p-3 font-medium">{pkg.name}</td>
-                        <td className="p-3">{pkg.speed}</td>
-                        <td className="p-3 font-medium">{formatCurrency(pkg.monthly_rate)}</td>
-                        <td className="p-3">{pkg.setup_fee ? formatCurrency(pkg.setup_fee) : 'Free'}</td>
-                        <td className="p-3">{pkg.data_limit ? `${pkg.data_limit} GB` : 'Unlimited'}</td>
-                        <td className="p-3">
-                          <Badge variant={pkg.is_active ? 'default' : 'secondary'}>
-                            {pkg.is_active ? 'Active' : 'Inactive'}
-                          </Badge>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            </CardContent>
-          </Card>
-        </TabsContent>
-      </Tabs>
+                  </TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        </CardContent>
+      </Card>
     </div>
   );
 };
 
-export default PackagesPage;
+export default Packages;

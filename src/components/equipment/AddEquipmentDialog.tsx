@@ -32,7 +32,7 @@ const AddEquipmentDialog: React.FC<AddEquipmentDialogProps> = ({
     snmp_community: 'public',
     snmp_version: 2,
     status: 'available' as Equipment['status'],
-    approval_status: 'pending'
+    approval_status: 'pending' as Equipment['approval_status']
   });
 
   const handleSubmit = (e: React.FormEvent) => {
@@ -40,7 +40,8 @@ const AddEquipmentDialog: React.FC<AddEquipmentDialogProps> = ({
     
     const equipmentData: Partial<Equipment> = {
       ...formData,
-      status: formData.status as Equipment['status']
+      status: formData.status,
+      approval_status: formData.approval_status
     };
     
     onAdd(equipmentData);

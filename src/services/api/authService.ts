@@ -1,6 +1,5 @@
 
 import { supabase } from '@/integrations/supabase/client';
-import { AuthService as CelcoAfricaAuth } from './celcoAfricaAuthService';
 import { SmsService } from '../smsService';
 
 export interface User {
@@ -32,11 +31,9 @@ export interface RegistrationData {
 }
 
 export class AuthService {
-  private celcoAuth: CelcoAfricaAuth;
   private smsService: SmsService;
 
   constructor() {
-    this.celcoAuth = new CelcoAfricaAuth();
     this.smsService = new SmsService();
   }
 
@@ -119,7 +116,7 @@ export class AuthService {
             first_name: client.name.split(' ')[0],
             last_name: client.name.split(' ').slice(1).join(' '),
             phone: client.phone,
-            role: 'client' as any, // Cast to bypass type checking temporarily
+            role: 'technician', // Use valid role type
             isp_company_id: client.isp_company_id
           })
           .select()
@@ -242,9 +239,8 @@ export class AuthService {
         return 'super_admin';
       case 'isp_admin':
       case 'admin':
+      case 'manager':
         return 'admin';
-      case 'client':
-        return 'client';
       default:
         return 'technician';
     }
@@ -270,7 +266,7 @@ export class AuthService {
         lastName: profile.last_name || '',
         phone: profile.phone || '',
         role: this.mapRole(profile.role),
-        accountType: profile.role === 'client' ? 'client' : 'staff',
+        accountType: this.mapRole(profile.role) === 'client' ? 'client' : 'staff',
         isVerified: true,
         isp_company_id: profile.isp_company_id
       };

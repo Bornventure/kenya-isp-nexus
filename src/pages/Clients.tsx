@@ -1,347 +1,271 @@
-
 import React, { useState } from 'react';
+import { useClients } from '@/hooks/useClients';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
-import { 
-  Users, 
-  UserPlus, 
-  Search, 
-  Filter, 
-  MoreVertical,
-  Phone,
-  Mail,
-  MapPin,
-  CreditCard,
-  Calendar,
-  Activity
-} from 'lucide-react';
-import { useClients } from '@/hooks/useClients';
-import { Client } from '@/types/client';
-import ClientRegistrationForm from '@/components/clients/ClientRegistrationForm';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { Users, UserCheck, UserX, Clock, Plus, Search, Eye, Edit } from 'lucide-react';
 import ClientDetails from '@/components/clients/ClientDetails';
+import ClientRegistrationForm from '@/components/customers/CustomerRegistrationForm';
+import { Client } from '@/types/client';
+
+// Helper function to transform database client data to the Client interface
+const transformDatabaseClientToClient = (dbClient: any): Client => {
+  return {
+    id: dbClient.id,
+    name: dbClient.name,
+    email: dbClient.email,
+    phone: dbClient.phone,
+    id_number: dbClient.id_number,
+    kra_pin_number: dbClient.kra_pin_number,
+    mpesa_number: dbClient.mpesa_number,
+    address: dbClient.address,
+    county: dbClient.county,
+    sub_county: dbClient.sub_county,
+    latitude: dbClient.latitude,
+    longitude: dbClient.longitude,
+    client_type: dbClient.client_type,
+    connection_type: dbClient.connection_type,
+    service_package_id: dbClient.service_package_id,
+    monthly_rate: dbClient.monthly_rate,
+    status: dbClient.status,
+    balance: dbClient.balance,
+    wallet_balance: dbClient.wallet_balance,
+    is_active: dbClient.is_active,
+    subscription_start_date: dbClient.subscription_start_date,
+    subscription_end_date: dbClient.subscription_end_date,
+    installation_date: dbClient.installation_date,
+    installation_status: dbClient.installation_status,
+    installation_completed_at: dbClient.installation_completed_at,
+    installation_completed_by: dbClient.installation_completed_by,
+    service_activated_at: dbClient.service_activated_at,
+    approved_at: dbClient.approved_at,
+    approved_by: dbClient.approved_by,
+    submitted_by: dbClient.submitted_by,
+    isp_company_id: dbClient.isp_company_id,
+    created_at: dbClient.created_at,
+    updated_at: dbClient.updated_at,
+    service_packages: dbClient.service_packages,
+    equipment_assignments: dbClient.equipment_assignments,
+    // Computed properties for backward compatibility
+    location: {
+      address: dbClient.address,
+      county: dbClient.county,
+      subCounty: dbClient.sub_county,
+      coordinates: dbClient.latitude && dbClient.longitude ? {
+        lat: dbClient.latitude,
+        lng: dbClient.longitude
+      } : undefined
+    },
+    equipment: {
+      serialNumbers: dbClient.equipment_assignments?.map((ea: any) => ea.equipment.serial_number) || []
+    },
+    servicePackage: dbClient.service_packages?.name || 'Unknown',
+    connectionType: dbClient.connection_type,
+    clientType: dbClient.client_type,
+    monthlyRate: dbClient.monthly_rate,
+    installationDate: dbClient.installation_date || '',
+    mpesaNumber: dbClient.mpesa_number,
+    idNumber: dbClient.id_number,
+    kraPinNumber: dbClient.kra_pin_number
+  };
+};
 
 const Clients = () => {
-  const { clients, isLoading, updateClient } = useClients();
+  const { clients, isLoading, error, updateClient, approveClient, rejectClient } = useClients();
   const [searchTerm, setSearchTerm] = useState('');
-  const [statusFilter, setStatusFilter] = useState('all');
-  const [showRegistrationDialog, setShowRegistrationDialog] = useState(false);
   const [selectedClient, setSelectedClient] = useState<Client | null>(null);
-  const [showClientDetails, setShowClientDetails] = useState(false);
+  const [detailsOpen, setDetailsOpen] = useState(false);
+  const [registrationOpen, setRegistrationOpen] = useState(false);
 
-  // Filter clients
-  const filteredClients = clients.filter(client => {
-    const matchesSearch = client.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         client.phone.includes(searchTerm) ||
-                         client.email?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         client.id_number.includes(searchTerm);
-    
-    const matchesStatus = statusFilter === 'all' || client.status === statusFilter;
-    
-    return matchesSearch && matchesStatus;
-  });
+  // Filter clients based on search term
+  const filteredClients = clients.filter(client =>
+    client.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    client.phone.includes(searchTerm) ||
+    client.id_number.includes(searchTerm) ||
+    client.email?.toLowerCase().includes(searchTerm.toLowerCase())
+  );
 
-  // Calculate metrics
-  const metrics = {
-    total: clients.length,
-    active: clients.filter(c => c.status === 'active').length,
-    pending: clients.filter(c => c.status === 'pending').length,
-    suspended: clients.filter(c => c.status === 'suspended').length,
-    totalRevenue: clients.reduce((sum, c) => sum + c.monthly_rate, 0)
-  };
+  // Statistics
+  const totalClients = clients.length;
+  const activeClients = clients.filter(c => c.status === 'active').length;
+  const pendingClients = clients.filter(c => c.status === 'pending').length;
+  const suspendedClients = clients.filter(c => c.status === 'suspended').length;
 
   const getStatusColor = (status: string) => {
     switch (status) {
       case 'active':
-        return 'bg-green-100 text-green-800';
+        return 'default';
       case 'pending':
-        return 'bg-yellow-100 text-yellow-800';
+        return 'secondary';
       case 'suspended':
-        return 'bg-red-100 text-red-800';
+        return 'destructive';
       case 'disconnected':
-        return 'bg-gray-100 text-gray-800';
+        return 'outline';
       case 'approved':
-        return 'bg-blue-100 text-blue-800';
+        return 'default';
+      case 'inactive':
+        return 'secondary';
       default:
-        return 'bg-gray-100 text-gray-800';
+        return 'secondary';
     }
   };
 
-  const handleClientClick = (client: Client) => {
-    setSelectedClient(client);
-    setShowClientDetails(true);
+  const handleViewDetails = (dbClient: any) => {
+    const transformedClient = transformDatabaseClientToClient(dbClient);
+    setSelectedClient(transformedClient);
+    setDetailsOpen(true);
   };
 
-  const handleSuspendClient = () => {
-    if (selectedClient) {
-      updateClient({ 
-        id: selectedClient.id, 
-        updates: { status: 'suspended' as const }
-      });
-      setShowClientDetails(false);
-    }
-  };
-
-  const handleActivateClient = () => {
-    if (selectedClient) {
-      updateClient({ 
-        id: selectedClient.id, 
-        updates: { status: 'active' as const }
-      });
-      setShowClientDetails(false);
-    }
-  };
-
-  const handleEditClient = () => {
-    // Implement edit functionality
-    console.log('Edit client:', selectedClient);
-  };
-
-  const handleRegistrationSuccess = () => {
-    setShowRegistrationDialog(false);
-    // Refresh clients list or show success message
+  const handleEdit = (dbClient: any) => {
+    const transformedClient = transformDatabaseClientToClient(dbClient);
+    // Handle edit logic here
+    console.log('Edit client:', transformedClient);
   };
 
   if (isLoading) {
-    return (
-      <div className="flex items-center justify-center h-64">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto"></div>
-          <p className="mt-2 text-muted-foreground">Loading clients...</p>
-        </div>
-      </div>
-    );
+    return <div className="flex justify-center p-8">Loading clients...</div>;
+  }
+
+  if (error) {
+    return <div className="text-red-500 p-8">Error loading clients: {error.message}</div>;
   }
 
   return (
     <div className="space-y-6">
-      {/* Header */}
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-3xl font-bold tracking-tight">Client Management</h1>
-          <p className="text-muted-foreground">
-            Manage your ISP clients and their services
-          </p>
-        </div>
-        <Button onClick={() => setShowRegistrationDialog(true)}>
-          <UserPlus className="h-4 w-4 mr-2" />
-          Add Client
-        </Button>
-      </div>
-
-      {/* Metrics Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
+      {/* Statistics Cards */}
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">Total Clients</CardTitle>
             <Users className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{metrics.total}</div>
-            <p className="text-xs text-muted-foreground">
-              All registered clients
-            </p>
+            <div className="text-2xl font-bold">{totalClients}</div>
           </CardContent>
         </Card>
 
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">Active</CardTitle>
-            <Activity className="h-4 w-4 text-green-600" />
+            <UserCheck className="h-4 w-4 text-green-600" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-green-600">{metrics.active}</div>
-            <p className="text-xs text-muted-foreground">
-              Currently connected
-            </p>
+            <div className="text-2xl font-bold text-green-600">{activeClients}</div>
           </CardContent>
         </Card>
 
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">Pending</CardTitle>
-            <Calendar className="h-4 w-4 text-yellow-600" />
+            <Clock className="h-4 w-4 text-yellow-600" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-yellow-600">{metrics.pending}</div>
-            <p className="text-xs text-muted-foreground">
-              Awaiting approval
-            </p>
+            <div className="text-2xl font-bold text-yellow-600">{pendingClients}</div>
           </CardContent>
         </Card>
 
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">Suspended</CardTitle>
-            <Users className="h-4 w-4 text-red-600" />
+            <UserX className="h-4 w-4 text-red-600" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-red-600">{metrics.suspended}</div>
-            <p className="text-xs text-muted-foreground">
-              Service suspended
-            </p>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Monthly Revenue</CardTitle>
-            <CreditCard className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">KES {metrics.totalRevenue.toLocaleString()}</div>
-            <p className="text-xs text-muted-foreground">
-              From active clients
-            </p>
+            <div className="text-2xl font-bold text-red-600">{suspendedClients}</div>
           </CardContent>
         </Card>
       </div>
 
-      {/* Search and Filters */}
-      <div className="flex items-center gap-4">
-        <div className="flex-1">
-          <div className="relative">
-            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
-            <Input
-              placeholder="Search clients by name, phone, email, or ID number..."
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              className="pl-10"
-            />
-          </div>
+      {/* Search and Actions */}
+      <div className="flex justify-between items-center">
+        <div className="relative w-64">
+          <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
+          <Input
+            placeholder="Search clients..."
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            className="pl-8"
+          />
         </div>
         
-        <select
-          value={statusFilter}
-          onChange={(e) => setStatusFilter(e.target.value)}
-          className="border border-gray-200 rounded-md px-3 py-2"
-        >
-          <option value="all">All Status</option>
-          <option value="active">Active</option>
-          <option value="pending">Pending</option>
-          <option value="suspended">Suspended</option>
-          <option value="disconnected">Disconnected</option>
-          <option value="approved">Approved</option>
-        </select>
-        
-        <Button variant="outline">
-          <Filter className="h-4 w-4 mr-2" />
-          More Filters
-        </Button>
+        <Dialog open={registrationOpen} onOpenChange={setRegistrationOpen}>
+          <DialogTrigger asChild>
+            <Button className="gap-2">
+              <Plus className="h-4 w-4" />
+              Add Client
+            </Button>
+          </DialogTrigger>
+          <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+            <DialogHeader>
+              <DialogTitle>Register New Client</DialogTitle>
+            </DialogHeader>
+            <CustomerRegistrationForm
+              onClose={() => setRegistrationOpen(false)}
+            />
+          </DialogContent>
+        </Dialog>
       </div>
 
       {/* Clients Table */}
       <Card>
         <CardHeader>
-          <CardTitle>Clients ({filteredClients.length})</CardTitle>
+          <CardTitle>Clients</CardTitle>
         </CardHeader>
         <CardContent>
-          {filteredClients.length === 0 ? (
-            <div className="text-center py-8 text-gray-500">
-              No clients found matching your criteria
-            </div>
-          ) : (
-            <div className="overflow-x-auto">
-              <table className="w-full">
-                <thead>
-                  <tr className="border-b">
-                    <th className="text-left py-3 px-4">Client</th>
-                    <th className="text-left py-3 px-4">Contact</th>
-                    <th className="text-left py-3 px-4">Location</th>
-                    <th className="text-left py-3 px-4">Service</th>
-                    <th className="text-left py-3 px-4">Status</th>
-                    <th className="text-left py-3 px-4">Monthly Rate</th>
-                    <th className="text-left py-3 px-4">Actions</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {filteredClients.map((client) => (
-                    <tr 
-                      key={client.id} 
-                      className="border-b hover:bg-gray-50 cursor-pointer"
-                      onClick={() => handleClientClick(client)}
-                    >
-                      <td className="py-3 px-4">
-                        <div>
-                          <div className="font-medium">{client.name}</div>
-                          <div className="text-sm text-gray-500">ID: {client.id_number}</div>
-                        </div>
-                      </td>
-                      <td className="py-3 px-4">
-                        <div className="space-y-1">
-                          <div className="flex items-center gap-1 text-sm">
-                            <Phone className="h-3 w-3" />
-                            {client.phone}
-                          </div>
-                          {client.email && (
-                            <div className="flex items-center gap-1 text-sm">
-                              <Mail className="h-3 w-3" />
-                              {client.email}
-                            </div>
-                          )}
-                        </div>
-                      </td>
-                      <td className="py-3 px-4">
-                        <div className="flex items-center gap-1 text-sm">
-                          <MapPin className="h-3 w-3" />
-                          {client.county}, {client.sub_county}
-                        </div>
-                      </td>
-                      <td className="py-3 px-4">
-                        <div>
-                          <div className="text-sm font-medium">
-                            {client.service_packages?.name || 'Not assigned'}
-                          </div>
-                          <div className="text-sm text-gray-500 capitalize">
-                            {client.connection_type}
-                          </div>
-                        </div>
-                      </td>
-                      <td className="py-3 px-4">
-                        <Badge className={getStatusColor(client.status)}>
-                          {client.status}
-                        </Badge>
-                      </td>
-                      <td className="py-3 px-4">
-                        <div className="font-medium">
-                          KES {client.monthly_rate.toLocaleString()}
-                        </div>
-                      </td>
-                      <td className="py-3 px-4">
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            handleClientClick(client);
-                          }}
-                        >
-                          <MoreVertical className="h-4 w-4" />
-                        </Button>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          )}
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>Name</TableHead>
+                <TableHead>Phone</TableHead>
+                <TableHead>Email</TableHead>
+                <TableHead>Package</TableHead>
+                <TableHead>Status</TableHead>
+                <TableHead>Monthly Rate</TableHead>
+                <TableHead>Actions</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {filteredClients.map((client) => (
+                <TableRow key={client.id}>
+                  <TableCell className="font-medium">{client.name}</TableCell>
+                  <TableCell>{client.phone}</TableCell>
+                  <TableCell>{client.email || 'N/A'}</TableCell>
+                  <TableCell>{client.service_packages?.name || 'N/A'}</TableCell>
+                  <TableCell>
+                    <Badge variant={getStatusColor(client.status)}>
+                      {client.status}
+                    </Badge>
+                  </TableCell>
+                  <TableCell>KSh {client.monthly_rate.toLocaleString()}</TableCell>
+                  <TableCell>
+                    <div className="flex gap-2">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => handleViewDetails(client)}
+                      >
+                        <Eye className="h-4 w-4" />
+                      </Button>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => handleEdit(client)}
+                      >
+                        <Edit className="h-4 w-4" />
+                      </Button>
+                    </div>
+                  </TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
         </CardContent>
       </Card>
 
-      {/* Client Registration Dialog */}
-      <Dialog open={showRegistrationDialog} onOpenChange={setShowRegistrationDialog}>
-        <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
-          <DialogHeader>
-            <DialogTitle>Register New Client</DialogTitle>
-          </DialogHeader>
-          <ClientRegistrationForm onSuccess={handleRegistrationSuccess} />
-        </DialogContent>
-      </Dialog>
-
       {/* Client Details Dialog */}
-      <Dialog open={showClientDetails} onOpenChange={setShowClientDetails}>
+      <Dialog open={detailsOpen} onOpenChange={setDetailsOpen}>
         <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>Client Details</DialogTitle>
@@ -349,9 +273,18 @@ const Clients = () => {
           {selectedClient && (
             <ClientDetails
               client={selectedClient}
-              onEdit={handleEditClient}
-              onSuspend={handleSuspendClient}
-              onActivate={handleActivateClient}
+              onClose={() => setDetailsOpen(false)}
+              onApprove={(id, notes) => {
+                approveClient(id, notes);
+                setDetailsOpen(false);
+              }}
+              onReject={(id, reason) => {
+                rejectClient(id, reason);
+                setDetailsOpen(false);
+              }}
+              onUpdate={(id, updates) => {
+                updateClient({ id, updates });
+              }}
             />
           )}
         </DialogContent>

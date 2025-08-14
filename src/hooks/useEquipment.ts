@@ -52,7 +52,7 @@ export const useEquipment = () => {
         updated_at: item.updated_at,
         client_id: item.client_id,
         ip_address: item.ip_address,
-        approval_status: item.approval_status,
+        approval_status: item.approval_status as Equipment['approval_status'],
         approved_at: item.approved_at,
         approved_by: item.approved_by,
         auto_discovered: item.auto_discovered,
@@ -70,10 +70,26 @@ export const useEquipment = () => {
 
   const createEquipmentMutation = useMutation({
     mutationFn: async (equipmentData: Partial<Equipment>) => {
+      // Ensure required fields are present
+      if (!equipmentData.serial_number || !equipmentData.model || !equipmentData.type) {
+        throw new Error('Serial number, model, and type are required');
+      }
+
       const { data, error } = await supabase
         .from('equipment')
         .insert({
-          ...equipmentData,
+          serial_number: equipmentData.serial_number,
+          model: equipmentData.model,
+          type: equipmentData.type,
+          brand: equipmentData.brand,
+          status: equipmentData.status || 'available',
+          mac_address: equipmentData.mac_address,
+          location: equipmentData.location,
+          notes: equipmentData.notes,
+          ip_address: equipmentData.ip_address,
+          approval_status: equipmentData.approval_status || 'pending',
+          snmp_community: equipmentData.snmp_community,
+          snmp_version: equipmentData.snmp_version,
           isp_company_id: profile?.isp_company_id,
         })
         .select()
@@ -204,4 +220,4 @@ export const useEquipment = () => {
   };
 };
 
-export { Equipment, EquipmentType };
+export type { Equipment, EquipmentType };
