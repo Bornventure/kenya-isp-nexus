@@ -1,7 +1,8 @@
+
 import React from 'react';
 import { Button } from '@/components/ui/button';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
-import { DotsHorizontalIcon } from '@radix-ui/react-icons';
+import { MoreHorizontal } from 'lucide-react';
 import { useUpdateInventoryItem, usePromoteToNetworkEquipment } from '@/hooks/useInventory';
 
 interface EquipmentActionsProps {
@@ -10,8 +11,8 @@ interface EquipmentActionsProps {
 }
 
 const EquipmentActions: React.FC<EquipmentActionsProps> = ({ equipment, onEdit }) => {
-  const { updateEquipment, isUpdating } = useUpdateInventoryItem();
-  const { promoteToNetworkEquipment, isPending: isPromoting } = usePromoteToNetworkEquipment();
+  const { mutate: updateEquipment, isUpdating } = useUpdateInventoryItem();
+  const { mutate: promoteToNetworkEquipment, isPending: isPromoting } = usePromoteToNetworkEquipment();
 
   const handleStatusChange = (newStatus: string) => {
     updateEquipment({
@@ -33,7 +34,7 @@ const EquipmentActions: React.FC<EquipmentActionsProps> = ({ equipment, onEdit }
       <DropdownMenuTrigger asChild>
         <Button variant="ghost" className="h-8 w-8 p-0">
           <span className="sr-only">Open menu</span>
-          <DotsHorizontalIcon className="h-4 w-4" />
+          <MoreHorizontal className="h-4 w-4" />
         </Button>
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end">

@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
@@ -18,7 +19,7 @@ const EditInventoryItemDialog: React.FC<EditInventoryItemDialogProps> = ({
   onOpenChange,
   item
 }) => {
-  const { updateEquipment, isUpdating } = useUpdateInventoryItem();
+  const { mutate: updateEquipment, isPending: isUpdating } = useUpdateInventoryItem();
   
   const [formData, setFormData] = useState({
     name: item?.name || '',

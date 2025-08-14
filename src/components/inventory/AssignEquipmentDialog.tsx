@@ -1,3 +1,4 @@
+
 import React, { useState } from 'react';
 import {
   Dialog,
@@ -31,7 +32,7 @@ const AssignEquipmentDialog: React.FC<AssignEquipmentDialogProps> = ({
 }) => {
   const [selectedClientId, setSelectedClientId] = useState('');
   const { clients, isLoading: clientsLoading } = useClients();
-  const { deployEquipment, isDeploying } = useAssignEquipmentToClient();
+  const { mutate: deployEquipment, isPending: isDeploying } = useAssignEquipmentToClient();
 
   const handleAssign = () => {
     if (selectedClientId && equipment) {

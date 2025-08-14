@@ -1,3 +1,4 @@
+
 import React, { useState } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
@@ -15,7 +16,7 @@ const AddInventoryItemDialog: React.FC<AddInventoryItemDialogProps> = ({
   open,
   onOpenChange
 }) => {
-  const { createEquipment, isPending } = useCreateInventoryItem();
+  const { mutate: createEquipment, isPending } = useCreateInventoryItem();
   
   const [formData, setFormData] = useState({
     name: '',
@@ -31,7 +32,7 @@ const AddInventoryItemDialog: React.FC<AddInventoryItemDialogProps> = ({
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    createEquipment.mutate(formData);
+    createEquipment(formData);
     setFormData({
       name: '',
       type: '',

@@ -1,3 +1,4 @@
+
 import React from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -11,8 +12,8 @@ interface EquipmentLifecycleManagerProps {
 }
 
 const EquipmentLifecycleManager: React.FC<EquipmentLifecycleManagerProps> = ({ equipment }) => {
-  const { updateEquipment, isUpdating } = useUpdateInventoryItem();
-  const { promoteToNetworkEquipment, isPending: isPromoting } = usePromoteToNetworkEquipment();
+  const { mutate: updateEquipment, isUpdating } = useUpdateInventoryItem();
+  const { mutate: promoteToNetworkEquipment, isPending: isPromoting } = usePromoteToNetworkEquipment();
 
   const handleStatusUpdate = (newStatus: string) => {
     updateEquipment({

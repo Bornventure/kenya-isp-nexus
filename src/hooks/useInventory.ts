@@ -19,6 +19,14 @@ export interface Equipment {
   client_id?: string;
   ip_address?: string;
   location?: string;
+  // Additional properties for compatibility
+  manufacturer?: string;
+  category?: string;
+  is_network_equipment?: boolean;
+  item_id?: string;
+  equipment_id?: string;
+  assignment_date?: string;
+  assigned_customer_id?: string;
   clients?: {
     name: string;
     phone?: string;
@@ -70,7 +78,14 @@ export const useInventory = () => {
       return data.map(item => ({
         ...item,
         name: item.type || item.model || 'Unknown Equipment',
-        location: item.location || 'Not specified'
+        location: item.location || 'Not specified',
+        manufacturer: item.brand,
+        category: item.type,
+        is_network_equipment: item.status === 'deployed',
+        item_id: item.id,
+        equipment_id: item.id,
+        assignment_date: item.updated_at,
+        assigned_customer_id: item.client_id
       })) as Equipment[];
     },
   });
@@ -86,7 +101,7 @@ export const useInventory = () => {
       if (error) throw error;
       return data.map(item => ({
         ...item,
-        deployed_date: item.assigned_at,
+        deployed_date: item.assigned_at || item.created_at,
         status: 'active' as const,
         updated_at: item.created_at,
         return_date: null,
@@ -253,6 +268,28 @@ export const useInventory = () => {
     },
   });
 
+  const promoteToNetworkEquipmentMutation = useMutation({
+    mutationFn: async (data: any) => {
+      const { error } = await supabase
+        .from('equipment')
+        .update({ 
+          notes: 'Promoted to network equipment',
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', data.equipmentId);
+
+      if (error) throw error;
+      return data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['equipment'] });
+      toast({
+        title: "Equipment Promoted",
+        description: "Item has been promoted to network equipment.",
+      });
+    },
+  });
+
   return {
     equipment,
     clientEquipment,
@@ -267,6 +304,7 @@ export const useInventory = () => {
       mutate: updateEquipmentMutation.mutate,
       mutateAsync: updateEquipmentMutation.mutateAsync,
       isPending: updateEquipmentMutation.isPending,
+      isUpdating: updateEquipmentMutation.isPending,
     },
     deleteEquipment: {
       mutate: deleteEquipmentMutation.mutate,
@@ -277,11 +315,17 @@ export const useInventory = () => {
       mutate: deployEquipmentMutation.mutate,
       mutateAsync: deployEquipmentMutation.mutateAsync,
       isPending: deployEquipmentMutation.isPending,
+      isDeploying: deployEquipmentMutation.isPending,
     },
     returnEquipment: {
       mutate: returnEquipmentMutation.mutate,
       mutateAsync: returnEquipmentMutation.mutateAsync,
       isPending: returnEquipmentMutation.isPending,
+    },
+    promoteToNetworkEquipment: {
+      mutate: promoteToNetworkEquipmentMutation.mutate,
+      mutateAsync: promoteToNetworkEquipmentMutation.mutateAsync,
+      isPending: promoteToNetworkEquipmentMutation.isPending,
     },
   };
 };
@@ -343,34 +387,6 @@ export const useUnassignEquipmentFromClient = () => {
 };
 
 export const usePromoteToNetworkEquipment = () => {
-  const { toast } = useToast();
-  const queryClient = useQueryClient();
-  
-  const mutation = useMutation({
-    mutationFn: async (data: any) => {
-      const { error } = await supabase
-        .from('equipment')
-        .update({ 
-          notes: 'Promoted to network equipment',
-          updated_at: new Date().toISOString()
-        })
-        .eq('id', data.equipmentId);
-
-      if (error) throw error;
-      return data;
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['equipment'] });
-      toast({
-        title: "Equipment Promoted",
-        description: "Item has been promoted to network equipment.",
-      });
-    },
-  });
-
-  return {
-    mutate: mutation.mutate,
-    mutateAsync: mutation.mutateAsync,
-    isPending: mutation.isPending,
-  };
+  const { promoteToNetworkEquipment } = useInventory();
+  return promoteToNetworkEquipment;
 };
