@@ -22,16 +22,20 @@ import type { Equipment } from '@/hooks/useInventory';
 interface AssignEquipmentDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  equipment: Equipment | null;
+  equipment?: Equipment | null;
+  clientId?: string;
+  clientName?: string;
 }
 
 const AssignEquipmentDialog: React.FC<AssignEquipmentDialogProps> = ({
   open,
   onOpenChange,
-  equipment
+  equipment,
+  clientId,
+  clientName
 }) => {
-  const [selectedClientId, setSelectedClientId] = useState('');
-  const { clients, isLoading: clientsLoading } = useClients();
+  const [selectedClientId, setSelectedClientId] = useState(clientId || '');
+  const { clients = [], isLoading: clientsLoading } = useClients();
   const { mutate: deployEquipment, isPending: isDeploying } = useAssignEquipmentToClient();
 
   const handleAssign = () => {
@@ -44,10 +48,6 @@ const AssignEquipmentDialog: React.FC<AssignEquipmentDialogProps> = ({
     }
   };
 
-  // Filter out equipment that's already assigned
-  const isEquipmentAssigned = equipment?.client_id;
-
-  // Filter clients to exclude those with existing equipment assignments
   const activeClients = clients.filter(client => client.status === 'active');
 
   return (
@@ -58,23 +58,25 @@ const AssignEquipmentDialog: React.FC<AssignEquipmentDialogProps> = ({
         </DialogHeader>
 
         <div className="space-y-4">
-          <div>
-            <Label>Equipment Details</Label>
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <strong>Type:</strong> {equipment?.type}
-              </div>
-              <div>
-                <strong>Model:</strong> {equipment?.model || 'N/A'}
-              </div>
-              <div>
-                <strong>Serial Number:</strong> {equipment?.serial_number || 'N/A'}
-              </div>
-              <div>
-                <strong>Status:</strong> {equipment?.status}
+          {equipment && (
+            <div>
+              <Label>Equipment Details</Label>
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <strong>Type:</strong> {equipment?.type}
+                </div>
+                <div>
+                  <strong>Model:</strong> {equipment?.model || 'N/A'}
+                </div>
+                <div>
+                  <strong>Serial Number:</strong> {equipment?.serial_number || 'N/A'}
+                </div>
+                <div>
+                  <strong>Status:</strong> {equipment?.status}
+                </div>
               </div>
             </div>
-          </div>
+          )}
 
           <div>
             <Label htmlFor="client-select">Select Client</Label>

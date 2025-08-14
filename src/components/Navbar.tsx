@@ -5,7 +5,7 @@ import { Button } from '@/components/ui/button';
 import { LogOut, User } from 'lucide-react';
 
 const Navbar = () => {
-  const { user, signOut } = useAuth();
+  const { user, logout } = useAuth();
 
   return (
     <nav className="bg-white border-b border-gray-200 px-6 py-4">
@@ -18,7 +18,7 @@ const Navbar = () => {
             <User className="h-4 w-4" />
             <span className="text-sm text-gray-700">{user?.email}</span>
           </div>
-          <Button variant="outline" size="sm" onClick={signOut}>
+          <Button variant="outline" size="sm" onClick={logout}>
             <LogOut className="h-4 w-4 mr-2" />
             Sign Out
           </Button>

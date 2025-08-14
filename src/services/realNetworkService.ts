@@ -1,4 +1,3 @@
-
 import { supabase } from '@/integrations/supabase/client';
 
 interface ClientMonitoringConfig {
@@ -179,3 +178,48 @@ class RealNetworkService {
 }
 
 export const realNetworkService = new RealNetworkService();
+
+export const getMikroTikSystemInfo = async (): Promise<any> => {
+  try {
+    console.log('Fetching MikroTik system information...');
+    
+    const { data, error } = await supabase
+      .from('network_devices')
+      .select('*')
+      .eq('device_type', 'mikrotik')
+      .single();
+
+    if (error) {
+      console.error('Error fetching MikroTik info:', error);
+      throw error;
+    }
+
+    // Handle null data
+    if (!data) {
+      return {
+        identity: 'No MikroTik Device',
+        version: 'Unknown',
+        uptime: '0s',
+        cpu_load: 0,
+        memory_usage: 0
+      };
+    }
+
+    return {
+      identity: data.name || 'MikroTik Router',
+      version: data.firmware_version || 'Unknown',
+      uptime: data.uptime || '0s',
+      cpu_load: data.cpu_usage || 0,
+      memory_usage: data.memory_usage || 0
+    };
+  } catch (error) {
+    console.error('Error getting MikroTik system info:', error);
+    return {
+      identity: 'Error',
+      version: 'Unknown',
+      uptime: '0s',
+      cpu_load: 0,
+      memory_usage: 0
+    };
+  }
+};

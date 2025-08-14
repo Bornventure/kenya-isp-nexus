@@ -1,4 +1,3 @@
-
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
@@ -27,6 +26,12 @@ export interface Equipment {
   equipment_id?: string;
   assignment_date?: string;
   assigned_customer_id?: string;
+  cost?: number;
+  unit_cost?: number;
+  quantity_in_stock?: number;
+  purchase_date?: string;
+  installation_date?: string;
+  warranty_expiry_date?: string;
   clients?: {
     name: string;
     phone?: string;
@@ -85,7 +90,10 @@ export const useInventory = () => {
         item_id: item.id,
         equipment_id: item.id,
         assignment_date: item.updated_at,
-        assigned_customer_id: item.client_id
+        assigned_customer_id: item.client_id,
+        cost: 0,
+        unit_cost: 0,
+        quantity_in_stock: 1
       })) as Equipment[];
     },
   });
