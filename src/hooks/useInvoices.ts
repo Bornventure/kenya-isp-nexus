@@ -7,21 +7,23 @@ import { useToast } from '@/hooks/use-toast';
 export interface Invoice {
   id: string;
   invoice_number: string;
-  client_id: string;
+  client_id?: string;
   amount: number;
   vat_amount: number;
   total_amount: number;
-  status: 'draft' | 'pending' | 'paid' | 'overdue';
+  status: string;
   due_date: string;
   service_period_start: string;
   service_period_end: string;
-  notes: string | null;
-  isp_company_id: string;
+  notes?: string;
+  isp_company_id?: string;
   created_at: string;
   updated_at: string;
   clients?: {
+    id: string;
     name: string;
-    email: string;
+    email?: string;
+    phone: string;
   };
 }
 
@@ -30,7 +32,7 @@ export const useInvoices = () => {
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
-  const { data: invoices = [], isLoading, error } = useQuery({
+  const { data: invoices = [], isLoading, error, refetch } = useQuery({
     queryKey: ['invoices', profile?.isp_company_id],
     queryFn: async () => {
       if (!profile?.isp_company_id) return [];
@@ -40,8 +42,10 @@ export const useInvoices = () => {
         .select(`
           *,
           clients (
+            id,
             name,
-            email
+            email,
+            phone
           )
         `)
         .eq('isp_company_id', profile.isp_company_id)
@@ -52,47 +56,26 @@ export const useInvoices = () => {
         throw error;
       }
 
-      return data as Invoice[];
+      return (data || []) as Invoice[];
     },
     enabled: !!profile?.isp_company_id,
   });
 
-  const updateInvoiceMutation = useMutation({
-    mutationFn: async ({ id, updates }: { id: string; updates: Partial<Invoice> }) => {
-      const { data, error } = await supabase
-        .from('invoices')
-        .update(updates)
-        .eq('id', id)
-        .select()
-        .single();
+  const createInvoice = useMutation({
+    mutationFn: async (invoiceData: Omit<Invoice, 'id' | 'created_at' | 'updated_at' | 'isp_company_id' | 'clients'>) => {
+      if (!profile?.isp_company_id) {
+        throw new Error('No ISP company associated with user');
+      }
 
-      if (error) throw error;
-      return data;
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['invoices'] });
-      toast({
-        title: "Invoice Updated",
-        description: "Invoice has been updated successfully.",
-      });
-    },
-    onError: (error) => {
-      console.error('Error updating invoice:', error);
-      toast({
-        title: "Error",
-        description: "Failed to update invoice. Please try again.",
-        variant: "destructive",
-      });
-    },
-  });
+      // Generate invoice number
+      const invoiceNumber = `INV-${Date.now()}`;
 
-  const createInvoiceMutation = useMutation({
-    mutationFn: async (invoiceData: Omit<Invoice, 'id' | 'created_at' | 'updated_at'>) => {
       const { data, error } = await supabase
         .from('invoices')
         .insert({
           ...invoiceData,
-          isp_company_id: profile?.isp_company_id,
+          invoice_number: invoiceNumber,
+          isp_company_id: profile.isp_company_id,
         })
         .select()
         .single();
@@ -107,11 +90,67 @@ export const useInvoices = () => {
         description: "Invoice has been created successfully.",
       });
     },
-    onError: (error) => {
+    onError: (error: any) => {
       console.error('Error creating invoice:', error);
       toast({
         title: "Error",
-        description: "Failed to create invoice. Please try again.",
+        description: error.message || "Failed to create invoice. Please try again.",
+        variant: "destructive",
+      });
+    },
+  });
+
+  const updateInvoice = useMutation({
+    mutationFn: async ({ id, updates }: { id: string; updates: Partial<Invoice> }) => {
+      const { data, error } = await supabase
+        .from('invoices')
+        .update({ ...updates, updated_at: new Date().toISOString() })
+        .eq('id', id)
+        .select()
+        .single();
+
+      if (error) throw error;
+      return data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['invoices'] });
+      toast({
+        title: "Invoice Updated",
+        description: "Invoice has been updated successfully.",
+      });
+    },
+    onError: (error: any) => {
+      console.error('Error updating invoice:', error);
+      toast({
+        title: "Error",
+        description: "Failed to update invoice. Please try again.",
+        variant: "destructive",
+      });
+    },
+  });
+
+  const deleteInvoice = useMutation({
+    mutationFn: async (invoiceId: string) => {
+      const { error } = await supabase
+        .from('invoices')
+        .delete()
+        .eq('id', invoiceId);
+
+      if (error) throw error;
+      return invoiceId;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['invoices'] });
+      toast({
+        title: "Invoice Deleted",
+        description: "Invoice has been deleted successfully.",
+      });
+    },
+    onError: (error: any) => {
+      console.error('Error deleting invoice:', error);
+      toast({
+        title: "Error",
+        description: "Failed to delete invoice. Please try again.",
         variant: "destructive",
       });
     },
@@ -121,9 +160,12 @@ export const useInvoices = () => {
     invoices,
     isLoading,
     error,
-    updateInvoice: updateInvoiceMutation.mutate,
-    createInvoice: createInvoiceMutation.mutate,
-    isUpdating: updateInvoiceMutation.isPending,
-    isCreating: createInvoiceMutation.isPending,
+    refetch,
+    createInvoice: createInvoice.mutate,
+    updateInvoice: updateInvoice.mutate,
+    deleteInvoice: deleteInvoice.mutate,
+    isCreating: createInvoice.isPending,
+    isUpdating: updateInvoice.isPending,
+    isDeleting: deleteInvoice.isPending,
   };
 };

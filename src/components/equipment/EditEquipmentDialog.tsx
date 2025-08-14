@@ -6,25 +6,18 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Equipment } from '@/types/equipment';
-import { Save, X } from 'lucide-react';
+import { useEquipment, type Equipment } from '@/hooks/useEquipment';
+import type { EquipmentStatus } from '@/types/client';
 
 interface EditEquipmentDialogProps {
-  open: boolean;
-  onOpenChange: (open: boolean) => void;
   equipment: Equipment | null;
-  onSubmit: (id: string, data: Partial<Equipment>) => void;
-  isLoading: boolean;
+  open: boolean;
+  onClose: () => void;
 }
 
-const EditEquipmentDialog: React.FC<EditEquipmentDialogProps> = ({
-  open,
-  onOpenChange,
-  equipment,
-  onSubmit,
-  isLoading,
-}) => {
+export const EditEquipmentDialog: React.FC<EditEquipmentDialogProps> = ({ equipment, open, onClose }) => {
+  const { updateEquipment } = useEquipment();
+  
   const [formData, setFormData] = useState({
     type: '',
     brand: '',
@@ -33,8 +26,8 @@ const EditEquipmentDialog: React.FC<EditEquipmentDialogProps> = ({
     mac_address: '',
     ip_address: '',
     location: '',
+    status: 'available' as EquipmentStatus,
     notes: '',
-    status: 'available' as const,
     snmp_community: 'public',
     snmp_version: 2,
   });
@@ -47,10 +40,10 @@ const EditEquipmentDialog: React.FC<EditEquipmentDialogProps> = ({
         model: equipment.model || '',
         serial_number: equipment.serial_number || '',
         mac_address: equipment.mac_address || '',
-        ip_address: equipment.ip_address?.toString() || '',
+        ip_address: equipment.ip_address || '',
         location: equipment.location || '',
+        status: equipment.status as EquipmentStatus,
         notes: equipment.notes || '',
-        status: equipment.status || 'available',
         snmp_community: equipment.snmp_community || 'public',
         snmp_version: equipment.snmp_version || 2,
       });
@@ -59,173 +52,130 @@ const EditEquipmentDialog: React.FC<EditEquipmentDialogProps> = ({
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (equipment) {
-      onSubmit(equipment.id, formData);
-    }
+    if (!equipment) return;
+
+    updateEquipment({
+      id: equipment.id,
+      updates: formData
+    });
+    onClose();
   };
 
-  if (!equipment) return null;
+  const handleInputChange = (field: string, value: any) => {
+    setFormData(prev => ({ ...prev, [field]: value }));
+  };
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
-        <DialogHeader className="flex flex-row items-center justify-between">
+    <Dialog open={open} onOpenChange={onClose}>
+      <DialogContent className="max-w-2xl">
+        <DialogHeader>
           <DialogTitle>Edit Equipment</DialogTitle>
-          <Button variant="ghost" size="sm" onClick={() => onOpenChange(false)}>
-            <X className="h-4 w-4" />
-          </Button>
         </DialogHeader>
+        
+        <form onSubmit={handleSubmit} className="space-y-4">
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <Label htmlFor="type">Equipment Type *</Label>
+              <Input
+                id="type"
+                value={formData.type}
+                onChange={(e) => handleInputChange('type', e.target.value)}
+                required
+              />
+            </div>
+            
+            <div>
+              <Label htmlFor="brand">Brand</Label>
+              <Input
+                id="brand"
+                value={formData.brand}
+                onChange={(e) => handleInputChange('brand', e.target.value)}
+              />
+            </div>
+          </div>
 
-        <form onSubmit={handleSubmit} className="space-y-6">
-          <Card>
-            <CardHeader>
-              <CardTitle className="text-lg">Basic Information</CardTitle>
-            </CardHeader>
-            <CardContent className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div>
-                <Label htmlFor="type">Equipment Type *</Label>
-                <Select value={formData.type} onValueChange={(value) => setFormData({ ...formData, type: value })}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Select equipment type" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="Router">Router</SelectItem>
-                    <SelectItem value="Switch">Switch</SelectItem>
-                    <SelectItem value="Access Point">Access Point</SelectItem>
-                    <SelectItem value="Modem">Modem</SelectItem>
-                    <SelectItem value="Firewall">Firewall</SelectItem>
-                    <SelectItem value="Base Station">Base Station</SelectItem>
-                    <SelectItem value="CPE">CPE</SelectItem>
-                    <SelectItem value="Antenna">Antenna</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-              <div>
-                <Label htmlFor="brand">Brand *</Label>
-                <Input
-                  id="brand"
-                  value={formData.brand}
-                  onChange={(e) => setFormData({ ...formData, brand: e.target.value })}
-                  required
-                />
-              </div>
-              <div>
-                <Label htmlFor="model">Model *</Label>
-                <Input
-                  id="model"
-                  value={formData.model}
-                  onChange={(e) => setFormData({ ...formData, model: e.target.value })}
-                  required
-                />
-              </div>
-              <div>
-                <Label htmlFor="serial_number">Serial Number *</Label>
-                <Input
-                  id="serial_number"
-                  value={formData.serial_number}
-                  onChange={(e) => setFormData({ ...formData, serial_number: e.target.value })}
-                  required
-                />
-              </div>
-            </CardContent>
-          </Card>
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <Label htmlFor="model">Model</Label>
+              <Input
+                id="model"
+                value={formData.model}
+                onChange={(e) => handleInputChange('model', e.target.value)}
+              />
+            </div>
+            
+            <div>
+              <Label htmlFor="serial_number">Serial Number *</Label>
+              <Input
+                id="serial_number"
+                value={formData.serial_number}
+                onChange={(e) => handleInputChange('serial_number', e.target.value)}
+                required
+              />
+            </div>
+          </div>
 
-          <Card>
-            <CardHeader>
-              <CardTitle className="text-lg">Network Configuration</CardTitle>
-            </CardHeader>
-            <CardContent className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div>
-                <Label htmlFor="mac_address">MAC Address</Label>
-                <Input
-                  id="mac_address"
-                  value={formData.mac_address}
-                  onChange={(e) => setFormData({ ...formData, mac_address: e.target.value })}
-                />
-              </div>
-              <div>
-                <Label htmlFor="ip_address">IP Address</Label>
-                <Input
-                  id="ip_address"
-                  value={formData.ip_address}
-                  onChange={(e) => setFormData({ ...formData, ip_address: e.target.value })}
-                />
-              </div>
-              <div>
-                <Label htmlFor="snmp_community">SNMP Community</Label>
-                <Input
-                  id="snmp_community"
-                  value={formData.snmp_community}
-                  onChange={(e) => setFormData({ ...formData, snmp_community: e.target.value })}
-                />
-              </div>
-              <div>
-                <Label htmlFor="snmp_version">SNMP Version</Label>
-                <Select 
-                  value={formData.snmp_version.toString()} 
-                  onValueChange={(value) => setFormData({ ...formData, snmp_version: parseInt(value) })}
-                >
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="1">v1</SelectItem>
-                    <SelectItem value="2">v2c</SelectItem>
-                    <SelectItem value="3">v3</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-            </CardContent>
-          </Card>
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <Label htmlFor="mac_address">MAC Address</Label>
+              <Input
+                id="mac_address"
+                value={formData.mac_address}
+                onChange={(e) => handleInputChange('mac_address', e.target.value)}
+              />
+            </div>
+            
+            <div>
+              <Label htmlFor="ip_address">IP Address</Label>
+              <Input
+                id="ip_address"
+                value={formData.ip_address}
+                onChange={(e) => handleInputChange('ip_address', e.target.value)}
+              />
+            </div>
+          </div>
 
-          <Card>
-            <CardHeader>
-              <CardTitle className="text-lg">Status & Location</CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div>
-                  <Label htmlFor="status">Status</Label>
-                  <Select value={formData.status} onValueChange={(value: any) => setFormData({ ...formData, status: value })}>
-                    <SelectTrigger>
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="available">Available</SelectItem>
-                      <SelectItem value="deployed">Deployed</SelectItem>
-                      <SelectItem value="maintenance">Maintenance</SelectItem>
-                      <SelectItem value="damaged">Damaged</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div>
-                  <Label htmlFor="location">Location</Label>
-                  <Input
-                    id="location"
-                    value={formData.location}
-                    onChange={(e) => setFormData({ ...formData, location: e.target.value })}
-                  />
-                </div>
-              </div>
-              <div>
-                <Label htmlFor="notes">Notes</Label>
-                <Textarea
-                  id="notes"
-                  value={formData.notes}
-                  onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
-                  rows={3}
-                />
-              </div>
-            </CardContent>
-          </Card>
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <Label htmlFor="location">Location</Label>
+              <Input
+                id="location"
+                value={formData.location}
+                onChange={(e) => handleInputChange('location', e.target.value)}
+              />
+            </div>
+            
+            <div>
+              <Label>Status</Label>
+              <Select value={formData.status} onValueChange={(value) => handleInputChange('status', value)}>
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="available">Available</SelectItem>
+                  <SelectItem value="deployed">Deployed</SelectItem>
+                  <SelectItem value="maintenance">Maintenance</SelectItem>
+                  <SelectItem value="retired">Retired</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
 
-          <div className="flex justify-end gap-3 pt-4 border-t">
-            <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
+          <div>
+            <Label htmlFor="notes">Notes</Label>
+            <Textarea
+              id="notes"
+              value={formData.notes}
+              onChange={(e) => handleInputChange('notes', e.target.value)}
+            />
+          </div>
+
+          <div className="flex justify-end space-x-2 pt-4">
+            <Button type="button" variant="outline" onClick={onClose}>
               Cancel
             </Button>
-            <Button type="submit" disabled={isLoading} className="gap-2">
-              <Save className="h-4 w-4" />
-              {isLoading ? 'Updating...' : 'Update Equipment'}
+            <Button type="submit">
+              Update Equipment
             </Button>
           </div>
         </form>
@@ -233,5 +183,3 @@ const EditEquipmentDialog: React.FC<EditEquipmentDialogProps> = ({
     </Dialog>
   );
 };
-
-export default EditEquipmentDialog;
