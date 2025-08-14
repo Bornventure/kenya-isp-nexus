@@ -1,244 +1,113 @@
-
 import React, { useState } from 'react';
 import {
   Dialog,
   DialogContent,
-  DialogDescription,
-  DialogFooter,
   DialogHeader,
   DialogTitle,
-} from '@/components/ui/dialog';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
+} from "@/components/ui/dialog"
 import {
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from '@/components/ui/select';
-import { Badge } from '@/components/ui/badge';
-import { useInventoryItems, useAssignEquipmentToClient } from '@/hooks/useInventory';
-import { Package, Router, Network } from 'lucide-react';
+} from "@/components/ui/select"
+import { Label } from "@/components/ui/label"
+import { Button } from "@/components/ui/button"
+import { useClients } from '@/hooks/useClients';
+import { useAssignEquipmentToClient } from '@/hooks/useInventory';
+import type { Equipment } from '@/hooks/useInventory';
 
 interface AssignEquipmentDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  clientId: string;
-  clientName: string;
+  equipment: Equipment | null;
 }
 
 const AssignEquipmentDialog: React.FC<AssignEquipmentDialogProps> = ({
   open,
   onOpenChange,
-  clientId,
-  clientName,
+  equipment
 }) => {
-  const [selectedEquipmentId, setSelectedEquipmentId] = useState<string>('');
-  const [searchTerm, setSearchTerm] = useState('');
-
-  const { data: availableEquipment = [] } = useInventoryItems({
-    status: 'In Stock'
-  });
-
-  const { mutate: assignEquipment, isPending } = useAssignEquipmentToClient();
-
-  // Filter equipment based on search and availability
-  const filteredEquipment = availableEquipment.filter(item => 
-    (item.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-     item.type?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-     item.model?.toLowerCase().includes(searchTerm.toLowerCase())) &&
-    !item.assigned_customer_id // Only show unassigned equipment
-  );
-
-  // Separate CPE and Network equipment
-  const cpeEquipment = filteredEquipment.filter(item => item.category === 'CPE');
-  const networkEquipment = filteredEquipment.filter(item => 
-    item.category === 'Network Hardware' || item.is_network_equipment
-  );
+  const [selectedClientId, setSelectedClientId] = useState('');
+  const { clients, isLoading: clientsLoading } = useClients();
+  const { deployEquipment, isDeploying } = useAssignEquipmentToClient();
 
   const handleAssign = () => {
-    if (!selectedEquipmentId) return;
-
-    assignEquipment(
-      { 
-        itemId: selectedEquipmentId, 
-        clientId, 
-        clientName 
-      },
-      {
-        onSuccess: () => {
-          onOpenChange(false);
-          setSelectedEquipmentId('');
-          setSearchTerm('');
-        },
-      }
-    );
+    if (selectedClientId && equipment) {
+      deployEquipment({
+        equipmentId: equipment.id,
+        clientId: selectedClientId
+      });
+      onOpenChange(false);
+    }
   };
 
-  const getEquipmentIcon = (category: string, isNetworkEquipment?: boolean) => {
-    if (category === 'CPE') return <Package className="h-4 w-4" />;
-    if (category === 'Network Hardware' || isNetworkEquipment) return <Network className="h-4 w-4" />;
-    return <Router className="h-4 w-4" />;
-  };
+  // Filter out equipment that's already assigned
+  const isEquipmentAssigned = equipment?.client_id;
 
-  const getEquipmentBadge = (category: string, isNetworkEquipment?: boolean) => {
-    if (category === 'CPE') return <Badge variant="outline">CPE</Badge>;
-    if (category === 'Network Hardware' || isNetworkEquipment) return <Badge variant="default">Network</Badge>;
-    return <Badge variant="secondary">Other</Badge>;
-  };
+  // Filter clients to exclude those with existing equipment assignments
+  const activeClients = clients.filter(client => client.status === 'active');
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-2xl">
         <DialogHeader>
-          <DialogTitle>Assign Equipment to {clientName}</DialogTitle>
-          <DialogDescription>
-            Select equipment to assign to this client. Network equipment will be fully integrated with RADIUS and monitoring systems.
-          </DialogDescription>
+          <DialogTitle>Assign Equipment to Client</DialogTitle>
         </DialogHeader>
 
         <div className="space-y-4">
           <div>
-            <Label htmlFor="search">Search Equipment</Label>
-            <Input
-              id="search"
-              placeholder="Search by name, type, or model..."
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-            />
+            <Label>Equipment Details</Label>
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <strong>Type:</strong> {equipment?.type}
+              </div>
+              <div>
+                <strong>Model:</strong> {equipment?.model || 'N/A'}
+              </div>
+              <div>
+                <strong>Serial Number:</strong> {equipment?.serial_number || 'N/A'}
+              </div>
+              <div>
+                <strong>Status:</strong> {equipment?.status}
+              </div>
+            </div>
           </div>
 
           <div>
-            <Label>Available Equipment</Label>
-            <div className="max-h-96 overflow-y-auto border rounded-lg p-2 space-y-2">
-              {/* CPE Equipment Section */}
-              {cpeEquipment.length > 0 && (
-                <div>
-                  <div className="text-sm font-medium text-muted-foreground mb-2 flex items-center gap-2">
-                    <Package className="h-4 w-4" />
-                    Customer Premises Equipment (CPE)
-                  </div>
-                  {cpeEquipment.map((item) => (
-                    <div
-                      key={item.id}
-                      className={`p-3 border rounded cursor-pointer transition-colors ${
-                        selectedEquipmentId === item.id 
-                          ? 'border-primary bg-primary/5' 
-                          : 'hover:border-primary/50'
-                      }`}
-                      onClick={() => setSelectedEquipmentId(item.id)}
-                    >
-                      <div className="flex items-center justify-between">
-                        <div className="flex items-center gap-3">
-                          {getEquipmentIcon(item.category, item.is_network_equipment)}
-                          <div>
-                            <div className="font-medium">
-                              {item.name || item.type}
-                            </div>
-                            <div className="text-sm text-muted-foreground">
-                              {item.manufacturer} {item.model}
-                            </div>
-                            {item.serial_number && (
-                              <div className="text-xs text-muted-foreground font-mono">
-                                SN: {item.serial_number}
-                              </div>
-                            )}
-                          </div>
-                        </div>
-                        <div className="flex flex-col items-end gap-1">
-                          {getEquipmentBadge(item.category, item.is_network_equipment)}
-                          <Badge variant="outline" className="text-xs">
-                            {item.status}
-                          </Badge>
-                        </div>
-                      </div>
+            <Label htmlFor="client-select">Select Client</Label>
+            <Select value={selectedClientId} onValueChange={setSelectedClientId}>
+              <SelectTrigger>
+                <SelectValue placeholder="Choose a client..." />
+              </SelectTrigger>
+              <SelectContent>
+                {activeClients.map((client) => (
+                  <SelectItem key={client.id} value={client.id}>
+                    <div className="flex flex-col">
+                      <span className="font-medium">{client.name}</span>
+                      <span className="text-sm text-muted-foreground">
+                        {client.phone} • {client.address}
+                      </span>
                     </div>
-                  ))}
-                </div>
-              )}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
 
-              {/* Network Equipment Section */}
-              {networkEquipment.length > 0 && (
-                <div>
-                  <div className="text-sm font-medium text-muted-foreground mb-2 flex items-center gap-2">
-                    <Network className="h-4 w-4" />
-                    Network Equipment (Full Integration)
-                  </div>
-                  {networkEquipment.map((item) => (
-                    <div
-                      key={item.id}
-                      className={`p-3 border rounded cursor-pointer transition-colors ${
-                        selectedEquipmentId === item.id 
-                          ? 'border-primary bg-primary/5' 
-                          : 'hover:border-primary/50'
-                      }`}
-                      onClick={() => setSelectedEquipmentId(item.id)}
-                    >
-                      <div className="flex items-center justify-between">
-                        <div className="flex items-center gap-3">
-                          {getEquipmentIcon(item.category, item.is_network_equipment)}
-                          <div>
-                            <div className="font-medium">
-                              {item.name || item.type}
-                            </div>
-                            <div className="text-sm text-muted-foreground">
-                              {item.manufacturer} {item.model}
-                            </div>
-                            {item.ip_address && (
-                              <div className="text-xs text-muted-foreground font-mono">
-                                IP: {item.ip_address}
-                              </div>
-                            )}
-                            {item.serial_number && (
-                              <div className="text-xs text-muted-foreground font-mono">
-                                SN: {item.serial_number}
-                              </div>
-                            )}
-                          </div>
-                        </div>
-                        <div className="flex flex-col items-end gap-1">
-                          {getEquipmentBadge(item.category, item.is_network_equipment)}
-                          <Badge variant="outline" className="text-xs">
-                            {item.status}
-                          </Badge>
-                          {item.is_network_equipment && (
-                            <Badge variant="secondary" className="text-xs">
-                              Auto-Deploy
-                            </Badge>
-                          )}
-                        </div>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              )}
-
-              {filteredEquipment.length === 0 && (
-                <div className="text-center py-8 text-muted-foreground">
-                  <Package className="h-8 w-8 mx-auto mb-2" />
-                  <p>No available equipment found</p>
-                  {searchTerm && (
-                    <p className="text-sm">Try adjusting your search terms</p>
-                  )}
-                </div>
-              )}
-            </div>
+          <div className="flex justify-end gap-2">
+            <Button variant="outline" onClick={() => onOpenChange(false)}>
+              Cancel
+            </Button>
+            <Button 
+              onClick={handleAssign}
+              disabled={!selectedClientId || isDeploying}
+            >
+              {isDeploying ? 'Assigning...' : 'Assign Equipment'}
+            </Button>
           </div>
         </div>
-
-        <DialogFooter>
-          <Button variant="outline" onClick={() => onOpenChange(false)}>
-            Cancel
-          </Button>
-          <Button 
-            onClick={handleAssign} 
-            disabled={!selectedEquipmentId || isPending}
-          >
-            {isPending ? 'Assigning...' : 'Assign Equipment'}
-          </Button>
-        </DialogFooter>
       </DialogContent>
     </Dialog>
   );

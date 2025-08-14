@@ -1,282 +1,180 @@
 
 import React, { useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
-import { Textarea } from '@/components/ui/textarea';
-import { Label } from '@/components/ui/label';
-import { useTechnicalInstallations } from '@/hooks/useTechnicalInstallations';
-import { useUsers } from '@/hooks/useUsers';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { CheckCircle, Clock, User, Phone, MapPin, Calendar, Wrench, FileText } from 'lucide-react';
+import { Badge } from '@/components/ui/badge';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Calendar, MapPin, User, Wrench, CheckCircle, Clock, AlertCircle } from 'lucide-react';
+import { useClients } from '@/hooks/useClients';
+import { useAuth } from '@/contexts/AuthContext';
 
-const TechnicalInstallationManager: React.FC = () => {
-  const { installations, isLoading, assignTechnician, completeInstallation, isAssigning, isCompleting } = useTechnicalInstallations();
-  const { users } = useUsers();
-  const [selectedInstallation, setSelectedInstallation] = useState<any>(null);
-  const [showAssignDialog, setShowAssignDialog] = useState(false);
-  const [showCompleteDialog, setShowCompleteDialog] = useState(false);
-  const [selectedTechnician, setSelectedTechnician] = useState('');
-  const [completionNotes, setCompletionNotes] = useState('');
+const TechnicalInstallationManager = () => {
+  const { clients, isLoading } = useClients();
+  const { profile } = useAuth();
+  const [activeTab, setActiveTab] = useState('pending');
 
-  const getStatusBadgeVariant = (status: string) => {
+  // Filter clients based on installation status
+  const pendingInstallations = clients.filter(client => 
+    client.status === 'approved' && client.installation_status === 'pending'
+  );
+  
+  const inProgressInstallations = clients.filter(client => 
+    client.installation_status === 'in_progress'
+  );
+  
+  const completedInstallations = clients.filter(client => 
+    client.installation_status === 'completed'
+  );
+
+  const getStatusIcon = (status: string) => {
     switch (status) {
-      case 'completed':
-        return 'default'; // Using default instead of success
-      case 'assigned':
-        return 'secondary';
       case 'pending':
-        return 'outline';
+        return <Clock className="h-4 w-4" />;
+      case 'in_progress':
+        return <Wrench className="h-4 w-4" />;
+      case 'completed':
+        return <CheckCircle className="h-4 w-4" />;
       default:
-        return 'secondary';
+        return <AlertCircle className="h-4 w-4" />;
     }
   };
 
-  const getInstallationStatusBadgeVariant = (status: string) => {
+  const getStatusBadge = (status: string) => {
     switch (status) {
-      case 'completed':
-        return 'default';
-      case 'scheduled':
-        return 'secondary';
       case 'pending':
-        return 'outline';
+        return <Badge variant="secondary">Pending Installation</Badge>;
+      case 'in_progress':
+        return <Badge variant="default">In Progress</Badge>;
+      case 'completed':
+        return <Badge variant="outline" className="border-green-500 text-green-600">Completed</Badge>;
       default:
-        return 'secondary';
+        return <Badge variant="destructive">Unknown</Badge>;
     }
   };
 
-  const handleAssignTechnician = () => {
-    if (selectedInstallation && selectedTechnician) {
-      assignTechnician({
-        installationId: selectedInstallation.id,
-        technicianId: selectedTechnician
-      });
-      setShowAssignDialog(false);
-      setSelectedTechnician('');
-    }
-  };
-
-  const handleCompleteInstallation = () => {
-    if (selectedInstallation) {
-      completeInstallation({
-        installationId: selectedInstallation.id,
-        notes: completionNotes
-      });
-      setShowCompleteDialog(false);
-      setCompletionNotes('');
-    }
-  };
-
-  // Filter for technicians using correct role values
-  const technicians = users?.filter(user => 
-    user.role === 'technician' || user.role === 'network_engineer' || user.role === 'infrastructure_manager'
-  ) || [];
+  const renderInstallationCard = (client: any) => (
+    <Card key={client.id} className="mb-4">
+      <CardContent className="p-4">
+        <div className="flex items-start justify-between">
+          <div className="flex items-start gap-3">
+            {getStatusIcon(client.installation_status)}
+            <div className="flex-1">
+              <div className="flex items-center gap-2 mb-2">
+                <h3 className="font-medium">{client.name}</h3>
+                {getStatusBadge(client.installation_status)}
+              </div>
+              <div className="space-y-1 text-sm text-muted-foreground">
+                <div className="flex items-center gap-2">
+                  <User className="h-3 w-3" />
+                  <span>{client.phone}</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <MapPin className="h-3 w-3" />
+                  <span>{client.address}, {client.sub_county}, {client.county}</span>
+                </div>
+                {client.installation_date && (
+                  <div className="flex items-center gap-2">
+                    <Calendar className="h-3 w-3" />
+                    <span>Scheduled: {new Date(client.installation_date).toLocaleDateString()}</span>
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+          <div className="flex gap-2">
+            {client.installation_status === 'pending' && (
+              <Button size="sm" variant="outline">
+                Schedule Installation
+              </Button>
+            )}
+            {client.installation_status === 'in_progress' && (
+              <Button size="sm">
+                Mark Complete
+              </Button>
+            )}
+            <Button size="sm" variant="ghost">
+              View Details
+            </Button>
+          </div>
+        </div>
+      </CardContent>
+    </Card>
+  );
 
   if (isLoading) {
     return (
-      <div className="flex items-center justify-center h-64">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-gray-900 mx-auto mb-4"></div>
-          <p>Loading installations...</p>
-        </div>
-      </div>
+      <Card>
+        <CardContent className="p-6">
+          <div className="text-center">Loading installations...</div>
+        </CardContent>
+      </Card>
     );
   }
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <h2 className="text-2xl font-bold">Technical Installation Management</h2>
-        <div className="flex items-center gap-4">
-          <Badge variant="outline" className="gap-2">
-            <Clock className="h-3 w-3" />
-            {installations.filter(i => i.status === 'pending').length} Pending
-          </Badge>
-          <Badge variant="secondary" className="gap-2">
-            <User className="h-3 w-3" />
-            {installations.filter(i => i.status === 'assigned').length} Assigned
-          </Badge>
-          <Badge variant="default" className="gap-2">
-            <CheckCircle className="h-3 w-3" />
-            {installations.filter(i => i.status === 'completed').length} Completed
-          </Badge>
-        </div>
-      </div>
-
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-        {installations.map((installation) => (
-          <Card key={installation.id} className="hover:shadow-lg transition-shadow">
-            <CardHeader className="pb-3">
-              <div className="flex items-center justify-between">
-                <CardTitle className="text-lg">{installation.clients?.name}</CardTitle>
-                <Badge variant={getStatusBadgeVariant(installation.status)}>
-                  {installation.status}
-                </Badge>
-              </div>
-            </CardHeader>
-            <CardContent className="space-y-3">
-              <div className="space-y-2">
-                <div className="flex items-center gap-2 text-sm">
-                  <Phone className="h-3 w-3 text-muted-foreground" />
-                  {installation.clients?.phone}
-                </div>
-                <div className="flex items-center gap-2 text-sm">
-                  <MapPin className="h-3 w-3 text-muted-foreground" />
-                  {installation.clients?.address}
-                </div>
-                <div className="flex items-center gap-2 text-sm">
-                  <Calendar className="h-3 w-3 text-muted-foreground" />
-                  {installation.installation_date ? 
-                    new Date(installation.installation_date).toLocaleDateString() : 
-                    'Not scheduled'
-                  }
-                </div>
-              </div>
-
-              {installation.technician && (
-                <div className="flex items-center gap-2 text-sm">
-                  <User className="h-3 w-3 text-muted-foreground" />
-                  {installation.technician.first_name} {installation.technician.last_name}
-                </div>
-              )}
-
-              <div className="flex gap-2 pt-2">
-                {installation.status === 'pending' && (
-                  <Button 
-                    size="sm" 
-                    variant="outline"
-                    onClick={() => {
-                      setSelectedInstallation(installation);
-                      setShowAssignDialog(true);
-                    }}
-                    className="flex items-center gap-1"
-                  >
-                    <User className="h-3 w-3" />
-                    Assign
-                  </Button>
-                )}
-                
-                {installation.status === 'assigned' && (
-                  <Button 
-                    size="sm"
-                    onClick={() => {
-                      setSelectedInstallation(installation);
-                      setShowCompleteDialog(true);
-                    }}
-                    className="flex items-center gap-1"
-                  >
-                    <CheckCircle className="h-3 w-3" />
-                    Complete
-                  </Button>
-                )}
-              </div>
-            </CardContent>
-          </Card>
-        ))}
-      </div>
-
-      {installations.length === 0 && (
-        <div className="text-center py-12">
-          <Wrench className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
-          <h3 className="text-lg font-medium">No installations found</h3>
-          <p className="text-muted-foreground">
-            No technical installations are currently scheduled.
-          </p>
-        </div>
-      )}
-
-      {/* Assign Technician Dialog */}
-      <Dialog open={showAssignDialog} onOpenChange={setShowAssignDialog}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Assign Technician</DialogTitle>
-          </DialogHeader>
-          <div className="space-y-4">
-            <div>
-              <Label htmlFor="client-info">Client</Label>
-              <p className="text-sm text-muted-foreground">
-                {selectedInstallation?.clients?.name} - {selectedInstallation?.clients?.phone}
-              </p>
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <Wrench className="h-5 w-5" />
+            Technical Installation Management
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="grid grid-cols-3 gap-4 mb-6">
+            <div className="text-center">
+              <div className="text-2xl font-bold text-orange-600">{pendingInstallations.length}</div>
+              <div className="text-sm text-muted-foreground">Pending Installations</div>
             </div>
-            <div>
-              <Label htmlFor="technician-select">Select Technician</Label>
-              <Select value={selectedTechnician} onValueChange={setSelectedTechnician}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Choose a technician" />
-                </SelectTrigger>
-                <SelectContent>
-                  {technicians.map((tech) => (
-                    <SelectItem key={tech.id} value={tech.id}>
-                      {tech.first_name} {tech.last_name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+            <div className="text-center">
+              <div className="text-2xl font-bold text-blue-600">{inProgressInstallations.length}</div>
+              <div className="text-sm text-muted-foreground">In Progress</div>
+            </div>
+            <div className="text-center">
+              <div className="text-2xl font-bold text-green-600">{completedInstallations.length}</div>
+              <div className="text-sm text-muted-foreground">Completed</div>
             </div>
           </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setShowAssignDialog(false)}>
-              Cancel
-            </Button>
-            <Button 
-              onClick={handleAssignTechnician}
-              disabled={!selectedTechnician || isAssigning}
-            >
-              {isAssigning ? 'Assigning...' : 'Assign Technician'}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
 
-      {/* Complete Installation Dialog */}
-      <Dialog open={showCompleteDialog} onOpenChange={setShowCompleteDialog}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Complete Installation</DialogTitle>
-          </DialogHeader>
-          <div className="space-y-4">
-            <div>
-              <Label htmlFor="client-info">Client</Label>
-              <p className="text-sm text-muted-foreground">
-                {selectedInstallation?.clients?.name} - {selectedInstallation?.clients?.phone}
-              </p>
-            </div>
-            <div>
-              <Label htmlFor="completion-notes">Completion Notes</Label>
-              <Textarea
-                id="completion-notes"
-                placeholder="Add any notes about the installation completion..."
-                value={completionNotes}
-                onChange={(e) => setCompletionNotes(e.target.value)}
-                rows={4}
-              />
-            </div>
-          </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setShowCompleteDialog(false)}>
-              Cancel
-            </Button>
-            <Button 
-              onClick={handleCompleteInstallation}
-              disabled={isCompleting}
-              className="flex items-center gap-2"
-            >
-              {isCompleting ? (
-                <>
-                  <div className="animate-spin rounded-full h-3 w-3 border-b-2 border-white"></div>
-                  Completing...
-                </>
+          <Tabs value={activeTab} onValueChange={setActiveTab}>
+            <TabsList className="grid w-full grid-cols-3">
+              <TabsTrigger value="pending">Pending ({pendingInstallations.length})</TabsTrigger>
+              <TabsTrigger value="in-progress">In Progress ({inProgressInstallations.length})</TabsTrigger>
+              <TabsTrigger value="completed">Completed ({completedInstallations.length})</TabsTrigger>
+            </TabsList>
+
+            <TabsContent value="pending" className="mt-4">
+              {pendingInstallations.length > 0 ? (
+                pendingInstallations.map(renderInstallationCard)
               ) : (
-                <>
-                  <CheckCircle className="h-3 w-3" />
-                  Complete Installation
-                </>
+                <div className="text-center py-8 text-muted-foreground">
+                  No pending installations
+                </div>
               )}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+            </TabsContent>
+
+            <TabsContent value="in-progress" className="mt-4">
+              {inProgressInstallations.length > 0 ? (
+                inProgressInstallations.map(renderInstallationCard)
+              ) : (
+                <div className="text-center py-8 text-muted-foreground">
+                  No installations in progress
+                </div>
+              )}
+            </TabsContent>
+
+            <TabsContent value="completed" className="mt-4">
+              {completedInstallations.length > 0 ? (
+                completedInstallations.map(renderInstallationCard)
+              ) : (
+                <div className="text-center py-8 text-muted-foreground">
+                  No completed installations
+                </div>
+              )}
+            </TabsContent>
+          </Tabs>
+        </CardContent>
+      </Card>
     </div>
   );
 };

@@ -2,7 +2,6 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
-import { clientOnboardingService } from '@/services/clientOnboardingService';
 
 export interface Equipment {
   id: string;
@@ -19,24 +18,6 @@ export interface Equipment {
   updated_at: string;
   client_id?: string;
   ip_address?: string;
-  category?: string;
-  is_network_equipment?: boolean;
-  assigned_customer_id?: string;
-  item_id?: string;
-  assignment_date?: string;
-  equipment_id?: string;
-  cost?: number;
-  supplier?: string;
-  purchase_date?: string;
-  warranty_expiry_date?: string;
-  item_sku?: string;
-  quantity_in_stock?: number;
-  reorder_level?: number;
-  unit_cost?: number;
-  capacity?: string;
-  installation_date?: string;
-  subnet_mask?: string;
-  manufacturer?: string;
   location?: string;
   clients?: {
     name: string;
@@ -45,7 +26,6 @@ export interface Equipment {
 }
 
 export interface InventoryItem extends Equipment {
-  location?: string;
   barcode?: string;
   length_meters?: number;
   location_start_lat?: number;
@@ -77,14 +57,20 @@ export const useInventory = () => {
     queryFn: async () => {
       const { data, error } = await supabase
         .from('equipment')
-        .select('*')
+        .select(`
+          *,
+          clients:client_id (
+            name,
+            phone
+          )
+        `)
         .order('created_at', { ascending: false });
 
       if (error) throw error;
       return data.map(item => ({
         ...item,
         name: item.type || item.model || 'Unknown Equipment',
-        manufacturer: item.brand || item.manufacturer || ''
+        location: item.location || 'Not specified'
       })) as Equipment[];
     },
   });
@@ -101,7 +87,7 @@ export const useInventory = () => {
       return data.map(item => ({
         ...item,
         deployed_date: item.assigned_at,
-        status: 'active',
+        status: 'active' as const,
         updated_at: item.created_at,
         return_date: null,
         notes: null
@@ -121,6 +107,7 @@ export const useInventory = () => {
           mac_address: equipmentData.mac_address || null,
           status: equipmentData.status || 'available',
           notes: equipmentData.notes || null,
+          location: equipmentData.location || null,
         })
         .select()
         .single();
@@ -299,7 +286,7 @@ export const useInventory = () => {
   };
 };
 
-// Additional hook implementations
+// Hook implementations
 export const useInventoryItems = (filter?: { status?: string }) => {
   const { equipment, equipmentLoading } = useInventory();
   const filteredEquipment = filter?.status 
@@ -367,7 +354,7 @@ export const usePromoteToNetworkEquipment = () => {
           notes: 'Promoted to network equipment',
           updated_at: new Date().toISOString()
         })
-        .eq('id', data.itemId);
+        .eq('id', data.equipmentId);
 
       if (error) throw error;
       return data;

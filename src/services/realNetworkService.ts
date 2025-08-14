@@ -27,7 +27,35 @@ interface ConnectivityTestResult {
   }[];
 }
 
+interface TestConnectionResult {
+  success: boolean;
+  latency?: number;
+  error?: string;
+  isDemoResult?: boolean;
+}
+
 class RealNetworkService {
+  private demoMode = true;
+
+  async testConnection(ipAddress: string, testType: 'ping' | 'snmp' | 'mikrotik' = 'ping'): Promise<TestConnectionResult> {
+    console.log(`Testing connection to ${ipAddress} using ${testType}`);
+    
+    // Simulate network test
+    const success = Math.random() > 0.2; // 80% success rate
+    const latency = success ? Math.floor(Math.random() * 50) + 10 : undefined;
+    
+    return {
+      success,
+      latency,
+      error: success ? undefined : 'Connection timeout',
+      isDemoResult: this.demoMode
+    };
+  }
+
+  getDemoModeStatus(): boolean {
+    return this.demoMode;
+  }
+
   async setupClientMonitoring(config: ClientMonitoringConfig): Promise<any> {
     console.log('Setting up client monitoring:', config);
     
@@ -93,10 +121,10 @@ class RealNetworkService {
 
     if (error) {
       console.error('Failed to get network stats:', error);
-      return null;
+      return [];
     }
 
-    return data;
+    return data || [];
   }
 
   async updateClientBandwidth(clientId: string, uploadSpeed: string, downloadSpeed: string): Promise<boolean> {
