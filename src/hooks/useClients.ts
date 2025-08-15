@@ -2,43 +2,10 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/hooks/use-toast';
+import { Client } from '@/types/client';
 
-export interface Client {
-  id: string;
-  name: string;
-  email?: string;
-  phone: string;
-  address: string;
-  county: string;
-  sub_county: string;
-  id_number: string;
-  kra_pin_number?: string;
-  mpesa_number?: string;
-  client_type: 'individual' | 'business';
-  connection_type: 'fiber' | 'wireless' | 'satellite';
-  status: 'pending' | 'approved' | 'active' | 'suspended' | 'cancelled';
-  monthly_rate: number;
-  balance?: number;
-  wallet_balance?: number;
-  subscription_start_date?: string;
-  subscription_end_date?: string;
-  installation_date?: string;
-  installation_status?: string;
-  service_package_id?: string;
-  latitude?: number;
-  longitude?: number;
-  isp_company_id?: string;
-  submitted_by?: string;
-  approved_by?: string;
-  approved_at?: string;
-  installation_completed_by?: string;
-  installation_completed_at?: string;
-  service_activated_at?: string;
-  subscription_type?: string;
-  is_active: boolean;
-  created_at: string;
-  updated_at: string;
-}
+// Export DatabaseClient as an alias for backward compatibility
+export type DatabaseClient = Client;
 
 export const useClients = () => {
   const { profile } = useAuth();

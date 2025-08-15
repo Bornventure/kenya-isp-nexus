@@ -12,14 +12,21 @@ import {
 } from 'lucide-react';
 import { useClients } from '@/hooks/useClients';
 import { useNetworkManagement } from '@/hooks/useNetworkManagement';
+import { useServicePackages } from '@/hooks/useServicePackages';
 import { useToast } from '@/hooks/use-toast';
 
 const ClientControlSection = () => {
   const { clients } = useClients();
+  const { servicePackages } = useServicePackages();
   const { disconnectClient, reconnectClient } = useNetworkManagement();
   const { toast } = useToast();
 
   const activeClients = clients.filter(client => client.status === 'active');
+
+  const getClientServicePackage = (servicePackageId?: string) => {
+    if (!servicePackageId) return null;
+    return servicePackages.find(pkg => pkg.id === servicePackageId);
+  };
 
   const handleDisconnect = async (clientId: string, clientName: string) => {
     const success = await disconnectClient(clientId);
@@ -58,47 +65,51 @@ const ClientControlSection = () => {
       </div>
 
       <div className="space-y-2">
-        {activeClients.map((client) => (
-          <Card key={client.id} className="p-4">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-3">
-                <Users className="h-5 w-5 text-blue-500" />
-                <div>
-                  <p className="font-medium">{client.name}</p>
-                  <p className="text-sm text-muted-foreground">
-                    {client.service_packages?.name || 'No Package'} - {client.service_packages?.speed || '10Mbps'}
-                  </p>
+        {activeClients.map((client) => {
+          const servicePackage = getClientServicePackage(client.service_package_id);
+          
+          return (
+            <Card key={client.id} className="p-4">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <Users className="h-5 w-5 text-blue-500" />
+                  <div>
+                    <p className="font-medium">{client.name}</p>
+                    <p className="text-sm text-muted-foreground">
+                      {servicePackage?.name || 'No Package'} - {servicePackage?.speed || '10Mbps'}
+                    </p>
+                  </div>
+                </div>
+                
+                <div className="flex items-center gap-2">
+                  <Badge variant={client.status === 'active' ? 'default' : 'secondary'}>
+                    {client.status}
+                  </Badge>
+                  
+                  {client.status === 'active' ? (
+                    <Button
+                      variant="destructive"
+                      size="sm"
+                      onClick={() => handleDisconnect(client.id, client.name)}
+                    >
+                      <WifiOff className="h-4 w-4 mr-1" />
+                      Disconnect
+                    </Button>
+                  ) : (
+                    <Button
+                      variant="default"
+                      size="sm"
+                      onClick={() => handleReconnect(client.id, client.name)}
+                    >
+                      <Wifi className="h-4 w-4 mr-1" />
+                      Reconnect
+                    </Button>
+                  )}
                 </div>
               </div>
-              
-              <div className="flex items-center gap-2">
-                <Badge variant={client.status === 'active' ? 'default' : 'secondary'}>
-                  {client.status}
-                </Badge>
-                
-                {client.status === 'active' ? (
-                  <Button
-                    variant="destructive"
-                    size="sm"
-                    onClick={() => handleDisconnect(client.id, client.name)}
-                  >
-                    <WifiOff className="h-4 w-4 mr-1" />
-                    Disconnect
-                  </Button>
-                ) : (
-                  <Button
-                    variant="default"
-                    size="sm"
-                    onClick={() => handleReconnect(client.id, client.name)}
-                  >
-                    <Wifi className="h-4 w-4 mr-1" />
-                    Reconnect
-                  </Button>
-                )}
-              </div>
-            </div>
-          </Card>
-        ))}
+            </Card>
+          );
+        })}
 
         {activeClients.length === 0 && (
           <Card className="p-8 text-center">

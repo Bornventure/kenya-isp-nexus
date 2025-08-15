@@ -4,7 +4,7 @@ import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/contexts/AuthContext';
-import { Client } from '@/types/client';
+import { Client, ClientType, ConnectionType, ClientStatus } from '@/types/client';
 
 export interface FormData {
   name: string;
@@ -18,8 +18,8 @@ export interface FormData {
   sub_county: string;
   latitude?: number;
   longitude?: number;
-  client_type: 'individual' | 'business' | 'corporate' | 'government';
-  connection_type: 'fiber' | 'wireless' | 'satellite' | 'dsl';
+  client_type: ClientType;
+  connection_type: ConnectionType;
   service_package_id: string;
   monthly_rate: number;
   installation_date?: string;
@@ -128,7 +128,7 @@ export const useClientRegistrationForm = ({ onClose, onSave }: { onClose: () => 
         connection_type: formData.connection_type,
         service_package_id: formData.service_package_id,
         monthly_rate: selectedPackage.monthly_rate,
-        status: 'pending' as const,
+        status: 'pending' as ClientStatus,
         balance: 0,
         wallet_balance: 0,
         is_active: false,

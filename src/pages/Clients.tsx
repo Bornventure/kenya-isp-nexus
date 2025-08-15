@@ -29,6 +29,7 @@ const Clients = () => {
       case 'active': return 'bg-green-100 text-green-800';
       case 'suspended': return 'bg-red-100 text-red-800';
       case 'pending': return 'bg-yellow-100 text-yellow-800';
+      case 'disconnected': return 'bg-gray-100 text-gray-800';
       default: return 'bg-gray-100 text-gray-800';
     }
   };
@@ -81,6 +82,7 @@ const Clients = () => {
             <SelectItem value="active">Active</SelectItem>
             <SelectItem value="suspended">Suspended</SelectItem>
             <SelectItem value="pending">Pending</SelectItem>
+            <SelectItem value="disconnected">Disconnected</SelectItem>
           </SelectContent>
         </Select>
       </div>

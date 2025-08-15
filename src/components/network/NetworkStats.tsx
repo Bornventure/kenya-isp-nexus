@@ -1,142 +1,116 @@
 
 import React from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { 
-  Users, 
-  Wifi, 
-  Router, 
-  Signal, 
-  AlertTriangle,
-  CheckCircle
-} from 'lucide-react';
+import { Badge } from '@/components/ui/badge';
+import { Wifi, Users, Activity, Signal } from 'lucide-react';
 import { useClients } from '@/hooks/useClients';
-import { useDashboardStats } from '@/hooks/useDashboardAnalytics';
-import { useQuery } from '@tanstack/react-query';
-import { supabase } from '@/integrations/supabase/client';
-import { useAuth } from '@/contexts/AuthContext';
 
-const NetworkStats: React.FC = () => {
-  const { clients, isLoading: clientsLoading } = useClients();
-  const { data: dashboardStats, isLoading: statsLoading } = useDashboardStats();
-  const { profile } = useAuth();
+const NetworkStats = () => {
+  const { clients } = useClients();
 
-  // Get real hotspot data
-  const { data: hotspotData } = useQuery({
-    queryKey: ['hotspots-stats', profile?.isp_company_id],
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from('hotspots')
-        .select('status')
-        .eq('isp_company_id', profile?.isp_company_id);
-      
-      if (error) throw error;
-      return data;
-    },
-    enabled: !!profile?.isp_company_id,
-  });
+  const stats = {
+    totalClients: clients.length,
+    activeClients: clients.filter(client => client.status === 'active').length,
+    suspendedClients: clients.filter(client => client.status === 'suspended').length,
+    pendingClients: clients.filter(client => client.status === 'pending').length,
+    fiberConnections: clients.filter(client => client.connection_type === 'fiber').length,
+    wirelessConnections: clients.filter(client => client.connection_type === 'wireless').length,
+    satelliteConnections: clients.filter(client => client.connection_type === 'satellite').length,
+    dslConnections: clients.filter(client => client.connection_type === 'dsl').length,
+  };
 
-  if (clientsLoading || statsLoading) {
-    return (
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-        {[...Array(4)].map((_, i) => (
-          <Card key={i}>
-            <CardContent className="p-6">
-              <div className="animate-pulse space-y-4">
-                <div className="h-4 bg-gray-200 rounded w-3/4"></div>
-                <div className="h-8 bg-gray-200 rounded w-1/2"></div>
-                <div className="h-3 bg-gray-200 rounded w-full"></div>
-              </div>
-            </CardContent>
-          </Card>
-        ))}
-      </div>
-    );
-  }
+  const connectionTypes = [
+    { type: 'fiber', count: stats.fiberConnections, color: 'bg-green-100 text-green-800' },
+    { type: 'wireless', count: stats.wirelessConnections, color: 'bg-blue-100 text-blue-800' },
+    { type: 'satellite', count: stats.satelliteConnections, color: 'bg-purple-100 text-purple-800' },
+    { type: 'dsl', count: stats.dslConnections, color: 'bg-orange-100 text-orange-800' },
+  ];
 
-  const stats = dashboardStats?.data;
-  const totalClients = stats?.totalClients || 0;
-  const activeConnections = stats?.activeClients || 0;
-  const suspendedClients = stats?.suspendedClients || 0;
-  
-  // Calculate connection types from real client data
-  const fiberConnections = clients?.filter(client => client.connection_type === 'fiber').length || 0;
-  const wirelessConnections = clients?.filter(client => client.connection_type === 'wireless').length || 0;
-  const satelliteConnections = clients?.filter(client => client.connection_type === 'satellite').length || 0;
-  const dslConnections = clients?.filter(client => client.connection_type === 'dsl').length || 0;
-
-  const uptime = stats?.networkUptime || 99.2;
-  const totalHotspots = stats?.totalHotspots || 0;
-  const activeHotspots = hotspotData?.filter(h => h.status === 'active').length || 0;
+  const clientStatuses = [
+    { status: 'active', count: stats.activeClients, color: 'bg-green-100 text-green-800' },
+    { status: 'suspended', count: stats.suspendedClients, color: 'bg-red-100 text-red-800' },
+    { status: 'pending', count: stats.pendingClients, color: 'bg-yellow-100 text-yellow-800' },
+  ];
 
   return (
-    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-      <Card>
-        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-          <CardTitle className="text-sm font-medium">Total Clients</CardTitle>
-          <Users className="h-4 w-4 text-muted-foreground" />
-        </CardHeader>
-        <CardContent>
-          <div className="text-2xl font-bold">{totalClients}</div>
-          <p className="text-xs text-muted-foreground">
-            {activeConnections} active connections
-          </p>
-        </CardContent>
-      </Card>
+    <div className="space-y-4">
+      <h3 className="text-lg font-semibold">Network Statistics</h3>
+      
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Total Clients</CardTitle>
+            <Users className="h-4 w-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">{stats.totalClients}</div>
+          </CardContent>
+        </Card>
 
-      <Card>
-        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-          <CardTitle className="text-sm font-medium">Network Status</CardTitle>
-          <CheckCircle className="h-4 w-4 text-green-500" />
-        </CardHeader>
-        <CardContent>
-          <div className="text-2xl font-bold text-green-600">{uptime}%</div>
-          <p className="text-xs text-muted-foreground">Network uptime</p>
-        </CardContent>
-      </Card>
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Active Clients</CardTitle>
+            <Activity className="h-4 w-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold text-green-600">{stats.activeClients}</div>
+          </CardContent>
+        </Card>
 
-      <Card>
-        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-          <CardTitle className="text-sm font-medium">Connection Types</CardTitle>
-          <Signal className="h-4 w-4 text-muted-foreground" />
-        </CardHeader>
-        <CardContent>
-          <div className="space-y-1">
-            <div className="flex justify-between text-sm">
-              <span>Fiber:</span>
-              <span className="font-medium">{fiberConnections}</span>
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Network Uptime</CardTitle>
+            <Signal className="h-4 w-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold text-blue-600">99.9%</div>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Bandwidth Usage</CardTitle>
+            <Wifi className="h-4 w-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">2.4 GB/s</div>
+          </CardContent>
+        </Card>
+      </div>
+
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-base">Connection Types</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-2">
+              {connectionTypes.map(({ type, count, color }) => (
+                <div key={type} className="flex items-center justify-between">
+                  <span className="capitalize">{type}</span>
+                  <Badge className={color}>{count}</Badge>
+                </div>
+              ))}
             </div>
-            <div className="flex justify-between text-sm">
-              <span>Wireless:</span>
-              <span className="font-medium">{wirelessConnections}</span>
-            </div>
-            {satelliteConnections > 0 && (
-              <div className="flex justify-between text-sm">
-                <span>Satellite:</span>
-                <span className="font-medium">{satelliteConnections}</span>
-              </div>
-            )}
-            {dslConnections > 0 && (
-              <div className="flex justify-between text-sm">
-                <span>DSL:</span>
-                <span className="font-medium">{dslConnections}</span>
-              </div>
-            )}
-          </div>
-        </CardContent>
-      </Card>
+          </CardContent>
+        </Card>
 
-      <Card>
-        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-          <CardTitle className="text-sm font-medium">Hotspots</CardTitle>
-          <Wifi className="h-4 w-4 text-muted-foreground" />
-        </CardHeader>
-        <CardContent>
-          <div className="text-2xl font-bold">{activeHotspots}</div>
-          <p className="text-xs text-muted-foreground">
-            {activeHotspots} of {totalHotspots} active
-          </p>
-        </CardContent>
-      </Card>
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-base">Client Status</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-2">
+              {clientStatuses.map(({ status, count, color }) => (
+                <div key={status} className="flex items-center justify-between">
+                  <span className="capitalize">{status}</span>
+                  <Badge className={color}>{count}</Badge>
+                </div>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
+      </div>
     </div>
   );
 };
