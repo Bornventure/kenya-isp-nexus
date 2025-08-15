@@ -8,6 +8,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { useClients } from '@/hooks/useClients';
 import { useServicePackages } from '@/hooks/useServicePackages';
 import { useAuth } from '@/contexts/AuthContext';
+import { Client, ClientType, ConnectionType } from '@/types/client';
 
 interface CustomerRegistrationFormProps {
   onClose: () => void;
@@ -28,8 +29,8 @@ const CustomerRegistrationForm: React.FC<CustomerRegistrationFormProps> = ({ onC
     address: '',
     county: '',
     sub_county: '',
-    client_type: 'individual' as const,
-    connection_type: 'fiber' as const,
+    client_type: 'individual' as ClientType,
+    connection_type: 'fiber' as ConnectionType,
     service_package_id: '',
     monthly_rate: 0,
   });
@@ -42,27 +43,66 @@ const CustomerRegistrationForm: React.FC<CustomerRegistrationFormProps> = ({ onC
       return;
     }
     
-    const clientData = {
-      ...formData,
-      status: 'pending' as const,
+    // Create client data that matches the Client interface exactly
+    const clientData: Omit<Client, 'id' | 'created_at' | 'updated_at' | 'isp_company_id'> = {
+      name: formData.name,
+      email: formData.email || undefined,
+      phone: formData.phone,
+      id_number: formData.id_number,
+      kra_pin_number: undefined,
+      mpesa_number: formData.mpesa_number || undefined,
+      address: formData.address,
+      county: formData.county,
+      sub_county: formData.sub_county,
+      latitude: undefined,
+      longitude: undefined,
+      client_type: formData.client_type,
+      connection_type: formData.connection_type,
+      monthly_rate: formData.monthly_rate,
+      status: 'pending',
+      service_package_id: formData.service_package_id || undefined,
       balance: 0,
       wallet_balance: 0,
+      subscription_start_date: undefined,
+      subscription_end_date: undefined,
       subscription_type: 'monthly',
       is_active: false,
-      submitted_by: 'sales',
-      latitude: null,
-      longitude: null,
-      kra_pin_number: null,
-      installation_date: null,
-      subscription_start_date: null,
-      subscription_end_date: null,
-      approved_by: null,
-      approved_at: null,
-      installation_status: null,
-      installation_completed_by: null,
-      installation_completed_at: null,
-      service_activated_at: null,
-      isp_company_id: profile.isp_company_id,
+      submitted_by: profile?.id,
+      approved_by: undefined,
+      approved_at: undefined,
+      installation_status: 'pending',
+      installation_completed_by: undefined,
+      installation_completed_at: undefined,
+      service_activated_at: undefined,
+      installation_date: undefined,
+      
+      // Legacy camelCase properties for backwards compatibility
+      clientType: formData.client_type,
+      connectionType: formData.connection_type,
+      servicePackage: undefined,
+      monthlyRate: formData.monthly_rate,
+      installationDate: undefined,
+      idNumber: formData.id_number,
+      kraPinNumber: undefined,
+      mpesaNumber: formData.mpesa_number || undefined,
+      
+      // Nested objects
+      location: {
+        address: formData.address,
+        county: formData.county,
+        subCounty: formData.sub_county,
+      },
+      
+      equipment: {
+        serialNumbers: [],
+      },
+      
+      service_packages: undefined,
+      equipment_assignments: [],
+      lastPayment: undefined,
+      payments: [],
+      invoices: [],
+      supportTickets: [],
     };
     
     createClient(clientData);
@@ -164,7 +204,7 @@ const CustomerRegistrationForm: React.FC<CustomerRegistrationFormProps> = ({ onC
               <select
                 id="client_type"
                 value={formData.client_type}
-                onChange={(e) => setFormData(prev => ({ ...prev, client_type: e.target.value as any }))}
+                onChange={(e) => setFormData(prev => ({ ...prev, client_type: e.target.value as ClientType }))}
                 className="w-full p-2 border rounded"
               >
                 <option value="individual">Individual</option>
@@ -179,7 +219,7 @@ const CustomerRegistrationForm: React.FC<CustomerRegistrationFormProps> = ({ onC
               <select
                 id="connection_type"
                 value={formData.connection_type}
-                onChange={(e) => setFormData(prev => ({ ...prev, connection_type: e.target.value as any }))}
+                onChange={(e) => setFormData(prev => ({ ...prev, connection_type: e.target.value as ConnectionType }))}
                 className="w-full p-2 border rounded"
               >
                 <option value="fiber">Fiber</option>
