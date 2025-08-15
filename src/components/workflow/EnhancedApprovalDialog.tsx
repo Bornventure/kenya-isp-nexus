@@ -1,214 +1,234 @@
 
 import React, { useState } from 'react';
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Textarea } from '@/components/ui/textarea';
-import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
-import { CheckCircle, Router, Package } from 'lucide-react';
-import { Client } from '@/types/client';
+import { Textarea } from '@/components/ui/textarea';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { CheckCircle, XCircle, Clock, User, Calendar, MapPin, Loader2 } from 'lucide-react';
+import { useClients } from '@/hooks/useClients';
 import { useEquipment } from '@/hooks/useEquipment';
-import { useInventoryItems } from '@/hooks/useInventory';
+import { Client } from '@/types/client';
+import { Equipment } from '@/types/equipment';
+import { useToast } from '@/hooks/use-toast';
 
-interface ApprovalDialogProps {
-  open: boolean;
-  onOpenChange: (open: boolean) => void;
+interface EnhancedApprovalDialogProps {
   client: Client;
-  onApprove: (clientId: string, notes: string) => Promise<void>;
-  onReject: (clientId: string, reason: string) => Promise<void>;
+  onClose: () => void;
+  onApprove: (clientId: string, notes?: string) => void;
+  onReject: (clientId: string, reason: string) => void;
 }
 
-export const EnhancedApprovalDialog: React.FC<ApprovalDialogProps> = ({
-  open,
-  onOpenChange,
+export const EnhancedApprovalDialog: React.FC<EnhancedApprovalDialogProps> = ({
   client,
+  onClose,
   onApprove,
   onReject,
 }) => {
   const [notes, setNotes] = useState('');
   const [rejectionReason, setRejectionReason] = useState('');
-  const [step, setStep] = useState<'review' | 'approve' | 'reject'>('review');
-  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isProcessing, setIsProcessing] = useState(false);
+  const [selectedEquipment, setSelectedEquipment] = useState<string>('');
+  
+  const { updateClient } = useClients();
+  const { equipment } = useEquipment();
+  const { toast } = useToast();
 
-  const { data: equipmentData } = useEquipment();
-  const { data: inventoryData } = useInventoryItems({});
-
-  // Safely handle equipment data
-  const availableEquipment = Array.isArray(equipmentData) 
-    ? equipmentData.filter(eq => eq.status === 'available')
-    : [];
-
-  const availableInventory = Array.isArray(inventoryData)
-    ? inventoryData.filter(item => item.status === 'In Stock')
+  // Filter available equipment (not assigned to clients)
+  const availableEquipment = Array.isArray(equipment) 
+    ? equipment.filter((eq: Equipment) => eq.status === 'available')
     : [];
 
   const handleApprove = async () => {
-    setIsSubmitting(true);
+    setIsProcessing(true);
     try {
       await onApprove(client.id, notes);
-      onOpenChange(false);
-      setStep('review');
-      setNotes('');
+      
+      // Update client status
+      updateClient({
+        id: client.id,
+        updates: {
+          status: 'approved',
+          approved_at: new Date().toISOString(),
+          notes: notes || undefined,
+        }
+      });
+
+      toast({
+        title: "Client Approved",
+        description: `${client.name} has been approved successfully.`,
+      });
+      
+      onClose();
     } catch (error) {
       console.error('Error approving client:', error);
+      toast({
+        title: "Error",
+        description: "Failed to approve client. Please try again.",
+        variant: "destructive",
+      });
     } finally {
-      setIsSubmitting(false);
+      setIsProcessing(false);
     }
   };
 
   const handleReject = async () => {
-    setIsSubmitting(true);
+    if (!rejectionReason.trim()) {
+      toast({
+        title: "Rejection Reason Required",
+        description: "Please provide a reason for rejection.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setIsProcessing(true);
     try {
       await onReject(client.id, rejectionReason);
-      onOpenChange(false);
-      setStep('review');
-      setRejectionReason('');
+      
+      // Update client status
+      updateClient({
+        id: client.id,
+        updates: {
+          status: 'pending',
+          rejection_reason: rejectionReason,
+          rejected_at: new Date().toISOString(),
+        }
+      });
+
+      toast({
+        title: "Client Rejected",
+        description: `${client.name} has been rejected.`,
+        variant: "destructive",
+      });
+      
+      onClose();
     } catch (error) {
       console.error('Error rejecting client:', error);
+      toast({
+        title: "Error",
+        description: "Failed to reject client. Please try again.",
+        variant: "destructive",
+      });
     } finally {
-      setIsSubmitting(false);
+      setIsProcessing(false);
     }
   };
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
-        <DialogHeader>
-          <DialogTitle className="flex items-center gap-2">
-            <CheckCircle className="h-5 w-5" />
-            Client Application Review - {client.name}
-          </DialogTitle>
-        </DialogHeader>
-
-        <div className="space-y-6">
-          {step === 'review' && (
-            <>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <div className="space-y-4">
-                  <h3 className="font-semibold">Client Information</h3>
-                  <div className="space-y-2 text-sm">
-                    <div><strong>Name:</strong> {client.name}</div>
-                    <div><strong>Email:</strong> {client.email}</div>
-                    <div><strong>Phone:</strong> {client.phone}</div>
-                    <div><strong>ID Number:</strong> {client.idNumber}</div>
-                    <div><strong>Type:</strong> {client.clientType}</div>
-                    <div><strong>Connection:</strong> {client.connectionType}</div>
-                  </div>
-                </div>
-
-                <div className="space-y-4">
-                  <h3 className="font-semibold">Service Details</h3>
-                  <div className="space-y-2 text-sm">
-                    <div><strong>Package:</strong> {client.servicePackage}</div>
-                    <div><strong>Monthly Rate:</strong> KES {client.monthlyRate.toLocaleString()}</div>
-                    <div><strong>Location:</strong> {client.location.address}</div>
-                    <div><strong>County:</strong> {client.location.county}</div>
-                  </div>
-                </div>
-              </div>
-
-              <div className="space-y-4">
-                <h3 className="font-semibold flex items-center gap-2">
-                  <Router className="h-4 w-4" />
-                  Available Equipment ({availableEquipment.length})
-                </h3>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-2 max-h-32 overflow-y-auto">
-                  {availableEquipment.map((equipment) => (
-                    <div key={equipment.id} className="flex items-center justify-between p-2 border rounded">
-                      <span className="text-sm">{equipment.type} - {equipment.brand}</span>
-                      <Badge variant="outline">Available</Badge>
-                    </div>
-                  ))}
-                </div>
-              </div>
-
-              <div className="space-y-4">
-                <h3 className="font-semibold flex items-center gap-2">
-                  <Package className="h-4 w-4" />
-                  Available Inventory ({availableInventory.length})
-                </h3>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-2 max-h-32 overflow-y-auto">
-                  {availableInventory.map((item) => (
-                    <div key={item.id} className="flex items-center justify-between p-2 border rounded">
-                      <span className="text-sm">{item.type} - {item.name}</span>
-                      <Badge variant="outline">In Stock</Badge>
-                    </div>
-                  ))}
-                </div>
-              </div>
-
-              <div className="flex gap-3 pt-4 border-t">
-                <Button 
-                  onClick={() => setStep('approve')}
-                  className="flex-1"
-                >
-                  Approve Application
-                </Button>
-                <Button 
-                  variant="destructive" 
-                  onClick={() => setStep('reject')}
-                  className="flex-1"
-                >
-                  Reject Application
-                </Button>
-              </div>
-            </>
-          )}
-
-          {step === 'approve' && (
-            <div className="space-y-4">
-              <h3 className="font-semibold">Approve Client Application</h3>
-              <div>
-                <Label htmlFor="approval-notes">Approval Notes</Label>
-                <Textarea
-                  id="approval-notes"
-                  value={notes}
-                  onChange={(e) => setNotes(e.target.value)}
-                  placeholder="Add any notes about the approval..."
-                  rows={4}
-                />
-              </div>
-              <div className="flex gap-3">
-                <Button onClick={() => setStep('review')} variant="outline">
-                  Back to Review
-                </Button>
-                <Button onClick={handleApprove} disabled={isSubmitting}>
-                  {isSubmitting ? 'Approving...' : 'Confirm Approval'}
-                </Button>
-              </div>
+    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+      <Card className="w-full max-w-2xl max-h-[90vh] overflow-y-auto">
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <User className="h-5 w-5" />
+            Client Approval - {client.name}
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-6">
+          {/* Client Information */}
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <h4 className="font-medium text-sm text-gray-600 mb-1">Name</h4>
+              <p className="text-sm">{client.name}</p>
             </div>
-          )}
-
-          {step === 'reject' && (
-            <div className="space-y-4">
-              <h3 className="font-semibold">Reject Client Application</h3>
-              <div>
-                <Label htmlFor="rejection-reason">Rejection Reason *</Label>
-                <Textarea
-                  id="rejection-reason"
-                  value={rejectionReason}
-                  onChange={(e) => setRejectionReason(e.target.value)}
-                  placeholder="Please provide a reason for rejection..."
-                  rows={4}
-                  required
-                />
-              </div>
-              <div className="flex gap-3">
-                <Button onClick={() => setStep('review')} variant="outline">
-                  Back to Review
-                </Button>
-                <Button 
-                  variant="destructive" 
-                  onClick={handleReject} 
-                  disabled={isSubmitting || !rejectionReason.trim()}
-                >
-                  {isSubmitting ? 'Rejecting...' : 'Confirm Rejection'}
-                </Button>
-              </div>
+            <div>
+              <h4 className="font-medium text-sm text-gray-600 mb-1">Phone</h4>
+              <p className="text-sm">{client.phone}</p>
             </div>
-          )}
-        </div>
-      </DialogContent>
-    </Dialog>
+            <div>
+              <h4 className="font-medium text-sm text-gray-600 mb-1">Email</h4>
+              <p className="text-sm">{client.email || 'Not provided'}</p>
+            </div>
+            <div>
+              <h4 className="font-medium text-sm text-gray-600 mb-1">Client Type</h4>
+              <Badge variant="secondary">{client.clientType}</Badge>
+            </div>
+            <div>
+              <h4 className="font-medium text-sm text-gray-600 mb-1">Connection Type</h4>
+              <Badge variant="outline">{client.connectionType}</Badge>
+            </div>
+            <div>
+              <h4 className="font-medium text-sm text-gray-600 mb-1">Monthly Rate</h4>
+              <p className="text-sm font-medium">KES {client.monthlyRate?.toLocaleString()}</p>
+            </div>
+          </div>
+
+          {/* Location Information */}
+          <div>
+            <h4 className="font-medium text-sm text-gray-600 mb-2 flex items-center gap-1">
+              <MapPin className="h-4 w-4" />
+              Location
+            </h4>
+            <p className="text-sm">{client.address}</p>
+            <p className="text-sm text-gray-600">{client.location?.county}, {client.location?.subCounty}</p>
+          </div>
+
+          {/* Equipment Assignment */}
+          <div>
+            <h4 className="font-medium text-sm text-gray-600 mb-2">Assign Equipment (Optional)</h4>
+            <Select value={selectedEquipment} onValueChange={setSelectedEquipment}>
+              <SelectTrigger>
+                <SelectValue placeholder="Select equipment to assign" />
+              </SelectTrigger>
+              <SelectContent>
+                {availableEquipment.map((eq: Equipment) => (
+                  <SelectItem key={eq.id} value={eq.id}>
+                    {eq.type} - {eq.brand} {eq.model} ({eq.serial_number})
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+
+          {/* Approval Notes */}
+          <div>
+            <h4 className="font-medium text-sm text-gray-600 mb-2">Approval Notes</h4>
+            <Textarea
+              placeholder="Add any notes about this approval..."
+              value={notes}
+              onChange={(e) => setNotes(e.target.value)}
+              rows={3}
+            />
+          </div>
+
+          {/* Rejection Reason */}
+          <div>
+            <h4 className="font-medium text-sm text-gray-600 mb-2">Rejection Reason (if rejecting)</h4>
+            <Textarea
+              placeholder="Provide reason for rejection..."
+              value={rejectionReason}
+              onChange={(e) => setRejectionReason(e.target.value)}
+              rows={3}
+            />
+          </div>
+
+          {/* Action Buttons */}
+          <div className="flex justify-end gap-3 pt-4 border-t">
+            <Button variant="outline" onClick={onClose} disabled={isProcessing}>
+              Cancel
+            </Button>
+            <Button 
+              variant="destructive" 
+              onClick={handleReject}
+              disabled={isProcessing}
+              className="gap-2"
+            >
+              {isProcessing ? <Loader2 className="h-4 w-4 animate-spin" /> : <XCircle className="h-4 w-4" />}
+              Reject
+            </Button>
+            <Button 
+              onClick={handleApprove}
+              disabled={isProcessing}
+              className="gap-2"
+            >
+              {isProcessing ? <Loader2 className="h-4 w-4 animate-spin" /> : <CheckCircle className="h-4 w-4" />}
+              Approve
+            </Button>
+          </div>
+        </CardContent>
+      </Card>
+    </div>
   );
 };
+
+export default EnhancedApprovalDialog;

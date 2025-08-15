@@ -1,9 +1,50 @@
 
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { Client } from '@/types/client';
+import { useToast } from '@/hooks/use-toast';
+
+export interface DatabaseClient {
+  id: string;
+  name: string;
+  email?: string;
+  phone: string;
+  address: string;
+  county: string;
+  sub_county: string;
+  id_number: string;
+  kra_pin_number?: string;
+  mpesa_number?: string;
+  client_type: 'individual' | 'business' | 'corporate' | 'government';
+  connection_type: 'fiber' | 'wireless' | 'satellite' | 'dsl';
+  monthly_rate: number;
+  status: 'pending' | 'approved' | 'active' | 'suspended' | 'disconnected';
+  service_package_id?: string;
+  latitude?: number;
+  longitude?: number;
+  isp_company_id: string;
+  created_at: string;
+  updated_at: string;
+  balance?: number;
+  wallet_balance?: number;
+  subscription_start_date?: string;
+  subscription_end_date?: string;
+  subscription_type?: string;
+  is_active?: boolean;
+  submitted_by?: string;
+  approved_by?: string;
+  approved_at?: string;
+  installation_status?: string;
+  installation_completed_by?: string;
+  installation_completed_at?: string;
+  service_activated_at?: string;
+  installation_date?: string;
+}
 
 export const useClients = () => {
+  const { toast } = useToast();
+  const queryClient = useQueryClient();
+
   const { data: clients = [], isLoading, error, refetch } = useQuery({
     queryKey: ['clients'],
     queryFn: async () => {
@@ -16,7 +57,6 @@ export const useClients = () => {
             name,
             speed,
             monthly_rate,
-            setup_fee,
             description,
             is_active,
             isp_company_id,
@@ -89,9 +129,76 @@ export const useClients = () => {
           } : undefined,
         },
 
-        service_packages: dbClient.service_packages,
+        service_packages: dbClient.service_packages || {
+          id: '',
+          name: 'Standard',
+          speed: '10Mbps',
+          monthly_rate: 2500,
+          description: 'Standard package',
+          is_active: true,
+          isp_company_id: dbClient.isp_company_id,
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString(),
+        },
         servicePackage: dbClient.service_packages?.name || 'Standard',
       }));
+    },
+  });
+
+  const createClient = useMutation({
+    mutationFn: async (clientData: Partial<DatabaseClient>) => {
+      const { data, error } = await supabase
+        .from('clients')
+        .insert(clientData)
+        .select()
+        .single();
+
+      if (error) throw error;
+      return data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['clients'] });
+      toast({
+        title: "Success",
+        description: "Client created successfully",
+      });
+    },
+    onError: (error) => {
+      toast({
+        title: "Error",
+        description: "Failed to create client",
+        variant: "destructive",
+      });
+      console.error('Error creating client:', error);
+    },
+  });
+
+  const updateClient = useMutation({
+    mutationFn: async ({ id, updates }: { id: string; updates: Partial<DatabaseClient> }) => {
+      const { data, error } = await supabase
+        .from('clients')
+        .update(updates)
+        .eq('id', id)
+        .select()
+        .single();
+
+      if (error) throw error;
+      return data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['clients'] });
+      toast({
+        title: "Success",
+        description: "Client updated successfully",
+      });
+    },
+    onError: (error) => {
+      toast({
+        title: "Error",
+        description: "Failed to update client",
+        variant: "destructive",
+      });
+      console.error('Error updating client:', error);
     },
   });
 
@@ -100,5 +207,9 @@ export const useClients = () => {
     isLoading,
     error,
     refetch,
+    createClient: createClient.mutate,
+    updateClient: updateClient.mutate,
+    isCreating: createClient.isPending,
+    isUpdating: updateClient.isPending,
   };
 };

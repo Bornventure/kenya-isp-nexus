@@ -1,3 +1,4 @@
+
 import React from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -34,7 +35,7 @@ const ClientRegistrationForm: React.FC<ClientRegistrationFormProps> = ({ onClose
       // Call the base submit function and get the result
       const result = await baseHandleSubmit(e);
       
-      // Check if result exists and has an id
+      // Check if result exists and has an id - handle both object and void returns
       if (result && typeof result === 'object' && 'id' in result && result.id) {
         // Initialize workflow for the new client
         await updateWorkflowStage({
@@ -51,6 +52,8 @@ const ClientRegistrationForm: React.FC<ClientRegistrationFormProps> = ({ onClose
         });
 
         console.log('Client workflow initialized:', result.id);
+      } else {
+        console.log('Client submitted, but no ID returned or void result');
       }
     } catch (error) {
       console.error('Error in client submission:', error);
@@ -78,7 +81,6 @@ const ClientRegistrationForm: React.FC<ClientRegistrationFormProps> = ({ onClose
   };
 
   const transformedUpdateFormData = (field: string, value: any) => {
-    // Transform component format back to database format
     const fieldMap: Record<string, string> = {
       idNumber: 'id_number',
       kraPinNumber: 'kra_pin_number',

@@ -1,11 +1,10 @@
+
 import { supabase } from '@/integrations/supabase/client';
 
-interface PaymentMonitoringRule {
-  client_id: string;
-  rule_type: string;
-  threshold_amount?: number;
-  threshold_days?: number;
-  is_active: boolean;
+export interface ClientActivationData {
+  clientId: string;
+  equipmentId?: string;
+  activationNotes?: string;
 }
 
 export class ClientActivationService {
@@ -49,7 +48,7 @@ export class ClientActivationService {
     }
   }
 
-  async activateClient(clientId: string): Promise<boolean> {
+  async activateClient(clientId: string): Promise<{ success: boolean; message?: string }> {
     try {
       console.log(`Starting client activation for ${clientId}`);
 
@@ -64,40 +63,7 @@ export class ClientActivationService {
 
       if (updateError) {
         console.error('Error updating client status:', updateError);
-        return false;
-      }
-
-      // Set up payment monitoring rules (insert one at a time)
-      const rules = [
-        {
-          client_id: clientId,
-          rule_type: 'overdue_payment',
-          threshold_amount: 0,
-          threshold_days: 7,
-          is_active: true,
-        },
-        {
-          client_id: clientId,
-          rule_type: 'low_balance',
-          threshold_amount: 100,
-          threshold_days: 0,
-          is_active: true,
-        }
-      ];
-
-      // Insert rules individually since batch insert is having issues
-      for (const rule of rules) {
-        const { error: ruleError } = await supabase
-          .from('payment_monitoring_rules')
-          .insert({
-            ...rule,
-            isp_company_id: await this.getCurrentUserCompanyId(),
-          });
-
-        if (ruleError) {
-          console.error('Error inserting payment monitoring rule:', ruleError);
-          // Continue with other rules even if one fails
-        }
+        return { success: false, message: 'Failed to update client status' };
       }
 
       // Send activation notification
@@ -125,11 +91,11 @@ export class ClientActivationService {
         });
 
       console.log(`Client ${clientId} activated successfully`);
-      return true;
+      return { success: true, message: 'Client activated successfully' };
 
     } catch (error) {
       console.error('Error activating client:', error);
-      return false;
+      return { success: false, message: 'Activation failed due to an error' };
     }
   }
 

@@ -121,7 +121,7 @@ class PaymentMonitoringService {
           changes: {
             invoice_number: invoice.invoice_number,
             amount: invoice.total_amount,
-          },
+          } as any,
         });
 
     } catch (error) {
@@ -153,17 +153,16 @@ class PaymentMonitoringService {
 
   async setupMonitoringRules(clientId: string, rules: PaymentMonitoringRule[]): Promise<void> {
     try {
-      // Since there's no payment_monitoring_rules table, we'll log this instead
+      // Log monitoring rules setup in audit_logs since payment_monitoring_rules table doesn't exist
       console.log(`Setting up monitoring rules for client ${clientId}:`, rules);
       
-      // Log in audit_logs for now
       await supabase
         .from('audit_logs')
         .insert({
           action: 'setup_payment_monitoring',
           resource: 'client',
           resource_id: clientId,
-          changes: { rules },
+          changes: { rules } as any,
         });
 
     } catch (error) {
@@ -198,23 +197,6 @@ class PaymentMonitoringService {
     try {
       console.log('Processing payment received:', paymentData);
       
-      // Update client balance if needed
-      if (paymentData.client_id) {
-        const { error: updateError } = await supabase
-          .from('clients')
-          .update({
-            wallet_balance: supabase.rpc('increment_balance', {
-              client_id: paymentData.client_id,
-              amount: paymentData.amount
-            })
-          })
-          .eq('id', paymentData.client_id);
-
-        if (updateError) {
-          console.error('Error updating client balance:', updateError);
-        }
-      }
-
       // Send payment confirmation
       await supabase.functions.invoke('send-auto-notifications', {
         body: {
