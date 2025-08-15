@@ -1,273 +1,190 @@
 
 import { supabase } from '@/integrations/supabase/client';
-import type { NetworkSession, ClientNetworkStatus } from '@/types/network';
 
-export type { NetworkSession, ClientNetworkStatus };
+interface NetworkMonitoringConfig {
+  enabled: boolean;
+  checkInterval: number; // in milliseconds
+  disconnectionThreshold: number; // in seconds
+}
 
 class LiveNetworkMonitoringService {
-  private monitoringInterval: NodeJS.Timeout | null = null;
-  private subscribers: Map<string, (status: ClientNetworkStatus) => void> = new Map();
+  private config: NetworkMonitoringConfig = {
+    enabled: false,
+    checkInterval: 60000, // 1 minute
+    disconnectionThreshold: 300, // 5 minutes
+  };
+  
+  private intervalId: NodeJS.Timeout | null = null;
+  private monitoredClients: Set<string> = new Set();
 
-  startMonitoring() {
-    if (this.monitoringInterval) return;
-
-    console.log('Starting live network monitoring...');
+  startMonitoring(): void {
+    if (this.config.enabled) return;
     
-    this.monitoringInterval = setInterval(async () => {
-      await this.updateNetworkStatistics();
-      await this.checkClientSessions();
-      await this.notifySubscribers();
-    }, 15000); // Update every 15 seconds
-
-    // Also start real-time subscription
-    this.setupRealtimeSubscription();
+    this.config.enabled = true;
+    console.log('Starting live network monitoring service...');
+    
+    this.intervalId = setInterval(() => {
+      this.performNetworkChecks();
+    }, this.config.checkInterval);
+    
+    // Initial check
+    this.performNetworkChecks();
   }
 
-  stopMonitoring() {
-    if (this.monitoringInterval) {
-      clearInterval(this.monitoringInterval);
-      this.monitoringInterval = null;
+  stopMonitoring(): void {
+    if (this.intervalId) {
+      clearInterval(this.intervalId);
+      this.intervalId = null;
     }
-    console.log('Stopped live network monitoring');
+    this.config.enabled = false;
+    console.log('Live network monitoring service stopped');
   }
 
-  subscribeToClientStatus(clientId: string, callback: (status: ClientNetworkStatus) => void) {
-    this.subscribers.set(clientId, callback);
-    
-    // Immediately provide current status
-    this.getClientNetworkStatus(clientId).then(callback);
-    
-    return () => {
-      this.subscribers.delete(clientId);
-    };
+  addClientToMonitoring(clientId: string): void {
+    this.monitoredClients.add(clientId);
+    console.log(`Client ${clientId} added to network monitoring`);
   }
 
-  async getClientNetworkStatus(clientId: string): Promise<ClientNetworkStatus> {
+  removeClientFromMonitoring(clientId: string): void {
+    this.monitoredClients.delete(clientId);
+    console.log(`Client ${clientId} removed from network monitoring`);
+  }
+
+  private async performNetworkChecks(): Promise<void> {
     try {
-      // Try to get current session using rpc; function may not exist in generated types
-      let session: NetworkSession | undefined;
-      
-      try {
-        const { data: sessionData } = await (supabase as any)
-          .rpc('get_network_session_by_client', { client_id: clientId });
-
-        const sd = sessionData as any;
-        if (sd) {
-          session = {
-            id: sd.id,
-            client_id: sd.client_id || clientId,
-            username: sd.username,
-            ip_address: sd.ip_address || 'dynamic',
-            nas_ip_address: sd.nas_ip_address || '',
-            session_id: sd.session_id,
-            start_time: sd.start_time,
-            bytes_in: sd.bytes_in,
-            bytes_out: sd.bytes_out,
-            status: (sd.status as 'active' | 'disconnected') || 'active',
-            last_update: sd.last_update || sd.start_time,
-            created_at: sd.created_at
-          };
-        }
-      } catch (error) {
-        console.warn('Failed to fetch session, using mock data:', error);
-      }
-
-      // Get today's data usage
-      const today = new Date().toISOString().split('T')[0];
-      const { data: usage, error: usageError } = await supabase
-        .from('bandwidth_statistics')
-        .select('in_octets, out_octets')
-        .eq('client_id', clientId)
-        .gte('timestamp', `${today}T00:00:00`)
-        .order('timestamp', { ascending: false })
-        .limit(1)
-        .maybeSingle();
-
-      if (usageError) {
-        console.error('Error fetching usage:', usageError);
-      }
-
-      // Get client's speed limit
-      const { data: client, error: clientError } = await supabase
+      // Get all active clients for monitoring
+      const { data: activeClients, error } = await supabase
         .from('clients')
-        .select(`
-          *,
-          service_packages (speed)
-        `)
-        .eq('id', clientId)
-        .single();
-
-      if (clientError) {
-        console.error('Error fetching client:', clientError);
-      }
-
-      const speedLimit = this.parseSpeedLimit((client as any)?.service_packages?.speed || '10Mbps');
-      const dataUsageToday = usage ? (usage.in_octets + usage.out_octets) / (1024 * 1024) : 0; // MB
-
-      return {
-        client_id: clientId,
-        is_online: !!session,
-        current_session: session,
-        data_usage_today: dataUsageToday,
-        speed_limit: speedLimit,
-        last_seen: (session?.start_time || (client as any)?.updated_at || new Date().toISOString()) as string
-      };
-    } catch (error) {
-      console.error('Error getting client network status:', error);
-      return {
-        client_id: clientId,
-        is_online: false,
-        data_usage_today: 0,
-        speed_limit: { download: '10M', upload: '8M' },
-        last_seen: new Date().toISOString()
-      };
-    }
-  }
-
-  async disconnectClient(clientId: string): Promise<boolean> {
-    try {
-      // Try to get active sessions using fallback
-      let sessions: any[] = [];
-      
-      try {
-        const { data } = await (supabase as any)
-          .rpc('get_active_sessions_by_client', { client_id: clientId });
-        
-        if (data) {
-          sessions = data as any[];
-        }
-      } catch (error) {
-        console.warn('Failed to fetch sessions for disconnect:', error);
-        return true; // Assume already disconnected
-      }
-
-      if (sessions.length === 0) {
-        return true; // Already disconnected
-      }
-
-      // Disconnect from MikroTik routers (mock implementation)
-      for (const sessionData of sessions) {
-        await this.sendDisconnectCommand(sessionData.nas_ip_address, sessionData.username);
-      }
-
-      console.log(`Disconnected client ${clientId}`);
-      return true;
-    } catch (error) {
-      console.error('Error disconnecting client:', error);
-      return false;
-    }
-  }
-
-  async changeClientSpeedLimit(clientId: string, newSpeed: string): Promise<boolean> {
-    try {
-      // Update RADIUS user profile
-      try {
-        await (supabase as any).rpc('update_radius_user_speed', {
-          client_id: clientId,
-          max_download: this.parseSpeedLimit(newSpeed).download,
-          max_upload: this.parseSpeedLimit(newSpeed).upload
-        });
-      } catch (error) {
-        console.warn('Failed to update RADIUS user speed:', error);
-      }
-
-      return true;
-    } catch (error) {
-      console.error('Error changing speed limit:', error);
-      return false;
-    }
-  }
-
-  private async updateNetworkStatistics() {
-    try {
-      // Simulate real-time data collection for bandwidth statistics
-      const { data: stats, error } = await supabase
-        .from('bandwidth_statistics')
-        .select('*')
-        .order('timestamp', { ascending: false })
-        .limit(10);
+        .select('id, name, phone, status, service_activated_at')
+        .eq('status', 'active');
 
       if (error) {
-        console.error('Error fetching bandwidth stats:', error);
+        console.error('Error fetching active clients:', error);
         return;
       }
 
-      // Update statistics with simulated traffic data
-      for (const stat of stats || []) {
-        const bytesIn = stat.in_octets + Math.floor(Math.random() * 1000000);
-        const bytesOut = stat.out_octets + Math.floor(Math.random() * 500000);
-
-        await supabase
-          .from('bandwidth_statistics')
-          .update({
-            in_octets: bytesIn,
-            out_octets: bytesOut,
-            timestamp: new Date().toISOString()
-          })
-          .eq('id', stat.id);
+      for (const client of activeClients || []) {
+        await this.checkClientNetworkStatus(client);
       }
+
     } catch (error) {
-      console.error('Error updating network statistics:', error);
+      console.error('Network monitoring error:', error);
     }
   }
 
-  private async checkClientSessions() {
-    // Placeholder for session checking logic
-    console.log('Checking client sessions...');
-  }
-
-  private async notifySubscribers() {
-    for (const [clientId, callback] of this.subscribers.entries()) {
-      try {
-        const status = await this.getClientNetworkStatus(clientId);
-        callback(status);
-      } catch (error) {
-        console.error(`Error notifying subscriber for client ${clientId}:`, error);
+  private async checkClientNetworkStatus(client: any): Promise<void> {
+    try {
+      // In a real implementation, this would:
+      // 1. Query RADIUS server for client session status
+      // 2. Check MikroTik for client connectivity
+      // 3. Ping client equipment
+      // 4. Check bandwidth utilization
+      
+      // For now, we'll simulate network monitoring
+      const isOnline = await this.simulateNetworkCheck(client.id);
+      
+      if (!isOnline) {
+        await this.handleClientDisconnection(client);
+      } else {
+        await this.updateClientNetworkStatus(client.id, 'online');
       }
+
+    } catch (error) {
+      console.error(`Network check failed for client ${client.id}:`, error);
     }
   }
 
-  private setupRealtimeSubscription() {
-    // Setup real-time subscription for bandwidth statistics
-    const channel = supabase
-      .channel('network-monitoring')
-      .on(
-        'postgres_changes',
-        {
-          event: '*',
-          schema: 'public',
-          table: 'bandwidth_statistics'
-        },
-        (payload) => {
-          console.log('Bandwidth statistics change detected:', payload);
-          if (payload.new && (payload.new as any).client_id) {
-            const callback = this.subscribers.get((payload.new as any).client_id);
-            if (callback) {
-              this.getClientNetworkStatus((payload.new as any).client_id).then(callback);
-            }
+  private async simulateNetworkCheck(clientId: string): Promise<boolean> {
+    // Simulate network connectivity check
+    // In production, this would use actual network monitoring tools
+    
+    // Randomly simulate 95% uptime for demo purposes
+    return Math.random() > 0.05;
+  }
+
+  private async handleClientDisconnection(client: any): Promise<void> {
+    console.log(`Client ${client.name} appears to be disconnected`);
+    
+    try {
+      // Update client network status
+      await this.updateClientNetworkStatus(client.id, 'offline');
+      
+      // Log network event
+      await supabase
+        .from('network_events')
+        .insert({
+          client_id: client.id,
+          event_type: 'disconnection_detected',
+          description: 'Client appears to be offline during network monitoring',
+          event_data: {
+            last_seen: new Date().toISOString(),
+            monitoring_check: true,
+          },
+        });
+
+      // Send network issue notification
+      await this.sendNetworkIssueNotification(client);
+
+    } catch (error) {
+      console.error(`Error handling disconnection for client ${client.id}:`, error);
+    }
+  }
+
+  private async updateClientNetworkStatus(clientId: string, status: 'online' | 'offline'): Promise<void> {
+    // In a real implementation, you might have a separate table for network status
+    // For now, we'll just log it
+    console.log(`Client ${clientId} network status: ${status}`);
+  }
+
+  private async sendNetworkIssueNotification(client: any): Promise<void> {
+    try {
+      // Send SMS notification about network issue
+      await supabase.functions.invoke('send-notifications', {
+        body: {
+          client_id: client.id,
+          type: 'network_issue',
+          data: {
+            client_name: client.name,
+            eta: '15-30 minutes',
+            issue_detected_at: new Date().toISOString(),
           }
         }
-      )
-      .subscribe();
+      });
 
-    return () => supabase.removeChannel(channel);
+    } catch (error) {
+      console.error('Failed to send network issue notification:', error);
+    }
   }
 
-  private async sendDisconnectCommand(nasIp: string, username: string) {
-    // In production, this would send actual disconnect command to MikroTik
-    console.log(`Sending disconnect command to ${nasIp} for user ${username}`);
-    // Simulate network delay
-    await new Promise(resolve => setTimeout(resolve, 100));
-  }
-
-  private parseSpeedLimit(speed: string) {
-    const match = speed.match(/(\d+)/);
-    const speedValue = match ? parseInt(match[1]) : 10;
-    
+  async performBandwidthCheck(clientId: string): Promise<{
+    downloadSpeed: number;
+    uploadSpeed: number;
+    latency: number;
+  }> {
+    // In production, this would query MikroTik or RADIUS for actual bandwidth stats
     return {
-      download: `${speedValue}M`,
-      upload: `${Math.floor(speedValue * 0.8)}M`
+      downloadSpeed: Math.random() * 100, // Mbps
+      uploadSpeed: Math.random() * 50,    // Mbps
+      latency: Math.random() * 50 + 10,   // ms
     };
+  }
+
+  async getClientNetworkHistory(clientId: string, hours: number = 24): Promise<any[]> {
+    const hoursAgo = new Date(Date.now() - hours * 60 * 60 * 1000).toISOString();
+    
+    const { data, error } = await supabase
+      .from('network_events')
+      .select('*')
+      .eq('client_id', clientId)
+      .gte('created_at', hoursAgo)
+      .order('created_at', { ascending: false });
+
+    if (error) {
+      console.error('Error fetching network history:', error);
+      return [];
+    }
+
+    return data || [];
   }
 }
 

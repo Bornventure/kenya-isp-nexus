@@ -1,4 +1,3 @@
-
 import React from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -8,6 +7,7 @@ import { useClientRegistrationForm } from './registration/useClientRegistrationF
 import PersonalInfoSection from './registration/PersonalInfoSection';
 import LocationInfoSection from './registration/LocationInfoSection';
 import ServiceInfoSection from './registration/ServiceInfoSection';
+import { useWorkflowManagement } from '@/hooks/useWorkflowManagement';
 
 interface ClientRegistrationFormProps {
   onClose: () => void;
@@ -22,8 +22,39 @@ const ClientRegistrationForm: React.FC<ClientRegistrationFormProps> = ({ onClose
     servicePackages,
     packagesLoading,
     updateFormData,
-    handleSubmit,
+    handleSubmit: baseHandleSubmit,
   } = useClientRegistrationForm({ onClose, onSave });
+
+  const { updateWorkflowStage } = useWorkflowManagement();
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    
+    try {
+      // Call the base submit function
+      const result = await baseHandleSubmit(e);
+      
+      if (result && result.id) {
+        // Initialize workflow for the new client
+        updateWorkflowStage({
+          clientId: result.id,
+          stage: 'pending_approval',
+          stageData: {
+            submitted_by: 'sales',
+            submission_date: new Date().toISOString(),
+            client_type: formData.client_type,
+            service_package: formData.service_package_id,
+            monthly_rate: formData.monthly_rate,
+          },
+          notes: 'New client application submitted by sales team',
+        });
+
+        console.log('Client workflow initialized:', result.id);
+      }
+    } catch (error) {
+      console.error('Error in client submission:', error);
+    }
+  };
 
   // Transform database format to component format for backward compatibility
   const transformedFormData = {
