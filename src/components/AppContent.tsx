@@ -44,7 +44,7 @@ const AppContent = () => {
         {/* Public routes */}
         <Route 
           path="/login" 
-          element={!user ? <Login /> : <Navigate to="/dashboard" replace />} 
+          element={<Login />} 
         />
         <Route 
           path="/client-portal" 
