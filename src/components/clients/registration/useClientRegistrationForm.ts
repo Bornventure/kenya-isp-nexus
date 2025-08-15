@@ -1,10 +1,10 @@
-
 import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/contexts/AuthContext';
 import { Client, ClientType, ConnectionType, ClientStatus } from '@/types/client';
+import { DatabaseClient } from '@/hooks/useClients';
 
 export interface FormData {
   name: string;
@@ -89,17 +89,17 @@ export const useClientRegistrationForm = ({ onClose, onSave }: { onClose: () => 
     return Object.keys(newErrors).length === 0;
   };
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent): Promise<DatabaseClient | null> => {
     e.preventDefault();
     
-    if (!validateForm()) return;
+    if (!validateForm()) return null;
     if (!profile?.isp_company_id) {
       toast({
         title: "Error",
         description: "Company information not found. Please log in again.",
         variant: "destructive",
       });
-      return;
+      return null;
     }
 
     setIsSubmitting(true);
@@ -172,6 +172,8 @@ export const useClientRegistrationForm = ({ onClose, onSave }: { onClose: () => 
 
       onSave(newClient);
       onClose();
+      
+      return newClient;
 
     } catch (error) {
       console.error('Registration error:', error);
@@ -180,6 +182,7 @@ export const useClientRegistrationForm = ({ onClose, onSave }: { onClose: () => 
         description: error instanceof Error ? error.message : "An error occurred during registration",
         variant: "destructive",
       });
+      return null;
     } finally {
       setIsSubmitting(false);
     }

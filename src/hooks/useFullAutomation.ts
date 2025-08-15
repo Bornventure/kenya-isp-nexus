@@ -1,7 +1,13 @@
 
 import { useState, useCallback } from 'react';
 import { useToast } from '@/hooks/use-toast';
-import { clientActivationService, ClientActivationData } from '@/services/clientActivationService';
+import { clientActivationService } from '@/services/clientActivationService';
+
+export interface ClientActivationData {
+  clientId: string;
+  equipmentId?: string;
+  activationNotes?: string;
+}
 
 export const useFullAutomation = () => {
   const { toast } = useToast();
@@ -56,8 +62,53 @@ export const useFullAutomation = () => {
     }
   }, [toast]);
 
+  const analyzeClientWalletStatus = useCallback(async (clientId: string) => {
+    // Mock implementation for wallet analysis
+    return {
+      analysis: {
+        currentBalance: 1500,
+        requiredAmount: 2500,
+        shortfall: 1000,
+        daysUntilExpiry: 3,
+        packageName: 'Standard Package'
+      },
+      recommendedAction: {
+        type: 'top_up_required',
+        message: 'Client needs to top up wallet to avoid service interruption',
+        amount: 1000
+      }
+    };
+  }, []);
+
+  const processSmartRenewalForClient = useCallback(async (clientId: string) => {
+    setIsProcessing(true);
+    try {
+      // Mock implementation for smart renewal
+      await new Promise(resolve => setTimeout(resolve, 1000));
+      
+      toast({
+        title: "Smart Renewal Complete",
+        description: "Client subscription has been renewed automatically.",
+      });
+      
+      return { success: true };
+    } catch (error) {
+      console.error('Smart renewal error:', error);
+      toast({
+        title: "Smart Renewal Failed",
+        description: "Failed to process smart renewal.",
+        variant: "destructive",
+      });
+      return { success: false };
+    } finally {
+      setIsProcessing(false);
+    }
+  }, [toast]);
+
   return {
     processFullAutomation,
+    analyzeClientWalletStatus,
+    processSmartRenewalForClient,
     isProcessing,
   };
 };

@@ -1,216 +1,212 @@
-
 import React, { useState } from 'react';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Edit2, MapPin, Phone, Mail, Calendar, DollarSign } from 'lucide-react';
-import { DatabaseClient } from '@/hooks/useClients';
-import ClientBillingSection from './ClientBillingSection';
-import AssignedEquipmentSection from './AssignedEquipmentSection';
+import { Badge } from '@/components/ui/badge';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { useClients, DatabaseClient } from '@/hooks/useClients';
+import { Client } from '@/types/client';
+import { Edit, MapPin, Phone, Mail, User, Calendar, CreditCard, Wifi } from 'lucide-react';
+import ClientEditDialog from '../ClientEditDialog';
 import ClientNetworkMonitoring from './ClientNetworkMonitoring';
-import { format } from 'date-fns';
+import WalletAnalysisPanel from '../WalletAnalysisPanel';
 
 interface ClientDetailsContentProps {
-  client: DatabaseClient;
-  onEdit: () => void;
+  client: Client;
+  onRefresh?: () => void;
 }
 
-const ClientDetailsContent: React.FC<ClientDetailsContentProps> = ({ client, onEdit }) => {
-  const [activeTab, setActiveTab] = useState('overview');
+const ClientDetailsContent: React.FC<ClientDetailsContentProps> = ({ client, onRefresh }) => {
+  const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
+  const { updateClient } = useClients();
 
-  const getStatusColor = (status: string) => {
-    switch (status) {
-      case 'active': return 'default';
-      case 'suspended': return 'destructive';
-      case 'pending': return 'secondary';
-      case 'approved': return 'outline';
-      default: return 'secondary';
-    }
+  const handleUpdateClient = (clientData: any) => {
+    updateClient({
+      id: client.id,
+      updates: clientData
+    });
+    onRefresh?.();
+  };
+
+  // Convert Client to DatabaseClient for the edit dialog
+  const databaseClient: DatabaseClient = {
+    id: client.id,
+    name: client.name,
+    email: client.email,
+    phone: client.phone,
+    address: client.address,
+    county: client.county,
+    sub_county: client.sub_county,
+    id_number: client.id_number,
+    kra_pin_number: client.kra_pin_number,
+    mpesa_number: client.mpesa_number,
+    client_type: client.client_type,
+    connection_type: client.connection_type,
+    monthly_rate: client.monthly_rate,
+    status: client.status,
+    service_package_id: client.service_package_id,
+    latitude: client.latitude,
+    longitude: client.longitude,
+    isp_company_id: client.isp_company_id,
+    created_at: client.created_at,
+    updated_at: client.updated_at,
+    balance: client.balance,
+    wallet_balance: client.wallet_balance,
+    subscription_start_date: client.subscription_start_date,
+    subscription_end_date: client.subscription_end_date,
+    subscription_type: client.subscription_type,
+    is_active: client.is_active,
+    submitted_by: client.submitted_by,
+    approved_by: client.approved_by,
+    approved_at: client.approved_at,
+    installation_status: client.installation_status,
+    installation_completed_by: client.installation_completed_by,
+    installation_completed_at: client.installation_completed_at,
+    service_activated_at: client.service_activated_at,
+    installation_date: client.installation_date,
+  };
+
+  const servicePackage = client.service_packages || {
+    name: 'Standard Package',
+    speed: '10Mbps',
+    monthly_rate: client.monthly_rate || 2500
   };
 
   return (
     <div className="space-y-6">
       {/* Client Header */}
       <Card>
-        <CardHeader>
-          <div className="flex items-start justify-between">
-            <div className="space-y-2">
-              <div className="flex items-center gap-3">
-                <h1 className="text-2xl font-bold">{client.name}</h1>
-                <Badge variant={getStatusColor(client.status)}>
-                  {client.status}
-                </Badge>
-              </div>
-              <div className="flex items-center gap-4 text-sm text-muted-foreground">
-                <div className="flex items-center gap-1">
-                  <Phone className="h-4 w-4" />
-                  {client.phone}
-                </div>
-                {client.email && (
-                  <div className="flex items-center gap-1">
-                    <Mail className="h-4 w-4" />
-                    {client.email}
-                  </div>
-                )}
-                <div className="flex items-center gap-1">
-                  <MapPin className="h-4 w-4" />
-                  {client.county}, {client.sub_county}
-                </div>
-              </div>
+        <CardHeader className="flex flex-row items-center justify-between">
+          <div>
+            <CardTitle className="flex items-center gap-2">
+              <User className="h-5 w-5" />
+              {client.name}
+            </CardTitle>
+            <div className="flex items-center gap-4 mt-2">
+              <Badge variant={client.status === 'active' ? 'default' : 'secondary'}>
+                {client.status}
+              </Badge>
+              <span className="text-sm text-muted-foreground">
+                ID: {client.id_number}
+              </span>
             </div>
-            <Button onClick={onEdit} variant="outline" size="sm">
-              <Edit2 className="h-4 w-4 mr-2" />
-              Edit Client
-            </Button>
           </div>
+          <Button onClick={() => setIsEditDialogOpen(true)} className="gap-2">
+            <Edit className="h-4 w-4" />
+            Edit Client
+          </Button>
         </CardHeader>
-        <CardContent>
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-            <div>
-              <div className="text-sm font-medium text-muted-foreground">Service Package</div>
-              <div className="text-lg font-semibold">
-                {client.service_packages?.name || 'Not assigned'}
-              </div>
-              {client.service_packages?.speed && (
-                <div className="text-sm text-muted-foreground">
-                  {client.service_packages.speed}
-                </div>
-              )}
-            </div>
-            <div>
-              <div className="text-sm font-medium text-muted-foreground">Monthly Rate</div>
-              <div className="text-lg font-semibold">
-                KES {client.monthly_rate?.toLocaleString() || '0'}
-              </div>
-            </div>
-            <div>
-              <div className="text-sm font-medium text-muted-foreground">Wallet Balance</div>
-              <div className="text-lg font-semibold">
-                KES {client.wallet_balance?.toLocaleString() || '0'}
-              </div>
-            </div>
-            <div>
-              <div className="text-sm font-medium text-muted-foreground">Installation Date</div>
-              <div className="text-lg font-semibold">
-                {client.installation_date 
-                  ? format(new Date(client.installation_date), 'PPP')
-                  : 'Not set'
-                }
-              </div>
-            </div>
-          </div>
-        </CardContent>
       </Card>
 
-      {/* Tabs */}
-      <Tabs value={activeTab} onValueChange={setActiveTab}>
-        <TabsList className="grid w-full grid-cols-5">
+      <Tabs defaultValue="overview" className="w-full">
+        <TabsList className="grid w-full grid-cols-4">
           <TabsTrigger value="overview">Overview</TabsTrigger>
-          <TabsTrigger value="monitoring">Network</TabsTrigger>
-          <TabsTrigger value="equipment">Equipment</TabsTrigger>
+          <TabsTrigger value="network">Network</TabsTrigger>
           <TabsTrigger value="billing">Billing</TabsTrigger>
           <TabsTrigger value="support">Support</TabsTrigger>
         </TabsList>
 
         <TabsContent value="overview" className="space-y-6">
-          <div className="grid gap-6 md:grid-cols-2">
-            <Card>
-              <CardHeader>
-                <CardTitle>Personal Information</CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-3">
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <div className="text-sm font-medium text-muted-foreground">ID Number</div>
-                    <div>{client.id_number}</div>
-                  </div>
-                  <div>
-                    <div className="text-sm font-medium text-muted-foreground">Client Type</div>
-                    <div className="capitalize">{client.client_type}</div>
-                  </div>
-                  <div>
-                    <div className="text-sm font-medium text-muted-foreground">Connection Type</div>
-                    <div className="capitalize">{client.connection_type}</div>
-                  </div>
-                  {client.kra_pin_number && (
-                    <div>
-                      <div className="text-sm font-medium text-muted-foreground">KRA PIN</div>
-                      <div>{client.kra_pin_number}</div>
-                    </div>
-                  )}
-                </div>
-              </CardContent>
-            </Card>
-
-            <Card>
-              <CardHeader>
-                <CardTitle>Service Information</CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-3">
-                <div className="grid grid-cols-1 gap-4">
-                  <div>
-                    <div className="text-sm font-medium text-muted-foreground">Installation Status</div>
-                    <div className="capitalize">{client.installation_status || 'pending'}</div>
-                  </div>
-                  {client.service_activated_at && (
-                    <div>
-                      <div className="text-sm font-medium text-muted-foreground">Service Activated</div>
-                      <div>{format(new Date(client.service_activated_at), 'PPP')}</div>
-                    </div>
-                  )}
-                  {client.subscription_start_date && (
-                    <div>
-                      <div className="text-sm font-medium text-muted-foreground">Subscription Period</div>
-                      <div>
-                        {format(new Date(client.subscription_start_date), 'PP')} - {' '}
-                        {client.subscription_end_date 
-                          ? format(new Date(client.subscription_end_date), 'PP')
-                          : 'Ongoing'
-                        }
-                      </div>
-                    </div>
-                  )}
-                </div>
-              </CardContent>
-            </Card>
-          </div>
-        </TabsContent>
-
-        <TabsContent value="monitoring">
-          <ClientNetworkMonitoring 
-            clientId={client.id} 
-            clientName={client.name} 
-          />
-        </TabsContent>
-
-        <TabsContent value="equipment">
-          <AssignedEquipmentSection 
-            clientId={client.id} 
-            clientName={client.name} 
-          />
-        </TabsContent>
-
-        <TabsContent value="billing">
-          <ClientBillingSection 
-            clientId={client.id} 
-            clientName={client.name} 
-          />
-        </TabsContent>
-
-        <TabsContent value="support">
+          {/* Contact Information */}
           <Card>
             <CardHeader>
-              <CardTitle>Support Tickets</CardTitle>
+              <CardTitle>Contact Information</CardTitle>
             </CardHeader>
-            <CardContent>
-              <div className="text-center py-8 text-muted-foreground">
-                <p>Support ticket system coming soon</p>
+            <CardContent className="grid grid-cols-2 gap-4">
+              <div className="flex items-center gap-2">
+                <Phone className="h-4 w-4 text-muted-foreground" />
+                <span>{client.phone}</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <Mail className="h-4 w-4 text-muted-foreground" />
+                <span>{client.email || 'Not provided'}</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <MapPin className="h-4 w-4 text-muted-foreground" />
+                <span>{client.address}</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <Calendar className="h-4 w-4 text-muted-foreground" />
+                <span>Joined {new Date(client.created_at).toLocaleDateString()}</span>
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Service Information */}
+          <Card>
+            <CardHeader>
+              <CardTitle>Service Information</CardTitle>
+            </CardHeader>
+            <CardContent className="grid grid-cols-2 gap-4">
+              <div>
+                <h4 className="font-medium text-sm text-muted-foreground mb-1">Service Package</h4>
+                <p className="text-sm">{servicePackage.name}</p>
+              </div>
+              <div>
+                <h4 className="font-medium text-sm text-muted-foreground mb-1">Speed</h4>
+                <p className="text-sm">{servicePackage.speed}</p>
+              </div>
+              <div>
+                <h4 className="font-medium text-sm text-muted-foreground mb-1">Monthly Rate</h4>
+                <p className="text-sm font-medium">KES {servicePackage.monthly_rate?.toLocaleString()}</p>
+              </div>
+              <div>
+                <h4 className="font-medium text-sm text-muted-foreground mb-1">Connection Type</h4>
+                <Badge variant="outline">{client.connectionType}</Badge>
               </div>
             </CardContent>
           </Card>
         </TabsContent>
+
+        <TabsContent value="network" className="space-y-6">
+          <ClientNetworkMonitoring clientId={client.id} />
+        </TabsContent>
+
+        <TabsContent value="billing" className="space-y-6">
+          <WalletAnalysisPanel clientId={client.id} onRefresh={onRefresh} />
+          
+          {/* Wallet Balance */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <CreditCard className="h-5 w-5" />
+                Wallet Information
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="grid grid-cols-2 gap-4">
+              <div>
+                <h4 className="font-medium text-sm text-muted-foreground mb-1">Current Balance</h4>
+                <p className="text-lg font-semibold text-green-600">
+                  KES {(client.wallet_balance || 0).toLocaleString()}
+                </p>
+              </div>
+              <div>
+                <h4 className="font-medium text-sm text-muted-foreground mb-1">Account Balance</h4>
+                <p className="text-lg font-semibold">
+                  KES {(client.balance || 0).toLocaleString()}
+                </p>
+              </div>
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        <TabsContent value="support" className="space-y-6">
+          <Card>
+            <CardHeader>
+              <CardTitle>Support Information</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <p className="text-muted-foreground">Support tickets and communication history will be displayed here.</p>
+            </CardContent>
+          </Card>
+        </TabsContent>
       </Tabs>
+
+      <ClientEditDialog
+        client={databaseClient}
+        open={isEditDialogOpen}
+        onOpenChange={setIsEditDialogOpen}
+        onUpdateClient={handleUpdateClient}
+      />
     </div>
   );
 };

@@ -35,7 +35,7 @@ const ClientRegistrationForm: React.FC<ClientRegistrationFormProps> = ({ onClose
       // Call the base submit function and get the result
       const result = await baseHandleSubmit(e);
       
-      // Check if result exists and has an id - handle both object and void returns
+      // Check if result exists and has an id
       if (result && typeof result === 'object' && 'id' in result && result.id) {
         // Initialize workflow for the new client
         await updateWorkflowStage({

@@ -39,6 +39,10 @@ export interface DatabaseClient {
   installation_completed_at?: string;
   service_activated_at?: string;
   installation_date?: string;
+  notes?: string;
+  rejection_reason?: string;
+  rejected_by?: string;
+  rejected_at?: string;
 }
 
 export const useClients = () => {
@@ -174,7 +178,7 @@ export const useClients = () => {
   });
 
   const updateClient = useMutation({
-    mutationFn: async ({ id, updates }: { id: string; updates: Partial<DatabaseClient> }) => {
+    mutationFn: async ({ id, updates }: { id: string; updates: Partial<Omit<DatabaseClient, 'id' | 'created_at' | 'updated_at'>> }) => {
       const { data, error } = await supabase
         .from('clients')
         .update(updates)

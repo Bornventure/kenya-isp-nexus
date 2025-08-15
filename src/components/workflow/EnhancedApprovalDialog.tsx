@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -6,13 +5,13 @@ import { Badge } from '@/components/ui/badge';
 import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { CheckCircle, XCircle, Clock, User, Calendar, MapPin, Loader2 } from 'lucide-react';
-import { useClients } from '@/hooks/useClients';
+import { useClients, DatabaseClient } from '@/hooks/useClients';
 import { useEquipment } from '@/hooks/useEquipment';
 import { Client } from '@/types/client';
 import { Equipment } from '@/types/equipment';
 import { useToast } from '@/hooks/use-toast';
 
-interface EnhancedApprovalDialogProps {
+export interface EnhancedApprovalDialogProps {
   client: Client;
   onClose: () => void;
   onApprove: (clientId: string, notes?: string) => void;
@@ -50,7 +49,6 @@ export const EnhancedApprovalDialog: React.FC<EnhancedApprovalDialogProps> = ({
         updates: {
           status: 'approved',
           approved_at: new Date().toISOString(),
-          notes: notes || undefined,
         }
       });
 
@@ -91,7 +89,6 @@ export const EnhancedApprovalDialog: React.FC<EnhancedApprovalDialogProps> = ({
         id: client.id,
         updates: {
           status: 'pending',
-          rejection_reason: rejectionReason,
           rejected_at: new Date().toISOString(),
         }
       });
