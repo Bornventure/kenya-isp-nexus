@@ -10,25 +10,25 @@ import {
   MessageCircle,
   Settings,
   Home,
-  Wrench,
-  Shield,
-  Building2,
-  UserCog,
-  Wifi,
-  Bell,
-  TestTube,
   Router,
   MapPin,
   Archive,
-  FileText,
   Headphones,
-  BarChart3,
-  Key,
-  Code,
-  Database,
-  Server,
-  Activity
+  UserCog,
+  Building2,
 } from 'lucide-react';
+import {
+  Sidebar as SidebarBase,
+  SidebarContent,
+  SidebarGroup,
+  SidebarGroupContent,
+  SidebarGroupLabel,
+  SidebarMenu,
+  SidebarMenuButton,
+  SidebarMenuItem,
+  SidebarHeader,
+  SidebarFooter,
+} from '@/components/ui/sidebar';
 import { useAuth } from '@/contexts/AuthContext';
 
 const Sidebar = () => {
@@ -127,9 +127,9 @@ const Sidebar = () => {
   const filteredAdminItems = adminMenuItems.filter(item => item.show);
 
   return (
-    <div className="flex flex-col h-full">
-      <div className="p-4">
-        <div className="flex items-center gap-3">
+    <SidebarBase>
+      <SidebarHeader>
+        <div className="flex items-center gap-3 p-4">
           <img 
             src="/lovable-uploads/29dec1bf-11a7-44c4-b61f-4cdfe1cbdc5c.png" 
             alt="DataDefender Logo" 
@@ -140,60 +140,55 @@ const Sidebar = () => {
             <p className="text-xs text-blue-600 font-medium">ISP Management</p>
           </div>
         </div>
-      </div>
+      </SidebarHeader>
       
-      <nav className="flex-1 px-4 space-y-1">
-        {filteredMenuItems.map((item) => {
-          const Icon = item.icon;
-          return (
-            <NavLink
-              key={item.name}
-              to={item.href}
-              className={cn(
-                "flex items-center px-3 py-2 text-sm font-medium rounded-lg transition-colors",
-                isActive(item.href)
-                  ? "bg-primary text-primary-foreground"
-                  : "text-muted-foreground hover:bg-accent hover:text-accent-foreground"
-              )}
-            >
-              <Icon className="mr-3 h-5 w-5" />
-              {item.name}
-            </NavLink>
-          );
-        })}
+      <SidebarContent>
+        <SidebarGroup>
+          <SidebarGroupContent>
+            <SidebarMenu>
+              {filteredMenuItems.map((item) => {
+                const Icon = item.icon;
+                return (
+                  <SidebarMenuItem key={item.name}>
+                    <SidebarMenuButton asChild isActive={isActive(item.href)}>
+                      <NavLink to={item.href}>
+                        <Icon className="h-5 w-5" />
+                        <span>{item.name}</span>
+                      </NavLink>
+                    </SidebarMenuButton>
+                  </SidebarMenuItem>
+                );
+              })}
+            </SidebarMenu>
+          </SidebarGroupContent>
+        </SidebarGroup>
         
         {filteredAdminItems.length > 0 && (
-          <>
-            <div className="pt-4 pb-2">
-              <h3 className="px-3 text-xs font-semibold text-muted-foreground uppercase tracking-wider">
-                Administration
-              </h3>
-            </div>
-            {filteredAdminItems.map((item) => {
-              const Icon = item.icon;
-              return (
-                <NavLink
-                  key={item.name}
-                  to={item.href}
-                  className={cn(
-                    "flex items-center px-3 py-2 text-sm font-medium rounded-lg transition-colors",
-                    isActive(item.href)
-                      ? "bg-primary text-primary-foreground"
-                      : "text-muted-foreground hover:bg-accent hover:text-accent-foreground"
-                  )}
-                >
-                  <Icon className="mr-3 h-5 w-5" />
-                  {item.name}
-                </NavLink>
-              );
-            })}
-          </>
+          <SidebarGroup>
+            <SidebarGroupLabel>Administration</SidebarGroupLabel>
+            <SidebarGroupContent>
+              <SidebarMenu>
+                {filteredAdminItems.map((item) => {
+                  const Icon = item.icon;
+                  return (
+                    <SidebarMenuItem key={item.name}>
+                      <SidebarMenuButton asChild isActive={isActive(item.href)}>
+                        <NavLink to={item.href}>
+                          <Icon className="h-5 w-5" />
+                          <span>{item.name}</span>
+                        </NavLink>
+                      </SidebarMenuButton>
+                    </SidebarMenuItem>
+                  );
+                })}
+              </SidebarMenu>
+            </SidebarGroupContent>
+          </SidebarGroup>
         )}
-      </nav>
+      </SidebarContent>
 
-      {/* User Profile Section */}
-      <div className="p-4 border-t border-border">
-        <div className="flex items-center gap-3">
+      <SidebarFooter>
+        <div className="flex items-center gap-3 p-4">
           <div className="w-8 h-8 bg-primary rounded-full flex items-center justify-center">
             <span className="text-primary-foreground text-sm font-medium">
               {profile?.first_name?.[0] || profile?.role?.[0]?.toUpperCase()}
@@ -208,8 +203,8 @@ const Sidebar = () => {
             </p>
           </div>
         </div>
-      </div>
-    </div>
+      </SidebarFooter>
+    </SidebarBase>
   );
 };
 

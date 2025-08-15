@@ -16,14 +16,12 @@ interface LayoutProps {
 }
 
 const Layout: React.FC<LayoutProps> = ({ children }) => {
-  const { user, logout } = useAuth();
+  const { user, profile, logout } = useAuth();
 
   return (
     <SidebarProvider>
       <div className="flex min-h-screen w-full">
-        <div className="w-64 border-r bg-card">
-          <Sidebar />
-        </div>
+        <Sidebar />
         <SidebarInset className="flex-1">
           {/* Header with theme toggle and logout */}
           <header className="flex items-center justify-between px-6 py-4 bg-background border-b border-border">
