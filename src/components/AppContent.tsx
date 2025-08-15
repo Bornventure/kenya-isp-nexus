@@ -6,7 +6,7 @@ import { ClientAuthProvider } from '@/contexts/ClientAuthContext';
 import Layout from '@/components/layout/Layout';
 import Login from './Login';
 import ProtectedRoute from './auth/ProtectedRoute';
-import Index from '@/pages/Index';
+import Dashboard from '@/pages/Dashboard';
 import Clients from '@/pages/Clients';
 import Equipment from '@/pages/Equipment';
 import Inventory from '@/pages/Inventory';
@@ -16,6 +16,8 @@ import Billing from '@/pages/Billing';
 import Support from '@/pages/Support';
 import Settings from '@/pages/Settings';
 import ClientPortal from '@/pages/ClientPortal';
+import UserManagement from '@/pages/UserManagement';
+import CompanyManagement from '@/pages/CompanyManagement';
 import { Toaster } from '@/components/ui/toaster';
 
 const AppContent = () => {
@@ -63,7 +65,7 @@ const AppContent = () => {
               <Layout>
                 <Routes>
                   <Route path="/" element={<Navigate to="/dashboard" replace />} />
-                  <Route path="/dashboard" element={<Index />} />
+                  <Route path="/dashboard" element={<Dashboard />} />
                   <Route path="/clients" element={<Clients />} />
                   <Route path="/equipment" element={<Equipment />} />
                   <Route path="/inventory" element={<Inventory />} />
@@ -71,6 +73,8 @@ const AppContent = () => {
                   <Route path="/network-map" element={<NetworkMap />} />
                   <Route path="/billing" element={<Billing />} />
                   <Route path="/support" element={<Support />} />
+                  <Route path="/user-management" element={<UserManagement />} />
+                  <Route path="/company-management" element={<CompanyManagement />} />
                   <Route path="/settings" element={<Settings />} />
                 </Routes>
               </Layout>
