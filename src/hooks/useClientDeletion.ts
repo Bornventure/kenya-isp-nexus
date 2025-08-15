@@ -1,4 +1,3 @@
-
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
@@ -17,31 +16,49 @@ export const useClientDeletion = () => {
 
       console.log('Deleting client:', clientId);
 
-      // Delete all related data first
+      // Instead of deleting financial records, we'll unlink the client from them
+      // and delete only operational data that doesn't need to be preserved
+
       const promises = [
+        // Unlink client from inventory items (don't delete the items, just unassign)
+        supabase.from('inventory_items').update({ assigned_customer_id: null }).eq('assigned_customer_id', clientId),
+        
         // Delete client equipment assignments
         supabase.from('client_equipment').delete().eq('client_id', clientId),
+        
         // Delete equipment assignments
         supabase.from('equipment_assignments').delete().eq('client_id', clientId),
-        // Delete invoices
-        supabase.from('invoices').delete().eq('client_id', clientId),
-        // Delete installation invoices
-        supabase.from('installation_invoices').delete().eq('client_id', clientId),
-        // Delete wallet transactions
-        supabase.from('wallet_transactions').delete().eq('client_id', clientId),
-        // Delete family bank payments
-        supabase.from('family_bank_payments').delete().eq('client_id', clientId),
-        // Delete hotspot sessions
+        
+        // Update invoices to remove client reference but keep for financial records
+        supabase.from('invoices').update({ client_id: null }).eq('client_id', clientId),
+        
+        // Update installation invoices to remove client reference but keep for financial records
+        supabase.from('installation_invoices').update({ client_id: null }).eq('client_id', clientId),
+        
+        // Keep wallet transactions and family bank payments for audit trail - just unlink client
+        supabase.from('wallet_transactions').update({ client_id: null }).eq('client_id', clientId),
+        supabase.from('family_bank_payments').update({ client_id: null }).eq('client_id', clientId),
+        
+        // Delete hotspot sessions (operational data)
         supabase.from('hotspot_sessions').delete().eq('client_id', clientId),
+        
         // Delete client service assignments
         supabase.from('client_service_assignments').delete().eq('client_id', clientId),
-        // Delete bandwidth statistics
+        
+        // Delete bandwidth statistics (operational data)
         supabase.from('bandwidth_statistics').delete().eq('client_id', clientId),
-        // Delete data usage
+        
+        // Delete data usage (operational data)
         supabase.from('data_usage').delete().eq('client_id', clientId),
+
+        // Delete client hotspot access
+        supabase.from('client_hotspot_access').delete().eq('client_id', clientId),
+
+        // Update equipment to unlink from client
+        supabase.from('equipment').update({ client_id: null }).eq('client_id', clientId),
       ];
 
-      // Execute all deletions
+      // Execute all deletions/updates
       const results = await Promise.allSettled(promises);
       
       // Check for errors in related data deletion
@@ -51,7 +68,7 @@ export const useClientDeletion = () => {
         .map(({ result, index }) => `Step ${index + 1}: ${(result as PromiseRejectedResult).reason}`);
 
       if (errors.length > 0) {
-        console.warn('Some related data deletion failed:', errors);
+        console.warn('Some related data cleanup failed:', errors);
       }
 
       // Finally delete the client
@@ -72,7 +89,7 @@ export const useClientDeletion = () => {
       queryClient.invalidateQueries({ queryKey: ['client'] });
       toast({
         title: "Client Deleted Successfully",
-        description: "Client and all associated data have been permanently deleted.",
+        description: "Client profile has been deleted while preserving financial records for audit purposes.",
       });
       console.log('Client deletion completed for:', clientId);
     },
