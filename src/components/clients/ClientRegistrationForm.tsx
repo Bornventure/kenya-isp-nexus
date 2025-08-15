@@ -31,13 +31,14 @@ const ClientRegistrationForm: React.FC<ClientRegistrationFormProps> = ({ onClose
     e.preventDefault();
     
     try {
-      // Call the base submit function
+      // Call the base submit function and get the result
       const result = await baseHandleSubmit(e);
       
-      if (result && result.id) {
+      // Check if result exists and has an id
+      if (result && typeof result === 'object' && 'id' in result && result.id) {
         // Initialize workflow for the new client
-        updateWorkflowStage({
-          clientId: result.id,
+        await updateWorkflowStage({
+          clientId: result.id as string,
           stage: 'pending_approval',
           stageData: {
             submitted_by: 'sales',

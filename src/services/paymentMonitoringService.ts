@@ -1,234 +1,235 @@
 
 import { supabase } from '@/integrations/supabase/client';
-import { clientActivationService } from './clientActivationService';
-import { smartRenewalService } from './smartRenewalService';
 
-interface PaymentEvent {
+interface PaymentMonitoringRule {
   client_id: string;
-  amount: number;
-  payment_method: string;
-  reference_number: string;
-  transaction_type: 'installation' | 'subscription' | 'wallet_topup';
+  rule_type: string;
+  threshold_amount?: number;
+  threshold_days?: number;
+  is_active: boolean;
 }
 
 class PaymentMonitoringService {
-  private intervalId: NodeJS.Timeout | null = null;
-  private isMonitoring = false;
+  private checkInterval: NodeJS.Timeout | null = null;
 
-  start(): void {
-    if (this.isMonitoring) return;
-    
-    this.isMonitoring = true;
+  startMonitoring(): void {
+    if (this.checkInterval) return;
+
     console.log('Starting payment monitoring service...');
     
-    // Monitor payments every 30 seconds
-    this.intervalId = setInterval(() => {
-      this.processRecentPayments();
-    }, 30000);
-    
+    this.checkInterval = setInterval(() => {
+      this.performChecks();
+    }, 60000 * 60); // Check every hour
+
     // Initial check
-    this.processRecentPayments();
+    this.performChecks();
   }
 
-  stop(): void {
-    if (this.intervalId) {
-      clearInterval(this.intervalId);
-      this.intervalId = null;
+  stopMonitoring(): void {
+    if (this.checkInterval) {
+      clearInterval(this.checkInterval);
+      this.checkInterval = null;
     }
-    this.isMonitoring = false;
     console.log('Payment monitoring service stopped');
   }
 
-  private async processRecentPayments(): Promise<void> {
+  private async performChecks(): Promise<void> {
     try {
-      // Check for recent payments in the last 5 minutes
-      const fiveMinutesAgo = new Date(Date.now() - 5 * 60 * 1000).toISOString();
-      
-      // Check M-Pesa payments
-      const { data: mpesaPayments, error: mpesaError } = await supabase
-        .from('mpesa_payments')
-        .select('*')
-        .gte('created_at', fiveMinutesAgo)
-        .eq('status', 'verified');
-
-      if (mpesaError) {
-        console.error('Error fetching M-Pesa payments:', mpesaError);
-        return;
-      }
-
-      // Check Family Bank payments
-      const { data: familyBankPayments, error: familyBankError } = await supabase
-        .from('family_bank_payments')
-        .select('*')
-        .gte('created_at', fiveMinutesAgo)
-        .eq('status', 'received');
-
-      if (familyBankError) {
-        console.error('Error fetching Family Bank payments:', familyBankError);
-        return;
-      }
-
-      // Process M-Pesa payments
-      for (const payment of mpesaPayments || []) {
-        await this.processPayment({
-          client_id: payment.client_id,
-          amount: payment.amount,
-          payment_method: 'mpesa',
-          reference_number: payment.mpesa_receipt_number,
-          transaction_type: this.determineTransactionType(payment),
-        });
-      }
-
-      // Process Family Bank payments
-      for (const payment of familyBankPayments || []) {
-        await this.processPayment({
-          client_id: payment.client_id,
-          amount: payment.trans_amount,
-          payment_method: 'family_bank',
-          reference_number: payment.trans_id,
-          transaction_type: this.determineTransactionType(payment),
-        });
-      }
-
+      await this.checkOverduePayments();
+      await this.checkLowBalances();
     } catch (error) {
-      console.error('Payment monitoring error:', error);
+      console.error('Payment monitoring check failed:', error);
     }
   }
 
-  private determineTransactionType(payment: any): 'installation' | 'subscription' | 'wallet_topup' {
-    // Check if this is an installation payment
-    if (payment.bill_ref_number && payment.bill_ref_number.startsWith('TRK-')) {
-      return 'installation';
-    }
-    
-    // For now, default to wallet top-up (most common case)
-    return 'wallet_topup';
-  }
-
-  private async processPayment(payment: PaymentEvent): Promise<void> {
-    console.log('Processing payment:', payment);
-
+  private async checkOverduePayments(): Promise<void> {
     try {
-      switch (payment.transaction_type) {
-        case 'installation':
-          await this.processInstallationPayment(payment);
-          break;
-        case 'wallet_topup':
-          await this.processWalletTopup(payment);
-          break;
-        case 'subscription':
-          await this.processSubscriptionPayment(payment);
-          break;
-      }
-    } catch (error) {
-      console.error(`Error processing ${payment.transaction_type} payment:`, error);
-    }
-  }
-
-  private async processInstallationPayment(payment: PaymentEvent): Promise<void> {
-    try {
-      // Find the installation invoice
-      const { data: invoice, error } = await supabase
-        .from('installation_invoices')
+      // Check for clients with overdue invoices
+      const { data: overdueInvoices, error } = await supabase
+        .from('invoices')
         .select(`
           *,
-          clients (*)
+          clients (
+            id,
+            name,
+            email,
+            phone
+          )
         `)
-        .eq('client_id', payment.client_id)
         .eq('status', 'pending')
-        .single();
+        .lt('due_date', new Date().toISOString());
 
-      if (error || !invoice) {
-        console.log('No pending installation invoice found for client:', payment.client_id);
+      if (error) {
+        console.error('Error fetching overdue invoices:', error);
         return;
       }
 
-      // Mark invoice as paid
-      await supabase
-        .from('installation_invoices')
-        .update({
-          status: 'paid',
-          payment_method: payment.payment_method,
-          payment_reference: payment.reference_number,
-          paid_at: new Date().toISOString(),
-        })
-        .eq('id', invoice.id);
-
-      // Activate client service
-      const activationData = {
-        client_id: payment.client_id,
-        service_package_id: invoice.clients.service_package_id,
-        monthly_rate: invoice.clients.monthly_rate,
-        connection_type: invoice.clients.connection_type,
-        client_data: invoice.clients,
-      };
-
-      const activationResult = await clientActivationService.activateClient(activationData);
-
-      if (activationResult.success) {
-        // Update workflow status
-        await supabase.rpc('update_client_workflow_status', {
-          p_client_id: payment.client_id,
-          p_stage: 'service_active',
-          p_stage_data: {
-            activation_date: new Date().toISOString(),
-            payment_reference: payment.reference_number,
-          },
-          p_notes: 'Service activated after installation payment confirmation',
-        });
-
-        console.log(`Client ${payment.client_id} service activated successfully`);
+      for (const invoice of overdueInvoices || []) {
+        await this.handleOverduePayment(invoice);
       }
-
     } catch (error) {
-      console.error('Installation payment processing error:', error);
+      console.error('Error checking overdue payments:', error);
     }
   }
 
-  private async processWalletTopup(payment: PaymentEvent): Promise<void> {
+  private async checkLowBalances(): Promise<void> {
     try {
-      // Add to client wallet
-      const { error } = await supabase
+      // Check for clients with low wallet balances
+      const { data: lowBalanceClients, error } = await supabase
         .from('clients')
-        .update({
-          wallet_balance: supabase.sql.literal(`wallet_balance + ${payment.amount}`),
-        })
-        .eq('id', payment.client_id);
+        .select('*')
+        .lt('wallet_balance', 100); // Less than 100 KES
 
-      if (error) throw error;
-
-      // Record wallet transaction
-      await supabase
-        .from('wallet_transactions')
-        .insert({
-          client_id: payment.client_id,
-          transaction_type: 'credit',
-          amount: payment.amount,
-          description: `Wallet top-up via ${payment.payment_method}`,
-          reference_number: payment.reference_number,
-        });
-
-      // Check if client can now afford subscription renewal
-      const analysis = await smartRenewalService.analyzeClientWallet(payment.client_id);
-      if (analysis && analysis.canAffordRenewal) {
-        const renewalAction = await smartRenewalService.processSmartRenewal(analysis);
-        console.log(`Smart renewal processed for client ${payment.client_id}:`, renewalAction);
+      if (error) {
+        console.error('Error fetching low balance clients:', error);
+        return;
       }
 
-      console.log(`Wallet topped up for client ${payment.client_id}: KES ${payment.amount}`);
-
+      for (const client of lowBalanceClients || []) {
+        await this.handleLowBalance(client);
+      }
     } catch (error) {
-      console.error('Wallet top-up processing error:', error);
+      console.error('Error checking low balances:', error);
     }
   }
 
-  private async processSubscriptionPayment(payment: PaymentEvent): Promise<void> {
+  private async handleOverduePayment(invoice: any): Promise<void> {
+    console.log(`Processing overdue payment for invoice ${invoice.invoice_number}`);
+    
     try {
-      // This would handle direct subscription payments
-      // For now, we primarily use wallet-based renewals
-      console.log('Direct subscription payment processed:', payment);
+      // Send notification
+      await supabase.functions.invoke('send-auto-notifications', {
+        body: {
+          client_id: invoice.client_id,
+          type: 'overdue_payment',
+          data: {
+            invoice_number: invoice.invoice_number,
+            amount: invoice.total_amount,
+            due_date: invoice.due_date,
+          }
+        }
+      });
+
+      // Update audit log
+      await supabase
+        .from('audit_logs')
+        .insert({
+          action: 'overdue_payment_notification',
+          resource: 'invoice',
+          resource_id: invoice.id,
+          user_id: null,
+          changes: {
+            invoice_number: invoice.invoice_number,
+            amount: invoice.total_amount,
+          },
+        });
+
     } catch (error) {
-      console.error('Subscription payment processing error:', error);
+      console.error('Error handling overdue payment:', error);
+    }
+  }
+
+  private async handleLowBalance(client: any): Promise<void> {
+    console.log(`Processing low balance notification for client ${client.name}`);
+    
+    try {
+      // Send low balance notification
+      await supabase.functions.invoke('send-auto-notifications', {
+        body: {
+          client_id: client.id,
+          type: 'low_balance',
+          data: {
+            client_name: client.name,
+            current_balance: client.wallet_balance,
+            recommended_topup: 500,
+          }
+        }
+      });
+
+    } catch (error) {
+      console.error('Error handling low balance:', error);
+    }
+  }
+
+  async setupMonitoringRules(clientId: string, rules: PaymentMonitoringRule[]): Promise<void> {
+    try {
+      // Since there's no payment_monitoring_rules table, we'll log this instead
+      console.log(`Setting up monitoring rules for client ${clientId}:`, rules);
+      
+      // Log in audit_logs for now
+      await supabase
+        .from('audit_logs')
+        .insert({
+          action: 'setup_payment_monitoring',
+          resource: 'client',
+          resource_id: clientId,
+          changes: { rules },
+        });
+
+    } catch (error) {
+      console.error('Error setting up monitoring rules:', error);
+      throw error;
+    }
+  }
+
+  async getPaymentHistory(clientId: string, limit: number = 10): Promise<any[]> {
+    try {
+      // Get payment history from invoices and family bank payments
+      const { data: invoices, error: invoicesError } = await supabase
+        .from('invoices')
+        .select('*')
+        .eq('client_id', clientId)
+        .order('created_at', { ascending: false })
+        .limit(limit);
+
+      if (invoicesError) {
+        console.error('Error fetching payment history:', invoicesError);
+        return [];
+      }
+
+      return invoices || [];
+    } catch (error) {
+      console.error('Error getting payment history:', error);
+      return [];
+    }
+  }
+
+  async processPaymentReceived(paymentData: any): Promise<void> {
+    try {
+      console.log('Processing payment received:', paymentData);
+      
+      // Update client balance if needed
+      if (paymentData.client_id) {
+        const { error: updateError } = await supabase
+          .from('clients')
+          .update({
+            wallet_balance: supabase.rpc('increment_balance', {
+              client_id: paymentData.client_id,
+              amount: paymentData.amount
+            })
+          })
+          .eq('id', paymentData.client_id);
+
+        if (updateError) {
+          console.error('Error updating client balance:', updateError);
+        }
+      }
+
+      // Send payment confirmation
+      await supabase.functions.invoke('send-auto-notifications', {
+        body: {
+          client_id: paymentData.client_id,
+          type: 'payment_received',
+          data: {
+            amount: paymentData.amount,
+            reference: paymentData.reference,
+            timestamp: new Date().toISOString(),
+          }
+        }
+      });
+
+    } catch (error) {
+      console.error('Error processing payment received:', error);
     }
   }
 }

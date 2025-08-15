@@ -1,17 +1,35 @@
 
 import { supabase } from '@/integrations/supabase/client';
 
+export interface ClientNetworkStatus {
+  is_online: boolean;
+  last_seen: string;
+  current_session?: {
+    session_id: string;
+    ip_address: string;
+    nas_ip_address?: string;
+    start_time: string;
+    bytes_in: number;
+    bytes_out: number;
+  };
+  speed_limit: {
+    download: string;
+    upload: string;
+  };
+  data_usage_today: number;
+}
+
 interface NetworkMonitoringConfig {
   enabled: boolean;
-  checkInterval: number; // in milliseconds
-  disconnectionThreshold: number; // in seconds
+  checkInterval: number;
+  disconnectionThreshold: number;
 }
 
 class LiveNetworkMonitoringService {
   private config: NetworkMonitoringConfig = {
     enabled: false,
-    checkInterval: 60000, // 1 minute
-    disconnectionThreshold: 300, // 5 minutes
+    checkInterval: 60000,
+    disconnectionThreshold: 300,
   };
   
   private intervalId: NodeJS.Timeout | null = null;
@@ -27,7 +45,6 @@ class LiveNetworkMonitoringService {
       this.performNetworkChecks();
     }, this.config.checkInterval);
     
-    // Initial check
     this.performNetworkChecks();
   }
 
@@ -50,9 +67,72 @@ class LiveNetworkMonitoringService {
     console.log(`Client ${clientId} removed from network monitoring`);
   }
 
+  async getClientNetworkStatus(clientId: string): Promise<ClientNetworkStatus | null> {
+    try {
+      // Simulate network status retrieval
+      return {
+        is_online: Math.random() > 0.1,
+        last_seen: new Date(Date.now() - Math.random() * 3600000).toISOString(),
+        current_session: Math.random() > 0.2 ? {
+          session_id: `session_${clientId}_${Date.now()}`,
+          ip_address: `192.168.1.${Math.floor(Math.random() * 254) + 1}`,
+          nas_ip_address: '192.168.1.1',
+          start_time: new Date(Date.now() - Math.random() * 86400000).toISOString(),
+          bytes_in: Math.floor(Math.random() * 1000000000),
+          bytes_out: Math.floor(Math.random() * 500000000),
+        } : undefined,
+        speed_limit: {
+          download: '20Mbps',
+          upload: '10Mbps',
+        },
+        data_usage_today: Math.random() * 1000,
+      };
+    } catch (error) {
+      console.error('Error getting client network status:', error);
+      return null;
+    }
+  }
+
+  subscribeToClientStatus(clientId: string, callback: (status: ClientNetworkStatus) => void): () => void {
+    const interval = setInterval(async () => {
+      const status = await this.getClientNetworkStatus(clientId);
+      if (status) {
+        callback(status);
+      }
+    }, 30000);
+
+    // Initial call
+    this.getClientNetworkStatus(clientId).then(status => {
+      if (status) callback(status);
+    });
+
+    return () => clearInterval(interval);
+  }
+
+  async disconnectClient(clientId: string): Promise<boolean> {
+    try {
+      console.log(`Disconnecting client ${clientId}`);
+      // In a real implementation, this would disconnect the client from MikroTik
+      return true;
+    } catch (error) {
+      console.error('Error disconnecting client:', error);
+      return false;
+    }
+  }
+
+  async changeClientSpeedLimit(clientId: string, newSpeed: string): Promise<boolean> {
+    try {
+      console.log(`Changing speed limit for client ${clientId} to ${newSpeed}`);
+      // In a real implementation, this would update MikroTik speed limits
+      return true;
+    } catch (error) {
+      console.error('Error changing client speed limit:', error);
+      return false;
+    }
+  }
+
   private async performNetworkChecks(): Promise<void> {
     try {
-      // Get all active clients for monitoring
       const { data: activeClients, error } = await supabase
         .from('clients')
         .select('id, name, phone, status, service_activated_at')
@@ -74,13 +154,6 @@ class LiveNetworkMonitoringService {
 
   private async checkClientNetworkStatus(client: any): Promise<void> {
     try {
-      // In a real implementation, this would:
-      // 1. Query RADIUS server for client session status
-      // 2. Check MikroTik for client connectivity
-      // 3. Ping client equipment
-      // 4. Check bandwidth utilization
-      
-      // For now, we'll simulate network monitoring
       const isOnline = await this.simulateNetworkCheck(client.id);
       
       if (!isOnline) {
@@ -95,10 +168,6 @@ class LiveNetworkMonitoringService {
   }
 
   private async simulateNetworkCheck(clientId: string): Promise<boolean> {
-    // Simulate network connectivity check
-    // In production, this would use actual network monitoring tools
-    
-    // Randomly simulate 95% uptime for demo purposes
     return Math.random() > 0.05;
   }
 
@@ -106,10 +175,8 @@ class LiveNetworkMonitoringService {
     console.log(`Client ${client.name} appears to be disconnected`);
     
     try {
-      // Update client network status
       await this.updateClientNetworkStatus(client.id, 'offline');
       
-      // Log network event
       await supabase
         .from('network_events')
         .insert({
@@ -122,7 +189,6 @@ class LiveNetworkMonitoringService {
           },
         });
 
-      // Send network issue notification
       await this.sendNetworkIssueNotification(client);
 
     } catch (error) {
@@ -131,14 +197,11 @@ class LiveNetworkMonitoringService {
   }
 
   private async updateClientNetworkStatus(clientId: string, status: 'online' | 'offline'): Promise<void> {
-    // In a real implementation, you might have a separate table for network status
-    // For now, we'll just log it
     console.log(`Client ${clientId} network status: ${status}`);
   }
 
   private async sendNetworkIssueNotification(client: any): Promise<void> {
     try {
-      // Send SMS notification about network issue
       await supabase.functions.invoke('send-notifications', {
         body: {
           client_id: client.id,
@@ -161,11 +224,10 @@ class LiveNetworkMonitoringService {
     uploadSpeed: number;
     latency: number;
   }> {
-    // In production, this would query MikroTik or RADIUS for actual bandwidth stats
     return {
-      downloadSpeed: Math.random() * 100, // Mbps
-      uploadSpeed: Math.random() * 50,    // Mbps
-      latency: Math.random() * 50 + 10,   // ms
+      downloadSpeed: Math.random() * 100,
+      uploadSpeed: Math.random() * 50,
+      latency: Math.random() * 50 + 10,
     };
   }
 

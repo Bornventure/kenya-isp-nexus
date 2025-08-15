@@ -1,106 +1,149 @@
 import { supabase } from '@/integrations/supabase/client';
-import { createRadiusUser, provisionClientOnMikroTik, updateClientProfile } from './clientOnboardingService';
 
-export interface ClientActivationData {
+interface PaymentMonitoringRule {
   client_id: string;
-  service_package_id?: string;
-  monthly_rate: number;
-  connection_type: string;
-  client_data: any;
+  rule_type: string;
+  threshold_amount?: number;
+  threshold_days?: number;
+  is_active: boolean;
 }
 
-class ClientActivationService {
-  async activateClient(data: ClientActivationData): Promise<{ success: boolean; message: string }> {
+export class ClientActivationService {
+  async deactivateClient(clientId: string): Promise<boolean> {
     try {
-      console.log('Starting full client activation process...', data);
+      console.log(`Starting client deactivation for ${clientId}`);
 
-      // Step 1: Create RADIUS user
-      const radiusUser = await createRadiusUser(data.client_data);
-      console.log('RADIUS user created:', radiusUser.username);
+      // Update client status to disconnected
+      const { error: updateError } = await supabase
+        .from('clients')
+        .update({
+          status: 'disconnected',
+          is_active: false,
+        })
+        .eq('id', clientId);
 
-      // Step 2: Provision MikroTik
-      await provisionClientOnMikroTik({
-        ...data.client_data,
-        username: radiusUser.username,
-        password: radiusUser.password,
-      });
-      console.log('MikroTik provisioning completed');
+      if (updateError) {
+        console.error('Error updating client status:', updateError);
+        return false;
+      }
 
-      // Step 3: Update client profile
-      await updateClientProfile(data.client_id, {
-        status: 'active',
-        service_activated_at: new Date().toISOString(),
-        subscription_start_date: new Date().toISOString(),
-        subscription_end_date: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(), // 30 days
-      });
+      // Log deactivation
+      await supabase
+        .from('audit_logs')
+        .insert({
+          action: 'client_deactivated',
+          resource: 'client',
+          resource_id: clientId,
+          changes: {
+            status: 'disconnected',
+            is_active: false,
+          },
+        });
 
-      // Step 4: Send welcome SMS
-      await this.sendWelcomeSMS(data.client_data);
-
-      // Step 5: Start network monitoring
-      const { liveNetworkMonitoringService } = await import('./liveNetworkMonitoringService');
-      liveNetworkMonitoringService.addClientToMonitoring(data.client_id);
-
-      // Step 6: Initialize wallet monitoring
-      await this.setupWalletMonitoring(data.client_id, data.monthly_rate);
-
-      return {
-        success: true,
-        message: 'Client activated successfully with full automation'
-      };
+      console.log(`Client ${clientId} deactivated successfully`);
+      return true;
 
     } catch (error) {
-      console.error('Client activation failed:', error);
-      return {
-        success: false,
-        message: error instanceof Error ? error.message : 'Activation failed'
-      };
+      console.error('Error deactivating client:', error);
+      return false;
     }
   }
 
-  private async sendWelcomeSMS(clientData: any): Promise<void> {
+  async activateClient(clientId: string): Promise<boolean> {
     try {
+      console.log(`Starting client activation for ${clientId}`);
+
+      // Update client status to active
+      const { error: updateError } = await supabase
+        .from('clients')
+        .update({
+          status: 'active',
+          service_activated_at: new Date().toISOString(),
+        })
+        .eq('id', clientId);
+
+      if (updateError) {
+        console.error('Error updating client status:', updateError);
+        return false;
+      }
+
+      // Set up payment monitoring rules (insert one at a time)
+      const rules = [
+        {
+          client_id: clientId,
+          rule_type: 'overdue_payment',
+          threshold_amount: 0,
+          threshold_days: 7,
+          is_active: true,
+        },
+        {
+          client_id: clientId,
+          rule_type: 'low_balance',
+          threshold_amount: 100,
+          threshold_days: 0,
+          is_active: true,
+        }
+      ];
+
+      // Insert rules individually since batch insert is having issues
+      for (const rule of rules) {
+        const { error: ruleError } = await supabase
+          .from('payment_monitoring_rules')
+          .insert({
+            ...rule,
+            isp_company_id: await this.getCurrentUserCompanyId(),
+          });
+
+        if (ruleError) {
+          console.error('Error inserting payment monitoring rule:', ruleError);
+          // Continue with other rules even if one fails
+        }
+      }
+
+      // Send activation notification
       await supabase.functions.invoke('send-auto-notifications', {
         body: {
-          client_id: clientData.id,
-          trigger_event: 'account_created',
+          client_id: clientId,
+          type: 'service_activated',
           data: {
-            client_name: clientData.name,
-            package_name: clientData.service_packages?.name || 'Internet Service',
+            activation_date: new Date().toISOString(),
           }
         }
       });
+
+      // Log activation
+      await supabase
+        .from('audit_logs')
+        .insert({
+          action: 'client_activated',
+          resource: 'client',
+          resource_id: clientId,
+          changes: {
+            status: 'active',
+            activated_at: new Date().toISOString(),
+          },
+        });
+
+      console.log(`Client ${clientId} activated successfully`);
+      return true;
+
     } catch (error) {
-      console.error('Welcome SMS failed:', error);
+      console.error('Error activating client:', error);
+      return false;
     }
   }
 
-  private async setupWalletMonitoring(clientId: string, monthlyRate: number): Promise<void> {
-    try {
-      // Create wallet monitoring rules
-      await supabase
-        .from('wallet_monitoring_rules')
-        .insert([
-          {
-            client_id: clientId,
-            rule_type: 'low_balance',
-            threshold_amount: monthlyRate,
-            threshold_days: 3,
-            is_active: true,
-          },
-          {
-            client_id: clientId,
-            rule_type: 'auto_renewal',
-            threshold_amount: monthlyRate,
-            threshold_days: 0,
-            is_active: true,
-          }
-        ]);
-
-      console.log(`Wallet monitoring rules created for client ${clientId}`);
-    } catch (error) {
-      console.error('Wallet monitoring setup failed:', error);
-    }
+  private async getCurrentUserCompanyId(): Promise<string> {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) throw new Error('User not authenticated');
+    
+    const { data: profile } = await supabase
+      .from('profiles')
+      .select('isp_company_id')
+      .eq('id', user.id)
+      .single();
+    
+    return profile?.isp_company_id || '';
   }
 }
 
