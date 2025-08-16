@@ -36,6 +36,11 @@ const WorkflowDashboard: React.FC = () => {
   const activeClients = clients.filter(client => client.status === 'active');
   const rejectedClients = clients.filter(client => client.status === 'rejected');
 
+  const recentlyActivated = clients
+    .filter(client => client.service_activated_at)
+    .sort((a, b) => new Date(b.service_activated_at!).getTime() - new Date(a.service_activated_at!).getTime())
+    .slice(0, 5);
+
   const handleApprovalClick = (client: DatabaseClient) => {
     setSelectedClient(client);
     setApprovalDialogOpen(true);

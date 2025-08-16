@@ -1,106 +1,189 @@
-
-import React, { useState } from 'react';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import React, { useState, useEffect } from 'react';
+import { useClients, DatabaseClient } from '@/hooks/useClients';
 import { Button } from '@/components/ui/button';
-import { Plus, Users } from 'lucide-react';
-import ClientRegistrationForm from './ClientRegistrationForm';
-import { useClients } from '@/hooks/useClients';
-import { Client } from '@/types/client';
+import { Input } from '@/components/ui/input';
+import {
+  Table,
+  TableBody,
+  TableCaption,
+  TableCell,
+  TableFooter,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table"
+import { Plus, Edit, Trash2 } from 'lucide-react';
+import ClientForm from './ClientForm';
+import { Client, ClientStatus } from '@/types/client';
 
-const ClientsManager: React.FC = () => {
-  const [showRegistrationForm, setShowRegistrationForm] = useState(false);
-  const { clients, isLoading } = useClients();
+interface ClientRowProps {
+  client: Client;
+  onEdit: (client: Client) => void;
+  onDelete: (id: string) => void;
+}
 
-  const handleSaveClient = (clientData: Partial<Client>) => {
-    console.log('Saving client:', clientData);
-    setShowRegistrationForm(false);
+const ClientRow: React.FC<ClientRowProps> = ({ client, onEdit, onDelete }) => {
+  return (
+    <TableRow key={client.id}>
+      <TableCell className="font-medium">{client.name}</TableCell>
+      <TableCell>{client.email}</TableCell>
+      <TableCell>{client.phone}</TableCell>
+      <TableCell>{client.clientType}</TableCell>
+      <TableCell>{client.status}</TableCell>
+      <TableCell className="flex justify-end gap-2">
+        <Button variant="secondary" size="sm" onClick={() => onEdit(client)}>
+          <Edit className="h-4 w-4 mr-2" />
+          Edit
+        </Button>
+        <Button variant="destructive" size="sm" onClick={() => onDelete(client.id)}>
+          <Trash2 className="h-4 w-4 mr-2" />
+          Delete
+        </Button>
+      </TableCell>
+    </TableRow>
+  );
+};
+
+interface ClientsManagerProps {
+}
+
+const ClientsManager = () => {
+  const [isFormOpen, setIsFormOpen] = useState(false);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [selectedClient, setSelectedClient] = useState<Client | null>(null);
+  const { clients, isLoading, error, createClient, updateClient, deleteClient } = useClients();
+
+  useEffect(() => {
+    if (error) {
+      console.error("Error fetching clients:", error);
+    }
+  }, [error]);
+
+  const handleEditClient = (client: Client) => {
+    setSelectedClient(client);
+    setIsFormOpen(true);
   };
 
-  if (isLoading) {
-    return (
-      <div className="flex items-center justify-center p-8">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
-      </div>
-    );
-  }
+  const handleDeleteClient = (id: string) => {
+    if (window.confirm("Are you sure you want to delete this client?")) {
+      deleteClient(id);
+    }
+  };
+
+  const handleSaveClient = (clientData: Partial<Client>) => {
+    // Convert Client to DatabaseClient format
+    const databaseClient: Partial<DatabaseClient> = {
+      name: clientData.name,
+      email: clientData.email,
+      phone: clientData.phone,
+      id_number: clientData.idNumber,
+      kra_pin_number: clientData.kraPinNumber,
+      mpesa_number: clientData.mpesaNumber,
+      client_type: clientData.clientType,
+      status: clientData.status as 'active' | 'suspended' | 'disconnected' | 'pending' | 'approved',
+      connection_type: clientData.connectionType,
+      service_package_id: clientData.servicePackage,
+      monthly_rate: clientData.monthlyRate,
+      balance: clientData.balance,
+      installation_date: clientData.installationDate,
+      address: clientData.location?.address,
+      county: clientData.location?.county,
+      sub_county: clientData.location?.subCounty,
+      latitude: clientData.location?.coordinates?.lat || null,
+      longitude: clientData.location?.coordinates?.lng || null,
+    };
+
+    if (selectedClient) {
+      updateClient({ id: selectedClient.id, updates: databaseClient });
+    } else {
+      const newClient = {
+        ...databaseClient,
+        subscription_start_date: '',
+        subscription_end_date: '',
+        subscription_type: 'monthly',
+        wallet_balance: 0,
+        isp_company_id: '',
+        approved_at: '',
+        approved_by: '',
+        notes: null,
+        rejection_reason: null,
+        rejected_at: null,
+        rejected_by: null,
+        installation_status: 'pending',
+        submitted_by: 'sales'
+      } as Omit<DatabaseClient, 'id' | 'created_at' | 'updated_at'>;
+      
+      createClient(newClient);
+    }
+    setSelectedClient(null);
+    setIsFormOpen(false);
+  };
+
+  const filteredClients = clients.filter(client =>
+    client.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+    client.email.toLowerCase().includes(searchQuery.toLowerCase()) ||
+    client.phone.toLowerCase().includes(searchQuery.toLowerCase())
+  );
 
   return (
-    <div className="space-y-6">
-      <div className="flex justify-between items-center">
-        <div className="flex items-center gap-2">
-          <Users className="h-6 w-6" />
-          <h2 className="text-2xl font-bold">Client Management</h2>
-        </div>
-        <Button onClick={() => setShowRegistrationForm(true)}>
+    <div>
+      <div className="flex items-center justify-between mb-4">
+        <h1 className="text-2xl font-bold">Clients Manager</h1>
+        <Button onClick={() => setIsFormOpen(true)}>
           <Plus className="h-4 w-4 mr-2" />
           Add Client
         </Button>
       </div>
 
-      <Card>
-        <CardHeader>
-          <CardTitle>Client Overview</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-            <div className="text-center">
-              <div className="text-3xl font-bold text-primary">{clients.length}</div>
-              <div className="text-sm text-muted-foreground">Total Clients</div>
-            </div>
-            <div className="text-center">
-              <div className="text-3xl font-bold text-green-600">
-                {clients.filter(c => c.status === 'active').length}
-              </div>
-              <div className="text-sm text-muted-foreground">Active</div>
-            </div>
-            <div className="text-center">
-              <div className="text-3xl font-bold text-yellow-600">
-                {clients.filter(c => c.status === 'pending').length}
-              </div>
-              <div className="text-sm text-muted-foreground">Pending</div>
-            </div>
-            <div className="text-center">
-              <div className="text-3xl font-bold text-red-600">
-                {clients.filter(c => c.status === 'suspended').length}
-              </div>
-              <div className="text-sm text-muted-foreground">Suspended</div>
-            </div>
-          </div>
-        </CardContent>
-      </Card>
+      <div className="mb-4">
+        <Input
+          type="text"
+          placeholder="Search clients..."
+          value={searchQuery}
+          onChange={(e) => setSearchQuery(e.target.value)}
+        />
+      </div>
 
-      {/* Client list would go here */}
-      <Card>
-        <CardHeader>
-          <CardTitle>Recent Clients</CardTitle>
-        </CardHeader>
-        <CardContent>
-          {clients.length === 0 ? (
-            <div className="text-center py-8 text-muted-foreground">
-              <Users className="h-12 w-12 mx-auto mb-4 opacity-50" />
-              <p>No clients registered yet</p>
-              <p className="text-sm">Click "Add Client" to register your first client</p>
-            </div>
-          ) : (
-            <div className="space-y-2">
-              {clients.slice(0, 5).map((client) => (
-                <div key={client.id} className="flex items-center justify-between p-3 border rounded-lg">
-                  <div>
-                    <div className="font-medium">{client.name}</div>
-                    <div className="text-sm text-muted-foreground">{client.email}</div>
-                  </div>
-                  <div className="text-sm capitalize">{client.status}</div>
-                </div>
+      {isLoading ? (
+        <p>Loading clients...</p>
+      ) : error ? (
+        <p>Error: {error.message}</p>
+      ) : (
+        <div className="rounded-md border">
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>Name</TableHead>
+                <TableHead>Email</TableHead>
+                <TableHead>Phone</TableHead>
+                <TableHead>Client Type</TableHead>
+                <TableHead>Status</TableHead>
+                <TableHead className="text-right">Actions</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {filteredClients.map((client) => (
+                <ClientRow
+                  key={client.id}
+                  client={client}
+                  onEdit={handleEditClient}
+                  onDelete={handleDeleteClient}
+                />
               ))}
-            </div>
-          )}
-        </CardContent>
-      </Card>
+            </TableBody>
+          </Table>
+        </div>
+      )}
 
-      {showRegistrationForm && (
-        <ClientRegistrationForm
-          onClose={() => setShowRegistrationForm(false)}
+      {isFormOpen && (
+        <ClientForm
+          isOpen={isFormOpen}
+          onClose={() => {
+            setIsFormOpen(false);
+            setSelectedClient(null);
+          }}
           onSave={handleSaveClient}
+          initialClient={selectedClient}
         />
       )}
     </div>
