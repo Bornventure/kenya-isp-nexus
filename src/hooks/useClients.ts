@@ -89,20 +89,20 @@ export const useClients = () => {
         isp_company_id: clientData.isp_company_id,
         approved_at: clientData.approved_at,
         approved_by: clientData.approved_by,
-        notes: clientData.notes || null,
+        notes: clientData.notes,
         rejection_reason: null,
         rejected_at: null,
         rejected_by: null,
-        latitude: clientData.latitude || null,
-        longitude: clientData.longitude || null,
+        latitude: clientData.latitude,
+        longitude: clientData.longitude,
         installation_status: clientData.installation_status || 'pending',
-        submitted_by: clientData.submitted_by || null,
-        service_activated_at: clientData.service_activated_at || null,
+        submitted_by: clientData.submitted_by,
+        service_activated_at: clientData.service_activated_at,
       };
 
       const { data, error } = await supabase
         .from('clients')
-        .insert([insertData])
+        .insert(insertData)
         .select()
         .single();
 
