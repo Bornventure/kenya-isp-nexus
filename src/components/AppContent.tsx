@@ -1,93 +1,75 @@
+import React, { useState, useEffect } from 'react';
+import { useLocation } from 'react-router-dom';
+import DashboardPage from '@/pages/DashboardPage';
+import ClientsPage from '@/pages/ClientsPage';
+import EquipmentPage from '@/pages/EquipmentPage';
+import BillingPage from '@/pages/BillingPage';
+import TicketsPage from '@/pages/TicketsPage';
+import AnalyticsPage from '@/pages/AnalyticsPage';
+import WorkflowDashboard from '@/pages/WorkflowDashboard';
+import ClientOnboardingWorkflow from '@/components/workflow/ClientOnboardingWorkflow';
+import SMSTemplateManager from '@/components/sms/SMSTemplateManager';
+import MessagingPage from '@/pages/MessagingPage';
+import InventoryPage from '@/pages/InventoryPage';
+import HotspotsPage from '@/pages/HotspotsPage';
+import NetworkPage from '@/pages/NetworkPage';
+import SettingsPage from '@/pages/SettingsPage';
+import InvoicesPage from '@/pages/InvoicesPage';
+import ServiceActivationManager from '@/components/services/ServiceActivationManager';
 
-import React, { useEffect } from 'react';
-import { Routes, Route, Navigate, useNavigate, useLocation } from 'react-router-dom';
-import { useAuth } from '@/contexts/AuthContext';
-import { ClientAuthProvider } from '@/contexts/ClientAuthContext';
-import Layout from '@/components/layout/Layout';
-import Login from './Login';
-import ProtectedRoute from './auth/ProtectedRoute';
-import Dashboard from '@/pages/Dashboard';
-import Clients from '@/pages/Clients';
-import Equipment from '@/pages/Equipment';
-import Inventory from '@/pages/Inventory';
-import NetworkManagement from '@/pages/NetworkManagement';
-import NetworkMap from '@/pages/NetworkMap';
-import Billing from '@/pages/Billing';
-import Support from '@/pages/Support';
-import Settings from '@/pages/Settings';
-import ClientPortal from '@/pages/ClientPortal';
-import UserManagement from '@/pages/UserManagement';
-import CompanyManagement from '@/pages/CompanyManagement';
-import WorkflowDashboardPage from '@/pages/WorkflowDashboard';
-import SMSTemplatesPage from '@/pages/SMSTemplates';
-import { Toaster } from '@/components/ui/toaster';
-
-const AppContent = () => {
-  const { user, profile, isLoading } = useAuth();
-  const navigate = useNavigate();
+const AppContent: React.FC = () => {
   const location = useLocation();
+  const [currentPage, setCurrentPage] = useState<string>('dashboard');
 
   useEffect(() => {
-    // Only redirect authenticated users away from login
-    if (user && profile && !isLoading && location.pathname === '/login') {
-      navigate('/dashboard', { replace: true });
-    }
-  }, [user, profile, isLoading, location.pathname, navigate]);
+    const path = location.pathname.slice(1);
+    setCurrentPage(path || 'dashboard');
+  }, [location]);
 
-  if (isLoading) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-background">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
-      </div>
-    );
-  }
+  const renderContent = () => {
+    
+    switch (currentPage) {
+      case 'dashboard':
+        return <DashboardPage />;
+      case 'clients':
+        return <ClientsPage />;
+      case 'equipment':
+        return <EquipmentPage />;
+      case 'invoices':
+        return <InvoicesPage />;
+      case 'service-activation':
+        return <ServiceActivationManager />;
+      case 'billing':
+        return <BillingPage />;
+      case 'tickets':
+        return <TicketsPage />;
+      case 'analytics':
+        return <AnalyticsPage />;
+      case 'workflow':
+        return <WorkflowDashboard />;
+      case 'onboarding':
+        return <ClientOnboardingWorkflow />;
+      case 'sms-templates':
+        return <SMSTemplateManager />;
+      case 'messaging':
+        return <MessagingPage />;
+      case 'inventory':
+        return <InventoryPage />;
+      case 'hotspots':
+        return <HotspotsPage />;
+      case 'network':
+        return <NetworkPage />;
+      case 'settings':
+        return <SettingsPage />;
+      default:
+        return <DashboardPage />;
+    }
+  };
 
   return (
-    <>
-      <Routes>
-        {/* Public routes */}
-        <Route 
-          path="/login" 
-          element={<Login />} 
-        />
-        <Route 
-          path="/client-portal" 
-          element={
-            <ClientAuthProvider>
-              <ClientPortal />
-            </ClientAuthProvider>
-          } 
-        />
-        
-        {/* Protected routes */}
-        <Route
-          path="/*"
-          element={
-            <ProtectedRoute>
-              <Layout>
-                <Routes>
-                  <Route path="/" element={<Navigate to="/dashboard" replace />} />
-                  <Route path="/dashboard" element={<Dashboard />} />
-                  <Route path="/workflow" element={<WorkflowDashboardPage />} />
-                  <Route path="/clients" element={<Clients />} />
-                  <Route path="/equipment" element={<Equipment />} />
-                  <Route path="/inventory" element={<Inventory />} />
-                  <Route path="/network-management" element={<NetworkManagement />} />
-                  <Route path="/network-map" element={<NetworkMap />} />
-                  <Route path="/billing" element={<Billing />} />
-                  <Route path="/sms-templates" element={<SMSTemplatesPage />} />
-                  <Route path="/support" element={<Support />} />
-                  <Route path="/user-management" element={<UserManagement />} />
-                  <Route path="/company-management" element={<CompanyManagement />} />
-                  <Route path="/settings" element={<Settings />} />
-                </Routes>
-              </Layout>
-            </ProtectedRoute>
-          }
-        />
-      </Routes>
-      <Toaster />
-    </>
+    <div className="flex-1 p-6">
+      {renderContent()}
+    </div>
   );
 };
 
