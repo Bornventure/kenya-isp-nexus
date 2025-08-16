@@ -1,8 +1,9 @@
+
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 
-interface DatabaseClient {
+export interface DatabaseClient {
   id: string;
   created_at: string;
   updated_at: string;
@@ -20,6 +21,27 @@ interface DatabaseClient {
   service_package_id: string | null;
   rejection_reason: string | null;
   approved_at: string | null;
+  approved_by: string | null;
+  rejected_at: string | null;
+  rejected_by: string | null;
+  submitted_by: string | null;
+  client_type: string;
+  connection_type: string;
+  monthly_rate: number;
+  installation_status: string;
+  installation_date: string | null;
+  installation_completed_at: string | null;
+  installation_completed_by: string | null;
+  service_activated_at: string | null;
+  latitude: number | null;
+  longitude: number | null;
+  balance: number;
+  wallet_balance: number;
+  subscription_start_date: string | null;
+  subscription_end_date: string | null;
+  subscription_type: string;
+  kra_pin_number: string | null;
+  is_active: boolean;
 }
 
 const fetchClients = async (): Promise<DatabaseClient[]> => {
