@@ -4,213 +4,270 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { useServicePackages } from '@/hooks/useServicePackages';
+import { Textarea } from '@/components/ui/textarea';
 import { useClients } from '@/hooks/useClients';
-import { useToast } from '@/hooks/use-toast';
-import { X, Save, Loader2 } from 'lucide-react';
-import { DatabaseClient } from '@/types/database';
+import { useServicePackages } from '@/hooks/useServicePackages';
+import { useAuth } from '@/contexts/AuthContext';
+import { Client, ClientType, ConnectionType } from '@/types/client';
 
 interface CustomerRegistrationFormProps {
   onClose: () => void;
-  onSave?: (client: Partial<DatabaseClient>) => void;
+  onSuccess?: (client: any) => void;
 }
 
-const CustomerRegistrationForm: React.FC<CustomerRegistrationFormProps> = ({ onClose, onSave }) => {
+const CustomerRegistrationForm: React.FC<CustomerRegistrationFormProps> = ({ onClose, onSuccess }) => {
+  const { createClient } = useClients();
+  const { servicePackages } = useServicePackages();
+  const { profile } = useAuth();
+  
   const [formData, setFormData] = useState({
     name: '',
     email: '',
     phone: '',
     id_number: '',
-    kra_pin_number: '',
     mpesa_number: '',
     address: '',
     county: '',
     sub_county: '',
+    client_type: 'individual' as ClientType,
+    connection_type: 'fiber' as ConnectionType,
     service_package_id: '',
-    client_type: 'individual' as const,
-    connection_type: 'fiber' as const,
+    monthly_rate: 0,
   });
 
-  const [isSubmitting, setIsSubmitting] = useState(false);
-  const { servicePackages, isLoading: packagesLoading } = useServicePackages();
-  const { createClient } = useClients();
-  const { toast } = useToast();
-
-  const handleSubmit = async (e: React.FormEvent) => {
+  const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    setIsSubmitting(true);
-
-    try {
-      const selectedPackage = servicePackages.find(pkg => pkg.id === formData.service_package_id);
-      
-      const clientData: Omit<DatabaseClient, 'id' | 'created_at' | 'updated_at'> = {
-        ...formData,
-        status: 'pending',
-        monthly_rate: selectedPackage?.monthly_rate || 0,
-        balance: 0,
-        wallet_balance: 0,
-        installation_date: '',
-        subscription_start_date: '',
-        subscription_end_date: '',
-        subscription_type: 'monthly',
-        approved_at: '',
-        approved_by: '',
-        isp_company_id: '',
-        notes: null,
-        rejection_reason: null,
-        rejected_at: null,
-        rejected_by: null,
-        latitude: null,
-        longitude: null,
-        installation_status: 'pending',
-        submitted_by: 'customer',
-        service_activated_at: null,
-      };
-
-      const result = await createClient(clientData);
-      
-      toast({
-        title: "Registration Successful",
-        description: "Your application has been submitted for review.",
-      });
-
-      if (onSave) {
-        onSave(result);
-      }
-      
-      onClose();
-    } catch (error) {
-      console.error('Error creating client:', error);
-      toast({
-        title: "Registration Failed",
-        description: "Failed to submit application. Please try again.",
-        variant: "destructive",
-      });
-    } finally {
-      setIsSubmitting(false);
+    
+    if (!profile?.isp_company_id) {
+      console.error('No ISP company ID found');
+      return;
     }
+    
+    // Create client data that matches the Client interface exactly
+    const clientData: Omit<Client, 'id' | 'created_at' | 'updated_at' | 'isp_company_id'> = {
+      name: formData.name,
+      email: formData.email || undefined,
+      phone: formData.phone,
+      id_number: formData.id_number,
+      kra_pin_number: undefined,
+      mpesa_number: formData.mpesa_number || undefined,
+      address: formData.address,
+      county: formData.county,
+      sub_county: formData.sub_county,
+      latitude: undefined,
+      longitude: undefined,
+      client_type: formData.client_type,
+      connection_type: formData.connection_type,
+      monthly_rate: formData.monthly_rate,
+      status: 'pending',
+      service_package_id: formData.service_package_id || undefined,
+      balance: 0,
+      wallet_balance: 0,
+      subscription_start_date: undefined,
+      subscription_end_date: undefined,
+      subscription_type: 'monthly',
+      is_active: false,
+      submitted_by: profile?.id,
+      approved_by: undefined,
+      approved_at: undefined,
+      installation_status: 'pending',
+      installation_completed_by: undefined,
+      installation_completed_at: undefined,
+      service_activated_at: undefined,
+      installation_date: undefined,
+      
+      // Legacy camelCase properties for backwards compatibility
+      clientType: formData.client_type,
+      connectionType: formData.connection_type,
+      servicePackage: undefined,
+      monthlyRate: formData.monthly_rate,
+      installationDate: undefined,
+      idNumber: formData.id_number,
+      kraPinNumber: undefined,
+      mpesaNumber: formData.mpesa_number || undefined,
+      
+      // Nested objects
+      location: {
+        address: formData.address,
+        county: formData.county,
+        subCounty: formData.sub_county,
+      },
+      
+      equipment: {
+        serialNumbers: [],
+      },
+      
+      service_packages: undefined,
+      equipment_assignments: [],
+      lastPayment: undefined,
+      payments: [],
+      invoices: [],
+      supportTickets: [],
+    };
+    
+    createClient(clientData);
+    
+    if (onSuccess) {
+      onSuccess(clientData);
+    }
+    
+    onClose();
   };
 
-  const updateFormData = (field: string, value: any) => {
-    setFormData(prev => ({ ...prev, [field]: value }));
+  const handlePackageChange = (packageId: string) => {
+    const selectedPackage = servicePackages.find(p => p.id === packageId);
+    setFormData(prev => ({
+      ...prev,
+      service_package_id: packageId,
+      monthly_rate: selectedPackage?.monthly_rate || 0
+    }));
   };
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-      <Card className="w-full max-w-2xl max-h-[90vh] overflow-y-auto">
-        <CardHeader className="flex flex-row items-center justify-between">
-          <CardTitle>Customer Registration</CardTitle>
-          <Button variant="ghost" size="sm" onClick={onClose}>
-            <X className="h-4 w-4" />
-          </Button>
-        </CardHeader>
-        <CardContent>
-          <form onSubmit={handleSubmit} className="space-y-4">
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <Label htmlFor="name">Full Name</Label>
-                <Input
-                  id="name"
-                  value={formData.name}
-                  onChange={(e) => updateFormData('name', e.target.value)}
-                  required
-                />
-              </div>
-              <div>
-                <Label htmlFor="email">Email</Label>
-                <Input
-                  id="email"
-                  type="email"
-                  value={formData.email}
-                  onChange={(e) => updateFormData('email', e.target.value)}
-                  required
-                />
-              </div>
-            </div>
-
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <Label htmlFor="phone">Phone Number</Label>
-                <Input
-                  id="phone"
-                  value={formData.phone}
-                  onChange={(e) => updateFormData('phone', e.target.value)}
-                  required
-                />
-              </div>
-              <div>
-                <Label htmlFor="id_number">ID Number</Label>
-                <Input
-                  id="id_number"
-                  value={formData.id_number}
-                  onChange={(e) => updateFormData('id_number', e.target.value)}
-                  required
-                />
-              </div>
-            </div>
-
+    <Card>
+      <CardHeader>
+        <CardTitle>Customer Registration</CardTitle>
+      </CardHeader>
+      <CardContent>
+        <form onSubmit={handleSubmit} className="space-y-4">
+          <div className="grid grid-cols-2 gap-4">
             <div>
-              <Label htmlFor="address">Address</Label>
+              <Label htmlFor="name">Full Name *</Label>
               <Input
-                id="address"
-                value={formData.address}
-                onChange={(e) => updateFormData('address', e.target.value)}
+                id="name"
+                value={formData.name}
+                onChange={(e) => setFormData(prev => ({ ...prev, name: e.target.value }))}
                 required
               />
             </div>
-
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <Label htmlFor="county">County</Label>
-                <Input
-                  id="county"
-                  value={formData.county}
-                  onChange={(e) => updateFormData('county', e.target.value)}
-                  required
-                />
-              </div>
-              <div>
-                <Label htmlFor="sub_county">Sub County</Label>
-                <Input
-                  id="sub_county"
-                  value={formData.sub_county}
-                  onChange={(e) => updateFormData('sub_county', e.target.value)}
-                  required
-                />
-              </div>
-            </div>
-
+            
             <div>
-              <Label htmlFor="service_package">Service Package</Label>
-              <Select value={formData.service_package_id} onValueChange={(value) => updateFormData('service_package_id', value)}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Select a service package" />
-                </SelectTrigger>
-                <SelectContent>
-                  {servicePackages.map((pkg) => (
-                    <SelectItem key={pkg.id} value={pkg.id}>
-                      {pkg.name} - KSh {pkg.monthly_rate}/month
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              <Label htmlFor="phone">Phone Number *</Label>
+              <Input
+                id="phone"
+                value={formData.phone}
+                onChange={(e) => setFormData(prev => ({ ...prev, phone: e.target.value }))}
+                required
+              />
             </div>
-
-            <div className="flex justify-end gap-3 pt-4">
-              <Button type="button" variant="outline" onClick={onClose}>
-                Cancel
-              </Button>
-              <Button type="submit" disabled={isSubmitting || packagesLoading}>
-                {isSubmitting && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
-                <Save className="h-4 w-4 mr-2" />
-                Submit Application
-              </Button>
+            
+            <div>
+              <Label htmlFor="email">Email</Label>
+              <Input
+                id="email"
+                type="email"
+                value={formData.email}
+                onChange={(e) => setFormData(prev => ({ ...prev, email: e.target.value }))}
+              />
             </div>
-          </form>
-        </CardContent>
-      </Card>
-    </div>
+            
+            <div>
+              <Label htmlFor="id_number">ID Number *</Label>
+              <Input
+                id="id_number"
+                value={formData.id_number}
+                onChange={(e) => setFormData(prev => ({ ...prev, id_number: e.target.value }))}
+                required
+              />
+            </div>
+            
+            <div>
+              <Label htmlFor="mpesa_number">M-Pesa Number</Label>
+              <Input
+                id="mpesa_number"
+                value={formData.mpesa_number}
+                onChange={(e) => setFormData(prev => ({ ...prev, mpesa_number: e.target.value }))}
+              />
+            </div>
+            
+            <div>
+              <Label htmlFor="county">County *</Label>
+              <Input
+                id="county"
+                value={formData.county}
+                onChange={(e) => setFormData(prev => ({ ...prev, county: e.target.value }))}
+                required
+              />
+            </div>
+            
+            <div>
+              <Label htmlFor="sub_county">Sub County</Label>
+              <Input
+                id="sub_county"
+                value={formData.sub_county}
+                onChange={(e) => setFormData(prev => ({ ...prev, sub_county: e.target.value }))}
+              />
+            </div>
+            
+            <div>
+              <Label htmlFor="client_type">Client Type</Label>
+              <select
+                id="client_type"
+                value={formData.client_type}
+                onChange={(e) => setFormData(prev => ({ ...prev, client_type: e.target.value as ClientType }))}
+                className="w-full p-2 border rounded"
+              >
+                <option value="individual">Individual</option>
+                <option value="business">Business</option>
+                <option value="corporate">Corporate</option>
+                <option value="government">Government</option>
+              </select>
+            </div>
+            
+            <div>
+              <Label htmlFor="connection_type">Connection Type</Label>
+              <select
+                id="connection_type"
+                value={formData.connection_type}
+                onChange={(e) => setFormData(prev => ({ ...prev, connection_type: e.target.value as ConnectionType }))}
+                className="w-full p-2 border rounded"
+              >
+                <option value="fiber">Fiber</option>
+                <option value="wireless">Wireless</option>
+                <option value="satellite">Satellite</option>
+                <option value="dsl">DSL</option>
+              </select>
+            </div>
+            
+            <div>
+              <Label htmlFor="service_package_id">Service Package</Label>
+              <select
+                id="service_package_id"
+                value={formData.service_package_id}
+                onChange={(e) => handlePackageChange(e.target.value)}
+                className="w-full p-2 border rounded"
+              >
+                <option value="">Select a package</option>
+                {servicePackages.map(pkg => (
+                  <option key={pkg.id} value={pkg.id}>
+                    {pkg.name} - KSh {pkg.monthly_rate.toLocaleString()}
+                  </option>
+                ))}
+              </select>
+            </div>
+          </div>
+          
+          <div>
+            <Label htmlFor="address">Address *</Label>
+            <Textarea
+              id="address"
+              value={formData.address}
+              onChange={(e) => setFormData(prev => ({ ...prev, address: e.target.value }))}
+              required
+            />
+          </div>
+          
+          <div className="flex justify-end gap-3">
+            <Button type="button" variant="outline" onClick={onClose}>
+              Cancel
+            </Button>
+            <Button type="submit">
+              Register Customer
+            </Button>
+          </div>
+        </form>
+      </CardContent>
+    </Card>
   );
 };
 

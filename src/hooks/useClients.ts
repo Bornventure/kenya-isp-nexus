@@ -1,35 +1,26 @@
-
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
-import type { DatabaseClient } from '@/types/database';
+import { useAuth } from '@/contexts/AuthContext';
+import { useToast } from '@/hooks/use-toast';
+import { Client } from '@/types/client';
 
-// Export the interface so other components can use it
-export type { DatabaseClient };
+// Export DatabaseClient as an alias for backward compatibility
+export type DatabaseClient = Client;
 
 export const useClients = () => {
+  const { profile } = useAuth();
+  const { toast } = useToast();
   const queryClient = useQueryClient();
 
-  const {
-    data: clients = [],
-    isLoading,
-    error,
-    refetch
-  } = useQuery({
-    queryKey: ['clients'],
-    queryFn: async (): Promise<DatabaseClient[]> => {
-      console.log('Fetching clients...');
+  const { data: clients = [], isLoading, error, refetch } = useQuery({
+    queryKey: ['clients', profile?.isp_company_id],
+    queryFn: async () => {
+      if (!profile?.isp_company_id) return [];
+
       const { data, error } = await supabase
         .from('clients')
-        .select(`
-          *,
-          service_packages (
-            id,
-            name,
-            monthly_rate,
-            speed,
-            description
-          )
-        `)
+        .select('*')
+        .eq('isp_company_id', profile.isp_company_id)
         .order('created_at', { ascending: false });
 
       if (error) {
@@ -37,182 +28,181 @@ export const useClients = () => {
         throw error;
       }
 
-      console.log('Clients fetched:', data?.length);
-      
-      // Transform the data to match DatabaseClient interface
-      const transformedData: DatabaseClient[] = (data || []).map(client => ({
-        ...client,
-        notes: client.notes || null,
-        rejection_reason: client.rejection_reason || null,
-        rejected_at: client.rejected_at || null,
-        rejected_by: client.rejected_by || null,
-        latitude: client.latitude || null,
-        longitude: client.longitude || null,
-        service_packages: client.service_packages || null,
-        service_activated_at: client.service_activated_at || null,
-        installation_status: client.installation_status || 'pending',
-        submitted_by: client.submitted_by || null
-      }));
-
-      return transformedData;
+      return (data || []) as Client[];
     },
+    enabled: !!profile?.isp_company_id,
   });
 
-  const createClientMutation = useMutation({
-    mutationFn: async (clientData: Omit<DatabaseClient, 'id' | 'created_at' | 'updated_at'>) => {
-      console.log('Creating client with data:', clientData);
-      
-      const insertData = {
-        name: clientData.name,
-        email: clientData.email,
-        phone: clientData.phone,
-        address: clientData.address,
-        county: clientData.county,
-        sub_county: clientData.sub_county,
-        id_number: clientData.id_number,
-        kra_pin_number: clientData.kra_pin_number,
-        mpesa_number: clientData.mpesa_number,
-        client_type: clientData.client_type,
-        connection_type: clientData.connection_type,
-        status: clientData.status,
-        monthly_rate: clientData.monthly_rate,
-        installation_date: clientData.installation_date,
-        subscription_start_date: clientData.subscription_start_date,
-        subscription_end_date: clientData.subscription_end_date,
-        subscription_type: clientData.subscription_type,
-        balance: clientData.balance,
-        wallet_balance: clientData.wallet_balance,
-        service_package_id: clientData.service_package_id,
-        isp_company_id: clientData.isp_company_id,
-        approved_at: clientData.approved_at,
-        approved_by: clientData.approved_by,
-        notes: clientData.notes,
-        rejection_reason: null,
-        rejected_at: null,
-        rejected_by: null,
-        latitude: clientData.latitude,
-        longitude: clientData.longitude,
-        installation_status: clientData.installation_status || 'pending',
-        submitted_by: clientData.submitted_by,
-        service_activated_at: clientData.service_activated_at,
-      };
+  const createClient = useMutation({
+    mutationFn: async (clientData: Omit<Client, 'id' | 'created_at' | 'updated_at' | 'isp_company_id'>) => {
+      if (!profile?.isp_company_id) {
+        throw new Error('No ISP company associated with user');
+      }
 
       const { data, error } = await supabase
         .from('clients')
-        .insert(insertData)
+        .insert({
+          ...clientData,
+          isp_company_id: profile.isp_company_id,
+          submitted_by: profile.id,
+        })
         .select()
         .single();
 
-      if (error) {
-        console.error('Error creating client:', error);
-        throw error;
-      }
-
-      console.log('Client created successfully:', data);
-      return {
-        ...data,
-        notes: data.notes || null,
-        rejection_reason: data.rejection_reason || null,
-        rejected_at: data.rejected_at || null,
-        rejected_by: data.rejected_by || null,
-        latitude: data.latitude || null,
-        longitude: data.longitude || null,
-        service_activated_at: data.service_activated_at || null,
-        installation_status: data.installation_status || 'pending',
-        submitted_by: data.submitted_by || null
-      } as DatabaseClient;
+      if (error) throw error;
+      return data;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['clients'] });
+      toast({
+        title: "Client Created",
+        description: "New client has been created successfully.",
+      });
+    },
+    onError: (error: any) => {
+      console.error('Error creating client:', error);
+      toast({
+        title: "Error",
+        description: error.message || "Failed to create client. Please try again.",
+        variant: "destructive",
+      });
     },
   });
 
-  const updateClientMutation = useMutation({
-    mutationFn: async ({ id, updates }: { id: string; updates: Partial<DatabaseClient> }) => {
-      console.log('Updating client:', id, updates);
-      
+  const updateClient = useMutation({
+    mutationFn: async ({ id, updates }: { id: string; updates: Partial<Client> }) => {
       const { data, error } = await supabase
         .from('clients')
-        .update({
-          name: updates.name,
-          email: updates.email,
-          phone: updates.phone,
-          address: updates.address,
-          county: updates.county,
-          sub_county: updates.sub_county,
-          id_number: updates.id_number,
-          kra_pin_number: updates.kra_pin_number,
-          mpesa_number: updates.mpesa_number,
-          client_type: updates.client_type,
-          connection_type: updates.connection_type,
-          status: updates.status,
-          monthly_rate: updates.monthly_rate,
-          installation_date: updates.installation_date,
-          subscription_start_date: updates.subscription_start_date,
-          subscription_end_date: updates.subscription_end_date,
-          subscription_type: updates.subscription_type,
-          balance: updates.balance,
-          wallet_balance: updates.wallet_balance,
-          service_package_id: updates.service_package_id,
-          isp_company_id: updates.isp_company_id,
-          approved_at: updates.approved_at,
-          approved_by: updates.approved_by,
-          notes: updates.notes,
-          rejection_reason: updates.rejection_reason,
-          rejected_at: updates.rejected_at,
-          rejected_by: updates.rejected_by,
-          latitude: updates.latitude,
-          longitude: updates.longitude,
-          installation_status: updates.installation_status,
-          submitted_by: updates.submitted_by,
-          service_activated_at: updates.service_activated_at,
-        })
+        .update({ ...updates, updated_at: new Date().toISOString() })
         .eq('id', id)
         .select()
         .single();
 
-      if (error) {
-        console.error('Error updating client:', error);
-        throw error;
-      }
-
-      console.log('Client updated successfully:', data);
-      return {
-        ...data,
-        notes: data.notes || null,
-        rejection_reason: data.rejection_reason || null,
-        rejected_at: data.rejected_at || null,
-        rejected_by: data.rejected_by || null,
-        latitude: data.latitude || null,
-        longitude: data.longitude || null,
-        service_activated_at: data.service_activated_at || null,
-        installation_status: data.installation_status || 'pending',
-        submitted_by: data.submitted_by || null
-      } as DatabaseClient;
+      if (error) throw error;
+      return data;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['clients'] });
+      toast({
+        title: "Client Updated",
+        description: "Client has been updated successfully.",
+      });
+    },
+    onError: (error: any) => {
+      console.error('Error updating client:', error);
+      toast({
+        title: "Error",
+        description: "Failed to update client. Please try again.",
+        variant: "destructive",
+      });
     },
   });
 
-  const deleteClientMutation = useMutation({
-    mutationFn: async (id: string) => {
-      console.log('Deleting client:', id);
+  const deleteClient = useMutation({
+    mutationFn: async (clientId: string) => {
+      if (profile?.role !== 'super_admin' && profile?.role !== 'isp_admin') {
+        throw new Error('Only administrators can delete clients');
+      }
+
+      console.log('Deleting client:', clientId);
+
+      // Instead of deleting financial records, we'll unlink the client from them
+      // and delete only operational data that doesn't need to be preserved
+      // All assigned equipment should return to decommissioned inventory
+
+      const promises = [
+        // Unlink client from inventory items and set status to decommissioned
+        supabase.from('inventory_items')
+          .update({ 
+            assigned_customer_id: null,
+            status: 'Decommissioned',
+            assignment_date: null
+          })
+          .eq('assigned_customer_id', clientId),
+        
+        // Delete client equipment assignments
+        supabase.from('client_equipment').delete().eq('client_id', clientId),
+        
+        // Delete equipment assignments
+        supabase.from('equipment_assignments').delete().eq('client_id', clientId),
+        
+        // Update invoices to remove client reference but keep for financial records
+        supabase.from('invoices').update({ client_id: null }).eq('client_id', clientId),
+        
+        // Update installation invoices to remove client reference but keep for financial records
+        supabase.from('installation_invoices').update({ client_id: null }).eq('client_id', clientId),
+        
+        // Keep wallet transactions and family bank payments for audit trail - just unlink client
+        supabase.from('wallet_transactions').update({ client_id: null }).eq('client_id', clientId),
+        supabase.from('family_bank_payments').update({ client_id: null }).eq('client_id', clientId),
+        
+        // Delete hotspot sessions (operational data)
+        supabase.from('hotspot_sessions').delete().eq('client_id', clientId),
+        
+        // Delete client service assignments
+        supabase.from('client_service_assignments').delete().eq('client_id', clientId),
+        
+        // Delete bandwidth statistics (operational data)
+        supabase.from('bandwidth_statistics').delete().eq('client_id', clientId),
+        
+        // Delete data usage (operational data)
+        supabase.from('data_usage').delete().eq('client_id', clientId),
+
+        // Delete client hotspot access
+        supabase.from('client_hotspot_access').delete().eq('client_id', clientId),
+
+        // Update equipment to unlink from client and set to available
+        supabase.from('equipment')
+          .update({ 
+            client_id: null,
+            status: 'available'
+          })
+          .eq('client_id', clientId),
+      ];
+
+      // Execute all deletions/updates
+      const results = await Promise.allSettled(promises);
       
+      // Check for errors in related data cleanup
+      const errors = results
+        .map((result, index) => ({ result, index }))
+        .filter(({ result }) => result.status === 'rejected')
+        .map(({ result, index }) => `Step ${index + 1}: ${(result as PromiseRejectedResult).reason}`);
+
+      if (errors.length > 0) {
+        console.warn('Some related data cleanup failed:', errors);
+      }
+
+      // Finally delete the client
       const { error } = await supabase
         .from('clients')
         .delete()
-        .eq('id', id);
+        .eq('id', clientId);
 
       if (error) {
         console.error('Error deleting client:', error);
         throw error;
       }
 
-      console.log('Client deleted successfully');
+      return clientId;
     },
-    onSuccess: () => {
+    onSuccess: (clientId) => {
       queryClient.invalidateQueries({ queryKey: ['clients'] });
+      queryClient.invalidateQueries({ queryKey: ['inventory-items'] });
+      queryClient.invalidateQueries({ queryKey: ['equipment'] });
+      toast({
+        title: "Client Deleted Successfully",
+        description: "Client profile has been deleted, equipment returned to inventory, and financial records preserved for audit purposes.",
+      });
+      console.log('Client deletion completed for:', clientId);
+    },
+    onError: (error, clientId) => {
+      console.error('Error deleting client:', clientId, error);
+      toast({
+        title: "Delete Failed",
+        description: error instanceof Error ? error.message : 'Failed to delete client. Please try again.',
+        variant: "destructive",
+      });
     },
   });
 
@@ -221,11 +211,11 @@ export const useClients = () => {
     isLoading,
     error,
     refetch,
-    createClient: createClientMutation.mutateAsync,
-    updateClient: updateClientMutation.mutateAsync,
-    deleteClient: deleteClientMutation.mutateAsync,
-    isCreating: createClientMutation.isPending,
-    isUpdating: updateClientMutation.isPending,
-    isDeleting: deleteClientMutation.isPending,
+    createClient: createClient.mutate,
+    updateClient: updateClient.mutate,
+    deleteClient: deleteClient.mutate,
+    isCreating: createClient.isPending,
+    isUpdating: updateClient.isPending,
+    isDeletingClient: deleteClient.isPending,
   };
 };

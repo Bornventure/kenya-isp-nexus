@@ -1,5 +1,5 @@
 
-import { useClients } from '@/hooks/useClients';
+import { useClients, DatabaseClient } from '@/hooks/useClients';
 import { useNetworkManagement } from '@/hooks/useNetworkManagement';
 import { useCallback, useEffect } from 'react';
 import { useToast } from '@/hooks/use-toast';
@@ -15,7 +15,7 @@ export const useClientsWithNetworkManagement = () => {
     updates 
   }: { 
     id: string; 
-    updates: Partial<Omit<any, 'id' | 'created_at' | 'updated_at'>>
+    updates: Partial<Omit<DatabaseClient, 'id' | 'created_at' | 'updated_at' | 'service_packages'>> 
   }) => {
     const previousClient = clientsHook.clients.find(c => c.id === id);
     const newStatus = updates.status;

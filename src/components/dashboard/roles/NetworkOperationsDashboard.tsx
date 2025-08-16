@@ -3,152 +3,127 @@ import React, { useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
+import MetricCard from '@/components/dashboard/MetricCard';
+import { Network, Shield, CheckCircle, Clock, Users, Settings } from 'lucide-react';
 import { useClients } from '@/hooks/useClients';
-import { Users, Network, AlertTriangle, CheckCircle } from 'lucide-react';
+import { useInstallationInvoices } from '@/hooks/useInstallationInvoices';
 import NOCClientApprovalDialog from '@/components/onboarding/NOCClientApprovalDialog';
-import { DatabaseClient } from '@/types/database';
+import InstallationInvoiceViewer from '@/components/onboarding/InstallationInvoiceViewer';
 
 const NetworkOperationsDashboard = () => {
-  const { clients, updateClient } = useClients();
-  const [selectedClient, setSelectedClient] = useState<DatabaseClient | null>(null);
-  const [approvalDialogOpen, setApprovalDialogOpen] = useState(false);
+  const { clients, isLoading: clientsLoading } = useClients();
+  const { invoices, isLoading: invoicesLoading } = useInstallationInvoices();
+  const [selectedClient, setSelectedClient] = useState<any>(null);
+  const [selectedInvoice, setSelectedInvoice] = useState<any>(null);
 
-  // Filter clients that need approval
   const pendingClients = clients.filter(client => client.status === 'pending');
+  const approvedClients = clients.filter(client => client.status === 'approved');
   const activeClients = clients.filter(client => client.status === 'active');
-  const suspendedClients = clients.filter(client => client.status === 'suspended');
+  const pendingInvoices = invoices.filter(invoice => invoice.status === 'pending');
 
-  const handleApproveClient = async () => {
-    if (!selectedClient) return;
+  const handleClientApproval = () => {
+    setSelectedClient(null);
+    // This will trigger a refetch of clients
+    window.location.reload();
+  };
 
-    try {
-      await updateClient({
-        id: selectedClient.id,
-        updates: {
-          status: 'active',
-          approved_at: new Date().toISOString(),
-          approved_by: 'NOC Team', // This should be the current user
-        }
-      });
-      
-      setApprovalDialogOpen(false);
-      setSelectedClient(null);
-    } catch (error) {
-      console.error('Error approving client:', error);
+  const maskPhoneNumber = (phone: string) => {
+    if (!phone) return '';
+    const cleaned = phone.replace(/\D/g, '');
+    if (cleaned.length >= 10) {
+      return cleaned.substring(0, 3) + 'xxx' + cleaned.substring(6);
     }
+    return phone;
   };
 
-  const openApprovalDialog = (client: DatabaseClient) => {
-    setSelectedClient(client);
-    setApprovalDialogOpen(true);
-  };
-
-  const getStatusColor = (status: string) => {
-    switch (status.toLowerCase()) {
-      case 'active':
-        return 'bg-green-500';
-      case 'pending':
-        return 'bg-yellow-500';
-      case 'suspended':
-        return 'bg-red-500';
-      default:
-        return 'bg-gray-500';
-    }
-  };
+  if (clientsLoading || invoicesLoading) {
+    return (
+      <div className="flex items-center justify-center h-48">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Pending Approvals</CardTitle>
-            <AlertTriangle className="h-4 w-4 text-yellow-600" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{pendingClients.length}</div>
-            <p className="text-xs text-muted-foreground">
-              Clients awaiting approval
-            </p>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Active Clients</CardTitle>
-            <Users className="h-4 w-4 text-green-600" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{activeClients.length}</div>
-            <p className="text-xs text-muted-foreground">
-              Currently active
-            </p>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Suspended</CardTitle>
-            <Network className="h-4 w-4 text-red-600" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{suspendedClients.length}</div>
-            <p className="text-xs text-muted-foreground">
-              Service suspended
-            </p>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Total Clients</CardTitle>
-            <CheckCircle className="h-4 w-4 text-blue-600" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{clients.length}</div>
-            <p className="text-xs text-muted-foreground">
-              All registered clients
-            </p>
-          </CardContent>
-        </Card>
+      <div className="flex justify-between items-center">
+        <h1 className="text-3xl font-bold">Network Operations Center</h1>
+        <Button variant="outline" className="gap-2">
+          <Settings className="h-4 w-4" />
+          Network Settings
+        </Button>
       </div>
 
-      {/* Pending Approvals Section */}
+      {/* Metrics */}
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
+        <MetricCard
+          title="Pending Approvals"
+          value={pendingClients.length}
+          icon={Clock}
+        />
+        <MetricCard
+          title="Approved Clients"
+          value={approvedClients.length}
+          icon={CheckCircle}
+        />
+        <MetricCard
+          title="Active Clients"
+          value={activeClients.length}
+          icon={Users}
+        />
+        <MetricCard
+          title="Pending Invoices"
+          value={pendingInvoices.length}
+          icon={Shield}
+        />
+      </div>
+
+      {/* Pending Client Approvals */}
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
-            <AlertTriangle className="h-5 w-5 text-yellow-600" />
-            Clients Pending Approval
+            <Clock className="h-5 w-5" />
+            Pending Client Approvals ({pendingClients.length})
           </CardTitle>
         </CardHeader>
         <CardContent>
           {pendingClients.length === 0 ? (
-            <p className="text-gray-500 text-center py-4">No clients pending approval</p>
+            <p className="text-center text-gray-500 py-8">No pending client approvals</p>
           ) : (
             <div className="space-y-4">
               {pendingClients.map((client) => (
                 <div key={client.id} className="flex items-center justify-between p-4 border rounded-lg">
                   <div className="flex-1">
-                    <div className="flex items-center gap-3">
-                      <div>
-                        <h3 className="font-medium">{client.name}</h3>
-                        <p className="text-sm text-gray-500">{client.email}</p>
-                      </div>
-                      <Badge className={getStatusColor(client.status)}>
-                        {client.status}
-                      </Badge>
-                    </div>
-                    <div className="mt-2 text-sm text-gray-600">
-                      <span>{client.connection_type}</span> • 
-                      <span className="ml-1">KSh {client.monthly_rate.toLocaleString()}/month</span> • 
-                      <span className="ml-1">{client.county}</span>
-                    </div>
+                    <h3 className="font-semibold">{client.name}</h3>
+                    <p className="text-sm text-gray-600">{client.email}</p>
+                    <p className="text-sm text-gray-500">
+                      Phone: {maskPhoneNumber(client.phone)} • {client.county}
+                    </p>
+                    <p className="text-xs text-gray-400">
+                      Submitted: {new Date(client.created_at).toLocaleDateString()}
+                    </p>
                   </div>
-                  <Button
-                    onClick={() => openApprovalDialog(client)}
-                    className="ml-4"
-                  >
-                    Review & Approve
-                  </Button>
+                  <div className="flex items-center gap-3">
+                    <div className="text-right">
+                      <p className="text-sm font-medium">
+                        KES {client.monthly_rate.toLocaleString()}/month
+                      </p>
+                      <p className="text-xs text-gray-500">
+                        {client.service_packages?.name}
+                      </p>
+                    </div>
+                    <Badge variant="outline">
+                      {client.status}
+                    </Badge>
+                    <Button
+                      onClick={() => setSelectedClient(client)}
+                      size="sm"
+                      className="gap-2"
+                    >
+                      <CheckCircle className="h-4 w-4" />
+                      Review & Approve
+                    </Button>
+                  </div>
                 </div>
               ))}
             </div>
@@ -156,56 +131,74 @@ const NetworkOperationsDashboard = () => {
         </CardContent>
       </Card>
 
-      {/* Active Clients Section */}
+      {/* Installation Invoices */}
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
-            <Users className="h-5 w-5 text-green-600" />
-            Active Clients
+            <Shield className="h-5 w-5" />
+            Installation Invoices ({invoices.length})
           </CardTitle>
         </CardHeader>
         <CardContent>
-          {activeClients.length === 0 ? (
-            <p className="text-gray-500 text-center py-4">No active clients</p>
+          {invoices.length === 0 ? (
+            <p className="text-center text-gray-500 py-8">No installation invoices generated</p>
           ) : (
             <div className="space-y-4">
-              {activeClients.slice(0, 5).map((client) => (
-                <div key={client.id} className="flex items-center justify-between p-4 border rounded-lg">
+              {invoices.slice(0, 10).map((invoice) => (
+                <div key={invoice.id} className="flex items-center justify-between p-4 border rounded-lg">
                   <div className="flex-1">
-                    <div className="flex items-center gap-3">
-                      <div>
-                        <h3 className="font-medium">{client.name}</h3>
-                        <p className="text-sm text-gray-500">{client.email}</p>
-                      </div>
-                      <Badge className={getStatusColor(client.status)}>
-                        {client.status}
-                      </Badge>
+                    <h3 className="font-semibold">{invoice.clients?.name}</h3>
+                    <p className="text-sm text-gray-600">Invoice #{invoice.invoice_number}</p>
+                    <p className="text-sm text-gray-500">
+                      Phone: {maskPhoneNumber(invoice.clients?.phone || '')}
+                    </p>
+                    <p className="text-xs text-gray-400">
+                      Created: {new Date(invoice.created_at).toLocaleDateString()}
+                    </p>
+                  </div>
+                  <div className="flex items-center gap-3">
+                    <div className="text-right">
+                      <p className="text-sm font-medium">
+                        KES {invoice.total_amount.toLocaleString()}
+                      </p>
+                      <p className="text-xs text-gray-500">
+                        Installation Fee
+                      </p>
                     </div>
-                    <div className="mt-2 text-sm text-gray-600">
-                      <span>{client.connection_type}</span> • 
-                      <span className="ml-1">KSh {client.monthly_rate.toLocaleString()}/month</span> • 
-                      <span className="ml-1">{client.county}</span>
-                    </div>
+                    <Badge variant={invoice.status === 'paid' ? 'default' : 'destructive'}>
+                      {invoice.status === 'paid' ? 'PAID' : 'NOT PAID'}
+                    </Badge>
+                    <Button
+                      onClick={() => setSelectedInvoice(invoice)}
+                      size="sm"
+                      variant="outline"
+                    >
+                      View Invoice
+                    </Button>
                   </div>
                 </div>
               ))}
-              {activeClients.length > 5 && (
-                <p className="text-sm text-gray-500 text-center">
-                  And {activeClients.length - 5} more active clients...
-                </p>
-              )}
             </div>
           )}
         </CardContent>
       </Card>
 
-      {/* Approval Dialog */}
+      {/* Client Approval Dialog */}
       {selectedClient && (
         <NOCClientApprovalDialog
           client={selectedClient}
-          open={approvalDialogOpen}
-          onOpenChange={setApprovalDialogOpen}
-          onApprove={handleApproveClient}
+          open={!!selectedClient}
+          onClose={() => setSelectedClient(null)}
+          onApprove={handleClientApproval}
+        />
+      )}
+
+      {/* Invoice Viewer Dialog */}
+      {selectedInvoice && (
+        <InstallationInvoiceViewer
+          invoice={selectedInvoice}
+          open={!!selectedInvoice}
+          onClose={() => setSelectedInvoice(null)}
         />
       )}
     </div>

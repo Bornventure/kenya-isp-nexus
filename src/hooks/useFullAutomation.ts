@@ -1,114 +1,125 @@
 
-import { useState, useCallback } from 'react';
+import { useEffect, useCallback } from 'react';
+import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/hooks/use-toast';
-import { clientActivationService } from '@/services/clientActivationService';
-
-export interface ClientActivationData {
-  clientId: string;
-  equipmentId?: string;
-  activationNotes?: string;
-}
+import { clientActivationService, ClientActivationData } from '@/services/clientActivationService';
+import { smartRenewalService } from '@/services/smartRenewalService';
+import { precisionTimerService } from '@/services/precisionTimerService';
 
 export const useFullAutomation = () => {
+  const { profile } = useAuth();
   const { toast } = useToast();
-  const [isProcessing, setIsProcessing] = useState(false);
 
-  const processFullAutomation = useCallback(async (data: ClientActivationData) => {
-    setIsProcessing(true);
-    
+  // Start precision timer service when component mounts
+  useEffect(() => {
+    if (profile?.role === 'super_admin' || profile?.role === 'isp_admin') {
+      precisionTimerService.start();
+      
+      return () => {
+        precisionTimerService.stop();
+      };
+    }
+  }, [profile]);
+
+  const activateClientWithFullAutomation = useCallback(async (data: ClientActivationData) => {
     try {
-      console.log('Starting full automation process for client:', data.clientId);
+      console.log('Starting full automation for client activation...');
       
-      // Activate the client
-      const activationResult = await clientActivationService.activateClient(data.clientId);
+      const result = await clientActivationService.activateClient(data);
       
-      if (activationResult.success) {
+      if (result.success) {
         toast({
-          title: "Full Automation Complete",
-          description: "Client has been fully activated with all automation processes.",
+          title: "Client Activated Successfully",
+          description: "Full automation completed: RADIUS, MikroTik, monitoring, and notifications configured.",
         });
-        
-        return {
-          success: true,
-          message: activationResult.message || 'Full automation completed successfully',
-        };
       } else {
         toast({
-          title: "Automation Failed",
-          description: activationResult.message || "Failed to complete full automation process.",
+          title: "Activation Completed with Issues",
+          description: result.message,
           variant: "destructive",
         });
-        
-        return {
-          success: false,
-          message: activationResult.message || 'Full automation failed',
-        };
       }
-    } catch (error) {
-      console.error('Full automation error:', error);
       
+      return result;
+    } catch (error) {
+      console.error('Full automation failed:', error);
       toast({
-        title: "Automation Error",
-        description: "An unexpected error occurred during full automation.",
+        title: "Activation Failed",
+        description: "Full automation process encountered errors.",
         variant: "destructive",
       });
-      
       return {
         success: false,
-        message: 'Full automation failed due to an error',
+        message: error instanceof Error ? error.message : 'Unknown error'
       };
-    } finally {
-      setIsProcessing(false);
     }
   }, [toast]);
 
   const analyzeClientWalletStatus = useCallback(async (clientId: string) => {
-    // Mock implementation for wallet analysis
-    return {
-      analysis: {
-        currentBalance: 1500,
-        requiredAmount: 2500,
-        shortfall: 1000,
-        daysUntilExpiry: 3,
-        packageName: 'Standard Package'
-      },
-      recommendedAction: {
-        type: 'top_up_required',
-        message: 'Client needs to top up wallet to avoid service interruption',
-        amount: 1000
-      }
-    };
+    try {
+      const analysis = await smartRenewalService.analyzeClientWallet(clientId);
+      if (!analysis) return null;
+
+      const renewalAction = await smartRenewalService.processSmartRenewal(analysis);
+      
+      return {
+        analysis,
+        recommendedAction: renewalAction
+      };
+    } catch (error) {
+      console.error('Wallet analysis failed:', error);
+      return null;
+    }
   }, []);
 
   const processSmartRenewalForClient = useCallback(async (clientId: string) => {
-    setIsProcessing(true);
     try {
-      // Mock implementation for smart renewal
-      await new Promise(resolve => setTimeout(resolve, 1000));
+      const analysis = await smartRenewalService.analyzeClientWallet(clientId);
+      if (!analysis) return null;
+
+      const renewalAction = await smartRenewalService.processSmartRenewal(analysis);
       
-      toast({
-        title: "Smart Renewal Complete",
-        description: "Client subscription has been renewed automatically.",
-      });
+      // Show toast based on action type
+      switch (renewalAction.type) {
+        case 'auto_renew':
+          toast({
+            title: "Service Renewed",
+            description: `Client service renewed automatically for KES ${renewalAction.amount}`,
+          });
+          break;
+        case 'partial_payment':
+          toast({
+            title: "Partial Renewal",
+            description: renewalAction.message,
+          });
+          break;
+        case 'top_up_required':
+          toast({
+            title: "Top-up Required",
+            description: renewalAction.message,
+            variant: "destructive",
+          });
+          break;
+        case 'suspend_service':
+          toast({
+            title: "Service Suspended",
+            description: "Insufficient funds for renewal",
+            variant: "destructive",
+          });
+          break;
+      }
       
-      return { success: true };
+      return renewalAction;
     } catch (error) {
-      console.error('Smart renewal error:', error);
-      toast({
-        title: "Smart Renewal Failed",
-        description: "Failed to process smart renewal.",
-        variant: "destructive",
-      });
-      return { success: false };
-    } finally {
-      setIsProcessing(false);
+      console.error('Smart renewal failed:', error);
+      return null;
     }
   }, [toast]);
 
   return {
-    processFullAutomation,
+    activateClientWithFullAutomation,
     analyzeClientWalletStatus,
     processSmartRenewalForClient,
-    isProcessing,
+    isAutomationActive: profile?.role === 'super_admin' || profile?.role === 'isp_admin'
   };
 };

@@ -1,10 +1,12 @@
 
 import { useState } from 'react';
-import { useServicePackages } from '@/hooks/useServicePackages';
-import { useClients, DatabaseClient } from '@/hooks/useClients';
+import { useQuery } from '@tanstack/react-query';
+import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
+import { useAuth } from '@/contexts/AuthContext';
+import { Client, ClientType, ConnectionType, ClientStatus } from '@/types/client';
 
-export interface ClientFormData {
+export interface FormData {
   name: string;
   email: string;
   phone: string;
@@ -14,22 +16,22 @@ export interface ClientFormData {
   address: string;
   county: string;
   sub_county: string;
-  latitude: number | null;
-  longitude: number | null;
+  latitude?: number;
+  longitude?: number;
+  client_type: ClientType;
+  connection_type: ConnectionType;
   service_package_id: string;
   monthly_rate: number;
-  connection_type: 'fiber' | 'wireless' | 'satellite' | 'dsl';
-  client_type: 'individual' | 'business' | 'corporate' | 'government';
-  installation_date: string;
+  installation_date?: string;
 }
 
-interface UseClientRegistrationFormProps {
-  onClose: () => void;
-  onSave: (client: Partial<DatabaseClient>) => void;
-}
+export const useClientRegistrationForm = ({ onClose, onSave }: { onClose: () => void; onSave: (client: Partial<Client>) => void }) => {
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [errors, setErrors] = useState<Record<string, string>>({});
+  const { toast } = useToast();
+  const { profile } = useAuth();
 
-export const useClientRegistrationForm = ({ onClose, onSave }: UseClientRegistrationFormProps) => {
-  const [formData, setFormData] = useState<ClientFormData>({
+  const [formData, setFormData] = useState<FormData>({
     name: '',
     email: '',
     phone: '',
@@ -39,35 +41,43 @@ export const useClientRegistrationForm = ({ onClose, onSave }: UseClientRegistra
     address: '',
     county: '',
     sub_county: '',
-    latitude: null,
-    longitude: null,
+    client_type: 'individual',
+    connection_type: 'fiber',
     service_package_id: '',
     monthly_rate: 0,
-    connection_type: 'fiber',
-    client_type: 'individual',
-    installation_date: '',
+    installation_date: new Date().toISOString().split('T')[0],
   });
 
-  const [errors, setErrors] = useState<Record<string, string>>({});
-  const [isSubmitting, setIsSubmitting] = useState(false);
+  // Fetch service packages
+  const { data: servicePackages = [], isLoading: packagesLoading } = useQuery({
+    queryKey: ['service_packages', profile?.isp_company_id],
+    queryFn: async () => {
+      if (!profile?.isp_company_id) return [];
 
-  const { servicePackages, isLoading: packagesLoading } = useServicePackages();
-  const { createClient } = useClients();
-  const { toast } = useToast();
+      const { data, error } = await supabase
+        .from('service_packages')
+        .select('*')
+        .eq('isp_company_id', profile.isp_company_id)
+        .eq('is_active', true)
+        .order('monthly_rate');
 
-  const updateFormData = (field: keyof ClientFormData, value: any) => {
+      if (error) throw error;
+      return data;
+    },
+    enabled: !!profile?.isp_company_id,
+  });
+
+  const updateFormData = (field: string, value: any) => {
     setFormData(prev => ({ ...prev, [field]: value }));
-    // Clear error when field is updated
     if (errors[field]) {
       setErrors(prev => ({ ...prev, [field]: '' }));
     }
   };
 
-  const validateForm = (): boolean => {
+  const validateForm = () => {
     const newErrors: Record<string, string> = {};
 
     if (!formData.name.trim()) newErrors.name = 'Name is required';
-    if (!formData.email.trim()) newErrors.email = 'Email is required';
     if (!formData.phone.trim()) newErrors.phone = 'Phone is required';
     if (!formData.id_number.trim()) newErrors.id_number = 'ID number is required';
     if (!formData.address.trim()) newErrors.address = 'Address is required';
@@ -79,50 +89,97 @@ export const useClientRegistrationForm = ({ onClose, onSave }: UseClientRegistra
     return Object.keys(newErrors).length === 0;
   };
 
-  const handleSubmit = async (): Promise<DatabaseClient> => {
-    if (!validateForm()) {
-      throw new Error('Please fix validation errors');
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    
+    if (!validateForm()) return;
+    if (!profile?.isp_company_id) {
+      toast({
+        title: "Error",
+        description: "Company information not found. Please log in again.",
+        variant: "destructive",
+      });
+      return;
     }
 
     setIsSubmitting(true);
+
     try {
-      const clientData: Omit<DatabaseClient, 'id' | 'created_at' | 'updated_at'> = {
-        ...formData,
-        status: 'pending',
+      // Get service package details
+      const selectedPackage = servicePackages.find(pkg => pkg.id === formData.service_package_id);
+      if (!selectedPackage) {
+        throw new Error('Service package not found');
+      }
+
+      // Prepare client data for database
+      const clientData = {
+        name: formData.name,
+        email: formData.email || undefined,
+        phone: formData.phone,
+        id_number: formData.id_number,
+        kra_pin_number: formData.kra_pin_number || undefined,
+        mpesa_number: formData.mpesa_number,
+        address: formData.address,
+        county: formData.county,
+        sub_county: formData.sub_county,
+        latitude: formData.latitude,
+        longitude: formData.longitude,
+        client_type: formData.client_type,
+        connection_type: formData.connection_type,
+        service_package_id: formData.service_package_id,
+        monthly_rate: selectedPackage.monthly_rate,
+        status: 'pending' as ClientStatus,
         balance: 0,
         wallet_balance: 0,
-        subscription_start_date: '',
-        subscription_end_date: '',
-        subscription_type: 'monthly',
-        approved_at: '',
-        approved_by: '',
-        isp_company_id: '',
-        notes: null,
-        rejection_reason: null,
-        rejected_at: null,
-        rejected_by: null,
+        is_active: false,
+        installation_date: formData.installation_date,
         installation_status: 'pending',
-        submitted_by: 'sales'
+        submitted_by: profile.id,
+        isp_company_id: profile.isp_company_id,
       };
 
-      const result = await createClient(clientData);
-      
+      // Insert client
+      const { data: newClient, error: clientError } = await supabase
+        .from('clients')
+        .insert(clientData)
+        .select()
+        .single();
+
+      if (clientError) {
+        throw clientError;
+      }
+
+      // Create service assignment
+      const { error: assignmentError } = await supabase
+        .from('client_service_assignments')
+        .insert({
+          client_id: newClient.id,
+          service_package_id: formData.service_package_id,
+          assigned_at: new Date().toISOString(),
+          is_active: false,
+          notes: 'Initial service assignment',
+          isp_company_id: profile.isp_company_id,
+        });
+
+      if (assignmentError) {
+        console.warn('Service assignment creation failed:', assignmentError);
+      }
+
       toast({
-        title: "Client Registered",
-        description: "Client has been successfully registered",
+        title: "Success",
+        description: "Client registered successfully. Awaiting approval.",
       });
 
-      onSave(result);
+      onSave(newClient);
       onClose();
-      return result;
+
     } catch (error) {
-      console.error('Error creating client:', error);
+      console.error('Registration error:', error);
       toast({
         title: "Registration Failed",
-        description: "Failed to register client. Please try again.",
+        description: error instanceof Error ? error.message : "An error occurred during registration",
         variant: "destructive",
       });
-      throw error;
     } finally {
       setIsSubmitting(false);
     }

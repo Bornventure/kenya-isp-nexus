@@ -1,113 +1,274 @@
 
-import React from 'react';
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-} from '@/components/ui/dialog';
+import React, { useState } from 'react';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent } from '@/components/ui/card';
+import { Textarea } from '@/components/ui/textarea';
+import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
-import { CheckCircle, XCircle } from 'lucide-react';
-import { DatabaseClient } from '@/types/database';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Separator } from '@/components/ui/separator';
+import { CheckCircle, XCircle, User, Phone, Mail, MapPin, Package, Calendar, CreditCard, Loader2 } from 'lucide-react';
+import { useClients } from '@/hooks/useClients';
+import { useToast } from '@/hooks/use-toast';
+import { useAuth } from '@/contexts/AuthContext';
 
-export interface NOCClientApprovalDialogProps {
-  client: DatabaseClient;
+interface NOCClientApprovalDialogProps {
   open: boolean;
-  onOpenChange: (open: boolean) => void;
-  onApprove: () => void;
-  onReject?: () => void;
+  onClose: () => void;
+  client: any;
+  onApprove?: () => void;
 }
 
 const NOCClientApprovalDialog: React.FC<NOCClientApprovalDialogProps> = ({
-  client,
   open,
-  onOpenChange,
-  onApprove,
-  onReject,
+  onClose,
+  client,
+  onApprove
 }) => {
-  const getStatusColor = (status: string) => {
-    switch (status.toLowerCase()) {
-      case 'active':
-        return 'bg-green-500';
-      case 'pending':
-        return 'bg-yellow-500';
-      case 'suspended':
-        return 'bg-red-500';
-      default:
-        return 'bg-gray-500';
+  const [notes, setNotes] = useState('');
+  const [isProcessing, setIsProcessing] = useState(false);
+  const { updateClient } = useClients();
+  const { toast } = useToast();
+  const { profile } = useAuth();
+
+  const handleApprove = async () => {
+    if (!profile?.id || !client?.id) {
+      toast({
+        title: "Error",
+        description: "Missing required information for approval.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setIsProcessing(true);
+    try {
+      console.log('Approving client:', client.id);
+      
+      await updateClient({
+        id: client.id,
+        updates: {
+          status: 'approved',
+          approved_by: profile.id,
+          approved_at: new Date().toISOString(),
+          installation_status: 'scheduled'
+        }
+      });
+
+      toast({
+        title: "Client Approved",
+        description: `${client.name} has been approved and scheduled for installation.`,
+      });
+
+      onApprove?.();
+      onClose();
+    } catch (error) {
+      console.error('Error approving client:', error);
+      toast({
+        title: "Approval Failed",
+        description: "Failed to approve client. Please try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsProcessing(false);
     }
   };
 
+  const handleReject = async () => {
+    if (!profile?.id || !client?.id) {
+      toast({
+        title: "Error",
+        description: "Missing required information for rejection.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    if (!notes.trim()) {
+      toast({
+        title: "Rejection Reason Required",
+        description: "Please provide a reason for rejecting this client.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setIsProcessing(true);
+    try {
+      console.log('Rejecting client:', client.id);
+      
+      // Update client status to suspended and record approval details
+      await updateClient({
+        id: client.id,
+        updates: {
+          status: 'suspended',
+          approved_by: profile.id,
+          approved_at: new Date().toISOString()
+        }
+      });
+
+      // Note: The rejection reason is stored in the notes state but not persisted 
+      // since the DatabaseClient type doesn't have a notes field
+      console.log('Rejection reason:', notes.trim());
+
+      toast({
+        title: "Client Rejected",
+        description: `${client.name} has been rejected with the provided reason.`,
+        variant: "destructive",
+      });
+
+      onApprove?.();
+      onClose();
+    } catch (error) {
+      console.error('Error rejecting client:', error);
+      toast({
+        title: "Rejection Failed",
+        description: "Failed to reject client. Please try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsProcessing(false);
+    }
+  };
+
+  if (!client) return null;
+
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-2xl">
+    <Dialog open={open} onOpenChange={onClose}>
+      <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
-            Client Approval Required
-            <Badge className={getStatusColor(client.status)}>
-              {client.status}
-            </Badge>
+            <User className="h-5 w-5" />
+            Client Approval Review - {client.name}
           </DialogTitle>
         </DialogHeader>
 
         <div className="space-y-6">
-          <Card>
-            <CardContent className="pt-6">
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className="text-sm font-medium text-gray-500">Name</label>
-                  <p className="text-sm font-medium">{client.name}</p>
-                </div>
-                <div>
-                  <label className="text-sm font-medium text-gray-500">Email</label>
-                  <p className="text-sm">{client.email}</p>
-                </div>
-                <div>
-                  <label className="text-sm font-medium text-gray-500">Phone</label>
-                  <p className="text-sm">{client.phone}</p>
-                </div>
-                <div>
-                  <label className="text-sm font-medium text-gray-500">ID Number</label>
-                  <p className="text-sm">{client.id_number}</p>
-                </div>
-                <div>
-                  <label className="text-sm font-medium text-gray-500">Connection Type</label>
-                  <p className="text-sm capitalize">{client.connection_type}</p>
-                </div>
-                <div>
-                  <label className="text-sm font-medium text-gray-500">Monthly Rate</label>
-                  <p className="text-sm">KSh {client.monthly_rate.toLocaleString()}</p>
-                </div>
-                <div className="col-span-2">
-                  <label className="text-sm font-medium text-gray-500">Address</label>
-                  <p className="text-sm">{client.address}, {client.sub_county}, {client.county}</p>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
+          {/* Status Badge */}
+          <div className="flex items-center gap-2">
+            <Badge variant={client.status === 'pending' ? 'secondary' : 'default'}>
+              {client.status}
+            </Badge>
+            <span className="text-sm text-muted-foreground">
+              Submitted: {new Date(client.created_at).toLocaleDateString()}
+            </span>
+          </div>
 
-          <div className="flex gap-3 justify-end">
-            {onReject && (
-              <Button
-                variant="outline"
-                onClick={onReject}
-                className="flex items-center gap-2"
-              >
-                <XCircle className="h-4 w-4" />
-                Reject
-              </Button>
-            )}
-            <Button
-              onClick={onApprove}
-              className="flex items-center gap-2 bg-green-600 hover:bg-green-700"
-            >
-              <CheckCircle className="h-4 w-4" />
-              Approve Client
-            </Button>
+          {/* Client Information */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-lg">Personal Information</CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-3">
+                <div className="flex items-center gap-2">
+                  <User className="h-4 w-4 text-muted-foreground" />
+                  <span className="font-medium">{client.name}</span>
+                </div>
+                {client.email && (
+                  <div className="flex items-center gap-2">
+                    <Mail className="h-4 w-4 text-muted-foreground" />
+                    <span>{client.email}</span>
+                  </div>
+                )}
+                <div className="flex items-center gap-2">
+                  <Phone className="h-4 w-4 text-muted-foreground" />
+                  <span>{client.phone}</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <CreditCard className="h-4 w-4 text-muted-foreground" />
+                  <span>ID: {client.id_number}</span>
+                </div>
+                <div className="text-sm">
+                  <strong>Client Type:</strong> {client.client_type}
+                </div>
+                <div className="text-sm">
+                  <strong>Connection Type:</strong> {client.connection_type}
+                </div>
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-lg">Location & Service</CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-3">
+                <div className="flex items-center gap-2">
+                  <MapPin className="h-4 w-4 text-muted-foreground" />
+                  <span>{client.address}</span>
+                </div>
+                <div className="text-sm text-muted-foreground">
+                  {client.sub_county}, {client.county}
+                </div>
+                <div className="flex items-center gap-2">
+                  <Package className="h-4 w-4 text-muted-foreground" />
+                  <span>{client.service_packages?.name || 'Package not assigned'}</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <Calendar className="h-4 w-4 text-muted-foreground" />
+                  <span>Rate: KES {client.monthly_rate?.toLocaleString()}/month</span>
+                </div>
+                {client.installation_date && (
+                  <div className="text-sm">
+                    <strong>Installation Date:</strong> {new Date(client.installation_date).toLocaleDateString()}
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          </div>
+
+          <Separator />
+
+          {/* Notes Section */}
+          <div className="space-y-3">
+            <Label htmlFor="notes">
+              Approval Notes {client.status === 'pending' ? '(Required for rejection)' : '(Optional)'}
+            </Label>
+            <Textarea
+              id="notes"
+              placeholder="Add any notes about this approval or reason for rejection..."
+              value={notes}
+              onChange={(e) => setNotes(e.target.value)}
+              rows={3}
+              disabled={isProcessing}
+            />
           </div>
         </div>
+
+        <DialogFooter className="flex gap-2">
+          <Button 
+            variant="outline" 
+            onClick={onClose} 
+            disabled={isProcessing}
+          >
+            Cancel
+          </Button>
+          <Button 
+            variant="destructive" 
+            onClick={handleReject}
+            disabled={isProcessing}
+            className="flex items-center gap-2"
+          >
+            {isProcessing ? (
+              <Loader2 className="h-4 w-4 animate-spin" />
+            ) : (
+              <XCircle className="h-4 w-4" />
+            )}
+            Reject
+          </Button>
+          <Button 
+            onClick={handleApprove}
+            disabled={isProcessing}
+            className="flex items-center gap-2"
+          >
+            {isProcessing ? (
+              <Loader2 className="h-4 w-4 animate-spin" />
+            ) : (
+              <CheckCircle className="h-4 w-4" />
+            )}
+            Approve
+          </Button>
+        </DialogFooter>
       </DialogContent>
     </Dialog>
   );

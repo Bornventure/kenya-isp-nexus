@@ -1,122 +1,153 @@
-
 import React, { useMemo } from 'react';
-import { MapContainer, TileLayer, Marker, Popup, Polyline } from 'react-leaflet';
-import { Icon } from 'leaflet';
-import { DatabaseClient } from '@/hooks/useClients';
+import { MapContainer, TileLayer, Marker, Popup } from 'react-leaflet';
+import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
+import { useClients } from '@/hooks/useClients';
+import { useEquipment } from '@/hooks/useEquipment';
 
-// Fix leaflet default markers
-delete (Icon.Default.prototype as any)._getIconUrl;
-Icon.Default.mergeOptions({
-  iconRetinaUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-icon-2x.png',
-  iconUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-icon.png',
-  shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-shadow.png',
+// Define custom icon
+const clientIcon = new L.Icon({
+  iconUrl: '/marker-client.svg',
+  iconRetinaUrl: '/marker-client.svg',
+  iconAnchor: null,
+  popupAnchor: [0, -20],
+  shadowUrl: null,
+  shadowSize: null,
+  shadowAnchor: null,
+  iconSize: [30, 30],
+  className: 'leaflet-div-icon'
 });
 
-interface EnhancedNetworkMapProps {
-  clients: DatabaseClient[];
-  showConnections?: boolean;
-  centerLat?: number;
-  centerLng?: number;
-  zoom?: number;
-}
+const routerIcon = new L.Icon({
+  iconUrl: '/marker-router.svg',
+  iconRetinaUrl: '/marker-router.svg',
+  iconAnchor: null,
+  popupAnchor: [0, -20],
+  shadowUrl: null,
+  shadowSize: null,
+  shadowAnchor: null,
+  iconSize: [30, 30],
+  className: 'leaflet-div-icon'
+});
 
-const EnhancedNetworkMap: React.FC<EnhancedNetworkMapProps> = ({
-  clients,
-  showConnections = false,
-  centerLat = -1.2921,
-  centerLng = 36.8219,
-  zoom = 10
-}) => {
-  // Filter clients that have valid coordinates
-  const clientsWithCoordinates = useMemo(() => {
-    return clients.filter(client => 
-      client.latitude !== null && 
-      client.longitude !== null && 
-      client.latitude !== undefined && 
-      client.longitude !== undefined
-    );
-  }, [clients]);
+const defaultPosition: [number, number] = [-1.286389, 36.817223]; // Nairobi coordinates
+const defaultZoom = 12;
 
-  // Create connections between clients if enabled
-  const connections = useMemo(() => {
-    if (!showConnections || clientsWithCoordinates.length < 2) return [];
-    
-    const lines = [];
-    for (let i = 0; i < clientsWithCoordinates.length - 1; i++) {
-      const client1 = clientsWithCoordinates[i];
-      const client2 = clientsWithCoordinates[i + 1];
-      
-      if (client1.latitude && client1.longitude && client2.latitude && client2.longitude) {
-        lines.push({
-          positions: [
-            [client1.latitude, client1.longitude] as [number, number],
-            [client2.latitude, client2.longitude] as [number, number]
-          ],
-          id: `${client1.id}-${client2.id}`
-        });
-      }
-    }
-    return lines;
-  }, [clientsWithCoordinates, showConnections]);
+const EnhancedNetworkMap = () => {
+  const { clients, isLoading: isLoadingClients, error: errorClients } = useClients();
+  const { equipment, isLoading: isLoadingEquipment, error: errorEquipment } = useEquipment();
 
-  const getMarkerColor = (status: string) => {
-    switch (status) {
-      case 'active': return 'green';
-      case 'suspended': return 'orange';
-      case 'pending': return 'blue';
-      default: return 'red';
-    }
-  };
+  const markers = useMemo(() => {
+    const clientMarkers = clients
+      .filter(client => client.latitude && client.longitude)
+      .map(client => ({
+        id: client.id,
+        type: 'client' as const,
+        position: [Number(client.latitude), Number(client.longitude)] as [number, number],
+        popup: `
+          <div>
+            <h3>${client.name}</h3>
+            <p>Status: ${client.status}</p>
+            <p>Type: ${client.client_type}</p>
+            <p>Connection: ${client.connection_type}</p>
+          </div>
+        `
+      }));
+
+    const routerMarkers = equipment
+      .filter(item => item.type === 'router' && item.location_coordinates)
+      .map(router => {
+        try {
+          const coordinates = JSON.parse(router.location_coordinates);
+          if (Array.isArray(coordinates) && coordinates.length === 2) {
+            return {
+              id: router.id,
+              type: 'router' as const,
+              position: [Number(coordinates[0]), Number(coordinates[1])] as [number, number],
+              popup: `
+                <div>
+                  <h3>${router.name}</h3>
+                  <p>Type: ${router.type}</p>
+                  <p>Status: ${router.status}</p>
+                </div>
+              `
+            };
+          } else {
+            console.warn(`Invalid coordinates for router ${router.id}:`, coordinates);
+            return null;
+          }
+        } catch (error) {
+          console.error(`Error parsing coordinates for router ${router.id}:`, error);
+          return null;
+        }
+      })
+      .filter(Boolean) as { id: string; type: "router"; position: [number, number]; popup: string; }[];
+
+    return [...clientMarkers, ...routerMarkers];
+  }, [clients, equipment]);
+
+  if (isLoadingClients || isLoadingEquipment) {
+    return <div className="text-center">Loading map data...</div>;
+  }
+
+  if (errorClients || errorEquipment) {
+    return <div className="text-center text-red-500">Error loading map data.</div>;
+  }
 
   return (
-    <div className="h-full w-full">
-      <MapContainer
-        center={[centerLat, centerLng]}
-        zoom={zoom}
-        style={{ height: '100%', width: '100%' }}
-        className="rounded-lg"
-      >
-        <TileLayer
-          attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
-          url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
-        />
-        
-        {/* Render client markers */}
-        {clientsWithCoordinates.map((client) => (
+    <MapContainer center={defaultPosition} zoom={defaultZoom} style={{ height: '500px', width: '100%' }}>
+      <TileLayer
+        url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+        attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+      />
+      {clients.map(client => 
+        client.latitude && client.longitude ? (
           <Marker
             key={client.id}
-            position={[client.latitude!, client.longitude!]}
+            position={[Number(client.latitude), Number(client.longitude)]}
+            icon={clientIcon}
           >
             <Popup>
-              <div className="p-2">
+              <div>
                 <h3 className="font-semibold">{client.name}</h3>
-                <p className="text-sm text-gray-600">{client.email}</p>
-                <p className="text-sm text-gray-600">{client.phone}</p>
-                <p className="text-sm">
-                  <span className={`inline-block w-2 h-2 rounded-full mr-2 bg-${getMarkerColor(client.status)}-500`}></span>
-                  Status: {client.status}
-                </p>
-                <p className="text-sm">Type: {client.connection_type}</p>
-                <p className="text-sm">Package: {client.service_packages?.name || 'N/A'}</p>
-                <p className="text-sm">Rate: KSh {client.monthly_rate}/month</p>
+                <p>Status: {client.status}</p>
+                <p>Type: {client.client_type}</p>
+                <p>Connection: {client.connection_type}</p>
               </div>
             </Popup>
           </Marker>
-        ))}
-
-        {/* Render connections if enabled */}
-        {showConnections && connections.map((connection) => (
-          <Polyline
-            key={connection.id}
-            positions={connection.positions}
-            color="blue"
-            weight={2}
-            opacity={0.6}
-          />
-        ))}
-      </MapContainer>
-    </div>
+        ) : null
+      )}
+      {equipment.map(router => {
+        if (router.type === 'router' && router.location_coordinates) {
+          try {
+            const coordinates = JSON.parse(router.location_coordinates);
+            if (Array.isArray(coordinates) && coordinates.length === 2) {
+              return (
+                <Marker
+                  key={router.id}
+                  position={[Number(coordinates[0]), Number(coordinates[1])]}
+                  icon={routerIcon}
+                >
+                  <Popup>
+                    <div>
+                      <h3 className="font-semibold">{router.name}</h3>
+                      <p>Type: {router.type}</p>
+                      <p>Status: {router.status}</p>
+                    </div>
+                  </Popup>
+                </Marker>
+              );
+            } else {
+              return null;
+            }
+          } catch (error) {
+            return null;
+          }
+        }
+        return null;
+      })}
+    </MapContainer>
   );
 };
 

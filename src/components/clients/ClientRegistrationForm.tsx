@@ -2,17 +2,16 @@
 import React from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { DatabaseClient } from '@/hooks/useClients';
+import { Client } from '@/types/client';
 import { X, Save, Mail, Loader2 } from 'lucide-react';
 import { useClientRegistrationForm } from './registration/useClientRegistrationForm';
 import PersonalInfoSection from './registration/PersonalInfoSection';
 import LocationInfoSection from './registration/LocationInfoSection';
 import ServiceInfoSection from './registration/ServiceInfoSection';
-import { useWorkflowManagement } from '@/hooks/useWorkflowManagement';
 
 interface ClientRegistrationFormProps {
   onClose: () => void;
-  onSave: (client: Partial<DatabaseClient>) => void;
+  onSave: (client: Partial<Client>) => void;
 }
 
 const ClientRegistrationForm: React.FC<ClientRegistrationFormProps> = ({ onClose, onSave }) => {
@@ -23,42 +22,8 @@ const ClientRegistrationForm: React.FC<ClientRegistrationFormProps> = ({ onClose
     servicePackages,
     packagesLoading,
     updateFormData,
-    handleSubmit: baseHandleSubmit,
+    handleSubmit,
   } = useClientRegistrationForm({ onClose, onSave });
-
-  const { updateWorkflowStage } = useWorkflowManagement();
-
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    
-    try {
-      // Call the base submit function and get the result
-      const result = await baseHandleSubmit();
-      
-      // Check if result exists and has an id
-      if (result && typeof result === 'object' && 'id' in result && result.id) {
-        // Initialize workflow for the new client
-        await updateWorkflowStage({
-          clientId: result.id as string,
-          stage: 'pending_approval',
-          stageData: {
-            submitted_by: 'sales',
-            submission_date: new Date().toISOString(),
-            client_type: formData.client_type,
-            service_package: formData.service_package_id,
-            monthly_rate: formData.monthly_rate,
-          },
-          notes: 'New client application submitted by sales team',
-        });
-
-        console.log('Client workflow initialized:', result.id);
-      } else {
-        console.log('Client submitted, but no ID returned or void result');
-      }
-    } catch (error) {
-      console.error('Error in client submission:', error);
-    }
-  };
 
   // Transform database format to component format for backward compatibility
   const transformedFormData = {
@@ -81,6 +46,7 @@ const ClientRegistrationForm: React.FC<ClientRegistrationFormProps> = ({ onClose
   };
 
   const transformedUpdateFormData = (field: string, value: any) => {
+    // Transform component format back to database format
     const fieldMap: Record<string, string> = {
       idNumber: 'id_number',
       kraPinNumber: 'kra_pin_number',
@@ -94,7 +60,7 @@ const ClientRegistrationForm: React.FC<ClientRegistrationFormProps> = ({ onClose
     };
     
     const dbField = fieldMap[field] || field;
-    updateFormData(dbField as keyof typeof formData, value);
+    updateFormData(dbField, value);
   };
 
   return (

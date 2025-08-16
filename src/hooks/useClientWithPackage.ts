@@ -1,19 +1,19 @@
 
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
-import { Client, ServicePackage } from '@/types/client';
+import { Client } from '@/types/client';
+import { ServicePackage } from '@/types/client';
 
 export const useClientWithPackage = (client: Client) => {
   const { data: servicePackage } = useQuery({
-    queryKey: ['service-package', client.servicePackage || client.service_package_id],
+    queryKey: ['service-package', client.service_package_id],
     queryFn: async () => {
-      const packageId = client.servicePackage || client.service_package_id;
-      if (!packageId) return null;
+      if (!client.service_package_id) return null;
 
       const { data, error } = await supabase
         .from('service_packages')
         .select('*')
-        .eq('id', packageId)
+        .eq('id', client.service_package_id)
         .single();
 
       if (error) {
@@ -23,7 +23,7 @@ export const useClientWithPackage = (client: Client) => {
 
       return data as ServicePackage;
     },
-    enabled: !!(client.servicePackage || client.service_package_id),
+    enabled: !!client.service_package_id,
   });
 
   return {
