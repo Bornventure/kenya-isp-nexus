@@ -12,7 +12,7 @@ export interface DatabaseClient {
   mpesa_number: string;
   client_type: 'individual' | 'business' | 'corporate' | 'government';
   connection_type: 'fiber' | 'wireless' | 'satellite' | 'dsl';
-  status: 'active' | 'suspended' | 'disconnected' | 'pending' | 'approved';
+  status: 'active' | 'suspended' | 'disconnected' | 'pending' | 'approved' | 'rejected';
   monthly_rate: number;
   installation_date: string;
   subscription_start_date: string;

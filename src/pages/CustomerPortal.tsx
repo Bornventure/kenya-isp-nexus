@@ -2,125 +2,196 @@
 import React, { useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
+import { Phone, Mail, MapPin, Globe, CreditCard, User } from 'lucide-react';
 import CustomerRegistrationForm from '@/components/customers/CustomerRegistrationForm';
-import { Wifi, UserPlus, LogIn } from 'lucide-react';
 
-const CustomerPortal = () => {
+const CustomerPortal: React.FC = () => {
   const [showRegistrationForm, setShowRegistrationForm] = useState(false);
 
+  const handleRegistrationSuccess = (client: any) => {
+    console.log('Registration successful:', client);
+  };
+
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100">
-      <div className="container mx-auto px-4 py-8">
-        <div className="text-center mb-12">
-          <div className="flex justify-center mb-6">
-            <div className="bg-blue-600 p-4 rounded-full">
-              <Wifi className="h-12 w-12 text-white" />
-            </div>
-          </div>
-          <h1 className="text-4xl font-bold text-gray-900 mb-4">
-            Qorion Innovations Internet Services
+    <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 p-4">
+      <div className="max-w-6xl mx-auto">
+        {/* Header */}
+        <div className="text-center mb-8">
+          <h1 className="text-4xl font-bold text-gray-900 mb-2">
+            Welcome to NetFlow ISP
           </h1>
-          <p className="text-xl text-gray-600 max-w-2xl mx-auto">
-            Fast, reliable internet connectivity for homes and businesses across Kenya
+          <p className="text-xl text-gray-600">
+            High-speed internet solutions for your home and business
           </p>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-8 max-w-4xl mx-auto">
-          {/* Registration Card */}
-          <Card className="border-2 border-blue-200 hover:border-blue-400 transition-colors">
-            <CardHeader className="text-center">
-              <div className="bg-green-100 p-3 rounded-full w-fit mx-auto mb-4">
-                <UserPlus className="h-8 w-8 text-green-600" />
+        {/* Hero Section */}
+        <Card className="mb-8 bg-gradient-to-r from-blue-600 to-indigo-700 text-white">
+          <CardContent className="p-8">
+            <div className="grid md:grid-cols-2 gap-8 items-center">
+              <div>
+                <h2 className="text-3xl font-bold mb-4">
+                  Lightning-Fast Internet
+                </h2>
+                <p className="text-lg mb-6 text-blue-100">
+                  Experience blazing-fast internet speeds with our fiber-optic network. 
+                  Perfect for streaming, gaming, and working from home.
+                </p>
+                <Button 
+                  size="lg" 
+                  className="bg-white text-blue-600 hover:bg-gray-100"
+                  onClick={() => setShowRegistrationForm(true)}
+                >
+                  Get Connected Today
+                </Button>
               </div>
-              <CardTitle className="text-2xl">New Customer</CardTitle>
+              <div className="hidden md:block">
+                <div className="text-center">
+                  <Globe className="h-32 w-32 mx-auto mb-4 text-blue-200" />
+                  <p className="text-blue-100">99.9% Uptime Guarantee</p>
+                </div>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Service Packages */}
+        <div className="grid md:grid-cols-3 gap-6 mb-8">
+          <Card className="relative">
+            <CardHeader>
+              <CardTitle className="text-center">Basic</CardTitle>
+              <div className="text-center">
+                <span className="text-3xl font-bold">KSh 2,500</span>
+                <span className="text-gray-600">/month</span>
+              </div>
             </CardHeader>
-            <CardContent className="text-center space-y-4">
-              <p className="text-gray-600">
-                Ready to get connected? Register for our internet services and enjoy high-speed connectivity.
-              </p>
-              <ul className="text-left space-y-2 text-sm text-gray-600">
-                <li>• Fiber optic connections available</li>
-                <li>• Multiple speed packages</li>
-                <li>• Professional installation</li>
-                <li>• 24/7 customer support</li>
+            <CardContent>
+              <ul className="space-y-3">
+                <li className="flex items-center">
+                  <span className="w-2 h-2 bg-green-500 rounded-full mr-3"></span>
+                  10 Mbps Speed
+                </li>
+                <li className="flex items-center">
+                  <span className="w-2 h-2 bg-green-500 rounded-full mr-3"></span>
+                  100 GB Data
+                </li>
+                <li className="flex items-center">
+                  <span className="w-2 h-2 bg-green-500 rounded-full mr-3"></span>
+                  24/7 Support
+                </li>
+                <li className="flex items-center">
+                  <span className="w-2 h-2 bg-green-500 rounded-full mr-3"></span>
+                  Free Installation
+                </li>
               </ul>
-              <Button 
-                onClick={() => setShowRegistrationForm(true)}
-                className="w-full gap-2"
-                size="lg"
-              >
-                <UserPlus className="h-5 w-5" />
-                Register Now
+              <Button className="w-full mt-4" onClick={() => setShowRegistrationForm(true)}>
+                Choose Plan
               </Button>
             </CardContent>
           </Card>
 
-          {/* Login Card */}
-          <Card className="border-2 border-gray-200 hover:border-gray-400 transition-colors">
-            <CardHeader className="text-center">
-              <div className="bg-blue-100 p-3 rounded-full w-fit mx-auto mb-4">
-                <LogIn className="h-8 w-8 text-blue-600" />
+          <Card className="relative border-2 border-blue-500">
+            <div className="absolute -top-3 left-1/2 transform -translate-x-1/2">
+              <Badge className="bg-blue-500 text-white">Most Popular</Badge>
+            </div>
+            <CardHeader>
+              <CardTitle className="text-center">Standard</CardTitle>
+              <div className="text-center">
+                <span className="text-3xl font-bold">KSh 4,000</span>
+                <span className="text-gray-600">/month</span>
               </div>
-              <CardTitle className="text-2xl">Existing Customer</CardTitle>
             </CardHeader>
-            <CardContent className="text-center space-y-4">
-              <p className="text-gray-600">
-                Already a customer? Access your account to view billing, make payments, and manage your service.
-              </p>
-              <ul className="text-left space-y-2 text-sm text-gray-600">
-                <li>• View your current balance</li>
-                <li>• Make payments via M-Pesa</li>
-                <li>• Submit support tickets</li>
-                <li>• Track your usage</li>
+            <CardContent>
+              <ul className="space-y-3">
+                <li className="flex items-center">
+                  <span className="w-2 h-2 bg-green-500 rounded-full mr-3"></span>
+                  25 Mbps Speed
+                </li>
+                <li className="flex items-center">
+                  <span className="w-2 h-2 bg-green-500 rounded-full mr-3"></span>
+                  500 GB Data
+                </li>
+                <li className="flex items-center">
+                  <span className="w-2 h-2 bg-green-500 rounded-full mr-3"></span>
+                  24/7 Priority Support
+                </li>
+                <li className="flex items-center">
+                  <span className="w-2 h-2 bg-green-500 rounded-full mr-3"></span>
+                  Free Installation & Router
+                </li>
               </ul>
-              <Button 
-                variant="outline"
-                className="w-full gap-2"
-                size="lg"
-              >
-                <LogIn className="h-5 w-5" />
-                Customer Login
+              <Button className="w-full mt-4" onClick={() => setShowRegistrationForm(true)}>
+                Choose Plan
+              </Button>
+            </CardContent>
+          </Card>
+
+          <Card className="relative">
+            <CardHeader>
+              <CardTitle className="text-center">Premium</CardTitle>
+              <div className="text-center">
+                <span className="text-3xl font-bold">KSh 7,500</span>
+                <span className="text-gray-600">/month</span>
+              </div>
+            </CardHeader>
+            <CardContent>
+              <ul className="space-y-3">
+                <li className="flex items-center">
+                  <span className="w-2 h-2 bg-green-500 rounded-full mr-3"></span>
+                  100 Mbps Speed
+                </li>
+                <li className="flex items-center">
+                  <span className="w-2 h-2 bg-green-500 rounded-full mr-3"></span>
+                  Unlimited Data
+                </li>
+                <li className="flex items-center">
+                  <span className="w-2 h-2 bg-green-500 rounded-full mr-3"></span>
+                  24/7 VIP Support
+                </li>
+                <li className="flex items-center">
+                  <span className="w-2 h-2 bg-green-500 rounded-full mr-3"></span>
+                  Premium Equipment
+                </li>
+              </ul>
+              <Button className="w-full mt-4" onClick={() => setShowRegistrationForm(true)}>
+                Choose Plan
               </Button>
             </CardContent>
           </Card>
         </div>
 
-        {/* Features Section */}
-        <div className="mt-16 text-center">
-          <h2 className="text-3xl font-bold text-gray-900 mb-8">Why Choose Our Services?</h2>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-8 max-w-4xl mx-auto">
-            <div className="text-center">
-              <div className="bg-blue-100 p-4 rounded-full w-fit mx-auto mb-4">
-                <Wifi className="h-8 w-8 text-blue-600" />
+        {/* Contact Information */}
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-center">Get in Touch</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="grid md:grid-cols-3 gap-6 text-center">
+              <div className="flex flex-col items-center">
+                <Phone className="h-8 w-8 text-blue-600 mb-2" />
+                <h3 className="font-semibold mb-1">Call Us</h3>
+                <p className="text-gray-600">+254 700 000 000</p>
               </div>
-              <h3 className="text-xl font-semibold mb-2">High-Speed Internet</h3>
-              <p className="text-gray-600">Experience blazing fast speeds with our fiber optic network infrastructure.</p>
-            </div>
-            <div className="text-center">
-              <div className="bg-green-100 p-4 rounded-full w-fit mx-auto mb-4">
-                <UserPlus className="h-8 w-8 text-green-600" />
+              <div className="flex flex-col items-center">
+                <Mail className="h-8 w-8 text-blue-600 mb-2" />
+                <h3 className="font-semibold mb-1">Email Us</h3>
+                <p className="text-gray-600">info@netflowisp.com</p>
               </div>
-              <h3 className="text-xl font-semibold mb-2">Easy Setup</h3>
-              <p className="text-gray-600">Quick and professional installation by our certified technicians.</p>
-            </div>
-            <div className="text-center">
-              <div className="bg-purple-100 p-4 rounded-full w-fit mx-auto mb-4">
-                <LogIn className="h-8 w-8 text-purple-600" />
+              <div className="flex flex-col items-center">
+                <MapPin className="h-8 w-8 text-blue-600 mb-2" />
+                <h3 className="font-semibold mb-1">Visit Us</h3>
+                <p className="text-gray-600">Nairobi, Kenya</p>
               </div>
-              <h3 className="text-xl font-semibold mb-2">24/7 Support</h3>
-              <p className="text-gray-600">Round-the-clock customer support to keep you connected.</p>
             </div>
-          </div>
-        </div>
+          </CardContent>
+        </Card>
       </div>
 
-      {/* Registration Form Modal */}
       {showRegistrationForm && (
         <CustomerRegistrationForm
           onClose={() => setShowRegistrationForm(false)}
-          onSuccess={(client) => {
-            console.log('Client registered successfully:', client);
-          }}
+          onSave={handleRegistrationSuccess}
         />
       )}
     </div>
