@@ -7,7 +7,7 @@ import { parseAmount } from '@/utils/currencyFormat';
 
 export interface Payment {
   id: string;
-  client_id: string;
+  client_id: string | null;
   invoice_id: string | null;
   amount: number;
   payment_method: 'mpesa' | 'bank' | 'cash';
@@ -20,7 +20,7 @@ export interface Payment {
   clients?: {
     name: string;
     email: string;
-  };
+  } | null;
 }
 
 export const usePayments = () => {
@@ -32,6 +32,8 @@ export const usePayments = () => {
     queryKey: ['payments', profile?.isp_company_id],
     queryFn: async () => {
       if (!profile?.isp_company_id) return [];
+
+      console.log('Fetching payments for company:', profile.isp_company_id);
 
       const { data, error } = await supabase
         .from('payments')

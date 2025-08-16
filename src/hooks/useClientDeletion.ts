@@ -77,9 +77,6 @@ export const useClientDeletion = () => {
 
         // Delete client hotspot access (operational data)
         supabase.from('client_hotspot_access').delete().eq('client_id', clientId),
-
-        // Delete client workflow status (operational data)
-        supabase.from('client_workflow_status').delete().eq('client_id', clientId),
       ];
 
       // Execute all updates and deletions in sequence

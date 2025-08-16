@@ -37,6 +37,8 @@ export const useInvoices = () => {
     queryFn: async () => {
       if (!profile?.isp_company_id) return [];
 
+      console.log('Fetching invoices for company:', profile.isp_company_id);
+
       const { data, error } = await supabase
         .from('invoices')
         .select(`
@@ -56,6 +58,7 @@ export const useInvoices = () => {
         throw error;
       }
 
+      console.log(`Fetched ${data?.length || 0} invoices for company ${profile.isp_company_id}`);
       return (data || []) as Invoice[];
     },
     enabled: !!profile?.isp_company_id,
