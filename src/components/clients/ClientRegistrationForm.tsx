@@ -2,7 +2,7 @@
 import React from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Client } from '@/types/client';
+import { DatabaseClient } from '@/hooks/useClients';
 import { X, Save, Mail, Loader2 } from 'lucide-react';
 import { useClientRegistrationForm } from './registration/useClientRegistrationForm';
 import PersonalInfoSection from './registration/PersonalInfoSection';
@@ -12,7 +12,7 @@ import { useWorkflowManagement } from '@/hooks/useWorkflowManagement';
 
 interface ClientRegistrationFormProps {
   onClose: () => void;
-  onSave: (client: Partial<Client>) => void;
+  onSave: (client: Partial<DatabaseClient>) => void;
 }
 
 const ClientRegistrationForm: React.FC<ClientRegistrationFormProps> = ({ onClose, onSave }) => {
@@ -33,7 +33,7 @@ const ClientRegistrationForm: React.FC<ClientRegistrationFormProps> = ({ onClose
     
     try {
       // Call the base submit function and get the result
-      const result = await baseHandleSubmit(e);
+      const result = await baseHandleSubmit();
       
       // Check if result exists and has an id
       if (result && typeof result === 'object' && 'id' in result && result.id) {
@@ -94,7 +94,7 @@ const ClientRegistrationForm: React.FC<ClientRegistrationFormProps> = ({ onClose
     };
     
     const dbField = fieldMap[field] || field;
-    updateFormData(dbField, value);
+    updateFormData(dbField as keyof typeof formData, value);
   };
 
   return (

@@ -3,6 +3,9 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { DatabaseClient } from '@/types/database';
 
+// Export the interface so other components can use it
+export { DatabaseClient };
+
 export const useClients = () => {
   const queryClient = useQueryClient();
 
@@ -44,7 +47,10 @@ export const useClients = () => {
         rejected_at: client.rejected_at || null,
         rejected_by: client.rejected_by || null,
         client_type: client.client_type as 'individual' | 'business' | 'corporate' | 'government',
-        connection_type: client.connection_type as 'fiber' | 'wireless' | 'satellite' | 'dsl'
+        connection_type: client.connection_type as 'fiber' | 'wireless' | 'satellite' | 'dsl',
+        latitude: client.latitude || null,
+        longitude: client.longitude || null,
+        service_packages: client.service_packages || null
       }));
 
       return transformedData;
@@ -80,7 +86,9 @@ export const useClients = () => {
         notes: data.notes || null,
         rejection_reason: data.rejection_reason || null,
         rejected_at: data.rejected_at || null,
-        rejected_by: data.rejected_by || null
+        rejected_by: data.rejected_by || null,
+        latitude: data.latitude || null,
+        longitude: data.longitude || null
       } as DatabaseClient;
     },
     onSuccess: () => {
@@ -110,7 +118,9 @@ export const useClients = () => {
         notes: data.notes || null,
         rejection_reason: data.rejection_reason || null,
         rejected_at: data.rejected_at || null,
-        rejected_by: data.rejected_by || null
+        rejected_by: data.rejected_by || null,
+        latitude: data.latitude || null,
+        longitude: data.longitude || null
       } as DatabaseClient;
     },
     onSuccess: () => {

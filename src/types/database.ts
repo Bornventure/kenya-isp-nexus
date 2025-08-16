@@ -30,4 +30,15 @@ export interface DatabaseClient {
   rejection_reason: string | null;
   rejected_at: string | null;
   rejected_by: string | null;
+  latitude: number | null;
+  longitude: number | null;
+  installation_status?: string;
+  submitted_by?: string;
+  service_packages?: {
+    id: string;
+    name: string;
+    monthly_rate: number;
+    speed: string;
+    description: string;
+  } | null;
 }
