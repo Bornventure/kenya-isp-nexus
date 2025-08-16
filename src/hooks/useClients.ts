@@ -1,4 +1,3 @@
-
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import type { DatabaseClient } from '@/types/database';
@@ -48,7 +47,7 @@ export const useClients = () => {
         rejected_by: client.rejected_by || null,
         client_type: client.client_type as 'individual' | 'business' | 'corporate' | 'government',
         connection_type: client.connection_type as 'fiber' | 'wireless' | 'satellite' | 'dsl',
-        status: client.status as 'active' | 'suspended' | 'disconnected' | 'pending' | 'approved',
+        status: client.status as 'active' | 'suspended' | 'disconnected' | 'pending' | 'approved' | 'rejected',
         latitude: client.latitude || null,
         longitude: client.longitude || null,
         service_packages: client.service_packages || null,

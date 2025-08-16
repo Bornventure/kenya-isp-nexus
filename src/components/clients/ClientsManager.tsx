@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { useClients, DatabaseClient } from '@/hooks/useClients';
 import { Button } from '@/components/ui/button';
@@ -15,6 +16,52 @@ import {
 import { Plus, Edit, Trash2 } from 'lucide-react';
 import ClientForm from './ClientForm';
 import { Client, ClientStatus } from '@/types/client';
+
+// Transform DatabaseClient to Client
+const transformDatabaseClientToClient = (dbClient: DatabaseClient): Client => {
+  return {
+    id: dbClient.id,
+    name: dbClient.name,
+    email: dbClient.email,
+    phone: dbClient.phone,
+    idNumber: dbClient.id_number,
+    kraPinNumber: dbClient.kra_pin_number,
+    mpesaNumber: dbClient.mpesa_number,
+    clientType: dbClient.client_type,
+    status: dbClient.status,
+    connectionType: dbClient.connection_type,
+    servicePackage: dbClient.service_package_id,
+    monthlyRate: dbClient.monthly_rate,
+    balance: dbClient.balance,
+    installationDate: dbClient.installation_date,
+    location: {
+      address: dbClient.address,
+      county: dbClient.county,
+      subCounty: dbClient.sub_county,
+      coordinates: dbClient.latitude && dbClient.longitude ? {
+        lat: dbClient.latitude,
+        lng: dbClient.longitude
+      } : undefined
+    },
+    // Additional properties for compatibility
+    address: dbClient.address,
+    county: dbClient.county,
+    sub_county: dbClient.sub_county,
+    id_number: dbClient.id_number,
+    kra_pin_number: dbClient.kra_pin_number,
+    mpesa_number: dbClient.mpesa_number,
+    client_type: dbClient.client_type,
+    connection_type: dbClient.connection_type,
+    service_package_id: dbClient.service_package_id,
+    monthly_rate: dbClient.monthly_rate,
+    wallet_balance: dbClient.wallet_balance,
+    subscription_start_date: dbClient.subscription_start_date,
+    subscription_end_date: dbClient.subscription_end_date,
+    approved_at: dbClient.approved_at,
+    approved_by: dbClient.approved_by,
+    service_packages: dbClient.service_packages,
+  } as Client;
+};
 
 interface ClientRowProps {
   client: Client;
@@ -51,7 +98,10 @@ const ClientsManager = () => {
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedClient, setSelectedClient] = useState<Client | null>(null);
-  const { clients, isLoading, error, createClient, updateClient, deleteClient } = useClients();
+  const { clients: dbClients, isLoading, error, createClient, updateClient, deleteClient } = useClients();
+
+  // Transform database clients to UI clients
+  const clients = dbClients.map(transformDatabaseClientToClient);
 
   useEffect(() => {
     if (error) {
@@ -80,7 +130,7 @@ const ClientsManager = () => {
       kra_pin_number: clientData.kraPinNumber,
       mpesa_number: clientData.mpesaNumber,
       client_type: clientData.clientType,
-      status: clientData.status as 'active' | 'suspended' | 'disconnected' | 'pending' | 'approved',
+      status: clientData.status as 'active' | 'suspended' | 'disconnected' | 'pending' | 'approved' | 'rejected',
       connection_type: clientData.connectionType,
       service_package_id: clientData.servicePackage,
       monthly_rate: clientData.monthlyRate,

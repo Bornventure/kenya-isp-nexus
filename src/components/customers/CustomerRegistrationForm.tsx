@@ -1,160 +1,68 @@
+
 import React, { useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { useClients, DatabaseClient } from '@/hooks/useClients';
+import { useServicePackages } from '@/hooks/useServicePackages';
+import { useClients } from '@/hooks/useClients';
 import { useToast } from '@/hooks/use-toast';
+import { X, Save, Loader2 } from 'lucide-react';
+import { DatabaseClient } from '@/types/database';
 
 interface CustomerRegistrationFormProps {
   onClose: () => void;
-  onSave: (client: Partial<DatabaseClient>) => void;
-}
-
-interface FormData {
-  name: string;
-  email: string;
-  phone: string;
-  idNumber: string;
-  kraPinNumber?: string;
-  mpesaNumber?: string;
-  address: string;
-  county: string;
-  subCounty: string;
-  clientType: 'individual' | 'business' | 'corporate' | 'government';
-  connectionType: 'fiber' | 'wireless' | 'satellite' | 'dsl';
-  servicePackage: string;
-  monthlyRate: number;
-  installationDate?: string;
-  latitude?: number;
-  longitude?: number;
+  onSave?: (client: Partial<DatabaseClient>) => void;
 }
 
 const CustomerRegistrationForm: React.FC<CustomerRegistrationFormProps> = ({ onClose, onSave }) => {
-  const [formData, setFormData] = useState<FormData>({
+  const [formData, setFormData] = useState({
     name: '',
     email: '',
     phone: '',
-    idNumber: '',
+    id_number: '',
+    kra_pin_number: '',
+    mpesa_number: '',
     address: '',
     county: '',
-    subCounty: '',
-    clientType: 'individual',
-    connectionType: 'fiber',
-    servicePackage: '',
-    monthlyRate: 0,
-    kraPinNumber: '',
-    mpesaNumber: '',
-    installationDate: '',
-    latitude: null,
-    longitude: null,
+    sub_county: '',
+    service_package_id: '',
+    client_type: 'individual' as const,
+    connection_type: 'fiber' as const,
   });
 
-  const [errors, setErrors] = useState<Record<string, string>>({});
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const { servicePackages, isLoading: packagesLoading } = useServicePackages();
   const { createClient } = useClients();
   const { toast } = useToast();
-
-  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
-    const { name, value } = e.target;
-    setFormData(prev => ({ ...prev, [name]: value }));
-    setErrors(prev => ({ ...prev, [name]: '' }));
-  };
-
-  const handleSelectChange = (name: string, value: string) => {
-    setFormData(prev => ({ ...prev, [name]: value }));
-    setErrors(prev => ({ ...prev, [name]: '' }));
-  };
-
-  const validateForm = () => {
-    let valid = true;
-    const newErrors: Record<string, string> = {};
-
-    if (!formData.name) {
-      newErrors.name = 'Name is required';
-      valid = false;
-    }
-    if (!formData.email) {
-      newErrors.email = 'Email is required';
-      valid = false;
-    }
-    if (!formData.phone) {
-      newErrors.phone = 'Phone is required';
-      valid = false;
-    }
-    if (!formData.idNumber) {
-      newErrors.idNumber = 'ID Number is required';
-      valid = false;
-    }
-    if (!formData.address) {
-      newErrors.address = 'Address is required';
-      valid = false;
-    }
-    if (!formData.county) {
-      newErrors.county = 'County is required';
-      valid = false;
-    }
-    if (!formData.subCounty) {
-      newErrors.subCounty = 'Sub County is required';
-      valid = false;
-    }
-    if (!formData.clientType) {
-      newErrors.clientType = 'Client Type is required';
-      valid = false;
-    }
-    if (!formData.connectionType) {
-      newErrors.connectionType = 'Connection Type is required';
-      valid = false;
-    }
-    if (!formData.servicePackage) {
-      newErrors.servicePackage = 'Service Package is required';
-      valid = false;
-    }
-    if (!formData.monthlyRate) {
-      newErrors.monthlyRate = 'Monthly Rate is required';
-      valid = false;
-    }
-
-    setErrors(newErrors);
-    return valid;
-  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsSubmitting(true);
 
     try {
+      const selectedPackage = servicePackages.find(pkg => pkg.id === formData.service_package_id);
+      
       const clientData: Omit<DatabaseClient, 'id' | 'created_at' | 'updated_at'> = {
-        name: formData.name,
-        email: formData.email,
-        phone: formData.phone,
-        id_number: formData.idNumber,
-        kra_pin_number: formData.kraPinNumber || '',
-        mpesa_number: formData.mpesaNumber || '',
-        address: formData.address,
-        county: formData.county,
-        sub_county: formData.subCounty,
-        client_type: formData.clientType,
-        connection_type: formData.connectionType,
-        service_package_id: formData.servicePackage,
-        monthly_rate: formData.monthlyRate,
-        installation_date: formData.installationDate || '',
+        ...formData,
         status: 'pending',
+        monthly_rate: selectedPackage?.monthly_rate || 0,
         balance: 0,
         wallet_balance: 0,
+        installation_date: '',
         subscription_start_date: '',
         subscription_end_date: '',
         subscription_type: 'monthly',
-        isp_company_id: '',
         approved_at: '',
         approved_by: '',
+        isp_company_id: '',
         notes: null,
         rejection_reason: null,
         rejected_at: null,
         rejected_by: null,
-        latitude: formData.latitude || null,
-        longitude: formData.longitude || null,
+        latitude: null,
+        longitude: null,
         installation_status: 'pending',
         submitted_by: 'customer',
         service_activated_at: null,
@@ -164,17 +72,19 @@ const CustomerRegistrationForm: React.FC<CustomerRegistrationFormProps> = ({ onC
       
       toast({
         title: "Registration Successful",
-        description: "Your registration has been submitted for approval.",
+        description: "Your application has been submitted for review.",
       });
 
-      onSave(result);
+      if (onSave) {
+        onSave(result);
+      }
+      
       onClose();
     } catch (error) {
-      console.error('Registration error:', error);
-      setErrors({ submit: 'Registration failed. Please try again.' });
+      console.error('Error creating client:', error);
       toast({
         title: "Registration Failed",
-        description: "Please check your information and try again.",
+        description: "Failed to submit application. Please try again.",
         variant: "destructive",
       });
     } finally {
@@ -182,178 +92,121 @@ const CustomerRegistrationForm: React.FC<CustomerRegistrationFormProps> = ({ onC
     }
   };
 
+  const updateFormData = (field: string, value: any) => {
+    setFormData(prev => ({ ...prev, [field]: value }));
+  };
+
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center">
-      <Card className="w-full max-w-md">
-        <CardHeader>
+    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+      <Card className="w-full max-w-2xl max-h-[90vh] overflow-y-auto">
+        <CardHeader className="flex flex-row items-center justify-between">
           <CardTitle>Customer Registration</CardTitle>
+          <Button variant="ghost" size="sm" onClick={onClose}>
+            <X className="h-4 w-4" />
+          </Button>
         </CardHeader>
         <CardContent>
           <form onSubmit={handleSubmit} className="space-y-4">
-            <div>
-              <Label htmlFor="name">Full Name</Label>
-              <Input
-                type="text"
-                id="name"
-                name="name"
-                value={formData.name}
-                onChange={handleChange}
-                required
-              />
-              {errors.name && <p className="text-red-500 text-sm">{errors.name}</p>}
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <Label htmlFor="name">Full Name</Label>
+                <Input
+                  id="name"
+                  value={formData.name}
+                  onChange={(e) => updateFormData('name', e.target.value)}
+                  required
+                />
+              </div>
+              <div>
+                <Label htmlFor="email">Email</Label>
+                <Input
+                  id="email"
+                  type="email"
+                  value={formData.email}
+                  onChange={(e) => updateFormData('email', e.target.value)}
+                  required
+                />
+              </div>
             </div>
-            <div>
-              <Label htmlFor="email">Email</Label>
-              <Input
-                type="email"
-                id="email"
-                name="email"
-                value={formData.email}
-                onChange={handleChange}
-                required
-              />
-              {errors.email && <p className="text-red-500 text-sm">{errors.email}</p>}
+
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <Label htmlFor="phone">Phone Number</Label>
+                <Input
+                  id="phone"
+                  value={formData.phone}
+                  onChange={(e) => updateFormData('phone', e.target.value)}
+                  required
+                />
+              </div>
+              <div>
+                <Label htmlFor="id_number">ID Number</Label>
+                <Input
+                  id="id_number"
+                  value={formData.id_number}
+                  onChange={(e) => updateFormData('id_number', e.target.value)}
+                  required
+                />
+              </div>
             </div>
-            <div>
-              <Label htmlFor="phone">Phone Number</Label>
-              <Input
-                type="tel"
-                id="phone"
-                name="phone"
-                value={formData.phone}
-                onChange={handleChange}
-                required
-              />
-              {errors.phone && <p className="text-red-500 text-sm">{errors.phone}</p>}
-            </div>
-            <div>
-              <Label htmlFor="idNumber">ID Number</Label>
-              <Input
-                type="text"
-                id="idNumber"
-                name="idNumber"
-                value={formData.idNumber}
-                onChange={handleChange}
-                required
-              />
-              {errors.idNumber && <p className="text-red-500 text-sm">{errors.idNumber}</p>}
-            </div>
-            <div>
-              <Label htmlFor="kraPinNumber">KRA PIN Number (Optional)</Label>
-              <Input
-                type="text"
-                id="kraPinNumber"
-                name="kraPinNumber"
-                value={formData.kraPinNumber}
-                onChange={handleChange}
-              />
-            </div>
-            <div>
-              <Label htmlFor="mpesaNumber">M-Pesa Number (Optional)</Label>
-              <Input
-                type="text"
-                id="mpesaNumber"
-                name="mpesaNumber"
-                value={formData.mpesaNumber}
-                onChange={handleChange}
-              />
-            </div>
+
             <div>
               <Label htmlFor="address">Address</Label>
               <Input
-                type="text"
                 id="address"
-                name="address"
                 value={formData.address}
-                onChange={handleChange}
+                onChange={(e) => updateFormData('address', e.target.value)}
                 required
               />
-              {errors.address && <p className="text-red-500 text-sm">{errors.address}</p>}
             </div>
-            <div>
-              <Label htmlFor="county">County</Label>
-              <Input
-                type="text"
-                id="county"
-                name="county"
-                value={formData.county}
-                onChange={handleChange}
-                required
-              />
-              {errors.county && <p className="text-red-500 text-sm">{errors.county}</p>}
+
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <Label htmlFor="county">County</Label>
+                <Input
+                  id="county"
+                  value={formData.county}
+                  onChange={(e) => updateFormData('county', e.target.value)}
+                  required
+                />
+              </div>
+              <div>
+                <Label htmlFor="sub_county">Sub County</Label>
+                <Input
+                  id="sub_county"
+                  value={formData.sub_county}
+                  onChange={(e) => updateFormData('sub_county', e.target.value)}
+                  required
+                />
+              </div>
             </div>
+
             <div>
-              <Label htmlFor="subCounty">Sub County</Label>
-              <Input
-                type="text"
-                id="subCounty"
-                name="subCounty"
-                value={formData.subCounty}
-                onChange={handleChange}
-                required
-              />
-              {errors.subCounty && <p className="text-red-500 text-sm">{errors.subCounty}</p>}
-            </div>
-            <div>
-              <Label htmlFor="clientType">Client Type</Label>
-              <Select onValueChange={(value) => handleSelectChange("clientType", value)}>
-                <SelectTrigger className="w-full">
-                  <SelectValue placeholder="Select client type" />
+              <Label htmlFor="service_package">Service Package</Label>
+              <Select value={formData.service_package_id} onValueChange={(value) => updateFormData('service_package_id', value)}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Select a service package" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="individual">Individual</SelectItem>
-                  <SelectItem value="business">Business</SelectItem>
-                  <SelectItem value="corporate">Corporate</SelectItem>
-                  <SelectItem value="government">Government</SelectItem>
+                  {servicePackages.map((pkg) => (
+                    <SelectItem key={pkg.id} value={pkg.id}>
+                      {pkg.name} - KSh {pkg.monthly_rate}/month
+                    </SelectItem>
+                  ))}
                 </SelectContent>
               </Select>
-              {errors.clientType && <p className="text-red-500 text-sm">{errors.clientType}</p>}
             </div>
-            <div>
-              <Label htmlFor="connectionType">Connection Type</Label>
-              <Select onValueChange={(value) => handleSelectChange("connectionType", value)}>
-                <SelectTrigger className="w-full">
-                  <SelectValue placeholder="Select connection type" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="fiber">Fiber</SelectItem>
-                  <SelectItem value="wireless">Wireless</SelectItem>
-                  <SelectItem value="satellite">Satellite</SelectItem>
-                  <SelectItem value="dsl">DSL</SelectItem>
-                </SelectContent>
-              </Select>
-              {errors.connectionType && <p className="text-red-500 text-sm">{errors.connectionType}</p>}
+
+            <div className="flex justify-end gap-3 pt-4">
+              <Button type="button" variant="outline" onClick={onClose}>
+                Cancel
+              </Button>
+              <Button type="submit" disabled={isSubmitting || packagesLoading}>
+                {isSubmitting && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
+                <Save className="h-4 w-4 mr-2" />
+                Submit Application
+              </Button>
             </div>
-            <div>
-              <Label htmlFor="servicePackage">Service Package</Label>
-              <Input
-                type="text"
-                id="servicePackage"
-                name="servicePackage"
-                value={formData.servicePackage}
-                onChange={handleChange}
-                required
-              />
-              {errors.servicePackage && <p className="text-red-500 text-sm">{errors.servicePackage}</p>}
-            </div>
-            <div>
-              <Label htmlFor="monthlyRate">Monthly Rate</Label>
-              <Input
-                type="number"
-                id="monthlyRate"
-                name="monthlyRate"
-                value={formData.monthlyRate}
-                onChange={handleChange}
-                required
-              />
-              {errors.monthlyRate && <p className="text-red-500 text-sm">{errors.monthlyRate}</p>}
-            </div>
-            <Button type="submit" disabled={isSubmitting}>
-              {isSubmitting ? 'Submitting...' : 'Register'}
-            </Button>
-            <Button type="button" variant="secondary" onClick={onClose}>
-              Cancel
-            </Button>
           </form>
         </CardContent>
       </Card>

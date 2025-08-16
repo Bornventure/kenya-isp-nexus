@@ -39,6 +39,8 @@ const ClientDetails: React.FC<ClientDetailsProps> = ({
         return 'outline';
       case 'approved':
         return 'default';
+      case 'rejected':
+        return 'destructive';
       case 'inactive':
         return 'secondary';
       default:
@@ -95,7 +97,7 @@ const ClientDetails: React.FC<ClientDetailsProps> = ({
                 </div>
                 <div>
                   <Label>ID Number</Label>
-                  <p className="font-medium">{client.id_number}</p>
+                  <p className="font-medium">{client.idNumber || client.id_number}</p>
                 </div>
                 <div>
                   <Label>Phone</Label>
@@ -107,11 +109,11 @@ const ClientDetails: React.FC<ClientDetailsProps> = ({
                 </div>
                 <div>
                   <Label>M-Pesa Number</Label>
-                  <p className="font-medium">{client.mpesa_number || 'N/A'}</p>
+                  <p className="font-medium">{client.mpesaNumber || client.mpesa_number || 'N/A'}</p>
                 </div>
                 <div>
                   <Label>Client Type</Label>
-                  <p className="font-medium capitalize">{client.client_type}</p>
+                  <p className="font-medium capitalize">{client.clientType || client.client_type}</p>
                 </div>
               </div>
             </CardContent>
@@ -127,16 +129,16 @@ const ClientDetails: React.FC<ClientDetailsProps> = ({
             <CardContent className="space-y-4">
               <div>
                 <Label>Address</Label>
-                <p className="font-medium">{client.address}</p>
+                <p className="font-medium">{client.location?.address || client.address}</p>
               </div>
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <Label>County</Label>
-                  <p className="font-medium">{client.county}</p>
+                  <p className="font-medium">{client.location?.county || client.county}</p>
                 </div>
                 <div>
                   <Label>Sub County</Label>
-                  <p className="font-medium">{client.sub_county}</p>
+                  <p className="font-medium">{client.location?.subCounty || client.sub_county}</p>
                 </div>
               </div>
             </CardContent>
@@ -155,15 +157,15 @@ const ClientDetails: React.FC<ClientDetailsProps> = ({
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <Label>Service Package</Label>
-                  <p className="font-medium">{client.service_packages?.name || 'N/A'}</p>
+                  <p className="font-medium">{client.service_packages?.name || client.servicePackage || 'N/A'}</p>
                 </div>
                 <div>
                   <Label>Connection Type</Label>
-                  <p className="font-medium capitalize">{client.connection_type}</p>
+                  <p className="font-medium capitalize">{client.connectionType || client.connection_type}</p>
                 </div>
                 <div>
                   <Label>Monthly Rate</Label>
-                  <p className="font-medium">KSh {client.monthly_rate.toLocaleString()}</p>
+                  <p className="font-medium">KSh {(client.monthlyRate || client.monthly_rate || 0).toLocaleString()}</p>
                 </div>
                 <div>
                   <Label>Installation Date</Label>
@@ -186,11 +188,11 @@ const ClientDetails: React.FC<ClientDetailsProps> = ({
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <Label>Account Balance</Label>
-                  <p className="font-medium">KSh {client.balance.toLocaleString()}</p>
+                  <p className="font-medium">KSh {(client.balance || 0).toLocaleString()}</p>
                 </div>
                 <div>
                   <Label>Wallet Balance</Label>
-                  <p className="font-medium">KSh {client.wallet_balance.toLocaleString()}</p>
+                  <p className="font-medium">KSh {(client.wallet_balance || 0).toLocaleString()}</p>
                 </div>
                 <div>
                   <Label>Subscription Start</Label>
