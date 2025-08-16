@@ -18,6 +18,8 @@ import Settings from '@/pages/Settings';
 import ClientPortal from '@/pages/ClientPortal';
 import UserManagement from '@/pages/UserManagement';
 import CompanyManagement from '@/pages/CompanyManagement';
+import WorkflowDashboardPage from '@/pages/WorkflowDashboard';
+import SMSTemplatesPage from '@/pages/SMSTemplates';
 import { Toaster } from '@/components/ui/toaster';
 
 const AppContent = () => {
@@ -66,12 +68,14 @@ const AppContent = () => {
                 <Routes>
                   <Route path="/" element={<Navigate to="/dashboard" replace />} />
                   <Route path="/dashboard" element={<Dashboard />} />
+                  <Route path="/workflow" element={<WorkflowDashboardPage />} />
                   <Route path="/clients" element={<Clients />} />
                   <Route path="/equipment" element={<Equipment />} />
                   <Route path="/inventory" element={<Inventory />} />
                   <Route path="/network-management" element={<NetworkManagement />} />
                   <Route path="/network-map" element={<NetworkMap />} />
                   <Route path="/billing" element={<Billing />} />
+                  <Route path="/sms-templates" element={<SMSTemplatesPage />} />
                   <Route path="/support" element={<Support />} />
                   <Route path="/user-management" element={<UserManagement />} />
                   <Route path="/company-management" element={<CompanyManagement />} />

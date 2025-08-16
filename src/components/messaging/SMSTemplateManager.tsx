@@ -2,292 +2,340 @@
 import React, { useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
+import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Label } from '@/components/ui/label';
+import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import {
-  MessageSquare,
-  Edit,
-  Send,
-  Users,
-  Check,
-  X,
-  AlertCircle,
-  Info
-} from 'lucide-react';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { useSMSTemplates } from '@/hooks/useSMSTemplates';
-import { useClients } from '@/hooks/useClients';
+import { useToast } from '@/hooks/use-toast';
+import { MessageSquare, Send, Settings, Users, Plus, Edit2 } from 'lucide-react';
+
+const defaultTemplates = [
+  {
+    key: 'account_created',
+    name: 'Account Created',
+    content: 'Welcome {name}! Your account has been created. Installation invoice: KES {amount}. Pay via M-Pesa Paybill {paybill}, Account: {phone}. Ref: {invoice_number}',
+    variables: ['name', 'amount', 'paybill', 'phone', 'invoice_number']
+  },
+  {
+    key: 'service_renewal_success',
+    name: 'Service Renewal Success',
+    content: 'Hi {name}, your internet service has been renewed successfully. Expires: {expiry_date}. Current balance: KES {balance}',
+    variables: ['name', 'expiry_date', 'balance']
+  },
+  {
+    key: 'low_balance_3_days',
+    name: 'Low Balance - 3 Days Warning',
+    content: 'Hi {name}, your service expires in 3 days ({expiry_date}). Top up KES {required_amount} to avoid disconnection. Paybill: {paybill}, Account: {phone}',
+    variables: ['name', 'expiry_date', 'required_amount', 'paybill', 'phone']
+  },
+  {
+    key: 'low_balance_2_days',
+    name: 'Low Balance - 2 Days Warning',
+    content: 'URGENT: Hi {name}, your service expires in 2 days ({expiry_date}). Top up KES {required_amount} now. Paybill: {paybill}, Account: {phone}',
+    variables: ['name', 'expiry_date', 'required_amount', 'paybill', 'phone']
+  },
+  {
+    key: 'low_balance_1_day',
+    name: 'Low Balance - 1 Day Warning',
+    content: 'FINAL NOTICE: Hi {name}, your service expires tomorrow ({expiry_date}). Top up KES {required_amount} immediately. Paybill: {paybill}, Account: {phone}',
+    variables: ['name', 'expiry_date', 'required_amount', 'paybill', 'phone']
+  },
+  {
+    key: 'service_disconnected',
+    name: 'Service Disconnected',
+    content: 'Hi {name}, your internet service has been suspended due to insufficient balance. Top up KES {required_amount} for immediate reactivation. Paybill: {paybill}, Account: {phone}',
+    variables: ['name', 'required_amount', 'paybill', 'phone']
+  },
+  {
+    key: 'disconnection_reminder_3_days',
+    name: 'Post-Disconnection Reminder',
+    content: 'Hi {name}, it\'s been 3 days since your service was suspended. Renew now to continue enjoying our internet service. Top up: KES {required_amount}',
+    variables: ['name', 'required_amount']
+  },
+  {
+    key: 'network_issues',
+    name: 'Network Issues Alert',
+    content: 'Hi {name}, we\'re experiencing network issues in your area. Our team is working to resolve this. Expected resolution: {eta}. Sorry for the inconvenience.',
+    variables: ['name', 'eta']
+  }
+];
 
 const SMSTemplateManager: React.FC = () => {
-  const { templates, updateTemplate, isUpdatingTemplate, sendBulkSMS, isSendingBulkSMS } = useSMSTemplates();
-  const { clients } = useClients();
+  const { templates, updateTemplate, sendBulkSMS, isUpdatingTemplate, isSendingBulkSMS } = useSMSTemplates();
+  const { toast } = useToast();
   const [editingTemplate, setEditingTemplate] = useState<any>(null);
-  const [editContent, setEditContent] = useState('');
+  const [editDialog, setEditDialog] = useState(false);
+  const [bulkMessageDialog, setBulkMessageDialog] = useState(false);
   const [bulkMessage, setBulkMessage] = useState('');
-  const [selectedClients, setSelectedClients] = useState<string[]>([]);
+  const [bulkRecipients, setBulkRecipients] = useState('');
 
-  const handleEditTemplate = (template: any) => {
-    setEditingTemplate(template);
-    setEditContent(template.template_content);
-  };
+  const handleUpdateTemplate = async () => {
+    if (!editingTemplate) return;
 
-  const handleSaveTemplate = () => {
-    if (editingTemplate) {
-      updateTemplate({
+    try {
+      await updateTemplate({
         id: editingTemplate.id,
-        template_content: editContent,
+        template_content: editingTemplate.template_content,
+        is_active: true
       });
+      
+      setEditDialog(false);
       setEditingTemplate(null);
-      setEditContent('');
+    } catch (error) {
+      console.error('Failed to update template:', error);
     }
   };
 
-  const handleSendBulkSMS = () => {
-    if (bulkMessage.trim() && selectedClients.length > 0) {
-      const phoneNumbers = clients
-        .filter(client => selectedClients.includes(client.id))
-        .map(client => client.phone);
-
-      sendBulkSMS({
-        templateKey: 'general_broadcast',
-        recipients: phoneNumbers,
-        variables: { message: bulkMessage },
+  const handleBulkSMS = async () => {
+    if (!bulkMessage.trim() || !bulkRecipients.trim()) {
+      toast({
+        title: "Missing Information",
+        description: "Please provide both message and recipients",
+        variant: "destructive",
       });
+      return;
+    }
 
+    const recipients = bulkRecipients.split('\n').map(phone => phone.trim()).filter(phone => phone);
+    
+    try {
+      await sendBulkSMS({
+        templateKey: 'bulk_message',
+        recipients,
+        variables: { message: bulkMessage }
+      });
+      
+      setBulkMessageDialog(false);
       setBulkMessage('');
-      setSelectedClients([]);
+      setBulkRecipients('');
+    } catch (error) {
+      console.error('Failed to send bulk SMS:', error);
     }
-  };
-
-  const getTemplateDescription = (templateKey: string) => {
-    const descriptions: Record<string, string> = {
-      account_created: 'Sent when a new client account is created with installation payment details',
-      service_renewed: 'Sent when a client\'s service is successfully renewed',
-      balance_warning_3days: 'Sent 3 days before service expires due to low wallet balance',
-      balance_warning_2days: 'Sent 2 days before service expires - urgent warning',
-      balance_warning_1day: 'Final warning sent 1 day before service disconnection',
-      service_disconnected: 'Sent when service is suspended due to insufficient balance',
-      post_disconnect_reminder: 'Sent 3 days after service disconnection as reminder',
-      network_issue: 'Sent to notify clients about network issues in their area',
-      general_broadcast: 'Used for general announcements to all clients',
-    };
-    return descriptions[templateKey] || 'Custom template';
-  };
-
-  const getTemplateIcon = (templateKey: string) => {
-    if (templateKey.includes('warning') || templateKey === 'service_disconnected') {
-      return <AlertCircle className="h-4 w-4 text-orange-500" />;
-    }
-    if (templateKey === 'account_created' || templateKey === 'service_renewed') {
-      return <Check className="h-4 w-4 text-green-500" />;
-    }
-    return <Info className="h-4 w-4 text-blue-500" />;
   };
 
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
-        <h1 className="text-3xl font-bold">SMS Template Manager</h1>
-        <Badge variant="outline" className="text-sm">
-          {templates.length} Templates Available
-        </Badge>
+        <h1 className="text-3xl font-bold">SMS Template Management</h1>
+        <div className="flex gap-2">
+          <Dialog open={bulkMessageDialog} onOpenChange={setBulkMessageDialog}>
+            <DialogTrigger asChild>
+              <Button>
+                <Send className="h-4 w-4 mr-2" />
+                Send Bulk SMS
+              </Button>
+            </DialogTrigger>
+            <DialogContent className="max-w-md">
+              <DialogHeader>
+                <DialogTitle>Send Bulk SMS</DialogTitle>
+              </DialogHeader>
+              <div className="space-y-4">
+                <div>
+                  <Label htmlFor="bulk-message">Message</Label>
+                  <Textarea
+                    id="bulk-message"
+                    value={bulkMessage}
+                    onChange={(e) => setBulkMessage(e.target.value)}
+                    placeholder="Enter your message..."
+                    rows={4}
+                  />
+                </div>
+                <div>
+                  <Label htmlFor="bulk-recipients">Recipients (one phone per line)</Label>
+                  <Textarea
+                    id="bulk-recipients"
+                    value={bulkRecipients}
+                    onChange={(e) => setBulkRecipients(e.target.value)}
+                    placeholder="+254712345678&#10;+254723456789"
+                    rows={6}
+                  />
+                </div>
+                <Button 
+                  onClick={handleBulkSMS} 
+                  disabled={isSendingBulkSMS}
+                  className="w-full"
+                >
+                  {isSendingBulkSMS ? 'Sending...' : 'Send SMS'}
+                </Button>
+              </div>
+            </DialogContent>
+          </Dialog>
+        </div>
       </div>
 
       <Tabs defaultValue="templates" className="space-y-4">
-        <TabsList className="grid w-full grid-cols-2">
-          <TabsTrigger value="templates">Manage Templates</TabsTrigger>
-          <TabsTrigger value="broadcast">Bulk Messaging</TabsTrigger>
+        <TabsList>
+          <TabsTrigger value="templates">
+            <MessageSquare className="h-4 w-4 mr-2" />
+            Templates
+          </TabsTrigger>
+          <TabsTrigger value="automation">
+            <Settings className="h-4 w-4 mr-2" />
+            Automation
+          </TabsTrigger>
         </TabsList>
 
         <TabsContent value="templates" className="space-y-4">
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-            {templates.map((template) => (
-              <Card key={template.id} className="relative">
-                <CardHeader className="pb-3">
-                  <CardTitle className="text-sm flex items-center gap-2">
-                    {getTemplateIcon(template.template_key)}
-                    {template.template_name}
-                  </CardTitle>
-                  <div className="flex items-center gap-2">
-                    <Badge 
-                      variant={template.is_active ? "default" : "secondary"}
-                      className="text-xs"
-                    >
-                      {template.is_active ? 'Active' : 'Inactive'}
-                    </Badge>
-                  </div>
-                </CardHeader>
-                <CardContent className="space-y-3">
-                  <p className="text-xs text-muted-foreground">
-                    {getTemplateDescription(template.template_key)}
-                  </p>
-                  
-                  <div className="bg-gray-50 p-3 rounded text-xs">
-                    <p className="font-medium mb-1">Current Template:</p>
-                    <p className="line-clamp-3">{template.template_content}</p>
-                  </div>
-
-                  {template.variables && template.variables.length > 0 && (
-                    <div>
-                      <p className="text-xs font-medium mb-1">Variables:</p>
+          <div className="grid gap-4">
+            {defaultTemplates.map((template) => {
+              const existingTemplate = templates.find(t => t.template_key === template.key);
+              return (
+                <Card key={template.key}>
+                  <CardHeader className="pb-3">
+                    <div className="flex items-center justify-between">
+                      <CardTitle className="text-lg">{template.name}</CardTitle>
+                      <div className="flex items-center gap-2">
+                        <Badge variant={existingTemplate?.is_active ? "default" : "secondary"}>
+                          {existingTemplate?.is_active ? "Active" : "Inactive"}
+                        </Badge>
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() => {
+                            setEditingTemplate({
+                              ...existingTemplate,
+                              template_key: template.key,
+                              template_name: template.name,
+                              template_content: existingTemplate?.template_content || template.content,
+                              variables: template.variables
+                            });
+                            setEditDialog(true);
+                          }}
+                        >
+                          <Edit2 className="h-4 w-4" />
+                        </Button>
+                      </div>
+                    </div>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="space-y-2">
+                      <p className="text-sm text-muted-foreground">
+                        {existingTemplate?.template_content || template.content}
+                      </p>
                       <div className="flex flex-wrap gap-1">
-                        {template.variables.map((variable: string) => (
+                        {template.variables.map((variable) => (
                           <Badge key={variable} variant="outline" className="text-xs">
-                            {`{{${variable}}}`}
+                            {`{${variable}}`}
                           </Badge>
                         ))}
                       </div>
                     </div>
-                  )}
-
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => handleEditTemplate(template)}
-                    className="w-full"
-                  >
-                    <Edit className="h-3 w-3 mr-2" />
-                    Edit Template
-                  </Button>
-                </CardContent>
-              </Card>
-            ))}
+                  </CardContent>
+                </Card>
+              );
+            })}
           </div>
         </TabsContent>
 
-        <TabsContent value="broadcast" className="space-y-4">
+        <TabsContent value="automation" className="space-y-4">
           <Card>
             <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <Send className="h-5 w-5" />
-                Send Bulk Message
-              </CardTitle>
+              <CardTitle>Automated SMS Triggers</CardTitle>
             </CardHeader>
-            <CardContent className="space-y-4">
-              <div>
-                <label className="block text-sm font-medium mb-2">
-                  Message Content
-                </label>
-                <Textarea
-                  value={bulkMessage}
-                  onChange={(e) => setBulkMessage(e.target.value)}
-                  placeholder="Type your message to send to selected clients..."
-                  rows={4}
-                />
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium mb-2">
-                  Select Recipients ({selectedClients.length} selected)
-                </label>
-                <div className="max-h-60 overflow-y-auto border rounded p-2 space-y-2">
-                  <div className="flex items-center gap-2 mb-2">
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => setSelectedClients(clients.map(c => c.id))}
-                    >
-                      Select All
-                    </Button>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => setSelectedClients([])}
-                    >
-                      Clear All
-                    </Button>
-                  </div>
-                  
-                  {clients.map((client) => (
-                    <div key={client.id} className="flex items-center space-x-2">
-                      <input
-                        type="checkbox"
-                        id={client.id}
-                        checked={selectedClients.includes(client.id)}
-                        onChange={(e) => {
-                          if (e.target.checked) {
-                            setSelectedClients([...selectedClients, client.id]);
-                          } else {
-                            setSelectedClients(selectedClients.filter(id => id !== client.id));
-                          }
-                        }}
-                        className="rounded"
-                      />
-                      <label htmlFor={client.id} className="text-sm cursor-pointer">
-                        {client.name} - {client.phone}
-                      </label>
-                    </div>
-                  ))}
+            <CardContent>
+              <div className="space-y-4">
+                <div className="p-4 border rounded-lg">
+                  <h4 className="font-medium">Account Creation</h4>
+                  <p className="text-sm text-muted-foreground">
+                    Sent automatically when a new client account is approved
+                  </p>
+                  <Badge className="mt-2" variant="default">Active</Badge>
+                </div>
+                
+                <div className="p-4 border rounded-lg">
+                  <h4 className="font-medium">Service Renewal</h4>
+                  <p className="text-sm text-muted-foreground">
+                    Sent when service is successfully renewed from wallet balance
+                  </p>
+                  <Badge className="mt-2" variant="default">Active</Badge>
+                </div>
+                
+                <div className="p-4 border rounded-lg">
+                  <h4 className="font-medium">Low Balance Alerts</h4>
+                  <p className="text-sm text-muted-foreground">
+                    Progressive warnings sent 3, 2, and 1 days before service expiration
+                  </p>
+                  <Badge className="mt-2" variant="default">Active</Badge>
+                </div>
+                
+                <div className="p-4 border rounded-lg">
+                  <h4 className="font-medium">Service Disconnection</h4>
+                  <p className="text-sm text-muted-foreground">
+                    Sent when service is suspended due to insufficient balance
+                  </p>
+                  <Badge className="mt-2" variant="default">Active</Badge>
                 </div>
               </div>
-
-              <Button
-                onClick={handleSendBulkSMS}
-                disabled={!bulkMessage.trim() || selectedClients.length === 0 || isSendingBulkSMS}
-                className="w-full"
-              >
-                <Send className="h-4 w-4 mr-2" />
-                {isSendingBulkSMS ? 'Sending...' : `Send to ${selectedClients.length} Recipients`}
-              </Button>
             </CardContent>
           </Card>
         </TabsContent>
       </Tabs>
 
       {/* Edit Template Dialog */}
-      <Dialog open={!!editingTemplate} onOpenChange={() => setEditingTemplate(null)}>
+      <Dialog open={editDialog} onOpenChange={setEditDialog}>
         <DialogContent className="max-w-2xl">
           <DialogHeader>
-            <DialogTitle>
-              Edit Template: {editingTemplate?.template_name}
-            </DialogTitle>
+            <DialogTitle>Edit SMS Template</DialogTitle>
           </DialogHeader>
           
-          <div className="space-y-4">
-            <div>
-              <p className="text-sm text-muted-foreground mb-2">
-                {editingTemplate && getTemplateDescription(editingTemplate.template_key)}
-              </p>
+          {editingTemplate && (
+            <div className="space-y-4">
+              <div>
+                <Label htmlFor="template-name">Template Name</Label>
+                <Input
+                  id="template-name"
+                  value={editingTemplate.template_name}
+                  readOnly
+                  className="bg-muted"
+                />
+              </div>
               
-              {editingTemplate?.variables && (
-                <div className="mb-4">
-                  <p className="text-sm font-medium mb-2">Available Variables:</p>
-                  <div className="flex flex-wrap gap-2">
-                    {editingTemplate.variables.map((variable: string) => (
-                      <Badge key={variable} variant="outline" className="text-xs">
-                        {`{{${variable}}}`}
-                      </Badge>
-                    ))}
-                  </div>
+              <div>
+                <Label htmlFor="template-content">Message Template</Label>
+                <Textarea
+                  id="template-content"
+                  value={editingTemplate.template_content}
+                  onChange={(e) => setEditingTemplate({
+                    ...editingTemplate,
+                    template_content: e.target.value
+                  })}
+                  rows={5}
+                  placeholder="Enter your message template..."
+                />
+              </div>
+              
+              <div>
+                <Label>Available Variables</Label>
+                <div className="flex flex-wrap gap-1 mt-1">
+                  {editingTemplate.variables?.map((variable: string) => (
+                    <Badge key={variable} variant="outline" className="text-xs">
+                      {`{${variable}}`}
+                    </Badge>
+                  ))}
                 </div>
-              )}
+              </div>
+              
+              <div className="flex gap-2">
+                <Button 
+                  onClick={handleUpdateTemplate}
+                  disabled={isUpdatingTemplate}
+                  className="flex-1"
+                >
+                  {isUpdatingTemplate ? 'Saving...' : 'Save Template'}
+                </Button>
+                <Button 
+                  variant="outline" 
+                  onClick={() => setEditDialog(false)}
+                  className="flex-1"
+                >
+                  Cancel
+                </Button>
+              </div>
             </div>
-
-            <div>
-              <label className="block text-sm font-medium mb-2">
-                Template Content
-              </label>
-              <Textarea
-                value={editContent}
-                onChange={(e) => setEditContent(e.target.value)}
-                rows={6}
-                placeholder="Enter your template content with variables..."
-              />
-            </div>
-
-            <div className="flex justify-end gap-2">
-              <Button variant="outline" onClick={() => setEditingTemplate(null)}>
-                Cancel
-              </Button>
-              <Button 
-                onClick={handleSaveTemplate}
-                disabled={isUpdatingTemplate}
-              >
-                {isUpdatingTemplate ? 'Saving...' : 'Save Template'}
-              </Button>
-            </div>
-          </div>
+          )}
         </DialogContent>
       </Dialog>
     </div>

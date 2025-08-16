@@ -1,4 +1,3 @@
-
 import React from 'react';
 import { NavLink, useLocation } from 'react-router-dom';
 import { cn } from '@/lib/utils';
@@ -16,6 +15,8 @@ import {
   Headphones,
   UserCog,
   Building2,
+  Workflow,
+  MessageSquare,
 } from 'lucide-react';
 import {
   Sidebar as SidebarBase,
@@ -49,6 +50,8 @@ const Sidebar = () => {
     network: isAdmin || ['network_engineer', 'network_operations'].includes(profile?.role || ''),
     billing: isAdmin || ['billing_admin', 'billing_finance'].includes(profile?.role || ''),
     support: isAdmin || ['customer_support'].includes(profile?.role || ''),
+    workflow: isAdmin || ['sales_manager', 'sales_account_manager', 'network_engineer', 'network_operations'].includes(profile?.role || ''),
+    messaging: isAdmin || ['sales_manager', 'sales_account_manager', 'customer_support'].includes(profile?.role || ''),
   };
 
   const menuItems = [
@@ -57,6 +60,12 @@ const Sidebar = () => {
       href: '/dashboard',
       icon: Home,
       show: true
+    },
+    {
+      name: 'Workflow',
+      href: '/workflow',
+      icon: Workflow,
+      show: hasPermission.workflow
     },
     {
       name: 'Clients',
@@ -93,6 +102,12 @@ const Sidebar = () => {
       href: '/billing',
       icon: CreditCard,
       show: hasPermission.billing
+    },
+    {
+      name: 'SMS Templates',
+      href: '/sms-templates',
+      icon: MessageSquare,
+      show: hasPermission.messaging
     },
     {
       name: 'Support',
