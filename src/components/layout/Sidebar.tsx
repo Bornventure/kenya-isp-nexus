@@ -1,3 +1,4 @@
+
 import React, { useState } from 'react';
 import {
   Sheet,
@@ -5,7 +6,6 @@ import {
   SheetDescription,
   SheetHeader,
   SheetTitle,
-  SheetTrigger,
 } from "@/components/ui/sheet"
 import {
   Accordion,
@@ -14,43 +14,29 @@ import {
   AccordionTrigger,
 } from "@/components/ui/accordion"
 import {
-  AlignLeft,
   BarChart,
-  Bell,
-  Building,
-  Calendar,
-  CheckSquare,
-  CircleDollarSign,
   ClipboardList,
   CreditCard,
-  FileText,
   FolderKanban,
-  GaugeCircle,
-  Gear,
-  HelpCircle,
-  Home,
-  Hotspot,
   Inbox,
   LayoutDashboard,
-  LineChart,
   ListChecks,
-  LucideIcon,
   Mail,
+  MapPin,
   MessageSquare,
   Network,
   Package,
   Power,
   Receipt,
   Settings,
-  Smartphone,
-  SquareKanban,
   Users,
-  Wifi,
+  Wallet,
+  Activity,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Separator } from '@/components/ui/separator';
 import { ScrollArea } from "@/components/ui/scroll-area"
-import { usePathname, useRouter } from 'next/navigation';
+import { useLocation, useNavigate } from 'react-router-dom';
 import { cn } from '@/lib/utils';
 import { useAuth } from '@/contexts/AuthContext';
 
@@ -60,30 +46,22 @@ interface SidebarProps {
 }
 
 const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose }) => {
-  const pathname = usePathname();
-  const router = useRouter();
+  const location = useLocation();
+  const navigate = useNavigate();
   const { profile } = useAuth();
   const [expanded, setExpanded] = useState<string[]>([]);
 
   const handleItemClick = (id: string, subId?: string) => {
     if (subId) {
-      router.push(`/${id}`);
+      navigate(`/${subId}`);
     } else {
-      router.push(`/${id}`);
+      navigate(`/${id}`);
     }
     onClose();
   };
 
-  const toggleAccordionItem = (id: string) => {
-    if (expanded.includes(id)) {
-      setExpanded(expanded.filter((item) => item !== id));
-    } else {
-      setExpanded([...expanded, id]);
-    }
-  };
-
   const isActive = (href: string) => {
-    return pathname === href;
+    return location.pathname === href;
   };
 
   const menuItems = [
@@ -160,17 +138,21 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose }) => {
     { 
       id: 'hotspots', 
       label: 'Hotspots', 
-      icon: Hotspot 
+      icon: MapPin 
     },
     { 
       id: 'network', 
       label: 'Network', 
-      icon: Network 
+      icon: Network,
+      subItems: [
+        { id: 'network-integration', label: 'Network Integration' },
+        { id: 'wallet-monitor', label: 'Wallet Monitor' }
+      ]
     },
     { 
       id: 'settings', 
       label: 'Settings', 
-      icon: Gear 
+      icon: Settings 
     },
   ];
 
@@ -193,10 +175,7 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose }) => {
                 item.subItems ? (
                   <Accordion type="single" collapsible className="w-full" key={item.id}>
                     <AccordionItem value={item.id}>
-                      <AccordionTrigger
-                        className="hover:bg-secondary rounded-md px-2 py-1.5 text-sm flex items-center justify-between"
-                        onClick={() => toggleAccordionItem(item.id)}
-                      >
+                      <AccordionTrigger className="hover:bg-secondary rounded-md px-2 py-1.5 text-sm flex items-center justify-between">
                         <div className="flex items-center space-x-2">
                           <item.icon className="h-4 w-4" />
                           <span>{item.label}</span>

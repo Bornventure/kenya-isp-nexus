@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { useLocation } from 'react-router-dom';
 import DashboardPage from '@/pages/DashboardPage';
@@ -16,6 +17,10 @@ import NetworkPage from '@/pages/NetworkPage';
 import SettingsPage from '@/pages/SettingsPage';
 import InvoicesPage from '@/pages/InvoicesPage';
 import ServiceActivationManager from '@/components/services/ServiceActivationManager';
+import InstallationInvoiceManager from '@/components/invoices/InstallationInvoiceManager';
+import PaymentMonitor from '@/components/payments/PaymentMonitor';
+import WalletMonitor from '@/components/monitoring/WalletMonitor';
+import NetworkIntegration from '@/components/network/NetworkIntegration';
 
 const AppContent: React.FC = () => {
   const location = useLocation();
@@ -27,8 +32,8 @@ const AppContent: React.FC = () => {
   }, [location]);
 
   const renderContent = () => {
-    
     switch (currentPage) {
+      case '':
       case 'dashboard':
         return <DashboardPage />;
       case 'clients':
@@ -37,6 +42,14 @@ const AppContent: React.FC = () => {
         return <EquipmentPage />;
       case 'invoices':
         return <InvoicesPage />;
+      case 'installation':
+        return <InstallationInvoiceManager />;
+      case 'payment-monitor':
+        return <PaymentMonitor />;
+      case 'wallet-monitor':
+        return <WalletMonitor />;
+      case 'network-integration':
+        return <NetworkIntegration />;
       case 'service-activation':
         return <ServiceActivationManager />;
       case 'billing':
