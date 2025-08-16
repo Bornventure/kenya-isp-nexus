@@ -552,6 +552,7 @@ export type Database = {
           monthly_rate: number
           mpesa_number: string | null
           name: string
+          notes: string | null
           phone: string
           rejected_at: string | null
           rejected_by: string | null
@@ -591,6 +592,7 @@ export type Database = {
           monthly_rate: number
           mpesa_number?: string | null
           name: string
+          notes?: string | null
           phone: string
           rejected_at?: string | null
           rejected_by?: string | null
@@ -630,6 +632,7 @@ export type Database = {
           monthly_rate?: number
           mpesa_number?: string | null
           name?: string
+          notes?: string | null
           phone?: string
           rejected_at?: string | null
           rejected_by?: string | null
@@ -4022,6 +4025,7 @@ export type Database = {
         | "disconnected"
         | "pending"
         | "approved"
+        | "rejected"
       client_type: "individual" | "business" | "corporate" | "government"
       connection_type: "fiber" | "wireless" | "satellite" | "dsl"
       license_type: "starter" | "professional" | "enterprise" | "unlimited"
@@ -4184,6 +4188,7 @@ export const Constants = {
         "disconnected",
         "pending",
         "approved",
+        "rejected",
       ],
       client_type: ["individual", "business", "corporate", "government"],
       connection_type: ["fiber", "wireless", "satellite", "dsl"],
