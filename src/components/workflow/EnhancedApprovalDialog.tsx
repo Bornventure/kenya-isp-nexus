@@ -1,231 +1,178 @@
+
 import React, { useState } from 'react';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
 import { Textarea } from '@/components/ui/textarea';
+import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { CheckCircle, XCircle, Clock, User, Calendar, MapPin, Loader2 } from 'lucide-react';
-import { useClients, DatabaseClient } from '@/hooks/useClients';
 import { useEquipment } from '@/hooks/useEquipment';
-import { Client } from '@/types/client';
-import { Equipment } from '@/types/equipment';
+import { useClients } from '@/hooks/useClients';
+import { Check, X } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 
 export interface EnhancedApprovalDialogProps {
-  client: Client;
-  onClose: () => void;
-  onApprove: (clientId: string, notes?: string) => void;
-  onReject: (clientId: string, reason: string) => void;
+  client: any;
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
 }
 
 export const EnhancedApprovalDialog: React.FC<EnhancedApprovalDialogProps> = ({
   client,
-  onClose,
-  onApprove,
-  onReject,
+  open,
+  onOpenChange,
 }) => {
-  const [notes, setNotes] = useState('');
+  const [selectedEquipment, setSelectedEquipment] = useState('');
   const [rejectionReason, setRejectionReason] = useState('');
-  const [isProcessing, setIsProcessing] = useState(false);
-  const [selectedEquipment, setSelectedEquipment] = useState<string>('');
+  const [isApproving, setIsApproving] = useState(false);
+  const [isRejecting, setIsRejecting] = useState(false);
   
+  const { equipment, isLoading: equipmentLoading } = useEquipment();
   const { updateClient } = useClients();
-  const { equipment } = useEquipment();
   const { toast } = useToast();
 
-  // Filter available equipment (not assigned to clients)
-  const availableEquipment = Array.isArray(equipment) 
-    ? equipment.filter((eq: Equipment) => eq.status === 'available')
-    : [];
+  const availableEquipment = equipment?.filter(eq => eq.status === 'available') || [];
 
   const handleApprove = async () => {
-    setIsProcessing(true);
+    if (!selectedEquipment) {
+      toast({
+        title: "Equipment Required",
+        description: "Please select equipment for this client",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setIsApproving(true);
     try {
-      await onApprove(client.id, notes);
-      
-      // Update client status
-      updateClient({
+      await updateClient({
         id: client.id,
         updates: {
-          status: 'approved',
+          status: 'active',
           approved_at: new Date().toISOString(),
+          notes: `Approved with equipment: ${selectedEquipment}`,
         }
       });
 
       toast({
         title: "Client Approved",
-        description: `${client.name} has been approved successfully.`,
+        description: "Client has been successfully approved and activated",
       });
       
-      onClose();
+      onOpenChange(false);
     } catch (error) {
       console.error('Error approving client:', error);
       toast({
-        title: "Error",
+        title: "Approval Failed",
         description: "Failed to approve client. Please try again.",
         variant: "destructive",
       });
     } finally {
-      setIsProcessing(false);
+      setIsApproving(false);
     }
   };
 
   const handleReject = async () => {
     if (!rejectionReason.trim()) {
       toast({
-        title: "Rejection Reason Required",
-        description: "Please provide a reason for rejection.",
+        title: "Reason Required",
+        description: "Please provide a reason for rejection",
         variant: "destructive",
       });
       return;
     }
 
-    setIsProcessing(true);
+    setIsRejecting(true);
     try {
-      await onReject(client.id, rejectionReason);
-      
-      // Update client status
-      updateClient({
+      await updateClient({
         id: client.id,
         updates: {
-          status: 'pending',
-          rejected_at: new Date().toISOString(),
+          status: 'rejected',
+          rejection_reason: rejectionReason,
+          notes: `Rejected: ${rejectionReason}`,
         }
       });
 
       toast({
         title: "Client Rejected",
-        description: `${client.name} has been rejected.`,
-        variant: "destructive",
+        description: "Client application has been rejected",
       });
       
-      onClose();
+      onOpenChange(false);
     } catch (error) {
       console.error('Error rejecting client:', error);
       toast({
-        title: "Error",
+        title: "Rejection Failed",
         description: "Failed to reject client. Please try again.",
         variant: "destructive",
       });
     } finally {
-      setIsProcessing(false);
+      setIsRejecting(false);
     }
   };
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-      <Card className="w-full max-w-2xl max-h-[90vh] overflow-y-auto">
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <User className="h-5 w-5" />
-            Client Approval - {client.name}
-          </CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-6">
-          {/* Client Information */}
-          <div className="grid grid-cols-2 gap-4">
-            <div>
-              <h4 className="font-medium text-sm text-gray-600 mb-1">Name</h4>
-              <p className="text-sm">{client.name}</p>
-            </div>
-            <div>
-              <h4 className="font-medium text-sm text-gray-600 mb-1">Phone</h4>
-              <p className="text-sm">{client.phone}</p>
-            </div>
-            <div>
-              <h4 className="font-medium text-sm text-gray-600 mb-1">Email</h4>
-              <p className="text-sm">{client.email || 'Not provided'}</p>
-            </div>
-            <div>
-              <h4 className="font-medium text-sm text-gray-600 mb-1">Client Type</h4>
-              <Badge variant="secondary">{client.clientType}</Badge>
-            </div>
-            <div>
-              <h4 className="font-medium text-sm text-gray-600 mb-1">Connection Type</h4>
-              <Badge variant="outline">{client.connectionType}</Badge>
-            </div>
-            <div>
-              <h4 className="font-medium text-sm text-gray-600 mb-1">Monthly Rate</h4>
-              <p className="text-sm font-medium">KES {client.monthlyRate?.toLocaleString()}</p>
-            </div>
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="max-w-md">
+        <DialogHeader>
+          <DialogTitle>Review Client Application</DialogTitle>
+        </DialogHeader>
+        
+        <div className="space-y-4">
+          <div>
+            <h3 className="font-medium">{client?.name}</h3>
+            <p className="text-sm text-muted-foreground">{client?.email}</p>
+            <p className="text-sm text-muted-foreground">{client?.phone}</p>
           </div>
 
-          {/* Location Information */}
-          <div>
-            <h4 className="font-medium text-sm text-gray-600 mb-2 flex items-center gap-1">
-              <MapPin className="h-4 w-4" />
-              Location
-            </h4>
-            <p className="text-sm">{client.address}</p>
-            <p className="text-sm text-gray-600">{client.location?.county}, {client.location?.subCounty}</p>
-          </div>
-
-          {/* Equipment Assignment */}
-          <div>
-            <h4 className="font-medium text-sm text-gray-600 mb-2">Assign Equipment (Optional)</h4>
+          <div className="space-y-2">
+            <Label htmlFor="equipment">Assign Equipment</Label>
             <Select value={selectedEquipment} onValueChange={setSelectedEquipment}>
               <SelectTrigger>
-                <SelectValue placeholder="Select equipment to assign" />
+                <SelectValue placeholder="Select equipment" />
               </SelectTrigger>
               <SelectContent>
-                {availableEquipment.map((eq: Equipment) => (
+                {availableEquipment.map((eq) => (
                   <SelectItem key={eq.id} value={eq.id}>
-                    {eq.type} - {eq.brand} {eq.model} ({eq.serial_number})
+                    {eq.type} - {eq.model} ({eq.serial_number})
                   </SelectItem>
                 ))}
               </SelectContent>
             </Select>
           </div>
 
-          {/* Approval Notes */}
-          <div>
-            <h4 className="font-medium text-sm text-gray-600 mb-2">Approval Notes</h4>
+          <div className="space-y-2">
+            <Label htmlFor="rejection-reason">Rejection Reason (if rejecting)</Label>
             <Textarea
-              placeholder="Add any notes about this approval..."
-              value={notes}
-              onChange={(e) => setNotes(e.target.value)}
-              rows={3}
-            />
-          </div>
-
-          {/* Rejection Reason */}
-          <div>
-            <h4 className="font-medium text-sm text-gray-600 mb-2">Rejection Reason (if rejecting)</h4>
-            <Textarea
-              placeholder="Provide reason for rejection..."
+              id="rejection-reason"
               value={rejectionReason}
               onChange={(e) => setRejectionReason(e.target.value)}
+              placeholder="Enter reason for rejection..."
               rows={3}
             />
           </div>
 
-          {/* Action Buttons */}
-          <div className="flex justify-end gap-3 pt-4 border-t">
-            <Button variant="outline" onClick={onClose} disabled={isProcessing}>
-              Cancel
-            </Button>
-            <Button 
-              variant="destructive" 
-              onClick={handleReject}
-              disabled={isProcessing}
-              className="gap-2"
-            >
-              {isProcessing ? <Loader2 className="h-4 w-4 animate-spin" /> : <XCircle className="h-4 w-4" />}
-              Reject
-            </Button>
-            <Button 
+          <div className="flex gap-2">
+            <Button
               onClick={handleApprove}
-              disabled={isProcessing}
-              className="gap-2"
+              disabled={isApproving || equipmentLoading}
+              className="flex-1"
             >
-              {isProcessing ? <Loader2 className="h-4 w-4 animate-spin" /> : <CheckCircle className="h-4 w-4" />}
-              Approve
+              <Check className="h-4 w-4 mr-2" />
+              {isApproving ? 'Approving...' : 'Approve'}
+            </Button>
+            
+            <Button
+              onClick={handleReject}
+              disabled={isRejecting}
+              variant="destructive"
+              className="flex-1"
+            >
+              <X className="h-4 w-4 mr-2" />
+              {isRejecting ? 'Rejecting...' : 'Reject'}
             </Button>
           </div>
-        </CardContent>
-      </Card>
-    </div>
+        </div>
+      </DialogContent>
+    </Dialog>
   );
 };
-
-export default EnhancedApprovalDialog;

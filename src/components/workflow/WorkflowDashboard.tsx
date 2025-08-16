@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -242,11 +241,8 @@ const WorkflowDashboard: React.FC = () => {
       {selectedClient && (
         <EnhancedApprovalDialog
           client={selectedClient}
-          isOpen={isApprovalDialogOpen}
-          onClose={() => {
-            setIsApprovalDialogOpen(false);
-            setSelectedClient(null);
-          }}
+          open={isApprovalDialogOpen}
+          onOpenChange={setIsApprovalDialogOpen}
         />
       )}
     </div>

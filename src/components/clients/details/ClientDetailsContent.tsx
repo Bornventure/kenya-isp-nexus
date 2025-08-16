@@ -158,7 +158,10 @@ const ClientDetailsContent: React.FC<ClientDetailsContentProps> = ({ client, onR
         </TabsContent>
 
         <TabsContent value="network" className="space-y-6">
-          <ClientNetworkMonitoring clientId={client.id} />
+          <ClientNetworkMonitoring 
+            clientId={client.id}
+            clientName={client.name}
+          />
         </TabsContent>
 
         <TabsContent value="billing" className="space-y-6">
