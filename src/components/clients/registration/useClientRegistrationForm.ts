@@ -1,200 +1,122 @@
-import { useState } from 'react';
-import { useQuery } from '@tanstack/react-query';
-import { supabase } from '@/integrations/supabase/client';
-import { useToast } from '@/hooks/use-toast';
-import { useAuth } from '@/contexts/AuthContext';
-import { Client, ClientType, ConnectionType, ClientStatus } from '@/types/client';
-import { DatabaseClient } from '@/hooks/useClients';
 
-export interface FormData {
+import { useState } from 'react';
+import { useToast } from '@/hooks/use-toast';
+import { useClients } from '@/hooks/useClients';
+import { DatabaseClient } from '@/types/database';
+
+export interface ClientFormData {
   name: string;
   email: string;
   phone: string;
+  mpesa_number: string;
   id_number: string;
   kra_pin_number: string;
-  mpesa_number: string;
+  client_type: 'individual' | 'business' | 'corporate' | 'government';
+  connection_type: 'fiber' | 'wireless' | 'satellite' | 'dsl';
   address: string;
   county: string;
   sub_county: string;
-  latitude?: number;
-  longitude?: number;
-  client_type: ClientType;
-  connection_type: ConnectionType;
   service_package_id: string;
   monthly_rate: number;
-  installation_date?: string;
+  installation_date: string;
+  subscription_start_date: string;
+  subscription_end_date: string;
+  subscription_type: string;
 }
 
-export const useClientRegistrationForm = ({ onClose, onSave }: { onClose: () => void; onSave: (client: Partial<Client>) => void }) => {
-  const [isSubmitting, setIsSubmitting] = useState(false);
-  const [errors, setErrors] = useState<Record<string, string>>({});
-  const { toast } = useToast();
-  const { profile } = useAuth();
-
-  const [formData, setFormData] = useState<FormData>({
+export const useClientRegistrationForm = () => {
+  const [formData, setFormData] = useState<ClientFormData>({
     name: '',
     email: '',
     phone: '',
+    mpesa_number: '',
     id_number: '',
     kra_pin_number: '',
-    mpesa_number: '',
+    client_type: 'individual',
+    connection_type: 'fiber',
     address: '',
     county: '',
     sub_county: '',
-    client_type: 'individual',
-    connection_type: 'fiber',
     service_package_id: '',
     monthly_rate: 0,
-    installation_date: new Date().toISOString().split('T')[0],
+    installation_date: '',
+    subscription_start_date: '',
+    subscription_end_date: '',
+    subscription_type: 'monthly',
   });
 
-  // Fetch service packages
-  const { data: servicePackages = [], isLoading: packagesLoading } = useQuery({
-    queryKey: ['service_packages', profile?.isp_company_id],
-    queryFn: async () => {
-      if (!profile?.isp_company_id) return [];
+  const { createClient, isCreating } = useClients();
+  const { toast } = useToast();
 
-      const { data, error } = await supabase
-        .from('service_packages')
-        .select('*')
-        .eq('isp_company_id', profile.isp_company_id)
-        .eq('is_active', true)
-        .order('monthly_rate');
-
-      if (error) throw error;
-      return data;
-    },
-    enabled: !!profile?.isp_company_id,
-  });
-
-  const updateFormData = (field: string, value: any) => {
-    setFormData(prev => ({ ...prev, [field]: value }));
-    if (errors[field]) {
-      setErrors(prev => ({ ...prev, [field]: '' }));
-    }
+  const updateFormData = (field: keyof ClientFormData, value: any) => {
+    setFormData(prev => ({
+      ...prev,
+      [field]: value
+    }));
   };
 
-  const validateForm = () => {
-    const newErrors: Record<string, string> = {};
-
-    if (!formData.name.trim()) newErrors.name = 'Name is required';
-    if (!formData.phone.trim()) newErrors.phone = 'Phone is required';
-    if (!formData.id_number.trim()) newErrors.id_number = 'ID number is required';
-    if (!formData.address.trim()) newErrors.address = 'Address is required';
-    if (!formData.county.trim()) newErrors.county = 'County is required';
-    if (!formData.sub_county.trim()) newErrors.sub_county = 'Sub county is required';
-    if (!formData.service_package_id) newErrors.service_package_id = 'Service package is required';
-
-    setErrors(newErrors);
-    return Object.keys(newErrors).length === 0;
-  };
-
-  const handleSubmit = async (e: React.FormEvent): Promise<DatabaseClient | null> => {
-    e.preventDefault();
-    
-    if (!validateForm()) return null;
-    if (!profile?.isp_company_id) {
-      toast({
-        title: "Error",
-        description: "Company information not found. Please log in again.",
-        variant: "destructive",
-      });
-      return null;
-    }
-
-    setIsSubmitting(true);
-
+  const handleSubmit = async (): Promise<DatabaseClient | null> => {
     try {
-      // Get service package details
-      const selectedPackage = servicePackages.find(pkg => pkg.id === formData.service_package_id);
-      if (!selectedPackage) {
-        throw new Error('Service package not found');
-      }
+      console.log('Submitting client registration form:', formData);
 
-      // Prepare client data for database
-      const clientData = {
-        name: formData.name,
-        email: formData.email || undefined,
-        phone: formData.phone,
-        id_number: formData.id_number,
-        kra_pin_number: formData.kra_pin_number || undefined,
-        mpesa_number: formData.mpesa_number,
-        address: formData.address,
-        county: formData.county,
-        sub_county: formData.sub_county,
-        latitude: formData.latitude,
-        longitude: formData.longitude,
-        client_type: formData.client_type,
-        connection_type: formData.connection_type,
-        service_package_id: formData.service_package_id,
-        monthly_rate: selectedPackage.monthly_rate,
-        status: 'pending' as ClientStatus,
+      const clientData: Omit<DatabaseClient, 'id' | 'created_at' | 'updated_at'> = {
+        ...formData,
+        status: 'pending',
         balance: 0,
         wallet_balance: 0,
-        is_active: false,
-        installation_date: formData.installation_date,
-        installation_status: 'pending',
-        submitted_by: profile.id,
-        isp_company_id: profile.isp_company_id,
+        isp_company_id: '', // This should be set based on the current user's company
+        approved_at: '',
+        approved_by: '',
+        notes: null,
+        rejection_reason: null,
+        rejected_at: null,
+        rejected_by: null,
       };
 
-      // Insert client
-      const { data: newClient, error: clientError } = await supabase
-        .from('clients')
-        .insert(clientData)
-        .select()
-        .single();
-
-      if (clientError) {
-        throw clientError;
-      }
-
-      // Create service assignment
-      const { error: assignmentError } = await supabase
-        .from('client_service_assignments')
-        .insert({
-          client_id: newClient.id,
-          service_package_id: formData.service_package_id,
-          assigned_at: new Date().toISOString(),
-          is_active: false,
-          notes: 'Initial service assignment',
-          isp_company_id: profile.isp_company_id,
-        });
-
-      if (assignmentError) {
-        console.warn('Service assignment creation failed:', assignmentError);
-      }
-
+      const newClient = await createClient(clientData);
+      
       toast({
-        title: "Success",
-        description: "Client registered successfully. Awaiting approval.",
+        title: 'Success',
+        description: 'Client registered successfully',
       });
 
-      onSave(newClient);
-      onClose();
-      
-      return newClient;
+      // Reset form after successful submission
+      setFormData({
+        name: '',
+        email: '',
+        phone: '',
+        mpesa_number: '',
+        id_number: '',
+        kra_pin_number: '',
+        client_type: 'individual',
+        connection_type: 'fiber',
+        address: '',
+        county: '',
+        sub_county: '',
+        service_package_id: '',
+        monthly_rate: 0,
+        installation_date: '',
+        subscription_start_date: '',
+        subscription_end_date: '',
+        subscription_type: 'monthly',
+      });
 
+      return newClient;
     } catch (error) {
-      console.error('Registration error:', error);
+      console.error('Error submitting form:', error);
       toast({
-        title: "Registration Failed",
-        description: error instanceof Error ? error.message : "An error occurred during registration",
-        variant: "destructive",
+        title: 'Error',
+        description: 'Failed to register client. Please try again.',
+        variant: 'destructive',
       });
       return null;
-    } finally {
-      setIsSubmitting(false);
     }
   };
 
   return {
     formData,
-    errors,
-    isSubmitting,
-    servicePackages,
-    packagesLoading,
     updateFormData,
     handleSubmit,
+    isSubmitting: isCreating,
   };
 };
