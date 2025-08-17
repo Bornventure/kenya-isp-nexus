@@ -24,6 +24,7 @@ import CompanyManagement from '@/pages/CompanyManagement';
 import Sidebar from '@/components/layout/Sidebar';
 import Layout from '@/components/layout/Layout';
 import { AuthProvider } from '@/contexts/AuthContext';
+import { ThemeProvider } from '@/contexts/ThemeContext';
 import Workflow from '@/pages/Workflow';
 
 function App() {
@@ -31,17 +32,19 @@ function App() {
 
   return (
     <QueryClientProvider client={queryClient}>
-      <AuthProvider>
-        <div className="min-h-screen bg-background">
-          <Toaster />
-          <BrowserRouter>
-            <Routes>
-              <Route path="/login" element={<Login />} />
-              <Route path="/*" element={<AppContent />} />
-            </Routes>
-          </BrowserRouter>
-        </div>
-      </AuthProvider>
+      <ThemeProvider>
+        <AuthProvider>
+          <div className="min-h-screen bg-background">
+            <Toaster />
+            <BrowserRouter>
+              <Routes>
+                <Route path="/login" element={<Login />} />
+                <Route path="/*" element={<AppContent />} />
+              </Routes>
+            </BrowserRouter>
+          </div>
+        </AuthProvider>
+      </ThemeProvider>
     </QueryClientProvider>
   );
 }
