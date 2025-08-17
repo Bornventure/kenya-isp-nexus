@@ -1,6 +1,7 @@
+
 export type ClientType = 'individual' | 'business' | 'corporate' | 'government';
 export type ConnectionType = 'fiber' | 'wireless' | 'satellite' | 'dsl';
-export type ClientStatus = 'pending' | 'approved' | 'active' | 'suspended' | 'disconnected' | 'rejected';
+export type ClientStatus = 'pending' | 'approved' | 'active' | 'suspended' | 'disconnected';
 
 export interface Client {
   id: string;
@@ -37,10 +38,6 @@ export interface Client {
   installation_completed_at?: string;
   service_activated_at?: string;
   installation_date?: string;
-  rejection_reason?: string;
-  rejected_by?: string;
-  rejected_at?: string;
-  notes?: string;
   
   // Legacy camelCase properties for backwards compatibility
   clientType: ClientType;
@@ -107,18 +104,3 @@ export interface ServicePackage {
   created_at: string;
   updated_at: string;
 }
-
-// Helper function to transform database client to Client interface
-export const transformDatabaseClient = (dbClient: any): Client => {
-  return {
-    ...dbClient,
-    // Map legacy camelCase properties
-    clientType: dbClient.client_type,
-    connectionType: dbClient.connection_type,
-    monthlyRate: dbClient.monthly_rate,
-    idNumber: dbClient.id_number,
-    kraPinNumber: dbClient.kra_pin_number,
-    mpesaNumber: dbClient.mpesa_number,
-    installationDate: dbClient.installation_date,
-  };
-};

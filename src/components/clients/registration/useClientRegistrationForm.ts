@@ -1,9 +1,10 @@
+
 import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/contexts/AuthContext';
-import { Client, ClientType, ConnectionType, ClientStatus, transformDatabaseClient } from '@/types/client';
+import { Client, ClientType, ConnectionType, ClientStatus } from '@/types/client';
 
 export interface FormData {
   name: string;
@@ -148,20 +149,6 @@ export const useClientRegistrationForm = ({ onClose, onSave }: { onClose: () => 
         throw clientError;
       }
 
-      // Create workflow status
-      const { error: workflowError } = await supabase
-        .from('client_workflow_status')
-        .insert({
-          client_id: newClient.id,
-          current_stage: 'pending_approval',
-          stage_data: { submitted_by: profile.id },
-          isp_company_id: profile.isp_company_id,
-        });
-
-      if (workflowError) {
-        console.warn('Workflow status creation failed:', workflowError);
-      }
-
       // Create service assignment
       const { error: assignmentError } = await supabase
         .from('client_service_assignments')
@@ -183,9 +170,7 @@ export const useClientRegistrationForm = ({ onClose, onSave }: { onClose: () => 
         description: "Client registered successfully. Awaiting approval.",
       });
 
-      // Transform the database response to match Client interface
-      const transformedClient = transformDatabaseClient(newClient);
-      onSave(transformedClient);
+      onSave(newClient);
       onClose();
 
     } catch (error) {

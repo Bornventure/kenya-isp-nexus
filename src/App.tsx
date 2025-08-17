@@ -7,22 +7,27 @@ import { AuthProvider } from '@/contexts/AuthContext';
 import { ThemeProvider } from '@/contexts/ThemeContext';
 import AppContent from '@/components/AppContent';
 
-function App() {
-  const queryClient = new QueryClient();
+const queryClient = new QueryClient({
+  defaultOptions: {
+    queries: {
+      retry: 1,
+      refetchOnWindowFocus: false,
+    },
+  },
+});
 
+function App() {
   return (
-    <QueryClientProvider client={queryClient}>
-      <ThemeProvider>
-        <AuthProvider>
-          <div className="min-h-screen bg-background">
+    <BrowserRouter>
+      <QueryClientProvider client={queryClient}>
+        <ThemeProvider>
+          <AuthProvider>
+            <AppContent />
             <Toaster />
-            <BrowserRouter>
-              <AppContent />
-            </BrowserRouter>
-          </div>
-        </AuthProvider>
-      </ThemeProvider>
-    </QueryClientProvider>
+          </AuthProvider>
+        </ThemeProvider>
+      </QueryClientProvider>
+    </BrowserRouter>
   );
 }
 

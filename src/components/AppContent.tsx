@@ -18,7 +18,6 @@ import Settings from '@/pages/Settings';
 import ClientPortal from '@/pages/ClientPortal';
 import UserManagement from '@/pages/UserManagement';
 import CompanyManagement from '@/pages/CompanyManagement';
-import Workflow from '@/pages/Workflow';
 import { Toaster } from '@/components/ui/toaster';
 
 const AppContent = () => {
@@ -27,17 +26,8 @@ const AppContent = () => {
   const location = useLocation();
 
   useEffect(() => {
-    console.log('AppContent - Auth state:', { 
-      user: user?.id, 
-      profile: profile?.id, 
-      role: profile?.role, 
-      isLoading, 
-      currentPath: location.pathname 
-    });
-
     // Only redirect authenticated users away from login
     if (user && profile && !isLoading && location.pathname === '/login') {
-      console.log('Redirecting authenticated user from login to dashboard');
       navigate('/dashboard', { replace: true });
     }
   }, [user, profile, isLoading, location.pathname, navigate]);
@@ -77,10 +67,9 @@ const AppContent = () => {
                   <Route path="/" element={<Navigate to="/dashboard" replace />} />
                   <Route path="/dashboard" element={<Dashboard />} />
                   <Route path="/clients" element={<Clients />} />
-                  <Route path="/workflow" element={<Workflow />} />
                   <Route path="/equipment" element={<Equipment />} />
                   <Route path="/inventory" element={<Inventory />} />
-                  <Route path="/network-monitoring" element={<NetworkManagement />} />
+                  <Route path="/network-management" element={<NetworkManagement />} />
                   <Route path="/network-map" element={<NetworkMap />} />
                   <Route path="/billing" element={<Billing />} />
                   <Route path="/support" element={<Support />} />
