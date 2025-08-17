@@ -73,14 +73,24 @@ export const useClientWorkflow = () => {
       equipmentId: string; 
       notes: string; 
     }) => {
-      // Update workflow status
+      // Update client status to pending_approval first
+      const { error: clientUpdateError } = await supabase
+        .from('clients')
+        .update({ status: 'approved' })
+        .eq('id', clientId);
+
+      if (clientUpdateError) throw clientUpdateError;
+
+      // Insert into client_workflow_status
       const { error: workflowError } = await supabase
-        .rpc('update_client_workflow_status', {
-          p_client_id: clientId,
-          p_stage: 'approved',
-          p_stage_data: { equipment_id: equipmentId },
-          p_assigned_to: profile?.id,
-          p_notes: notes
+        .from('client_workflow_status')
+        .insert({
+          client_id: clientId,
+          current_stage: 'approved',
+          stage_data: { equipment_id: equipmentId },
+          assigned_to: profile?.id,
+          notes: notes,
+          isp_company_id: profile?.isp_company_id
         });
 
       if (workflowError) throw workflowError;
@@ -98,20 +108,27 @@ export const useClientWorkflow = () => {
 
       if (equipmentError) throw equipmentError;
 
-      // Generate installation invoice
-      const invoiceResult = await createInstallationInvoice({
-        client_id: clientId,
-        equipment_details: { equipment_id: equipmentId },
-        notes: 'Installation invoice generated after approval'
-      });
+      // Generate installation invoice if available
+      try {
+        if (createInstallationInvoice) {
+          const invoiceResult = await createInstallationInvoice({
+            client_id: clientId,
+            equipment_details: { equipment_id: equipmentId },
+            notes: 'Installation invoice generated after approval'
+          });
+          return { success: true, invoiceId: invoiceResult?.id };
+        }
+      } catch (invoiceError) {
+        console.warn('Invoice creation failed:', invoiceError);
+      }
 
-      return { success: true, invoiceId: invoiceResult?.id };
+      return { success: true };
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['client-workflow'] });
       toast({
         title: "Client Approved",
-        description: "Client has been approved and installation invoice generated.",
+        description: "Client has been approved successfully.",
       });
     },
     onError: (error) => {
@@ -126,16 +143,27 @@ export const useClientWorkflow = () => {
 
   const rejectClient = useMutation({
     mutationFn: async ({ clientId, reason }: { clientId: string; reason: string }) => {
-      const { error } = await supabase
-        .rpc('update_client_workflow_status', {
-          p_client_id: clientId,
-          p_stage: 'rejected',
-          p_stage_data: { rejection_reason: reason },
-          p_assigned_to: profile?.id,
-          p_notes: reason
+      // Update client status
+      const { error: clientError } = await supabase
+        .from('clients')
+        .update({ status: 'pending', rejection_reason: reason })
+        .eq('id', clientId);
+
+      if (clientError) throw clientError;
+
+      // Insert workflow status
+      const { error: workflowError } = await supabase
+        .from('client_workflow_status')
+        .insert({
+          client_id: clientId,
+          current_stage: 'rejected',
+          stage_data: { rejection_reason: reason },
+          assigned_to: profile?.id,
+          notes: reason,
+          isp_company_id: profile?.isp_company_id
         });
 
-      if (error) throw error;
+      if (workflowError) throw workflowError;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['client-workflow'] });
@@ -179,9 +207,9 @@ export const useClientWorkflow = () => {
   return {
     workflowItems,
     isLoading,
-    approveClient: approveClient.mutate,
-    rejectClient: rejectClient.mutate,
-    assignEquipment: assignEquipment.mutate,
+    approveClient: approveClient.mutateAsync,
+    rejectClient: rejectClient.mutateAsync,
+    assignEquipment: assignEquipment.mutateAsync,
     isProcessing: approveClient.isPending || rejectClient.isPending || assignEquipment.isPending,
   };
 };

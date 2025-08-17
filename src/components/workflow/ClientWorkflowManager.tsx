@@ -6,7 +6,7 @@ import { Badge } from '@/components/ui/badge';
 import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
-import { CheckCircle, XCircle, Clock, Eye, MessageCircle } from 'lucide-react';
+import { CheckCircle, XCircle, Clock, Eye } from 'lucide-react';
 import { useClientWorkflow } from '@/hooks/useClientWorkflow';
 import { useAuth } from '@/contexts/AuthContext';
 
@@ -53,16 +53,24 @@ const ClientWorkflowManager: React.FC<ClientWorkflowManagerProps> = ({ clientId 
   };
 
   const handleApproval = async (clientId: string, equipmentId: string, approvalNotes: string) => {
-    await approveClient(clientId, equipmentId, approvalNotes);
-    setSelectedClient(null);
-    setSelectedEquipment('');
-    setNotes('');
+    try {
+      await approveClient({ clientId, equipmentId, notes: approvalNotes });
+      setSelectedClient(null);
+      setSelectedEquipment('');
+      setNotes('');
+    } catch (error) {
+      console.error('Error approving client:', error);
+    }
   };
 
   const handleRejection = async (clientId: string, reason: string) => {
-    await rejectClient(clientId, reason);
-    setSelectedClient(null);
-    setRejectionReason('');
+    try {
+      await rejectClient({ clientId, reason });
+      setSelectedClient(null);
+      setRejectionReason('');
+    } catch (error) {
+      console.error('Error rejecting client:', error);
+    }
   };
 
   if (isLoading) {
@@ -246,14 +254,6 @@ const ClientWorkflowManager: React.FC<ClientWorkflowManagerProps> = ({ clientId 
                       </DialogContent>
                     </Dialog>
                   </>
-                )}
-
-                {/* Sales Actions for Rejected Items */}
-                {profile?.role === 'sales_account_manager' && item.current_stage === 'rejected' && (
-                  <Button variant="outline" size="sm">
-                    <MessageCircle className="h-4 w-4 mr-1" />
-                    Resubmit
-                  </Button>
                 )}
               </div>
             </CardContent>

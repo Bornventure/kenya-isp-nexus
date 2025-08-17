@@ -123,15 +123,17 @@ const SalesClientRegistrationForm: React.FC<SalesClientRegistrationFormProps> = 
 
       // Create workflow status
       const { error: workflowError } = await supabase
-        .rpc('update_client_workflow_status', {
-          p_client_id: newClient.id,
-          p_stage: 'pending_approval',
-          p_stage_data: { 
+        .from('client_workflow_status')
+        .insert({
+          client_id: newClient.id,
+          current_stage: 'pending_approval',
+          stage_data: { 
             submitted_by: profile.id,
             service_package_id: formData.service_package_id 
           },
-          p_assigned_to: null,
-          p_notes: 'New client registration submitted by sales team'
+          assigned_to: null,
+          notes: 'New client registration submitted by sales team',
+          isp_company_id: profile.isp_company_id
         });
 
       if (workflowError) {
