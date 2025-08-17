@@ -3,7 +3,6 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/hooks/use-toast';
-import { useInstallationInvoices } from '@/hooks/useInstallationInvoices';
 
 export interface WorkflowItem {
   id: string;
@@ -34,7 +33,6 @@ export const useClientWorkflow = () => {
   const { profile } = useAuth();
   const { toast } = useToast();
   const queryClient = useQueryClient();
-  const { createInstallationInvoice } = useInstallationInvoices();
 
   const { data: workflowItems = [], isLoading } = useQuery({
     queryKey: ['client-workflow', profile?.isp_company_id],
@@ -67,31 +65,64 @@ export const useClientWorkflow = () => {
     enabled: !!profile?.isp_company_id,
   });
 
+  const createInstallationInvoice = async (clientId: string, equipmentDetails: any, notes: string) => {
+    try {
+      // Generate unique invoice number
+      const invoiceNumber = `INV-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+      
+      const { data: invoice, error } = await supabase
+        .from('installation_invoices')
+        .insert({
+          client_id: clientId,
+          invoice_number: invoiceNumber,
+          amount: 5000, // Default installation fee
+          vat_amount: 800, // 16% VAT
+          total_amount: 5800,
+          equipment_details: equipmentDetails,
+          notes: notes,
+          status: 'pending',
+          isp_company_id: profile?.isp_company_id
+        })
+        .select()
+        .single();
+
+      if (error) throw error;
+      return invoice;
+    } catch (error) {
+      console.error('Invoice creation failed:', error);
+      return null;
+    }
+  };
+
   const approveClient = useMutation({
     mutationFn: async ({ clientId, equipmentId, notes }: { 
       clientId: string; 
       equipmentId: string; 
       notes: string; 
     }) => {
-      // Update client status to pending_approval first
+      // Update client status to approved
       const { error: clientUpdateError } = await supabase
         .from('clients')
-        .update({ status: 'approved' })
+        .update({ 
+          status: 'approved',
+          approved_by: profile?.id,
+          approved_at: new Date().toISOString()
+        })
         .eq('id', clientId);
 
       if (clientUpdateError) throw clientUpdateError;
 
-      // Insert into client_workflow_status
+      // Update workflow status
       const { error: workflowError } = await supabase
         .from('client_workflow_status')
-        .insert({
-          client_id: clientId,
+        .update({
           current_stage: 'approved',
           stage_data: { equipment_id: equipmentId },
           assigned_to: profile?.id,
           notes: notes,
-          isp_company_id: profile?.isp_company_id
-        });
+          completed_at: new Date().toISOString()
+        })
+        .eq('client_id', clientId);
 
       if (workflowError) throw workflowError;
 
@@ -108,27 +139,16 @@ export const useClientWorkflow = () => {
 
       if (equipmentError) throw equipmentError;
 
-      // Generate installation invoice if available
-      try {
-        if (createInstallationInvoice) {
-          const invoiceResult = await createInstallationInvoice({
-            client_id: clientId,
-            equipment_details: { equipment_id: equipmentId },
-            notes: 'Installation invoice generated after approval'
-          });
-          return { success: true, invoiceId: invoiceResult?.id };
-        }
-      } catch (invoiceError) {
-        console.warn('Invoice creation failed:', invoiceError);
-      }
-
-      return { success: true };
+      // Generate installation invoice
+      const invoice = await createInstallationInvoice(clientId, { equipment_id: equipmentId }, notes);
+      
+      return { success: true, invoiceId: invoice?.id };
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['client-workflow'] });
       toast({
         title: "Client Approved",
-        description: "Client has been approved successfully.",
+        description: "Client has been approved and installation invoice generated.",
       });
     },
     onError: (error) => {
@@ -146,22 +166,27 @@ export const useClientWorkflow = () => {
       // Update client status
       const { error: clientError } = await supabase
         .from('clients')
-        .update({ status: 'pending', rejection_reason: reason })
+        .update({ 
+          status: 'rejected',
+          rejection_reason: reason,
+          rejected_by: profile?.id,
+          rejected_at: new Date().toISOString()
+        })
         .eq('id', clientId);
 
       if (clientError) throw clientError;
 
-      // Insert workflow status
+      // Update workflow status
       const { error: workflowError } = await supabase
         .from('client_workflow_status')
-        .insert({
-          client_id: clientId,
+        .update({
           current_stage: 'rejected',
           stage_data: { rejection_reason: reason },
           assigned_to: profile?.id,
           notes: reason,
-          isp_company_id: profile?.isp_company_id
-        });
+          completed_at: new Date().toISOString()
+        })
+        .eq('client_id', clientId);
 
       if (workflowError) throw workflowError;
     },
