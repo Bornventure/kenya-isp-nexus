@@ -14,7 +14,6 @@ import {
   Send, 
   Edit, 
   Plus, 
-  Broadcast,
   Users,
   Bell
 } from 'lucide-react';
@@ -40,6 +39,7 @@ const NotificationTemplatesManager: React.FC = () => {
     category: 'sms',
     trigger_event: '',
     message_template: '',
+    variables: [] as string[],
     is_active: true
   });
 
@@ -91,6 +91,7 @@ const NotificationTemplatesManager: React.FC = () => {
       category: 'sms',
       trigger_event: '',
       message_template: '',
+      variables: [],
       is_active: true
     });
   };
@@ -121,7 +122,7 @@ const NotificationTemplatesManager: React.FC = () => {
           <Dialog>
             <DialogTrigger asChild>
               <Button variant="outline" className="gap-2">
-                <Broadcast className="h-4 w-4" />
+                <Users className="h-4 w-4" />
                 Send Broadcast
               </Button>
             </DialogTrigger>

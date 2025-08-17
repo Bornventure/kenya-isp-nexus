@@ -35,7 +35,12 @@ export const useNotificationTemplates = () => {
         .order('trigger_event', { ascending: true });
 
       if (error) throw error;
-      return data as NotificationTemplate[];
+      
+      // Transform the data to match our interface
+      return (data || []).map(item => ({
+        ...item,
+        variables: Array.isArray(item.variables) ? item.variables : []
+      })) as NotificationTemplate[];
     },
     enabled: !!profile?.isp_company_id,
   });
@@ -80,6 +85,7 @@ export const useNotificationTemplates = () => {
         .from('notification_templates')
         .insert({
           ...templateData,
+          variables: templateData.variables || [],
           isp_company_id: profile?.isp_company_id
         })
         .select()

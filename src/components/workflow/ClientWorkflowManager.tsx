@@ -35,18 +35,16 @@ const ClientWorkflowManager: React.FC = () => {
   const [assignmentNotes, setAssignmentNotes] = useState('');
   const [selectedEquipment, setSelectedEquipment] = useState<string[]>([]);
 
-  const getStatusBadge = (stage: string) => {
-    switch (stage) {
-      case 'pending_verification':
+  const getStatusBadge = (status: string) => {
+    switch (status) {
+      case 'pending':
         return <Badge variant="outline" className="gap-1"><Clock className="h-3 w-3" />Pending Review</Badge>;
       case 'approved':
         return <Badge variant="default" className="gap-1"><CheckCircle className="h-3 w-3" />Approved</Badge>;
       case 'rejected':
         return <Badge variant="destructive" className="gap-1"><XCircle className="h-3 w-3" />Rejected</Badge>;
-      case 'equipment_assigned':
-        return <Badge variant="secondary" className="gap-1"><Package className="h-3 w-3" />Equipment Assigned</Badge>;
       default:
-        return <Badge variant="outline">{stage}</Badge>;
+        return <Badge variant="outline">{status}</Badge>;
     }
   };
 
@@ -90,11 +88,11 @@ const ClientWorkflowManager: React.FC = () => {
         <div className="flex gap-2">
           <Badge variant="outline" className="gap-1">
             <Clock className="h-3 w-3" />
-            {pendingClients.filter(c => c.workflow_stage === 'pending_verification').length} Pending Review
+            {pendingClients.filter(c => c.status === 'pending').length} Pending Review
           </Badge>
           <Badge variant="secondary" className="gap-1">
             <CheckCircle className="h-3 w-3" />
-            {pendingClients.filter(c => c.workflow_stage === 'approved').length} Approved
+            {pendingClients.filter(c => c.status === 'approved').length} Approved
           </Badge>
         </div>
       </div>
@@ -119,7 +117,7 @@ const ClientWorkflowManager: React.FC = () => {
                     <User className="h-5 w-5" />
                     {client.name}
                   </CardTitle>
-                  {getStatusBadge(client.workflow_stage)}
+                  {getStatusBadge(client.status)}
                 </div>
               </CardHeader>
               <CardContent className="space-y-4">
@@ -159,7 +157,7 @@ const ClientWorkflowManager: React.FC = () => {
                 )}
 
                 <div className="flex gap-2 pt-2 border-t">
-                  {client.workflow_stage === 'pending_verification' && (
+                  {client.status === 'pending' && (
                     <>
                       <Button 
                         onClick={() => handleApprove(client.id)}
@@ -221,7 +219,7 @@ const ClientWorkflowManager: React.FC = () => {
                     </>
                   )}
 
-                  {client.workflow_stage === 'approved' && (
+                  {client.status === 'approved' && (
                     <Dialog>
                       <DialogTrigger asChild>
                         <Button 
@@ -298,15 +296,6 @@ const ClientWorkflowManager: React.FC = () => {
                         </div>
                       </DialogContent>
                     </Dialog>
-                  )}
-
-                  {client.workflow_stage === 'equipment_assigned' && (
-                    <div className="flex-1 text-center py-2">
-                      <Badge variant="secondary" className="gap-1">
-                        <Package className="h-3 w-3" />
-                        Ready for Invoice Generation
-                      </Badge>
-                    </div>
                   )}
                 </div>
               </CardContent>

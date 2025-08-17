@@ -4,6 +4,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/hooks/use-toast';
+import { WorkflowStage } from '@/types/client';
 
 export interface WorkflowStage {
   id: string;
@@ -35,7 +36,7 @@ export const useClientWorkflow = () => {
           client_workflow_status (*)
         `)
         .eq('isp_company_id', profile.isp_company_id)
-        .in('workflow_stage', ['pending_verification', 'approved', 'equipment_assigned'])
+        .in('status', ['pending', 'approved'])
         .order('created_at', { ascending: false });
 
       if (error) throw error;
@@ -77,7 +78,7 @@ export const useClientWorkflow = () => {
       const { error: updateError } = await supabase
         .from('clients')
         .update({ 
-          workflow_stage: 'rejected',
+          status: 'rejected',
           rejection_reason: reason,
           rejected_by: profile?.id,
           rejected_at: new Date().toISOString()
@@ -121,12 +122,11 @@ export const useClientWorkflow = () => {
       equipmentIds: string[]; 
       notes?: string 
     }) => {
-      // Update client with assigned equipment
+      // Update client status
       const { error: clientError } = await supabase
         .from('clients')
         .update({ 
-          equipment_assigned: equipmentIds,
-          workflow_stage: 'equipment_assigned'
+          status: 'approved'
         })
         .eq('id', clientId);
 
