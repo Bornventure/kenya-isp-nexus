@@ -11,7 +11,7 @@ import ClientAddDialog from '@/components/clients/ClientAddDialog';
 import ClientEditDialog from '@/components/clients/ClientEditDialog';
 
 const Clients = () => {
-  const { clients, isLoading, createClient, updateClient, deleteClient } = useClients();
+  const { clients, isLoading, addClient, updateClient, deleteClient } = useClients();
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
   const [selectedClient, setSelectedClient] = useState<DatabaseClient | null>(null);
@@ -35,7 +35,7 @@ const Clients = () => {
   };
 
   const handleAddClient = (clientData: any) => {
-    createClient(clientData);
+    addClient(clientData);
   };
 
   const handleUpdateClient = (clientData: any) => {

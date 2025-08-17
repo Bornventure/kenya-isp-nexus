@@ -1,8 +1,12 @@
+
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/hooks/use-toast';
 import { Client, transformDatabaseClient } from '@/types/client';
+
+// Export DatabaseClient type for backward compatibility
+export type DatabaseClient = Client;
 
 export const useClients = () => {
   const { profile } = useAuth();
@@ -135,6 +139,7 @@ export const useClients = () => {
     isLoading,
     error,
     addClient: addClient.mutateAsync,
+    createClient: addClient.mutateAsync, // Alias for backward compatibility
     updateClient: updateClient.mutateAsync,
     deleteClient: deleteClient.mutateAsync,
   };
