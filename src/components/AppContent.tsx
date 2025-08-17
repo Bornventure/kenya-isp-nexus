@@ -80,7 +80,7 @@ const AppContent = () => {
                   <Route path="/workflow" element={<Workflow />} />
                   <Route path="/equipment" element={<Equipment />} />
                   <Route path="/inventory" element={<Inventory />} />
-                  <Route path="/network-management" element={<NetworkManagement />} />
+                  <Route path="/network-monitoring" element={<NetworkManagement />} />
                   <Route path="/network-map" element={<NetworkMap />} />
                   <Route path="/billing" element={<Billing />} />
                   <Route path="/support" element={<Support />} />
