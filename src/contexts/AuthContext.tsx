@@ -63,6 +63,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       }
 
       console.log('Profile fetched successfully:', data);
+      console.log('Profile role:', data?.role);
       setProfile(data);
     } catch (error) {
       console.error('Error in fetchUserProfile:', error);
@@ -142,6 +143,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const login = async (email: string, password: string): Promise<boolean> => {
     try {
       setIsLoading(true);
+      console.log('Login attempt for:', email);
+      
       const { data, error } = await supabase.auth.signInWithPassword({
         email,
         password,
