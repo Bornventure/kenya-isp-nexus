@@ -43,8 +43,8 @@ const CustomerRegistrationForm: React.FC<CustomerRegistrationFormProps> = ({ onC
       return;
     }
     
-    // Create client data that matches the Client interface exactly
-    const clientData: Omit<Client, 'id' | 'created_at' | 'updated_at' | 'isp_company_id'> = {
+    // Create client data that matches the expected type for createClient
+    const clientData: Omit<Client, 'id'> = {
       name: formData.name,
       email: formData.email || undefined,
       phone: formData.phone,
@@ -75,6 +75,13 @@ const CustomerRegistrationForm: React.FC<CustomerRegistrationFormProps> = ({ onC
       installation_completed_at: undefined,
       service_activated_at: undefined,
       installation_date: undefined,
+      rejection_reason: undefined,
+      rejected_by: undefined,
+      rejected_at: undefined,
+      notes: undefined,
+      isp_company_id: profile.isp_company_id,
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
       
       // Legacy camelCase properties for backwards compatibility
       clientType: formData.client_type,
