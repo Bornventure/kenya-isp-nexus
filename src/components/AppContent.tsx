@@ -1,5 +1,8 @@
+
 import React from 'react';
 import { Routes, Route, Navigate } from 'react-router-dom';
+import { useAuth } from '@/contexts/AuthContext';
+import Login from '@/pages/Login';
 import Dashboard from '@/pages/Dashboard';
 import Clients from '@/pages/Clients';
 import Equipment from '@/pages/Equipment';
@@ -21,11 +24,35 @@ import UserManagement from '@/pages/administration/UserManagement';
 import AuditLogs from '@/pages/AuditLogs';
 import ClientWorkflowManager from './workflow/ClientWorkflowManager';
 import NotificationTemplatesManager from './templates/NotificationTemplatesManager';
+import Layout from '@/components/layout/Layout';
 
 const AppContent: React.FC = () => {
-  return (
-    <div className="flex-1 p-4">
+  const { user, isLoading } = useAuth();
+
+  // Show loading spinner while checking authentication
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center min-h-screen">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+      </div>
+    );
+  }
+
+  // If user is not authenticated, show login page
+  if (!user) {
+    return (
       <Routes>
+        <Route path="/login" element={<Login />} />
+        <Route path="*" element={<Navigate to="/login" replace />} />
+      </Routes>
+    );
+  }
+
+  // If user is authenticated, show the main app with layout
+  return (
+    <Layout>
+      <Routes>
+        <Route path="/login" element={<Navigate to="/" replace />} />
         <Route path="/" element={<Dashboard />} />
         <Route path="/clients" element={<Clients />} />
         <Route path="/clients/workflow" element={<ClientWorkflowManager />} />
@@ -63,8 +90,11 @@ const AppContent: React.FC = () => {
         
         {/* Audit Logs Route */}
         <Route path="/audit-logs" element={<AuditLogs />} />
+        
+        {/* Catch all route */}
+        <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
-    </div>
+    </Layout>
   );
 };
 
