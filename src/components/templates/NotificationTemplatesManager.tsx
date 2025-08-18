@@ -38,8 +38,10 @@ const NotificationTemplatesManager: React.FC = () => {
     name: '',
     category: 'sms',
     trigger_event: '',
-    message_template: '',
+    email_template: '',
+    sms_template: '',
     variables: [] as string[],
+    channels: ['sms'] as string[],
     is_active: true
   });
 
@@ -90,8 +92,10 @@ const NotificationTemplatesManager: React.FC = () => {
       name: '',
       category: 'sms',
       trigger_event: '',
-      message_template: '',
+      email_template: '',
+      sms_template: '',
       variables: [],
+      channels: ['sms'],
       is_active: true
     });
   };
@@ -104,6 +108,36 @@ const NotificationTemplatesManager: React.FC = () => {
       });
       setBroadcastMessage('');
     }
+  };
+
+  const getCurrentTemplateContent = (template: NotificationTemplate) => {
+    if (template.category === 'email' && template.email_template) {
+      return template.email_template;
+    } else if (template.category === 'sms' && template.sms_template) {
+      return template.sms_template;
+    }
+    return template.email_template || template.sms_template || '';
+  };
+
+  const updateTemplateContent = (template: NotificationTemplate, content: string) => {
+    if (template.category === 'email') {
+      return { ...template, email_template: content };
+    } else if (template.category === 'sms') {
+      return { ...template, sms_template: content };
+    }
+    return { ...template, sms_template: content };
+  };
+
+  const updateNewTemplateContent = (content: string) => {
+    if (newTemplate.category === 'email') {
+      setNewTemplate({ ...newTemplate, email_template: content, sms_template: '' });
+    } else {
+      setNewTemplate({ ...newTemplate, sms_template: content, email_template: '' });
+    }
+  };
+
+  const getCurrentNewTemplateContent = () => {
+    return newTemplate.category === 'email' ? newTemplate.email_template : newTemplate.sms_template;
   };
 
   if (isLoading) {
@@ -210,7 +244,18 @@ const NotificationTemplatesManager: React.FC = () => {
                   </div>
                   <div>
                     <label className="text-sm font-medium">Category</label>
-                    <Select value={newTemplate.category} onValueChange={(value) => setNewTemplate({...newTemplate, category: value})}>
+                    <Select 
+                      value={newTemplate.category} 
+                      onValueChange={(value) => {
+                        setNewTemplate({
+                          ...newTemplate, 
+                          category: value,
+                          channels: [value],
+                          email_template: '',
+                          sms_template: ''
+                        });
+                      }}
+                    >
                       <SelectTrigger>
                         <SelectValue />
                       </SelectTrigger>
@@ -241,8 +286,8 @@ const NotificationTemplatesManager: React.FC = () => {
                   <label className="text-sm font-medium">Message Template</label>
                   <Textarea
                     placeholder="Enter your template message..."
-                    value={newTemplate.message_template}
-                    onChange={(e) => setNewTemplate({...newTemplate, message_template: e.target.value})}
+                    value={getCurrentNewTemplateContent()}
+                    onChange={(e) => updateNewTemplateContent(e.target.value)}
                     rows={4}
                   />
                   <div className="flex flex-wrap gap-1 mt-2">
@@ -251,10 +296,7 @@ const NotificationTemplatesManager: React.FC = () => {
                         key={variable}
                         variant="outline" 
                         className="cursor-pointer text-xs"
-                        onClick={() => setNewTemplate({
-                          ...newTemplate, 
-                          message_template: newTemplate.message_template + variable
-                        })}
+                        onClick={() => updateNewTemplateContent(getCurrentNewTemplateContent() + variable)}
                       >
                         {variable}
                       </Badge>
@@ -263,7 +305,7 @@ const NotificationTemplatesManager: React.FC = () => {
                 </div>
                 <Button 
                   onClick={handleCreateTemplate}
-                  disabled={!newTemplate.name || !newTemplate.trigger_event || !newTemplate.message_template || isCreating}
+                  disabled={!newTemplate.name || !newTemplate.trigger_event || !getCurrentNewTemplateContent() || isCreating}
                   className="w-full"
                 >
                   Create Template
@@ -313,8 +355,8 @@ const NotificationTemplatesManager: React.FC = () => {
                           <div>
                             <label className="text-sm font-medium">Message Template</label>
                             <Textarea
-                              value={editingTemplate.message_template}
-                              onChange={(e) => setEditingTemplate({...editingTemplate, message_template: e.target.value})}
+                              value={getCurrentTemplateContent(editingTemplate)}
+                              onChange={(e) => setEditingTemplate(updateTemplateContent(editingTemplate, e.target.value))}
                               rows={4}
                             />
                             <div className="flex flex-wrap gap-1 mt-2">
@@ -323,10 +365,10 @@ const NotificationTemplatesManager: React.FC = () => {
                                   key={variable}
                                   variant="outline" 
                                   className="cursor-pointer text-xs"
-                                  onClick={() => setEditingTemplate({
-                                    ...editingTemplate, 
-                                    message_template: editingTemplate.message_template + variable
-                                  })}
+                                  onClick={() => {
+                                    const currentContent = getCurrentTemplateContent(editingTemplate);
+                                    setEditingTemplate(updateTemplateContent(editingTemplate, currentContent + variable));
+                                  }}
                                 >
                                   {variable}
                                 </Badge>
@@ -361,7 +403,7 @@ const NotificationTemplatesManager: React.FC = () => {
                   <Badge variant="outline">{triggerEvents.find(e => e.value === template.trigger_event)?.label || template.trigger_event}</Badge>
                 </div>
                 <div className="text-sm bg-muted p-3 rounded-lg">
-                  {template.message_template}
+                  {getCurrentTemplateContent(template)}
                 </div>
               </div>
             </CardContent>
