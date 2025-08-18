@@ -10,12 +10,15 @@ export interface NotificationTemplate {
   category: string;
   trigger_event: string;
   subject?: string;
-  message_template: string;
+  email_template?: string;
+  sms_template?: string;
   variables: string[];
+  channels: string[];
   is_active: boolean;
   isp_company_id: string;
   created_at: string;
   updated_at: string;
+  created_by?: string;
 }
 
 export const useNotificationTemplates = () => {
@@ -36,10 +39,22 @@ export const useNotificationTemplates = () => {
 
       if (error) throw error;
       
-      // Transform the data to match our interface
+      // Transform the database data to match our interface
       return (data || []).map(item => ({
-        ...item,
-        variables: Array.isArray(item.variables) ? item.variables : []
+        id: item.id,
+        name: item.name,
+        category: item.category,
+        trigger_event: item.trigger_event,
+        subject: item.subject || undefined,
+        email_template: item.email_template || undefined,
+        sms_template: item.sms_template || undefined,
+        variables: Array.isArray(item.variables) ? item.variables as string[] : [],
+        channels: Array.isArray(item.channels) ? item.channels as string[] : [],
+        is_active: item.is_active || false,
+        isp_company_id: item.isp_company_id,
+        created_at: item.created_at || '',
+        updated_at: item.updated_at || '',
+        created_by: item.created_by || undefined
       })) as NotificationTemplate[];
     },
     enabled: !!profile?.isp_company_id,
@@ -86,7 +101,9 @@ export const useNotificationTemplates = () => {
         .insert({
           ...templateData,
           variables: templateData.variables || [],
-          isp_company_id: profile?.isp_company_id
+          channels: templateData.channels || [],
+          isp_company_id: profile?.isp_company_id,
+          created_by: profile?.id
         })
         .select()
         .single();

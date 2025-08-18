@@ -4,9 +4,10 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/hooks/use-toast';
-import { WorkflowStage } from '@/types/client';
+import { WorkflowStage as ClientWorkflowStage } from '@/types/client';
 
-export interface WorkflowStage {
+// Rename the local interface to avoid conflict
+export interface WorkflowStageData {
   id: string;
   client_id: string;
   current_stage: string;
