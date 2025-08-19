@@ -22,7 +22,7 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
     <SidebarProvider>
       <div className="flex min-h-screen w-full">
         <Sidebar />
-        <SidebarInset className="flex-1">
+        <SidebarInset>
           {/* Header with theme toggle and logout */}
           <header className="flex items-center justify-between px-6 py-4 bg-background border-b border-border">
             <div className="flex items-center gap-2">

@@ -1,6 +1,6 @@
 
 import React from 'react';
-import { NavLink, useLocation } from 'react-router-dom';
+import { NavLink } from 'react-router-dom';
 import {
   Sidebar as ShadcnSidebar,
   SidebarContent,
@@ -37,7 +37,6 @@ import { Badge } from '@/components/ui/badge';
 import { useAuth } from '@/contexts/AuthContext';
 
 const Sidebar = () => {
-  const location = useLocation();
   const { profile } = useAuth();
 
   const mainMenuItems = [
@@ -89,7 +88,7 @@ const Sidebar = () => {
           <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary text-primary-foreground">
             <Shield className="h-4 w-4" />
           </div>
-          <div className="flex flex-col">
+          <div className="group-data-[collapsible=icon]:hidden flex flex-col">
             <span className="text-lg font-semibold">DataDefender</span>
             <span className="text-xs text-muted-foreground">ISP Management</span>
           </div>
@@ -103,7 +102,7 @@ const Sidebar = () => {
             <SidebarMenu>
               {mainMenuItems.map((item) => (
                 <SidebarMenuItem key={item.title}>
-                  <SidebarMenuButton asChild>
+                  <SidebarMenuButton asChild tooltip={item.title}>
                     <NavLink
                       to={item.url}
                       className={({ isActive }) =>
@@ -128,7 +127,7 @@ const Sidebar = () => {
             <SidebarMenu>
               {billingItems.map((item) => (
                 <SidebarMenuItem key={item.title}>
-                  <SidebarMenuButton asChild>
+                  <SidebarMenuButton asChild tooltip={item.title}>
                     <NavLink
                       to={item.url}
                       className={({ isActive }) =>
@@ -153,7 +152,7 @@ const Sidebar = () => {
             <SidebarMenu>
               {analyticsItems.map((item) => (
                 <SidebarMenuItem key={item.title}>
-                  <SidebarMenuButton asChild>
+                  <SidebarMenuButton asChild tooltip={item.title}>
                     <NavLink
                       to={item.url}
                       className={({ isActive }) =>
@@ -178,7 +177,7 @@ const Sidebar = () => {
             <SidebarMenu>
               {supportItems.map((item) => (
                 <SidebarMenuItem key={item.title}>
-                  <SidebarMenuButton asChild>
+                  <SidebarMenuButton asChild tooltip={item.title}>
                     <NavLink
                       to={item.url}
                       className={({ isActive }) =>
@@ -204,7 +203,7 @@ const Sidebar = () => {
               <SidebarMenu>
                 {contractorItems.map((item) => (
                   <SidebarMenuItem key={item.title}>
-                    <SidebarMenuButton asChild>
+                    <SidebarMenuButton asChild tooltip={item.title}>
                       <NavLink
                         to={item.url}
                         className={({ isActive }) =>
@@ -231,7 +230,7 @@ const Sidebar = () => {
               <SidebarMenu>
                 {adminItems.map((item) => (
                   <SidebarMenuItem key={item.title}>
-                    <SidebarMenuButton asChild>
+                    <SidebarMenuButton asChild tooltip={item.title}>
                       <NavLink
                         to={item.url}
                         className={({ isActive }) =>
@@ -257,7 +256,7 @@ const Sidebar = () => {
             <SidebarMenu>
               {settingsItems.map((item) => (
                 <SidebarMenuItem key={item.title}>
-                  <SidebarMenuButton asChild>
+                  <SidebarMenuButton asChild tooltip={item.title}>
                     <NavLink
                       to={item.url}
                       className={({ isActive }) =>
@@ -285,7 +284,7 @@ const Sidebar = () => {
               {profile?.first_name?.[0]}{profile?.last_name?.[0]}
             </AvatarFallback>
           </Avatar>
-          <div className="flex flex-1 flex-col">
+          <div className="group-data-[collapsible=icon]:hidden flex flex-1 flex-col">
             <span className="text-sm font-medium">
               {profile?.first_name} {profile?.last_name}
             </span>
