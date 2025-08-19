@@ -7,7 +7,7 @@ export type Json =
   | Json[]
 
 export type Database = {
-  // Allows to automatically instantiate createClient with right options
+  // Allows to automatically instanciate createClient with right options
   // instead of createClient<Database, { PostgrestVersion: 'XX' }>(URL, KEY)
   __InternalSupabase: {
     PostgrestVersion: "12.2.3 (519615d)"
@@ -290,60 +290,6 @@ export type Database = {
           },
         ]
       }
-      client_equipment_assignments: {
-        Row: {
-          assigned_at: string | null
-          assigned_by: string
-          client_id: string
-          created_at: string | null
-          equipment_id: string
-          id: string
-          installation_notes: string | null
-          isp_company_id: string
-          status: string | null
-          updated_at: string | null
-        }
-        Insert: {
-          assigned_at?: string | null
-          assigned_by: string
-          client_id: string
-          created_at?: string | null
-          equipment_id: string
-          id?: string
-          installation_notes?: string | null
-          isp_company_id: string
-          status?: string | null
-          updated_at?: string | null
-        }
-        Update: {
-          assigned_at?: string | null
-          assigned_by?: string
-          client_id?: string
-          created_at?: string | null
-          equipment_id?: string
-          id?: string
-          installation_notes?: string | null
-          isp_company_id?: string
-          status?: string | null
-          updated_at?: string | null
-        }
-        Relationships: [
-          {
-            foreignKeyName: "client_equipment_assignments_client_id_fkey"
-            columns: ["client_id"]
-            isOneToOne: false
-            referencedRelation: "clients"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "client_equipment_assignments_equipment_id_fkey"
-            columns: ["equipment_id"]
-            isOneToOne: false
-            referencedRelation: "equipment"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
       client_hotspot_access: {
         Row: {
           access_level: string
@@ -480,53 +426,6 @@ export type Database = {
           },
         ]
       }
-      client_workflow_status: {
-        Row: {
-          assigned_to: string | null
-          client_id: string
-          completed_at: string | null
-          created_at: string | null
-          current_stage: string
-          id: string
-          isp_company_id: string
-          notes: string | null
-          stage_data: Json | null
-          updated_at: string | null
-        }
-        Insert: {
-          assigned_to?: string | null
-          client_id: string
-          completed_at?: string | null
-          created_at?: string | null
-          current_stage: string
-          id?: string
-          isp_company_id: string
-          notes?: string | null
-          stage_data?: Json | null
-          updated_at?: string | null
-        }
-        Update: {
-          assigned_to?: string | null
-          client_id?: string
-          completed_at?: string | null
-          created_at?: string | null
-          current_stage?: string
-          id?: string
-          isp_company_id?: string
-          notes?: string | null
-          stage_data?: Json | null
-          updated_at?: string | null
-        }
-        Relationships: [
-          {
-            foreignKeyName: "client_workflow_status_client_id_fkey"
-            columns: ["client_id"]
-            isOneToOne: false
-            referencedRelation: "clients"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
       clients: {
         Row: {
           address: string
@@ -552,11 +451,7 @@ export type Database = {
           monthly_rate: number
           mpesa_number: string | null
           name: string
-          notes: string | null
           phone: string
-          rejected_at: string | null
-          rejected_by: string | null
-          rejection_reason: string | null
           service_activated_at: string | null
           service_package_id: string | null
           status: Database["public"]["Enums"]["client_status"] | null
@@ -592,11 +487,7 @@ export type Database = {
           monthly_rate: number
           mpesa_number?: string | null
           name: string
-          notes?: string | null
           phone: string
-          rejected_at?: string | null
-          rejected_by?: string | null
-          rejection_reason?: string | null
           service_activated_at?: string | null
           service_package_id?: string | null
           status?: Database["public"]["Enums"]["client_status"] | null
@@ -632,11 +523,7 @@ export type Database = {
           monthly_rate?: number
           mpesa_number?: string | null
           name?: string
-          notes?: string | null
           phone?: string
-          rejected_at?: string | null
-          rejected_by?: string | null
-          rejection_reason?: string | null
           service_activated_at?: string | null
           service_package_id?: string | null
           status?: Database["public"]["Enums"]["client_status"] | null
@@ -1555,9 +1442,6 @@ export type Database = {
           amount: number
           client_id: string
           created_at: string | null
-          distributed_at: string | null
-          distributed_by: string | null
-          distribution_method: string | null
           equipment_details: Json | null
           id: string
           invoice_number: string
@@ -1568,7 +1452,6 @@ export type Database = {
           payment_reference: string | null
           status: string | null
           total_amount: number
-          tracking_number: string | null
           updated_at: string | null
           vat_amount: number
         }
@@ -1576,9 +1459,6 @@ export type Database = {
           amount?: number
           client_id: string
           created_at?: string | null
-          distributed_at?: string | null
-          distributed_by?: string | null
-          distribution_method?: string | null
           equipment_details?: Json | null
           id?: string
           invoice_number: string
@@ -1589,7 +1469,6 @@ export type Database = {
           payment_reference?: string | null
           status?: string | null
           total_amount?: number
-          tracking_number?: string | null
           updated_at?: string | null
           vat_amount?: number
         }
@@ -1597,9 +1476,6 @@ export type Database = {
           amount?: number
           client_id?: string
           created_at?: string | null
-          distributed_at?: string | null
-          distributed_by?: string | null
-          distribution_method?: string | null
           equipment_details?: Json | null
           id?: string
           invoice_number?: string
@@ -1610,7 +1486,6 @@ export type Database = {
           payment_reference?: string | null
           status?: string | null
           total_amount?: number
-          tracking_number?: string | null
           updated_at?: string | null
           vat_amount?: number
         }
@@ -3190,45 +3065,6 @@ export type Database = {
           },
         ]
       }
-      sms_templates: {
-        Row: {
-          created_at: string | null
-          created_by: string | null
-          id: string
-          is_active: boolean | null
-          isp_company_id: string
-          template_content: string
-          template_key: string
-          template_name: string
-          updated_at: string | null
-          variables: Json | null
-        }
-        Insert: {
-          created_at?: string | null
-          created_by?: string | null
-          id?: string
-          is_active?: boolean | null
-          isp_company_id: string
-          template_content: string
-          template_key: string
-          template_name: string
-          updated_at?: string | null
-          variables?: Json | null
-        }
-        Update: {
-          created_at?: string | null
-          created_by?: string | null
-          id?: string
-          is_active?: boolean | null
-          isp_company_id?: string
-          template_content?: string
-          template_key?: string
-          template_name?: string
-          updated_at?: string | null
-          variables?: Json | null
-        }
-        Relationships: []
-      }
       super_admin_invoices: {
         Row: {
           amount: number
@@ -3825,50 +3661,6 @@ export type Database = {
           },
         ]
       }
-      wallet_monitoring_rules: {
-        Row: {
-          client_id: string
-          created_at: string | null
-          id: string
-          is_active: boolean | null
-          isp_company_id: string
-          last_triggered_at: string | null
-          rule_type: string
-          threshold_amount: number | null
-          threshold_days: number | null
-        }
-        Insert: {
-          client_id: string
-          created_at?: string | null
-          id?: string
-          is_active?: boolean | null
-          isp_company_id: string
-          last_triggered_at?: string | null
-          rule_type: string
-          threshold_amount?: number | null
-          threshold_days?: number | null
-        }
-        Update: {
-          client_id?: string
-          created_at?: string | null
-          id?: string
-          is_active?: boolean | null
-          isp_company_id?: string
-          last_triggered_at?: string | null
-          rule_type?: string
-          threshold_amount?: number | null
-          threshold_days?: number | null
-        }
-        Relationships: [
-          {
-            foreignKeyName: "wallet_monitoring_rules_client_id_fkey"
-            columns: ["client_id"]
-            isOneToOne: false
-            referencedRelation: "clients"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
       wallet_transactions: {
         Row: {
           amount: number
@@ -3946,10 +3738,6 @@ export type Database = {
         Args: { client_id_param: string }
         Returns: string
       }
-      generate_tracking_number: {
-        Args: Record<PropertyKey, never>
-        Returns: string
-      }
       generate_voucher_code: {
         Args: Record<PropertyKey, never>
         Returns: string
@@ -3965,18 +3753,18 @@ export type Database = {
       get_system_settings: {
         Args: { company_id: string }
         Returns: {
+          company_name: string
+          timezone: string
+          date_format: string
+          currency: string
           backup_enabled: boolean
           backup_frequency: string
-          company_name: string
-          currency: string
-          date_format: string
-          email_from_address: string
           maintenance_mode: boolean
-          notifications_enabled: boolean
           smtp_host: string
           smtp_port: string
           smtp_username: string
-          timezone: string
+          email_from_address: string
+          notifications_enabled: boolean
         }[]
       }
       handle_automatic_renewals: {
@@ -3996,21 +3784,11 @@ export type Database = {
         Returns: Json
       }
       promote_inventory_to_equipment: {
-        Args: { equipment_data: Json; inventory_item_id: string }
+        Args: { inventory_item_id: string; equipment_data: Json }
         Returns: string
       }
       trigger_auto_notification: {
-        Args: { p_client_id: string; p_data?: Json; p_trigger_event: string }
-        Returns: undefined
-      }
-      update_client_workflow_status: {
-        Args: {
-          p_assigned_to?: string
-          p_client_id: string
-          p_notes?: string
-          p_stage: string
-          p_stage_data?: Json
-        }
+        Args: { p_client_id: string; p_trigger_event: string; p_data?: Json }
         Returns: undefined
       }
       upsert_system_settings: {
@@ -4025,7 +3803,6 @@ export type Database = {
         | "disconnected"
         | "pending"
         | "approved"
-        | "rejected"
       client_type: "individual" | "business" | "corporate" | "government"
       connection_type: "fiber" | "wireless" | "satellite" | "dsl"
       license_type: "starter" | "professional" | "enterprise" | "unlimited"
@@ -4188,7 +3965,6 @@ export const Constants = {
         "disconnected",
         "pending",
         "approved",
-        "rejected",
       ],
       client_type: ["individual", "business", "corporate", "government"],
       connection_type: ["fiber", "wireless", "satellite", "dsl"],

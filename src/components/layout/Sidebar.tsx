@@ -1,32 +1,37 @@
+
 import React from 'react';
-import {
-  BarChart3,
-  Users,
-  HardDrive,
-  Package,
-  Wifi,
-  Radio,
-  Map,
-  CreditCard,
-  Settings,
-  TrendingUp,
-  Activity,
-  Shield,
-  FileText,
-} from 'lucide-react';
 import { NavLink, useLocation } from 'react-router-dom';
-import { useAuth } from '@/contexts/AuthContext';
 import { cn } from '@/lib/utils';
+import {
+  Users,
+  CreditCard,
+  Network,
+  Package,
+  MessageCircle,
+  Settings,
+  Home,
+  Router,
+  MapPin,
+  Archive,
+  Headphones,
+  UserCog,
+  Building2,
+} from 'lucide-react';
+import {
+  Sidebar as SidebarBase,
+  SidebarContent,
+  SidebarGroup,
+  SidebarGroupContent,
+  SidebarGroupLabel,
+  SidebarMenu,
+  SidebarMenuButton,
+  SidebarMenuItem,
+  SidebarHeader,
+  SidebarFooter,
+} from '@/components/ui/sidebar';
+import { useAuth } from '@/contexts/AuthContext';
 
-interface MenuItem {
-  icon: React.ComponentType<any>;
-  label: string;
-  path?: string;
-  submenu?: { label: string; path: string }[];
-  roles: string[];
-}
-
-const Sidebar: React.FC = () => {
+const Sidebar = () => {
   const location = useLocation();
   const { profile } = useAuth();
 
@@ -34,164 +39,172 @@ const Sidebar: React.FC = () => {
     return location.pathname === path;
   };
 
-  const hasRequiredRole = (roles: string[]) => {
-    return profile && roles.includes(profile.role);
+  // Define role-based permissions
+  const isAdmin = profile?.role === 'super_admin' || profile?.role === 'isp_admin';
+  
+  const hasPermission = {
+    clients: isAdmin || ['customer_support', 'sales_manager', 'sales_account_manager'].includes(profile?.role || ''),
+    equipment: isAdmin || ['network_engineer', 'network_operations', 'infrastructure_manager', 'infrastructure_asset', 'technician'].includes(profile?.role || ''),
+    inventory: isAdmin || ['infrastructure_manager', 'infrastructure_asset', 'technician'].includes(profile?.role || ''),
+    network: isAdmin || ['network_engineer', 'network_operations'].includes(profile?.role || ''),
+    billing: isAdmin || ['billing_admin', 'billing_finance'].includes(profile?.role || ''),
+    support: isAdmin || ['customer_support'].includes(profile?.role || ''),
   };
 
   const menuItems = [
-    { 
-      icon: BarChart3, 
-      label: 'Dashboard', 
-      path: '/', 
-      roles: ['super_admin', 'isp_admin', 'technician', 'sales'] 
-    },
-    { 
-      icon: Users, 
-      label: 'Clients', 
-      path: '/clients',
-      submenu: [
-        { label: 'All Clients', path: '/clients' },
-        { label: 'Workflow Management', path: '/clients/workflow' }
-      ],
-      roles: ['super_admin', 'isp_admin', 'sales', 'technician'] 
-    },
-    { 
-      icon: HardDrive, 
-      label: 'Equipment', 
-      path: '/equipment', 
-      roles: ['super_admin', 'isp_admin', 'technician'] 
-    },
-    { 
-      icon: Package, 
-      label: 'Inventory', 
-      path: '/inventory', 
-      roles: ['super_admin', 'isp_admin', 'technician'] 
-    },
-    { 
-      icon: Wifi, 
-      label: 'Service Packages', 
-      path: '/service-packages', 
-      roles: ['super_admin', 'isp_admin'] 
-    },
-    { 
-      icon: Radio, 
-      label: 'Base Stations', 
-      path: '/base-stations', 
-      roles: ['super_admin', 'isp_admin', 'technician'] 
+    {
+      name: 'Dashboard',
+      href: '/dashboard',
+      icon: Home,
+      show: true
     },
     {
-      icon: Map,
-      label: 'Network Map',
-      path: '/network-map',
-      roles: ['super_admin', 'isp_admin', 'technician']
+      name: 'Clients',
+      href: '/clients',
+      icon: Users,
+      show: hasPermission.clients
     },
     {
+      name: 'Equipment',
+      href: '/equipment',
+      icon: Router,
+      show: hasPermission.equipment
+    },
+    {
+      name: 'Inventory',
+      href: '/inventory',
+      icon: Archive,
+      show: hasPermission.inventory
+    },
+    {
+      name: 'Network Management',
+      href: '/network-management',
+      icon: Network,
+      show: hasPermission.network
+    },
+    {
+      name: 'Network Map',
+      href: '/network-map',
+      icon: MapPin,
+      show: hasPermission.network
+    },
+    {
+      name: 'Billing',
+      href: '/billing',
       icon: CreditCard,
-      label: 'Billing',
-      submenu: [
-        { label: 'Invoices', path: '/billing/invoices' },
-        { label: 'Payments', path: '/billing/payments' },
-        { label: 'Installation Invoices', path: '/billing/installation-invoices' }
-      ],
-      roles: ['super_admin', 'isp_admin', 'sales']
+      show: hasPermission.billing
     },
     {
+      name: 'Support',
+      href: '/support',
+      icon: Headphones,
+      show: hasPermission.support
+    },
+    {
+      name: 'Settings',
+      href: '/settings',
       icon: Settings,
-      label: 'Operations',
-      submenu: [
-        { label: 'Hotspots', path: '/operations/hotspots' },
-        { label: 'Support Tickets', path: '/operations/support-tickets' }
-      ],
-      roles: ['super_admin', 'isp_admin', 'technician']
-    },
-    {
-      icon: TrendingUp,
-      label: 'Analytics',
-      submenu: [
-        { label: 'Network Analytics', path: '/analytics/network' },
-        { label: 'Reports', path: '/analytics/reports' }
-      ],
-      roles: ['super_admin', 'isp_admin']
-    },
-    {
-      icon: Activity,
-      label: 'Network Monitoring',
-      submenu: [
-        { label: 'Network Status', path: '/monitoring/network' },
-        { label: 'RADIUS Monitoring', path: '/monitoring/radius' }
-      ],
-      roles: ['super_admin', 'isp_admin', 'technician']
-    },
-    {
-      icon: Shield,
-      label: 'Administration',
-      submenu: [
-        { label: 'System Settings', path: '/administration/system-settings' },
-        { label: 'User Management', path: '/administration/user-management' },
-        { label: 'Message Templates', path: '/administration/templates' }
-      ],
-      roles: ['super_admin', 'isp_admin']
-    },
-    { 
-      icon: FileText, 
-      label: 'Audit Logs', 
-      path: '/audit-logs', 
-      roles: ['super_admin', 'isp_admin'] 
-    },
+      show: isAdmin
+    }
   ];
 
+  const adminMenuItems = [
+    {
+      name: 'User Management',
+      href: '/user-management',
+      icon: UserCog,
+      show: isAdmin
+    },
+    {
+      name: 'Company Management',
+      href: '/company-management',
+      icon: Building2,
+      show: profile?.role === 'super_admin'
+    }
+  ];
+
+  const filteredMenuItems = menuItems.filter(item => item.show);
+  const filteredAdminItems = adminMenuItems.filter(item => item.show);
+
   return (
-    <div className="flex flex-col h-full py-4 bg-gray-50 border-r">
-      <div className="px-6">
-        <h1 className="font-bold text-2xl">Lake Link</h1>
-        <p className="text-sm text-gray-500">Control Panel</p>
-      </div>
-      <nav className="flex-1 mt-6 space-y-0.5">
-        {menuItems.map((item, index) => {
-          if (!hasRequiredRole(item.roles)) {
-            return null;
-          }
+    <SidebarBase>
+      <SidebarHeader>
+        <div className="flex items-center gap-3 p-4">
+          <img 
+            src="/lovable-uploads/29dec1bf-11a7-44c4-b61f-4cdfe1cbdc5c.png" 
+            alt="DataDefender Logo" 
+            className="h-8 w-8 object-contain"
+          />
+          <div>
+            <h2 className="text-lg font-bold text-foreground">DataDefender</h2>
+            <p className="text-xs text-blue-600 font-medium">ISP Management</p>
+          </div>
+        </div>
+      </SidebarHeader>
+      
+      <SidebarContent>
+        <SidebarGroup>
+          <SidebarGroupContent>
+            <SidebarMenu>
+              {filteredMenuItems.map((item) => {
+                const Icon = item.icon;
+                return (
+                  <SidebarMenuItem key={item.name}>
+                    <SidebarMenuButton asChild isActive={isActive(item.href)}>
+                      <NavLink to={item.href}>
+                        <Icon className="h-5 w-5" />
+                        <span>{item.name}</span>
+                      </NavLink>
+                    </SidebarMenuButton>
+                  </SidebarMenuItem>
+                );
+              })}
+            </SidebarMenu>
+          </SidebarGroupContent>
+        </SidebarGroup>
+        
+        {filteredAdminItems.length > 0 && (
+          <SidebarGroup>
+            <SidebarGroupLabel>Administration</SidebarGroupLabel>
+            <SidebarGroupContent>
+              <SidebarMenu>
+                {filteredAdminItems.map((item) => {
+                  const Icon = item.icon;
+                  return (
+                    <SidebarMenuItem key={item.name}>
+                      <SidebarMenuButton asChild isActive={isActive(item.href)}>
+                        <NavLink to={item.href}>
+                          <Icon className="h-5 w-5" />
+                          <span>{item.name}</span>
+                        </NavLink>
+                      </SidebarMenuButton>
+                    </SidebarMenuItem>
+                  );
+                })}
+              </SidebarMenu>
+            </SidebarGroupContent>
+          </SidebarGroup>
+        )}
+      </SidebarContent>
 
-          if (item.submenu) {
-            return (
-              <div key={index} className="space-y-0.5">
-                <p className="px-6 text-xs font-semibold text-gray-500 uppercase">{item.label}</p>
-                {item.submenu.map((sub, i) => (
-                  <NavLink
-                    key={i}
-                    to={sub.path}
-                    className={({ isActive }) =>
-                      cn(
-                        "flex items-center h-9 px-6 text-sm font-medium rounded-md transition-colors hover:bg-gray-100",
-                        isActive ? "bg-gray-100 text-primary" : "text-gray-700"
-                      )
-                    }
-                  >
-                    {sub.label}
-                  </NavLink>
-                ))}
-              </div>
-            );
-          }
-
-          return (
-            <NavLink
-              key={index}
-              to={item.path || ""}
-              className={({ isActive }) =>
-                cn(
-                  "flex items-center h-9 px-6 text-sm font-medium rounded-md transition-colors hover:bg-gray-100",
-                  isActive ? "bg-gray-100 text-primary" : "text-gray-700"
-                )
-              }
-            >
-              <item.icon className="w-4 h-4 mr-2" />
-              {item.label}
-            </NavLink>
-          );
-        })}
-      </nav>
-    </div>
+      <SidebarFooter>
+        <div className="flex items-center gap-3 p-4">
+          <div className="w-8 h-8 bg-primary rounded-full flex items-center justify-center">
+            <span className="text-primary-foreground text-sm font-medium">
+              {profile?.first_name?.[0] || profile?.role?.[0]?.toUpperCase()}
+            </span>
+          </div>
+          <div className="flex-1 min-w-0">
+            <p className="text-sm font-medium text-foreground truncate">
+              {profile?.first_name} {profile?.last_name}
+            </p>
+            <p className="text-xs text-muted-foreground truncate">
+              {profile?.role?.replace('_', ' ')}
+            </p>
+          </div>
+        </div>
+      </SidebarFooter>
+    </SidebarBase>
   );
 };
 

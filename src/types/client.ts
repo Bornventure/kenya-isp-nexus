@@ -1,8 +1,7 @@
 
 export type ClientType = 'individual' | 'business' | 'corporate' | 'government';
 export type ConnectionType = 'fiber' | 'wireless' | 'satellite' | 'dsl';
-export type ClientStatus = 'pending' | 'approved' | 'active' | 'suspended' | 'disconnected' | 'rejected';
-export type WorkflowStage = 'pending_verification' | 'approved' | 'rejected' | 'equipment_assigned' | 'invoice_generated' | 'payment_pending' | 'service_active';
+export type ClientStatus = 'pending' | 'approved' | 'active' | 'suspended' | 'disconnected';
 
 export interface Client {
   id: string;
@@ -39,10 +38,6 @@ export interface Client {
   installation_completed_at?: string;
   service_activated_at?: string;
   installation_date?: string;
-  workflow_stage?: WorkflowStage;
-  rejection_reason?: string;
-  equipment_assigned?: string[];
-  installation_invoice_id?: string;
   
   // Legacy camelCase properties for backwards compatibility
   clientType: ClientType;

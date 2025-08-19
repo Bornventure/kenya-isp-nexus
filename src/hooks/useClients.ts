@@ -29,18 +29,7 @@ export const useClients = () => {
         throw error;
       }
 
-      // Transform data to match Client interface
-      return (data || []).map(item => ({
-        ...item,
-        // Add legacy camelCase properties for backwards compatibility
-        clientType: item.client_type,
-        connectionType: item.connection_type,
-        monthlyRate: item.monthly_rate,
-        idNumber: item.id_number,
-        kraPinNumber: item.kra_pin_number,
-        mpesaNumber: item.mpesa_number,
-        installationDate: item.installation_date
-      })) as Client[];
+      return (data || []) as Client[];
     },
     enabled: !!profile?.isp_company_id,
   });
