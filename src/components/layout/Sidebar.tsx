@@ -40,8 +40,6 @@ const Sidebar = () => {
   const location = useLocation();
   const { profile } = useAuth();
 
-  const isActive = (path: string) => location.pathname === path;
-
   const mainMenuItems = [
     { title: 'Dashboard', url: '/', icon: LayoutDashboard },
     { title: 'Clients', url: '/clients', icon: Users },
