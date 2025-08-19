@@ -1,89 +1,69 @@
 
-import React, { useEffect } from 'react';
-import { Routes, Route, Navigate, useNavigate, useLocation } from 'react-router-dom';
+import React from 'react';
+import { Routes, Route, Navigate } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
-import { ClientAuthProvider } from '@/contexts/ClientAuthContext';
 import Layout from '@/components/layout/Layout';
-import Login from './Login';
-import ProtectedRoute from './auth/ProtectedRoute';
+import Login from '@/components/auth/Login';
+
+// Page imports
 import Dashboard from '@/pages/Dashboard';
 import Clients from '@/pages/Clients';
+import HotspotsPage from '@/pages/Hotspots';
+import ServicePackages from '@/pages/ServicePackages';
 import Equipment from '@/pages/Equipment';
-import Inventory from '@/pages/Inventory';
-import NetworkManagement from '@/pages/NetworkManagement';
+import BaseStations from '@/pages/BaseStations';
 import NetworkMap from '@/pages/NetworkMap';
+import Inventory from '@/pages/Inventory';
 import Billing from '@/pages/Billing';
+import Invoices from '@/pages/Invoices';
+import Reports from '@/pages/Reports';
+import Analytics from '@/pages/Analytics';
+import Messages from '@/pages/Messages';
 import Support from '@/pages/Support';
 import Settings from '@/pages/Settings';
-import ClientPortal from '@/pages/ClientPortal';
-import UserManagement from '@/pages/UserManagement';
-import CompanyManagement from '@/pages/CompanyManagement';
-import { Toaster } from '@/components/ui/toaster';
 
 const AppContent = () => {
-  const { user, profile, isLoading } = useAuth();
-  const navigate = useNavigate();
-  const location = useLocation();
+  const { user, loading } = useAuth();
 
-  useEffect(() => {
-    // Only redirect authenticated users away from login
-    if (user && profile && !isLoading && location.pathname === '/login') {
-      navigate('/dashboard', { replace: true });
-    }
-  }, [user, profile, isLoading, location.pathname, navigate]);
-
-  if (isLoading) {
+  if (loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-background">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+      <div className="flex items-center justify-center min-h-screen">
+        <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-primary"></div>
       </div>
     );
   }
 
-  return (
-    <>
+  if (!user) {
+    return (
       <Routes>
-        {/* Public routes */}
-        <Route 
-          path="/login" 
-          element={<Login />} 
-        />
-        <Route 
-          path="/client-portal" 
-          element={
-            <ClientAuthProvider>
-              <ClientPortal />
-            </ClientAuthProvider>
-          } 
-        />
-        
-        {/* Protected routes */}
-        <Route
-          path="/*"
-          element={
-            <ProtectedRoute>
-              <Layout>
-                <Routes>
-                  <Route path="/" element={<Navigate to="/dashboard" replace />} />
-                  <Route path="/dashboard" element={<Dashboard />} />
-                  <Route path="/clients" element={<Clients />} />
-                  <Route path="/equipment" element={<Equipment />} />
-                  <Route path="/inventory" element={<Inventory />} />
-                  <Route path="/network-management" element={<NetworkManagement />} />
-                  <Route path="/network-map" element={<NetworkMap />} />
-                  <Route path="/billing" element={<Billing />} />
-                  <Route path="/support" element={<Support />} />
-                  <Route path="/user-management" element={<UserManagement />} />
-                  <Route path="/company-management" element={<CompanyManagement />} />
-                  <Route path="/settings" element={<Settings />} />
-                </Routes>
-              </Layout>
-            </ProtectedRoute>
-          }
-        />
+        <Route path="/login" element={<Login />} />
+        <Route path="*" element={<Navigate to="/login" replace />} />
       </Routes>
-      <Toaster />
-    </>
+    );
+  }
+
+  return (
+    <Layout>
+      <Routes>
+        <Route path="/login" element={<Navigate to="/" replace />} />
+        <Route path="/" element={<Dashboard />} />
+        <Route path="/clients" element={<Clients />} />
+        <Route path="/hotspots" element={<HotspotsPage />} />
+        <Route path="/service-packages" element={<ServicePackages />} />
+        <Route path="/equipment" element={<Equipment />} />
+        <Route path="/base-stations" element={<BaseStations />} />
+        <Route path="/network-map" element={<NetworkMap />} />
+        <Route path="/inventory" element={<Inventory />} />
+        <Route path="/billing" element={<Billing />} />
+        <Route path="/invoices" element={<Invoices />} />
+        <Route path="/reports" element={<Reports />} />
+        <Route path="/analytics" element={<Analytics />} />
+        <Route path="/messages" element={<Messages />} />
+        <Route path="/support" element={<Support />} />
+        <Route path="/settings" element={<Settings />} />
+        <Route path="*" element={<Navigate to="/" replace />} />
+      </Routes>
+    </Layout>
   );
 };
 
