@@ -12,7 +12,6 @@ import {
   SidebarMenuItem,
   SidebarFooter,
   SidebarHeader,
-  useSidebar,
 } from '@/components/ui/sidebar';
 import {
   LayoutDashboard,
@@ -38,7 +37,6 @@ import { Badge } from '@/components/ui/badge';
 import { useAuth } from '@/contexts/AuthContext';
 
 const Sidebar = () => {
-  const { collapsed } = useSidebar();
   const location = useLocation();
   const { profile } = useAuth();
 
@@ -87,18 +85,16 @@ const Sidebar = () => {
   ] : [];
 
   return (
-    <ShadcnSidebar className={collapsed ? 'w-14' : 'w-60'} collapsible>
+    <ShadcnSidebar collapsible="icon">
       <SidebarHeader className="border-b border-border/40 p-4">
         <div className="flex items-center gap-2">
           <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary text-primary-foreground">
             <Shield className="h-4 w-4" />
           </div>
-          {!collapsed && (
-            <div className="flex flex-col">
-              <span className="text-lg font-semibold">DataDefender</span>
-              <span className="text-xs text-muted-foreground">ISP Management</span>
-            </div>
-          )}
+          <div className="flex flex-col">
+            <span className="text-lg font-semibold">DataDefender</span>
+            <span className="text-xs text-muted-foreground">ISP Management</span>
+          </div>
         </div>
       </SidebarHeader>
 
@@ -119,7 +115,7 @@ const Sidebar = () => {
                       }
                     >
                       <item.icon className="h-4 w-4" />
-                      {!collapsed && <span>{item.title}</span>}
+                      <span>{item.title}</span>
                     </NavLink>
                   </SidebarMenuButton>
                 </SidebarMenuItem>
@@ -144,7 +140,7 @@ const Sidebar = () => {
                       }
                     >
                       <item.icon className="h-4 w-4" />
-                      {!collapsed && <span>{item.title}</span>}
+                      <span>{item.title}</span>
                     </NavLink>
                   </SidebarMenuButton>
                 </SidebarMenuItem>
@@ -169,7 +165,7 @@ const Sidebar = () => {
                       }
                     >
                       <item.icon className="h-4 w-4" />
-                      {!collapsed && <span>{item.title}</span>}
+                      <span>{item.title}</span>
                     </NavLink>
                   </SidebarMenuButton>
                 </SidebarMenuItem>
@@ -194,7 +190,7 @@ const Sidebar = () => {
                       }
                     >
                       <item.icon className="h-4 w-4" />
-                      {!collapsed && <span>{item.title}</span>}
+                      <span>{item.title}</span>
                     </NavLink>
                   </SidebarMenuButton>
                 </SidebarMenuItem>
@@ -220,7 +216,7 @@ const Sidebar = () => {
                         }
                       >
                         <item.icon className="h-4 w-4" />
-                        {!collapsed && <span>{item.title}</span>}
+                        <span>{item.title}</span>
                       </NavLink>
                     </SidebarMenuButton>
                   </SidebarMenuItem>
@@ -247,7 +243,7 @@ const Sidebar = () => {
                         }
                       >
                         <item.icon className="h-4 w-4" />
-                        {!collapsed && <span>{item.title}</span>}
+                        <span>{item.title}</span>
                       </NavLink>
                     </SidebarMenuButton>
                   </SidebarMenuItem>
@@ -273,7 +269,7 @@ const Sidebar = () => {
                       }
                     >
                       <item.icon className="h-4 w-4" />
-                      {!collapsed && <span>{item.title}</span>}
+                      <span>{item.title}</span>
                     </NavLink>
                   </SidebarMenuButton>
                 </SidebarMenuItem>
@@ -291,18 +287,16 @@ const Sidebar = () => {
               {profile?.first_name?.[0]}{profile?.last_name?.[0]}
             </AvatarFallback>
           </Avatar>
-          {!collapsed && (
-            <div className="flex flex-1 flex-col">
-              <span className="text-sm font-medium">
-                {profile?.first_name} {profile?.last_name}
-              </span>
-              <div className="flex items-center gap-2">
-                <Badge variant="secondary" className="text-xs">
-                  {profile?.role?.replace('_', ' ').toUpperCase()}
-                </Badge>
-              </div>
+          <div className="flex flex-1 flex-col">
+            <span className="text-sm font-medium">
+              {profile?.first_name} {profile?.last_name}
+            </span>
+            <div className="flex items-center gap-2">
+              <Badge variant="secondary" className="text-xs">
+                {profile?.role?.replace('_', ' ').toUpperCase()}
+              </Badge>
             </div>
-          )}
+          </div>
         </div>
       </SidebarFooter>
     </ShadcnSidebar>

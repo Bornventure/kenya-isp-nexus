@@ -7,7 +7,7 @@ interface AuthContextType {
   user: User | null;
   session: Session | null;
   profile: any | null;
-  isLoading: boolean;
+  loading: boolean;
   profileError: Error | null;
   login: (email: string, password: string) => Promise<boolean>;
   signup: (email: string, password: string, userData: any) => Promise<boolean>;
@@ -21,7 +21,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [session, setSession] = useState<Session | null>(null);
   const [profile, setProfile] = useState<any | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
+  const [loading, setLoading] = useState(true);
   const [profileError, setProfileError] = useState<Error | null>(null);
   const { toast } = useToast();
   const initializedRef = useRef(false);
@@ -102,7 +102,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             }
             
             if (mounted) {
-              setIsLoading(false);
+              setLoading(false);
             }
           }
         );
@@ -118,7 +118,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             await fetchUserProfile(initialSession.user.id);
           }
           
-          setIsLoading(false);
+          setLoading(false);
         }
 
         return () => {
@@ -127,7 +127,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       } catch (error) {
         console.error('Error initializing auth:', error);
         if (mounted) {
-          setIsLoading(false);
+          setLoading(false);
         }
       }
     };
@@ -141,7 +141,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const login = async (email: string, password: string): Promise<boolean> => {
     try {
-      setIsLoading(true);
+      setLoading(true);
       const { data, error } = await supabase.auth.signInWithPassword({
         email,
         password,
@@ -174,13 +174,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       });
       return false;
     } finally {
-      setIsLoading(false);
+      setLoading(false);
     }
   };
 
   const signup = async (email: string, password: string, userData: any): Promise<boolean> => {
     try {
-      setIsLoading(true);
+      setLoading(true);
       const { data, error } = await supabase.auth.signUp({
         email,
         password,
@@ -215,7 +215,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       });
       return false;
     } finally {
-      setIsLoading(false);
+      setLoading(false);
     }
   };
 
@@ -292,7 +292,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         user,
         session,
         profile,
-        isLoading,
+        loading,
         profileError,
         login,
         signup,
