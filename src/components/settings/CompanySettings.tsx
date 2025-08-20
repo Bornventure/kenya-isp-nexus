@@ -17,7 +17,6 @@ const CompanySettings = () => {
   const [isSaving, setIsSaving] = useState(false);
   const [companyData, setCompanyData] = useState({
     name: '',
-    contact_person: '',
     email: '',
     phone: '',
     address: '',
@@ -46,7 +45,6 @@ const CompanySettings = () => {
       if (data) {
         setCompanyData({
           name: data.name || '',
-          contact_person: data.contact_person || '',
           email: data.email || '',
           phone: data.phone || '',
           address: data.address || '',
@@ -138,16 +136,6 @@ const CompanySettings = () => {
               value={companyData.name}
               onChange={(e) => handleInputChange('name', e.target.value)}
               placeholder="Enter company name"
-            />
-          </div>
-
-          <div>
-            <Label htmlFor="contact_person">Contact Person</Label>
-            <Input
-              id="contact_person"
-              value={companyData.contact_person}
-              onChange={(e) => handleInputChange('contact_person', e.target.value)}
-              placeholder="Contact person name"
             />
           </div>
 

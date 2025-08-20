@@ -10,7 +10,7 @@ export const useUserUpdate = () => {
   const updateUser = useMutation({
     mutationFn: async ({ userId, userData }: { userId: string; userData: any }) => {
       const { data, error } = await supabase
-        .from('users')
+        .from('profiles')
         .update({
           first_name: userData.first_name,
           last_name: userData.last_name,
