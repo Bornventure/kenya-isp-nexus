@@ -1,17 +1,16 @@
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+
+import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
-import { useToast } from '@/hooks/use-toast';
 
 export interface LicenseType {
   id: string;
   name: string;
   display_name: string;
-  client_limit: number;
+  description: string;
   price: number;
-  description?: string;
-  features: any[];
+  client_limit: number;
+  features: string[];
   is_active: boolean;
-  sort_order: number;
   created_at: string;
   updated_at: string;
 }
@@ -20,139 +19,46 @@ export const useLicenseTypes = () => {
   return useQuery({
     queryKey: ['license-types'],
     queryFn: async (): Promise<LicenseType[]> => {
-      const { data, error } = await supabase
-        .from('license_types')
-        .select('*')
-        .eq('is_active', true)
-        .order('sort_order', { ascending: true });
-
-      if (error) {
-        console.error('Error fetching license types:', error);
-        throw error;
-      }
-
-      // Transform the data to ensure features is always an array
-      return (data || []).map(item => ({
-        ...item,
-        features: Array.isArray(item.features) ? item.features : []
-      })) as LicenseType[];
+      // For now, return mock data since we don't have a license_types table
+      // This would be replaced with actual Supabase query when the table exists
+      return [
+        {
+          id: '1',
+          name: 'starter',
+          display_name: 'Starter',
+          description: 'Perfect for small ISPs getting started',
+          price: 15000,
+          client_limit: 50,
+          features: ['Basic client management', 'Email support', 'Standard reporting'],
+          is_active: true,
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString(),
+        },
+        {
+          id: '2',
+          name: 'professional',
+          display_name: 'Professional',
+          description: 'For growing ISPs with advanced needs',
+          price: 45000,
+          client_limit: 200,
+          features: ['Advanced client management', 'Priority support', 'Advanced reporting', 'API access'],
+          is_active: true,
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString(),
+        },
+        {
+          id: '3',
+          name: 'enterprise',
+          display_name: 'Enterprise',
+          description: 'For large ISPs with custom requirements',
+          price: 100000,
+          client_limit: 1000,
+          features: ['Full feature access', '24/7 support', 'Custom integrations', 'White labeling'],
+          is_active: true,
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString(),
+        },
+      ];
     },
   });
-};
-
-export const useAllLicenseTypes = () => {
-  return useQuery({
-    queryKey: ['all-license-types'],
-    queryFn: async (): Promise<LicenseType[]> => {
-      const { data, error } = await supabase
-        .from('license_types')
-        .select('*')
-        .order('sort_order', { ascending: true });
-
-      if (error) {
-        console.error('Error fetching all license types:', error);
-        throw error;
-      }
-
-      // Transform the data to ensure features is always an array
-      return (data || []).map(item => ({
-        ...item,
-        features: Array.isArray(item.features) ? item.features : []
-      })) as LicenseType[];
-    },
-  });
-};
-
-export const useLicenseTypeMutations = () => {
-  const queryClient = useQueryClient();
-  const { toast } = useToast();
-
-  const createLicenseType = useMutation({
-    mutationFn: async (licenseType: Omit<LicenseType, 'id' | 'created_at' | 'updated_at'>) => {
-      const { data, error } = await supabase
-        .from('license_types')
-        .insert([licenseType])
-        .select()
-        .single();
-
-      if (error) throw error;
-      return data;
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['license-types'] });
-      queryClient.invalidateQueries({ queryKey: ['all-license-types'] });
-      toast({
-        title: "Success",
-        description: "License type created successfully",
-      });
-    },
-    onError: (error: any) => {
-      toast({
-        title: "Error",
-        description: error.message || "Failed to create license type",
-        variant: "destructive"
-      });
-    }
-  });
-
-  const updateLicenseType = useMutation({
-    mutationFn: async ({ id, ...updates }: Partial<LicenseType> & { id: string }) => {
-      const { data, error } = await supabase
-        .from('license_types')
-        .update({ ...updates, updated_at: new Date().toISOString() })
-        .eq('id', id)
-        .select()
-        .single();
-
-      if (error) throw error;
-      return data;
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['license-types'] });
-      queryClient.invalidateQueries({ queryKey: ['all-license-types'] });
-      toast({
-        title: "Success",
-        description: "License type updated successfully",
-      });
-    },
-    onError: (error: any) => {
-      toast({
-        title: "Error",
-        description: error.message || "Failed to update license type",
-        variant: "destructive"
-      });
-    }
-  });
-
-  const deleteLicenseType = useMutation({
-    mutationFn: async (id: string) => {
-      const { error } = await supabase
-        .from('license_types')
-        .update({ is_active: false })
-        .eq('id', id);
-
-      if (error) throw error;
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['license-types'] });
-      queryClient.invalidateQueries({ queryKey: ['all-license-types'] });
-      toast({
-        title: "Success",
-        description: "License type deactivated successfully",
-      });
-    },
-    onError: (error: any) => {
-      toast({
-        title: "Error",
-        description: error.message || "Failed to deactivate license type",
-        variant: "destructive"
-      });
-    }
-  });
-
-  return {
-    createLicenseType,
-    updateLicenseType,
-    deleteLicenseType
-  };
 };

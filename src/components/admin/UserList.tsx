@@ -1,134 +1,213 @@
 
 import React, { useState } from 'react';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Checkbox } from '@/components/ui/checkbox';
-import { Shield, User } from 'lucide-react';
-import UserActions from './UserActions';
-import BulkUserActions from './BulkUserActions';
+import { 
+  MoreHorizontal, 
+  Edit2, 
+  Trash2, 
+  Shield, 
+  ShieldCheck, 
+  ShieldX,
+  Eye,
+  EyeOff
+} from 'lucide-react';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
+import { useAuth } from '@/contexts/AuthContext';
+import { useUserActivation } from '@/hooks/useUserActivation';
+import { useUserDeletion } from '@/hooks/useUserDeletion';
+import { useUserMutations } from '@/hooks/useUserMutations';
 import type { SystemUser } from '@/types/user';
+import EditUserDialog from './EditUserDialog';
 
 interface UserListProps {
   users: SystemUser[];
 }
 
 const UserList: React.FC<UserListProps> = ({ users }) => {
-  const [selectedUsers, setSelectedUsers] = useState<SystemUser[]>([]);
-
-  const handleUserSelect = (user: SystemUser, isSelected: boolean) => {
-    if (isSelected) {
-      setSelectedUsers(prev => [...prev, user]);
-    } else {
-      setSelectedUsers(prev => prev.filter(u => u.id !== user.id));
-    }
-  };
-
-  const handleSelectAll = (isSelected: boolean) => {
-    if (isSelected) {
-      setSelectedUsers(users);
-    } else {
-      setSelectedUsers([]);
-    }
-  };
-
-  const isUserSelected = (userId: string) => {
-    return selectedUsers.some(u => u.id === userId);
-  };
+  const { profile } = useAuth();
+  const { toggleUserActivation, isUpdatingActivation } = useUserActivation();
+  const { deleteUser, isDeletingUser, canDeleteUser } = useUserDeletion();
+  const { updateUser, isUpdatingUser } = useUserMutations();
+  const [editingUser, setEditingUser] = useState<SystemUser | null>(null);
 
   const getRoleBadgeColor = (role: string) => {
     switch (role) {
-      case 'super_admin': return 'bg-red-100 text-red-800';
-      case 'isp_admin': return 'bg-purple-100 text-purple-800';
-      case 'customer_support': return 'bg-yellow-100 text-yellow-800';
-      case 'sales_manager': return 'bg-blue-100 text-blue-800';
-      case 'billing_admin': return 'bg-orange-100 text-orange-800';
-      case 'network_engineer': return 'bg-green-100 text-green-800';
-      case 'infrastructure_manager': return 'bg-teal-100 text-teal-800';
-      case 'hotspot_admin': return 'bg-indigo-100 text-indigo-800';
-      case 'technician': return 'bg-cyan-100 text-cyan-800';
-      case 'readonly': return 'bg-gray-100 text-gray-800';
-      default: return 'bg-gray-100 text-gray-800';
+      case 'super_admin':
+        return 'bg-red-100 text-red-800';
+      case 'isp_admin':
+        return 'bg-blue-100 text-blue-800';
+      case 'customer_support':
+        return 'bg-green-100 text-green-800';
+      case 'technician':
+        return 'bg-yellow-100 text-yellow-800';
+      default:
+        return 'bg-gray-100 text-gray-800';
+    }
+  };
+
+  const formatRole = (role: string) => {
+    return role.split('_').map(word => 
+      word.charAt(0).toUpperCase() + word.slice(1)
+    ).join(' ');
+  };
+
+  const handleToggleActivation = (userId: string, currentStatus: boolean) => {
+    toggleUserActivation({ userId, isActive: !currentStatus });
+  };
+
+  const handleDeleteUser = (userId: string) => {
+    if (window.confirm('Are you sure you want to delete this user? This action cannot be undone.')) {
+      deleteUser(userId);
+    }
+  };
+
+  const handleEditUser = (user: SystemUser) => {
+    setEditingUser(user);
+  };
+
+  const handleUpdateUser = (userData: any) => {
+    if (editingUser) {
+      updateUser({ id: editingUser.id, updates: userData });
+      setEditingUser(null);
     }
   };
 
   if (users.length === 0) {
     return (
-      <div className="text-center py-12">
-        <User className="h-12 w-12 text-gray-400 mx-auto mb-4" />
-        <p className="text-gray-500 text-lg">No users found</p>
-        <p className="text-gray-400 text-sm">Create your first user to get started</p>
+      <div className="text-center py-8">
+        <p className="text-gray-500">No users found.</p>
       </div>
     );
   }
 
   return (
-    <div className="space-y-4">
-      <BulkUserActions 
-        selectedUsers={selectedUsers}
-        onClearSelection={() => setSelectedUsers([])}
-      />
-
-      <div className="bg-gray-50 p-3 rounded-lg flex items-center gap-3">
-        <Checkbox
-          checked={selectedUsers.length === users.length && users.length > 0}
-          onCheckedChange={handleSelectAll}
-          disabled={users.length === 0}
-        />
-        <span className="text-sm font-medium text-gray-700">
-          Select all users ({users.length})
-        </span>
-        {selectedUsers.length > 0 && (
-          <span className="text-sm text-blue-600 ml-auto">
-            {selectedUsers.length} selected
-          </span>
-        )}
-      </div>
-
-      <div className="space-y-3">
-        {users.map((user) => (
-          <div key={user.id} className="flex items-center justify-between p-4 bg-white border rounded-lg hover:shadow-sm transition-shadow">
-            <div className="flex items-center gap-3">
-              <Checkbox
-                checked={isUserSelected(user.id)}
-                onCheckedChange={(checked) => handleUserSelect(user, checked as boolean)}
-              />
-              
-              <div className="space-y-1">
-                <div className="flex items-center gap-2">
-                  <span className="font-medium text-gray-900">
-                    {user.first_name} {user.last_name}
-                  </span>
+    <>
+      <div className="rounded-md border">
+        <Table>
+          <TableHeader>
+            <TableRow>
+              <TableHead>Name</TableHead>
+              <TableHead>Role</TableHead>
+              <TableHead>Company</TableHead>
+              <TableHead>Status</TableHead>
+              <TableHead>Created</TableHead>
+              <TableHead className="text-right">Actions</TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {users.map((user) => (
+              <TableRow key={user.id}>
+                <TableCell>
+                  <div>
+                    <div className="font-medium">
+                      {user.first_name && user.last_name 
+                        ? `${user.first_name} ${user.last_name}`
+                        : user.email
+                      }
+                    </div>
+                    <div className="text-sm text-gray-500">{user.email}</div>
+                    {user.phone && (
+                      <div className="text-sm text-gray-500">{user.phone}</div>
+                    )}
+                  </div>
+                </TableCell>
+                <TableCell>
                   <Badge className={getRoleBadgeColor(user.role)}>
-                    {user.role.replace('_', ' ').toUpperCase()}
+                    {formatRole(user.role)}
                   </Badge>
-                  {!user.is_active && (
-                    <Badge variant="secondary" className="text-red-600 bg-red-50">
-                      Inactive
-                    </Badge>
-                  )}
-                </div>
-                
-                <div className="text-sm text-gray-600 space-y-1">
-                  <p>{user.phone || 'No phone number'}</p>
-                  {user.isp_companies?.name && (
-                    <p className="text-xs text-gray-500">
-                      Company: {user.isp_companies.name}
-                    </p>
-                  )}
-                  <p className="text-xs text-gray-400">
-                    Created: {new Date(user.created_at).toLocaleDateString()}
-                  </p>
-                </div>
-              </div>
-            </div>
-            
-            <div className="flex items-center gap-2">
-              <Shield className="h-4 w-4 text-gray-400" />
-              <UserActions user={user} />
-            </div>
-          </div>
-        ))}
+                </TableCell>
+                <TableCell>
+                  {user.isp_companies?.name || 'No Company'}
+                </TableCell>
+                <TableCell>
+                  <div className="flex items-center gap-2">
+                    {user.is_active ? (
+                      <ShieldCheck className="h-4 w-4 text-green-500" />
+                    ) : (
+                      <ShieldX className="h-4 w-4 text-red-500" />
+                    )}
+                    <span className={user.is_active ? 'text-green-700' : 'text-red-700'}>
+                      {user.is_active ? 'Active' : 'Inactive'}
+                    </span>
+                  </div>
+                </TableCell>
+                <TableCell>
+                  {user.created_at ? new Date(user.created_at).toLocaleDateString() : 'Unknown'}
+                </TableCell>
+                <TableCell className="text-right">
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <Button variant="ghost" className="h-8 w-8 p-0">
+                        <MoreHorizontal className="h-4 w-4" />
+                      </Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="end">
+                      <DropdownMenuLabel>Actions</DropdownMenuLabel>
+                      <DropdownMenuSeparator />
+                      
+                      <DropdownMenuItem onClick={() => handleEditUser(user)}>
+                        <Edit2 className="mr-2 h-4 w-4" />
+                        Edit User
+                      </DropdownMenuItem>
+                      
+                      <DropdownMenuItem 
+                        onClick={() => handleToggleActivation(user.id, user.is_active)}
+                        disabled={isUpdatingActivation}
+                      >
+                        {user.is_active ? (
+                          <>
+                            <EyeOff className="mr-2 h-4 w-4" />
+                            Deactivate
+                          </>
+                        ) : (
+                          <>
+                            <Eye className="mr-2 h-4 w-4" />
+                            Activate
+                          </>
+                        )}
+                      </DropdownMenuItem>
+
+                      {canDeleteUser(user.id, user.role) && (
+                        <>
+                          <DropdownMenuSeparator />
+                          <DropdownMenuItem 
+                            onClick={() => handleDeleteUser(user.id)}
+                            disabled={isDeletingUser}
+                            className="text-red-600"
+                          >
+                            <Trash2 className="mr-2 h-4 w-4" />
+                            Delete User
+                          </DropdownMenuItem>
+                        </>
+                      )}
+                    </DropdownMenuContent>
+                  </DropdownMenu>
+                </TableCell>
+              </TableRow>
+            ))}
+          </TableBody>
+        </Table>
       </div>
-    </div>
+
+      {editingUser && (
+        <EditUserDialog
+          user={editingUser}
+          open={!!editingUser}
+          onOpenChange={(open) => !open && setEditingUser(null)}
+          onUpdateUser={handleUpdateUser}
+          isUpdating={isUpdatingUser}
+        />
+      )}
+    </>
   );
 };
 
