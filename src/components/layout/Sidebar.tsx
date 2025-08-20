@@ -85,9 +85,11 @@ const Sidebar = () => {
     <ShadcnSidebar collapsible="icon">
       <SidebarHeader className="border-b border-border/40 p-4">
         <div className="flex items-center gap-2">
-          <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary text-primary-foreground">
-            <Shield className="h-4 w-4" />
-          </div>
+          <img 
+            src="/lovable-uploads/29dec1bf-11a7-44c4-b61f-4cdfe1cbdc5c.png" 
+            alt="DataDefender Logo" 
+            className="h-8 w-8 object-contain flex-shrink-0"
+          />
           <div className="group-data-[collapsible=icon]:hidden flex flex-col">
             <span className="text-lg font-semibold">DataDefender</span>
             <span className="text-xs text-muted-foreground">ISP Management</span>

@@ -22,6 +22,11 @@ import Messages from '@/pages/Messages';
 import Support from '@/pages/Support';
 import Settings from '@/pages/Settings';
 
+// Admin pages
+import UserManagement from '@/components/admin/UserManagement';
+import CompanyManagement from '@/pages/admin/CompanyManagement';
+import SystemSettings from '@/pages/admin/SystemSettings';
+
 const AppContent = () => {
   const { user, loading } = useAuth();
 
@@ -61,6 +66,12 @@ const AppContent = () => {
         <Route path="/messages" element={<Messages />} />
         <Route path="/support" element={<Support />} />
         <Route path="/settings" element={<Settings />} />
+        
+        {/* Admin routes */}
+        <Route path="/admin/users" element={<UserManagement />} />
+        <Route path="/admin/companies" element={<CompanyManagement />} />
+        <Route path="/admin/system" element={<SystemSettings />} />
+        
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
     </Layout>
