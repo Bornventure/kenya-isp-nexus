@@ -21,6 +21,7 @@ import {
 import { MoreHorizontal, UserX, Edit, Lock, Unlock, Trash2, KeyRound } from 'lucide-react';
 import { useUserDeletion } from '@/hooks/useUserDeletion';
 import { useUserActivation } from '@/hooks/useUserActivation';
+import { useUserUpdate } from '@/hooks/useUserUpdate';
 import { useAuth } from '@/contexts/AuthContext';
 import EditUserDialog from './EditUserDialog';
 import ChangePasswordDialog from './ChangePasswordDialog';
@@ -36,6 +37,7 @@ const UserActions: React.FC<UserActionsProps> = ({ user }) => {
   const [showPasswordDialog, setShowPasswordDialog] = useState(false);
   const { deleteUser, isDeletingUser, canDeleteUser } = useUserDeletion();
   const { toggleUserActivation, isUpdatingActivation } = useUserActivation();
+  const { updateUser, isUpdating } = useUserUpdate();
   const { profile } = useAuth();
 
   // Check permissions
@@ -52,6 +54,14 @@ const UserActions: React.FC<UserActionsProps> = ({ user }) => {
 
   const handleToggleActivation = () => {
     toggleUserActivation({ userId: user.id, isActive: !user.is_active });
+  };
+
+  const handleUpdateUser = (userData: any) => {
+    updateUser({
+      userId: user.id,
+      userData
+    });
+    setShowEditDialog(false);
   };
 
   const getDeleteWarningMessage = () => {
@@ -183,6 +193,8 @@ const UserActions: React.FC<UserActionsProps> = ({ user }) => {
             user={user}
             open={showEditDialog}
             onOpenChange={setShowEditDialog}
+            onUpdateUser={handleUpdateUser}
+            isUpdating={isUpdating}
           />
           
           <ChangePasswordDialog 

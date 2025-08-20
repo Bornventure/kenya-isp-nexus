@@ -76,7 +76,6 @@ const CompanySettings = () => {
         .from('isp_companies')
         .update({
           name: companyData.name,
-          contact_person: companyData.contact_person,
           email: companyData.email,
           phone: companyData.phone,
           address: companyData.address,
