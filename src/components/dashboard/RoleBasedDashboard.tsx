@@ -2,6 +2,7 @@
 import React from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import SuperAdminDashboard from './roles/SuperAdminDashboard';
+import ISPAdminDashboard from './roles/ISPAdminDashboard';
 import BillingFinanceDashboard from './roles/BillingFinanceDashboard';
 import CustomerSupportDashboard from './roles/CustomerSupportDashboard';
 import SalesAccountManagerDashboard from './roles/SalesAccountManagerDashboard';
@@ -28,8 +29,8 @@ export const RoleBasedDashboard = () => {
         console.log('Rendering SuperAdminDashboard for super_admin');
         return <SuperAdminDashboard />;
       case 'isp_admin':
-        console.log('Rendering SuperAdminDashboard for isp_admin');
-        return <SuperAdminDashboard />;
+        console.log('Rendering ISPAdminDashboard for isp_admin');
+        return <ISPAdminDashboard />;
       case 'billing_admin':
       case 'billing_finance':
         console.log('Rendering BillingFinanceDashboard for billing role');
@@ -56,12 +57,12 @@ export const RoleBasedDashboard = () => {
         console.log('Rendering InfrastructureAssetDashboard for technician');
         return <InfrastructureAssetDashboard />; // Technicians get infrastructure dashboard
       case 'readonly':
-        console.log('Rendering SuperAdminDashboard for readonly user');
-        return <SuperAdminDashboard />; // Read-only users get basic dashboard view
+        console.log('Rendering ISPAdminDashboard for readonly user');
+        return <ISPAdminDashboard />; // Read-only users get ISP admin dashboard view
       default:
-        console.log('Unhandled role, rendering SuperAdminDashboard:', profile.role);
-        // For any unhandled roles, show a basic dashboard
-        return <SuperAdminDashboard />;
+        console.log('Unhandled role, rendering ISPAdminDashboard:', profile.role);
+        // For any unhandled roles, show ISP admin dashboard instead of super admin
+        return <ISPAdminDashboard />;
     }
   };
 
