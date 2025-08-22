@@ -1,5 +1,6 @@
 
 import React from 'react';
+import { Outlet } from 'react-router-dom';
 import {
   SidebarProvider,
   SidebarInset,
@@ -11,11 +12,7 @@ import { ThemeToggle } from '@/components/ui/theme-toggle';
 import { useAuth } from '@/contexts/AuthContext';
 import Sidebar from '@/components/layout/Sidebar';
 
-interface LayoutProps {
-  children: React.ReactNode;
-}
-
-const Layout: React.FC<LayoutProps> = ({ children }) => {
+const Layout: React.FC = () => {
   const { user, profile, logout } = useAuth();
 
   return (
@@ -43,7 +40,7 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
           </header>
           
           <main className="flex-1 p-6">
-            {children}
+            <Outlet />
           </main>
         </SidebarInset>
       </div>

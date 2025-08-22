@@ -37,48 +37,45 @@ export const usePayments = () => {
 
       console.log('Fetching payments for company:', profile.isp_company_id);
 
-      // First try to get from mpesa_payments table
-      try {
-        const { data: mpesaData, error: mpesaError } = await supabase
-          .from('mpesa_payments')
-          .select(`
-            *,
-            clients (
-              id,
-              name,
-              email,
-              phone
-            )
-          `)
-          .eq('isp_company_id', profile.isp_company_id)
-          .order('created_at', { ascending: false });
+      // Fetch from mpesa_payments table since it exists in the schema
+      const { data: mpesaData, error: mpesaError } = await supabase
+        .from('mpesa_payments')
+        .select(`
+          *,
+          clients (
+            id,
+            name,
+            email,
+            phone
+          )
+        `)
+        .eq('isp_company_id', profile.isp_company_id)
+        .order('created_at', { ascending: false });
 
-        if (!mpesaError && mpesaData) {
-          const transformedPayments: Payment[] = mpesaData.map((payment: any) => ({
-            id: payment.id,
-            client_id: payment.client_id,
-            amount: payment.trans_amount || payment.amount || 0,
-            payment_method: 'M-Pesa',
-            payment_date: payment.created_at,
-            reference_number: payment.trans_id || payment.reference_number,
-            mpesa_receipt_number: payment.receipt_number,
-            status: payment.status || 'completed',
-            invoice_id: payment.invoice_id,
-            notes: payment.notes,
-            isp_company_id: payment.isp_company_id,
-            created_at: payment.created_at,
-            clients: payment.clients
-          }));
-
-          console.log(`Fetched ${transformedPayments.length} payments for company ${profile.isp_company_id}`);
-          return transformedPayments;
-        }
-      } catch (err) {
-        console.warn('Error fetching from mpesa_payments:', err);
+      if (mpesaError) {
+        console.error('Error fetching M-Pesa payments:', mpesaError);
+        throw mpesaError;
       }
 
-      // Fallback to empty array if no payments found
-      return [];
+      // Transform M-Pesa payments to Payment interface
+      const transformedPayments: Payment[] = (mpesaData || []).map((payment: any) => ({
+        id: payment.id,
+        client_id: payment.client_id,
+        amount: payment.trans_amount || payment.amount || 0,
+        payment_method: 'M-Pesa',
+        payment_date: payment.created_at,
+        reference_number: payment.trans_id || payment.reference_number,
+        mpesa_receipt_number: payment.receipt_number,
+        status: payment.status || 'completed',
+        invoice_id: payment.invoice_id,
+        notes: payment.notes,
+        isp_company_id: payment.isp_company_id,
+        created_at: payment.created_at,
+        clients: payment.clients
+      }));
+
+      console.log(`Fetched ${transformedPayments.length} payments for company ${profile.isp_company_id}`);
+      return transformedPayments;
     },
     enabled: !!profile?.isp_company_id,
   });
@@ -89,12 +86,12 @@ export const usePayments = () => {
         throw new Error('No ISP company associated with user');
       }
 
+      // Insert into mpesa_payments table since it exists
       const { data, error } = await supabase
         .from('mpesa_payments')
         .insert({
           client_id: paymentData.client_id,
           trans_amount: paymentData.amount,
-          payment_method: paymentData.payment_method,
           trans_id: paymentData.reference_number || `PAY-${Date.now()}`,
           receipt_number: paymentData.mpesa_receipt_number,
           status: 'completed',
