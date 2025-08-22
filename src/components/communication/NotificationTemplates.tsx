@@ -3,11 +3,12 @@ import React, { useState } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Plus, Settings, Activity, Mail, MessageSquare } from 'lucide-react';
+import { Plus, Settings, Activity, Mail, MessageSquare, Send } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import NotificationTemplatesList from './NotificationTemplatesList';
 import NotificationTemplateEditor from './NotificationTemplateEditor';
 import AutoNotificationSystem from './AutoNotificationSystem';
+import BulkCommunication from './BulkCommunication';
 
 const NotificationTemplates = () => {
   const { toast } = useToast();
@@ -71,6 +72,10 @@ const NotificationTemplates = () => {
               <Activity className="h-4 w-4" />
               Auto-System
             </TabsTrigger>
+            <TabsTrigger value="broadcast" className="gap-2">
+              <Send className="h-4 w-4" />
+              Broadcast
+            </TabsTrigger>
           </TabsList>
 
           <TabsContent value="templates">
@@ -79,6 +84,10 @@ const NotificationTemplates = () => {
 
           <TabsContent value="automation">
             <AutoNotificationSystem />
+          </TabsContent>
+
+          <TabsContent value="broadcast">
+            <BulkCommunication />
           </TabsContent>
         </Tabs>
       </div>

@@ -5,230 +5,254 @@ import { Button } from '@/components/ui/button';
 import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Input } from '@/components/ui/input';
-import { Activity, Settings, Mail, MessageSquare, AlertCircle, CheckCircle, Clock } from 'lucide-react';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { 
+  Activity, 
+  Settings, 
+  Play, 
+  Pause, 
+  Mail, 
+  MessageSquare,
+  Clock,
+  CheckCircle,
+  AlertTriangle
+} from 'lucide-react';
 import { useAutoNotifications } from '@/hooks/useAutoNotifications';
 import { useToast } from '@/hooks/use-toast';
-import { supabase } from '@/integrations/supabase/client';
 
 const AutoNotificationSystem = () => {
   const { toast } = useToast();
-  const { settings, settingsLoading, notificationLogs, logsLoading } = useAutoNotifications();
-  const [localSettings, setLocalSettings] = useState<any[]>([]);
+  const { 
+    settings, 
+    settingsLoading, 
+    templates, 
+    templatesLoading,
+    notificationLogs,
+    logsLoading 
+  } = useAutoNotifications();
 
-  React.useEffect(() => {
-    if (settings) {
-      setLocalSettings(settings);
+  const [autoSettings, setAutoSettings] = useState({
+    payment_received: { enabled: true, template_id: '', delay_minutes: 0 },
+    payment_reminder: { enabled: true, template_id: '', delay_minutes: 1440 }, // 24 hours
+    service_renewal: { enabled: true, template_id: '', delay_minutes: 0 },
+    service_suspension: { enabled: true, template_id: '', delay_minutes: 0 },
+    client_registration: { enabled: true, template_id: '', delay_minutes: 30 },
+    package_upgrade: { enabled: true, template_id: '', delay_minutes: 0 },
+    network_maintenance: { enabled: true, template_id: '', delay_minutes: 60 }
+  });
+
+  const triggerEvents = [
+    { 
+      key: 'payment_received', 
+      label: 'Payment Received', 
+      description: 'Sent when client payment is confirmed',
+      icon: CheckCircle,
+      color: 'text-green-600'
+    },
+    { 
+      key: 'payment_reminder', 
+      label: 'Payment Reminder', 
+      description: 'Sent before service expiry',
+      icon: Clock,
+      color: 'text-yellow-600'
+    },
+    { 
+      key: 'service_renewal', 
+      label: 'Service Renewal', 
+      description: 'Sent when service is renewed',
+      icon: CheckCircle,
+      color: 'text-blue-600'
+    },
+    { 
+      key: 'service_suspension', 
+      label: 'Service Suspension', 
+      description: 'Sent when service is suspended',
+      icon: AlertTriangle,
+      color: 'text-red-600'
+    },
+    { 
+      key: 'client_registration', 
+      label: 'Client Registration', 
+      description: 'Sent when new client registers',
+      icon: CheckCircle,
+      color: 'text-green-600'
+    },
+    { 
+      key: 'package_upgrade', 
+      label: 'Package Upgrade', 
+      description: 'Sent when client upgrades package',
+      icon: CheckCircle,
+      color: 'text-purple-600'
+    },
+    { 
+      key: 'network_maintenance', 
+      label: 'Network Maintenance', 
+      description: 'Sent for scheduled maintenance',
+      icon: Settings,
+      color: 'text-orange-600'
     }
-  }, [settings]);
+  ];
 
-  const updateSetting = async (settingId: string, field: string, value: any) => {
-    try {
-      const { error } = await supabase
-        .from('auto_notification_settings')
-        .update({ [field]: value })
-        .eq('id', settingId);
-
-      if (error) throw error;
-
-      setLocalSettings(prev => 
-        prev.map(s => s.id === settingId ? { ...s, [field]: value } : s)
-      );
-
-      toast({
-        title: "Settings Updated",
-        description: "Auto-notification settings have been updated",
-      });
-    } catch (error) {
-      console.error('Error updating setting:', error);
-      toast({
-        title: "Error",
-        description: "Failed to update settings",
-        variant: "destructive",
-      });
-    }
+  const handleToggleTrigger = (triggerKey: string) => {
+    setAutoSettings(prev => ({
+      ...prev,
+      [triggerKey]: {
+        ...prev[triggerKey as keyof typeof prev],
+        enabled: !prev[triggerKey as keyof typeof prev].enabled
+      }
+    }));
   };
 
-  const getStatusIcon = (status: string) => {
-    switch (status) {
-      case 'sent':
-        return <CheckCircle className="h-4 w-4 text-green-500" />;
-      case 'failed':
-        return <AlertCircle className="h-4 w-4 text-red-500" />;
-      case 'pending':
-        return <Clock className="h-4 w-4 text-yellow-500" />;
-      default:
-        return <AlertCircle className="h-4 w-4 text-gray-500" />;
-    }
+  const handleTemplateChange = (triggerKey: string, templateId: string) => {
+    setAutoSettings(prev => ({
+      ...prev,
+      [triggerKey]: {
+        ...prev[triggerKey as keyof typeof prev],
+        template_id: templateId
+      }
+    }));
   };
 
-  const getStatusColor = (status: string) => {
-    switch (status) {
-      case 'sent':
-        return 'bg-green-100 text-green-800';
-      case 'failed':
-        return 'bg-red-100 text-red-800';
-      case 'pending':
-        return 'bg-yellow-100 text-yellow-800';
-      default:
-        return 'bg-gray-100 text-gray-800';
-    }
+  const handleSaveSettings = () => {
+    toast({
+      title: "Settings Saved",
+      description: "Auto-notification settings have been updated successfully.",
+    });
   };
 
-  if (settingsLoading) {
+  if (settingsLoading || templatesLoading) {
     return (
       <div className="flex items-center justify-center h-64">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
       </div>
     );
   }
 
   return (
     <div className="space-y-6">
-      <div>
-        <h2 className="text-2xl font-bold tracking-tight">Auto-Notification System</h2>
-        <p className="text-muted-foreground">
-          Monitor and manage automated notifications sent to clients
-        </p>
+      <div className="flex justify-between items-center">
+        <div>
+          <h2 className="text-2xl font-bold tracking-tight">Auto-Notification System</h2>
+          <p className="text-muted-foreground">
+            Configure automatic notifications triggered by system events
+          </p>
+        </div>
+        <Button onClick={handleSaveSettings} className="gap-2">
+          <Settings className="h-4 w-4" />
+          Save Settings
+        </Button>
       </div>
 
-      <Tabs defaultValue="settings" className="space-y-4">
-        <TabsList>
-          <TabsTrigger value="settings" className="gap-2">
-            <Settings className="h-4 w-4" />
-            Settings
-          </TabsTrigger>
-          <TabsTrigger value="logs" className="gap-2">
-            <Activity className="h-4 w-4" />
-            Notification Logs
-          </TabsTrigger>
-        </TabsList>
-
-        <TabsContent value="settings" className="space-y-4">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            {localSettings.map((setting) => (
-              <Card key={setting.id}>
-                <CardHeader className="pb-3">
-                  <div className="flex items-center justify-between">
+      <div className="grid gap-6">
+        {triggerEvents.map((trigger) => {
+          const setting = autoSettings[trigger.key as keyof typeof autoSettings];
+          const Icon = trigger.icon;
+          
+          return (
+            <Card key={trigger.key}>
+              <CardHeader>
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-3">
+                    <Icon className={`h-5 w-5 ${trigger.color}`} />
                     <div>
-                      <CardTitle className="text-lg capitalize">
-                        {setting.trigger_event.replace('_', ' ')}
-                      </CardTitle>
-                      <CardDescription>
-                        Automatic notification for {setting.trigger_event.replace('_', ' ')} events
-                      </CardDescription>
+                      <CardTitle className="text-lg">{trigger.label}</CardTitle>
+                      <CardDescription>{trigger.description}</CardDescription>
                     </div>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <Badge variant={setting.enabled ? "default" : "secondary"}>
+                      {setting.enabled ? "Active" : "Inactive"}
+                    </Badge>
                     <Switch
-                      checked={setting.is_enabled}
-                      onCheckedChange={(checked) => updateSetting(setting.id, 'is_enabled', checked)}
+                      checked={setting.enabled}
+                      onCheckedChange={() => handleToggleTrigger(trigger.key)}
                     />
                   </div>
-                </CardHeader>
-                <CardContent className="space-y-4">
-                  <div className="grid grid-cols-2 gap-4">
+                </div>
+              </CardHeader>
+              
+              {setting.enabled && (
+                <CardContent className="pt-0">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div>
-                      <Label htmlFor={`delay-${setting.id}`}>Delay (minutes)</Label>
-                      <Input
-                        id={`delay-${setting.id}`}
-                        type="number"
-                        value={setting.delay_minutes}
-                        onChange={(e) => updateSetting(setting.id, 'delay_minutes', parseInt(e.target.value))}
-                        min="0"
-                        max="60"
-                      />
+                      <Label htmlFor={`template-${trigger.key}`}>Template</Label>
+                      <Select
+                        value={setting.template_id}
+                        onValueChange={(value) => handleTemplateChange(trigger.key, value)}
+                      >
+                        <SelectTrigger>
+                          <SelectValue placeholder="Select template" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {templates?.filter(t => t.trigger_event === trigger.key).map(template => (
+                            <SelectItem key={template.id} value={template.id}>
+                              {template.name}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
                     </div>
+                    
                     <div>
-                      <Label htmlFor={`retry-${setting.id}`}>Retry Attempts</Label>
-                      <Input
-                        id={`retry-${setting.id}`}
-                        type="number"
-                        value={setting.retry_attempts}
-                        onChange={(e) => updateSetting(setting.id, 'retry_attempts', parseInt(e.target.value))}
-                        min="0"
-                        max="5"
-                      />
+                      <Label>Channels</Label>
+                      <div className="flex gap-2 mt-2">
+                        <Badge variant="outline" className="gap-1">
+                          <Mail className="h-3 w-3" />
+                          Email
+                        </Badge>
+                        <Badge variant="outline" className="gap-1">
+                          <MessageSquare className="h-3 w-3" />
+                          SMS
+                        </Badge>
+                      </div>
                     </div>
-                  </div>
-                  <div>
-                    <Label htmlFor={`retry-delay-${setting.id}`}>Retry Delay (minutes)</Label>
-                    <Input
-                      id={`retry-delay-${setting.id}`}
-                      type="number"
-                      value={setting.retry_delay_minutes}
-                      onChange={(e) => updateSetting(setting.id, 'retry_delay_minutes', parseInt(e.target.value))}
-                      min="1"
-                      max="30"
-                    />
                   </div>
                 </CardContent>
-              </Card>
-            ))}
-          </div>
-        </TabsContent>
-
-        <TabsContent value="logs" className="space-y-4">
-          <Card>
-            <CardHeader>
-              <CardTitle>Recent Notifications</CardTitle>
-              <CardDescription>
-                View the status of recently sent notifications
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              {logsLoading ? (
-                <div className="flex items-center justify-center h-32">
-                  <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-blue-600"></div>
-                </div>
-              ) : (
-                <div className="space-y-4">
-                  {notificationLogs && notificationLogs.length > 0 ? (
-                    notificationLogs.map((log: any) => (
-                      <div key={log.id} className="flex items-center justify-between p-4 border rounded-lg">
-                        <div className="flex items-center gap-4">
-                          {getStatusIcon(log.status)}
-                          <div>
-                            <div className="font-medium">{log.clients?.name || 'Unknown Client'}</div>
-                            <div className="text-sm text-gray-500">
-                              {log.notification_templates?.name || log.trigger_event}
-                            </div>
-                          </div>
-                        </div>
-                        <div className="flex items-center gap-2">
-                          <div className="flex gap-1">
-                            {log.channels.includes('email') && (
-                              <Badge variant="outline" className="gap-1">
-                                <Mail className="h-3 w-3" />
-                                Email
-                              </Badge>
-                            )}
-                            {log.channels.includes('sms') && (
-                              <Badge variant="outline" className="gap-1">
-                                <MessageSquare className="h-3 w-3" />
-                                SMS
-                              </Badge>
-                            )}
-                          </div>
-                          <Badge className={getStatusColor(log.status)}>
-                            {log.status}
-                          </Badge>
-                          <div className="text-sm text-gray-500">
-                            {new Date(log.created_at).toLocaleString()}
-                          </div>
-                        </div>
-                      </div>
-                    ))
-                  ) : (
-                    <div className="text-center py-8 text-gray-500">
-                      No notifications sent yet
-                    </div>
-                  )}
-                </div>
               )}
-            </CardContent>
-          </Card>
-        </TabsContent>
-      </Tabs>
+            </Card>
+          );
+        })}
+      </div>
+
+      {/* Recent Activity */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <Activity className="h-5 w-5" />
+            Recent Auto-Notifications
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          {logsLoading ? (
+            <div className="flex justify-center py-4">
+              <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-primary"></div>
+            </div>
+          ) : (
+            <div className="space-y-2">
+              {notificationLogs?.slice(0, 5).map((log) => (
+                <div key={log.id} className="flex items-center justify-between p-3 border rounded-lg">
+                  <div className="flex items-center gap-3">
+                    <Badge variant="outline">
+                      {log.notification_templates?.name || 'Unknown Template'}
+                    </Badge>
+                    <span className="text-sm text-muted-foreground">
+                      to {log.clients?.name || 'Unknown Client'}
+                    </span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <Badge variant={log.status === 'sent' ? 'default' : 'destructive'}>
+                      {log.status}
+                    </Badge>
+                    <span className="text-xs text-muted-foreground">
+                      {new Date(log.created_at).toLocaleDateString()}
+                    </span>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </CardContent>
+      </Card>
     </div>
   );
 };

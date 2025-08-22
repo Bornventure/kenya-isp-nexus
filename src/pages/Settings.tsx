@@ -20,6 +20,7 @@ import {
 import { useToast } from '@/hooks/use-toast';
 import { mikrotikService } from '@/services/mikrotikService';
 import { supabase } from '@/integrations/supabase/client';
+import NotificationTemplates from '@/components/communication/NotificationTemplates';
 
 const SettingsPage = () => {
   const { toast } = useToast();
@@ -170,11 +171,12 @@ const SettingsPage = () => {
       </div>
 
       <Tabs defaultValue="sms">
-        <TabsList className="grid w-full grid-cols-4">
+        <TabsList className="grid w-full grid-cols-5">
           <TabsTrigger value="sms">SMS</TabsTrigger>
           <TabsTrigger value="mikrotik">MikroTik</TabsTrigger>
           <TabsTrigger value="radius">RADIUS</TabsTrigger>
           <TabsTrigger value="email">Email</TabsTrigger>
+          <TabsTrigger value="templates">Templates</TabsTrigger>
         </TabsList>
 
         <TabsContent value="sms" className="space-y-6">
@@ -557,6 +559,10 @@ const SettingsPage = () => {
               </div>
             </CardContent>
           </Card>
+        </TabsContent>
+
+        <TabsContent value="templates" className="space-y-6">
+          <NotificationTemplates />
         </TabsContent>
       </Tabs>
     </div>
