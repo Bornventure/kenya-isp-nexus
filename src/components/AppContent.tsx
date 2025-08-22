@@ -3,7 +3,7 @@ import React from 'react';
 import { Routes, Route, Navigate } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
 import Layout from '@/components/layout/Layout';
-import Login from '@/components/auth/Login';
+import Login from '@/components/Login';
 
 // Page imports
 import Dashboard from '@/pages/Dashboard';
@@ -38,42 +38,37 @@ const AppContent = () => {
     );
   }
 
-  if (!user) {
-    return (
-      <Routes>
-        <Route path="/login" element={<Login />} />
-        <Route path="*" element={<Navigate to="/login" replace />} />
-      </Routes>
-    );
-  }
-
   return (
     <Routes>
-      <Route path="/login" element={<Navigate to="/" replace />} />
-      <Route path="/" element={<Layout />}>
-        <Route index element={<Dashboard />} />
-        <Route path="clients" element={<Clients />} />
-        <Route path="hotspots" element={<HotspotsPage />} />
-        <Route path="service-packages" element={<ServicePackages />} />
-        <Route path="equipment" element={<Equipment />} />
-        <Route path="base-stations" element={<BaseStations />} />
-        <Route path="network-map" element={<NetworkMap />} />
-        <Route path="inventory" element={<Inventory />} />
-        <Route path="billing" element={<Billing />} />
-        <Route path="invoices" element={<Invoices />} />
-        <Route path="reports" element={<Reports />} />
-        <Route path="analytics" element={<Analytics />} />
-        <Route path="messages" element={<Messages />} />
-        <Route path="support" element={<Support />} />
-        <Route path="settings" element={<Settings />} />
-        
-        {/* Admin routes */}
-        <Route path="admin/users" element={<UserManagement />} />
-        <Route path="admin/companies" element={<CompanyManagement />} />
-        <Route path="admin/system" element={<SystemSettings />} />
-      </Route>
+      <Route path="/login" element={!user ? <Login /> : <Navigate to="/dashboard" replace />} />
       
-      <Route path="*" element={<Navigate to="/" replace />} />
+      {user ? (
+        <Route path="/" element={<Layout />}>
+          <Route index element={<Navigate to="/dashboard" replace />} />
+          <Route path="dashboard" element={<Dashboard />} />
+          <Route path="clients" element={<Clients />} />
+          <Route path="hotspots" element={<HotspotsPage />} />
+          <Route path="service-packages" element={<ServicePackages />} />
+          <Route path="equipment" element={<Equipment />} />
+          <Route path="base-stations" element={<BaseStations />} />
+          <Route path="network-map" element={<NetworkMap />} />
+          <Route path="inventory" element={<Inventory />} />
+          <Route path="billing" element={<Billing />} />
+          <Route path="invoices" element={<Invoices />} />
+          <Route path="reports" element={<Reports />} />
+          <Route path="analytics" element={<Analytics />} />
+          <Route path="messages" element={<Messages />} />
+          <Route path="support" element={<Support />} />
+          <Route path="settings" element={<Settings />} />
+          
+          {/* Admin routes */}
+          <Route path="admin/users" element={<UserManagement />} />
+          <Route path="admin/companies" element={<CompanyManagement />} />
+          <Route path="admin/system" element={<SystemSettings />} />
+        </Route>
+      ) : (
+        <Route path="*" element={<Navigate to="/login" replace />} />
+      )}
     </Routes>
   );
 };
