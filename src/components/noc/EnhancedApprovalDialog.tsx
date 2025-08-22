@@ -1,62 +1,48 @@
 
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Card, CardContent } from '@/components/ui/card';
-import { CheckCircle, XCircle, Package } from 'lucide-react';
-import { useEquipment } from '@/hooks/useApiQueries';
 import { useWorkflowOrchestration } from '@/hooks/useWorkflowOrchestration';
+import { useEquipment } from '@/hooks/useEquipment';
 import { useAuth } from '@/contexts/AuthContext';
+import { Client } from '@/types/client';
+import { CheckCircle, XCircle } from 'lucide-react';
 
 interface EnhancedApprovalDialogProps {
+  client: Client | null;
   open: boolean;
-  onOpenChange: (open: boolean) => void;
-  client: any;
+  onClose: () => void;
 }
 
 const EnhancedApprovalDialog: React.FC<EnhancedApprovalDialogProps> = ({
+  client,
   open,
-  onOpenChange,
-  client
+  onClose
 }) => {
-  const [action, setAction] = useState<'approve' | 'reject' | null>(null);
-  const [selectedEquipment, setSelectedEquipment] = useState<string>('');
-  const [notes, setNotes] = useState('');
-  const [isProcessing, setIsProcessing] = useState(false);
-
-  const { data: equipment = [] } = useEquipment();
-  const { processApproval, processRejection } = useWorkflowOrchestration();
   const { profile } = useAuth();
+  const { processApproval, processRejection } = useWorkflowOrchestration();
+  const { equipment } = useEquipment();
+  
+  const [selectedEquipment, setSelectedEquipment] = useState<string>('');
+  const [rejectionReason, setRejectionReason] = useState('');
+  const [isProcessing, setIsProcessing] = useState(false);
+  const [action, setAction] = useState<'approve' | 'reject' | null>(null);
 
-  // Filter available equipment
-  const availableEquipment = equipment.filter(eq => eq.status === 'available');
-
-  const resetDialog = () => {
-    setAction(null);
-    setSelectedEquipment('');
-    setNotes('');
-    setIsProcessing(false);
-  };
-
-  useEffect(() => {
-    if (!open) {
-      resetDialog();
-    }
-  }, [open]);
+  // Safely filter available equipment
+  const availableEquipment = Array.isArray(equipment) 
+    ? equipment.filter(eq => eq.status === 'available' && eq.approval_status === 'approved')
+    : [];
 
   const handleApprove = async () => {
-    if (!selectedEquipment) {
-      alert('Please select equipment to assign');
-      return;
-    }
-
+    if (!client || !selectedEquipment || !profile?.id) return;
+    
     setIsProcessing(true);
     try {
-      await processApproval(client.id, selectedEquipment, profile?.id || '');
-      onOpenChange(false);
+      await processApproval(client.id, selectedEquipment, profile.id);
+      onClose();
     } catch (error) {
       console.error('Error approving client:', error);
     } finally {
@@ -65,15 +51,12 @@ const EnhancedApprovalDialog: React.FC<EnhancedApprovalDialogProps> = ({
   };
 
   const handleReject = async () => {
-    if (!notes.trim()) {
-      alert('Please provide a reason for rejection');
-      return;
-    }
-
+    if (!client || !rejectionReason.trim() || !profile?.id) return;
+    
     setIsProcessing(true);
     try {
-      await processRejection(client.id, notes, profile?.id || '');
-      onOpenChange(false);
+      await processRejection(client.id, rejectionReason.trim(), profile.id);
+      onClose();
     } catch (error) {
       console.error('Error rejecting client:', error);
     } finally {
@@ -84,190 +67,117 @@ const EnhancedApprovalDialog: React.FC<EnhancedApprovalDialogProps> = ({
   if (!client) return null;
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
+    <Dialog open={open} onOpenChange={onClose}>
       <DialogContent className="max-w-2xl">
         <DialogHeader>
-          <DialogTitle>Client Application Review</DialogTitle>
+          <DialogTitle>Review Client Application</DialogTitle>
         </DialogHeader>
 
         <div className="space-y-6">
           {/* Client Details */}
-          <Card>
-            <CardContent className="pt-6">
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <p className="text-sm font-medium">Name</p>
-                  <p className="text-sm text-muted-foreground">{client.name}</p>
-                </div>
-                <div>
-                  <p className="text-sm font-medium">Email</p>
-                  <p className="text-sm text-muted-foreground">{client.email}</p>
-                </div>
-                <div>
-                  <p className="text-sm font-medium">Phone</p>
-                  <p className="text-sm text-muted-foreground">{client.phone}</p>
-                </div>
-                <div>
-                  <p className="text-sm font-medium">ID Number</p>
-                  <p className="text-sm text-muted-foreground">{client.id_number}</p>
-                </div>
-                <div className="col-span-2">
-                  <p className="text-sm font-medium">Address</p>
-                  <p className="text-sm text-muted-foreground">
-                    {client.address}, {client.sub_county}, {client.county}
-                  </p>
-                </div>
-                <div>
-                  <p className="text-sm font-medium">Package</p>
-                  <p className="text-sm text-muted-foreground">
-                    KES {client.monthly_rate?.toLocaleString()}/month
-                  </p>
-                </div>
-                <div>
-                  <p className="text-sm font-medium">Connection Type</p>
-                  <p className="text-sm text-muted-foreground">{client.connection_type}</p>
-                </div>
+          <div className="bg-gray-50 p-4 rounded-lg">
+            <h3 className="font-semibold mb-2">Client Information</h3>
+            <div className="grid grid-cols-2 gap-4 text-sm">
+              <div>
+                <span className="font-medium">Name:</span> {client.name}
               </div>
-            </CardContent>
-          </Card>
+              <div>
+                <span className="font-medium">Phone:</span> {client.phone}
+              </div>
+              <div>
+                <span className="font-medium">Email:</span> {client.email}
+              </div>
+              <div>
+                <span className="font-medium">Location:</span> {client.address}
+              </div>
+              <div>
+                <span className="font-medium">Connection Type:</span> {client.connection_type}
+              </div>
+              <div>
+                <span className="font-medium">Monthly Rate:</span> KES {client.monthly_rate}
+              </div>
+            </div>
+          </div>
 
-          {/* Action Selection */}
-          {!action && (
-            <div className="flex gap-4 justify-center">
-              <Button
-                onClick={() => setAction('approve')}
-                className="gap-2"
-                size="lg"
-              >
-                <CheckCircle className="h-4 w-4" />
-                Approve Application
-              </Button>
-              <Button
-                onClick={() => setAction('reject')}
-                variant="destructive"
-                className="gap-2"
-                size="lg"
-              >
-                <XCircle className="h-4 w-4" />
-                Reject Application
-              </Button>
+          {action === 'approve' && (
+            <div className="space-y-4">
+              <div>
+                <Label htmlFor="equipment">Assign Equipment *</Label>
+                <Select value={selectedEquipment} onValueChange={setSelectedEquipment}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select equipment to assign..." />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {availableEquipment.map((eq) => (
+                      <SelectItem key={eq.id} value={eq.id}>
+                        {eq.brand} {eq.model} - {eq.serial_number}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
             </div>
           )}
 
-          {/* Approval Form */}
-          {action === 'approve' && (
-            <Card className="border-green-200 bg-green-50/50">
-              <CardContent className="pt-6">
-                <div className="space-y-4">
-                  <div className="flex items-center gap-2 mb-4">
-                    <CheckCircle className="h-5 w-5 text-green-600" />
-                    <h3 className="font-semibold text-green-800">Approve Application</h3>
-                  </div>
-                  
-                  <div>
-                    <Label htmlFor="equipment-select">Assign Equipment *</Label>
-                    <Select value={selectedEquipment} onValueChange={setSelectedEquipment}>
-                      <SelectTrigger id="equipment-select">
-                        <SelectValue placeholder="Select equipment to assign">
-                          {selectedEquipment && (
-                            <div className="flex items-center gap-2">
-                              <Package className="h-4 w-4" />
-                              {availableEquipment.find(eq => eq.id === selectedEquipment)?.model}
-                            </div>
-                          )}
-                        </SelectValue>
-                      </SelectTrigger>
-                      <SelectContent>
-                        {availableEquipment.map((eq) => (
-                          <SelectItem key={eq.id} value={eq.id}>
-                            <div className="flex items-center gap-2">
-                              <Package className="h-4 w-4" />
-                              <div>
-                                <p className="font-medium">{eq.brand} {eq.model}</p>
-                                <p className="text-xs text-muted-foreground">S/N: {eq.serial_number}</p>
-                              </div>
-                            </div>
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-
-                  <div>
-                    <Label htmlFor="approval-notes">Installation Notes (Optional)</Label>
-                    <Textarea
-                      id="approval-notes"
-                      value={notes}
-                      onChange={(e) => setNotes(e.target.value)}
-                      placeholder="Add any installation notes..."
-                      rows={3}
-                    />
-                  </div>
-
-                  <div className="flex gap-2">
-                    <Button
-                      onClick={handleApprove}
-                      disabled={!selectedEquipment || isProcessing}
-                      className="flex-1"
-                    >
-                      {isProcessing ? 'Processing...' : 'Confirm Approval'}
-                    </Button>
-                    <Button
-                      onClick={() => setAction(null)}
-                      variant="outline"
-                      disabled={isProcessing}
-                    >
-                      Back
-                    </Button>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-          )}
-
-          {/* Rejection Form */}
           {action === 'reject' && (
-            <Card className="border-red-200 bg-red-50/50">
-              <CardContent className="pt-6">
-                <div className="space-y-4">
-                  <div className="flex items-center gap-2 mb-4">
-                    <XCircle className="h-5 w-5 text-red-600" />
-                    <h3 className="font-semibold text-red-800">Reject Application</h3>
-                  </div>
-                  
-                  <div>
-                    <Label htmlFor="rejection-reason">Reason for Rejection *</Label>
-                    <Textarea
-                      id="rejection-reason"
-                      value={notes}
-                      onChange={(e) => setNotes(e.target.value)}
-                      placeholder="Provide a detailed reason for rejection..."
-                      rows={4}
-                      required
-                    />
-                  </div>
-
-                  <div className="flex gap-2">
-                    <Button
-                      onClick={handleReject}
-                      disabled={!notes.trim() || isProcessing}
-                      variant="destructive"
-                      className="flex-1"
-                    >
-                      {isProcessing ? 'Processing...' : 'Confirm Rejection'}
-                    </Button>
-                    <Button
-                      onClick={() => setAction(null)}
-                      variant="outline"
-                      disabled={isProcessing}
-                    >
-                      Back
-                    </Button>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
+            <div className="space-y-4">
+              <div>
+                <Label htmlFor="rejection-reason">Rejection Reason *</Label>
+                <Textarea
+                  id="rejection-reason"
+                  value={rejectionReason}
+                  onChange={(e) => setRejectionReason(e.target.value)}
+                  placeholder="Please provide a reason for rejection..."
+                  rows={4}
+                />
+              </div>
+            </div>
           )}
+
+          <div className="flex justify-between pt-4">
+            <div className="flex gap-2">
+              <Button
+                variant="outline"
+                onClick={() => setAction(action === 'approve' ? null : 'approve')}
+                className="bg-green-50 border-green-200 hover:bg-green-100"
+              >
+                <CheckCircle className="h-4 w-4 mr-2 text-green-600" />
+                {action === 'approve' ? 'Cancel Approval' : 'Approve'}
+              </Button>
+              <Button
+                variant="outline"
+                onClick={() => setAction(action === 'reject' ? null : 'reject')}
+                className="bg-red-50 border-red-200 hover:bg-red-100"
+              >
+                <XCircle className="h-4 w-4 mr-2 text-red-600" />
+                {action === 'reject' ? 'Cancel Rejection' : 'Reject'}
+              </Button>
+            </div>
+
+            <div className="flex gap-2">
+              <Button variant="outline" onClick={onClose}>
+                Close
+              </Button>
+              {action === 'approve' && (
+                <Button
+                  onClick={handleApprove}
+                  disabled={!selectedEquipment || isProcessing}
+                  className="bg-green-600 hover:bg-green-700"
+                >
+                  {isProcessing ? 'Processing...' : 'Confirm Approval'}
+                </Button>
+              )}
+              {action === 'reject' && (
+                <Button
+                  onClick={handleReject}
+                  disabled={!rejectionReason.trim() || isProcessing}
+                  variant="destructive"
+                >
+                  {isProcessing ? 'Processing...' : 'Confirm Rejection'}
+                </Button>
+              )}
+            </div>
+          </div>
         </div>
       </DialogContent>
     </Dialog>

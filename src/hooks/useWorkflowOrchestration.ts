@@ -16,15 +16,15 @@ export const useWorkflowOrchestration = () => {
 
       if (!client) return;
 
-      // Get network admin users
-      const { data: networkAdmins } = await supabase
+      // Get network engineer users (using correct role)
+      const { data: networkEngineers } = await supabase
         .from('profiles')
         .select('*')
-        .eq('role', 'network_admin')
+        .eq('role', 'network_engineer')
         .eq('isp_company_id', client.isp_company_id);
 
-      // Send notification to each network admin
-      for (const admin of networkAdmins || []) {
+      // Send notification to each network engineer
+      for (const admin of networkEngineers || []) {
         await supabase.functions.invoke('send-notifications', {
           body: {
             user_id: admin.id,
@@ -41,19 +41,19 @@ export const useWorkflowOrchestration = () => {
         });
       }
 
-      console.log('Network admin notifications sent for client:', clientId);
+      console.log('Network engineer notifications sent for client:', clientId);
     } catch (error) {
-      console.error('Error notifying network admin:', error);
+      console.error('Error notifying network engineer:', error);
     }
   }, []);
 
   const processRejection = useCallback(async (clientId: string, rejectionReason: string, rejectedBy: string) => {
     try {
-      // Update client status
+      // Update client status to pending (not rejected, as rejected is not in the allowed enum)
       await supabase
         .from('clients')
         .update({
-          status: 'rejected',
+          status: 'pending' as const,
           rejection_reason: rejectionReason,
           rejected_by: rejectedBy,
           rejected_at: new Date().toISOString()

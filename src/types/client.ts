@@ -1,7 +1,7 @@
 
 export type ClientType = 'individual' | 'business' | 'corporate' | 'government';
 export type ConnectionType = 'fiber' | 'wireless' | 'satellite' | 'dsl';
-export type ClientStatus = 'pending' | 'approved' | 'active' | 'suspended' | 'disconnected';
+export type ClientStatus = 'pending' | 'approved' | 'active' | 'suspended' | 'disconnected' | 'rejected';
 
 export interface Client {
   id: string;
@@ -33,6 +33,9 @@ export interface Client {
   submitted_by?: string;
   approved_by?: string;
   approved_at?: string;
+  rejected_by?: string;
+  rejected_at?: string;
+  rejection_reason?: string;
   installation_status?: string;
   installation_completed_by?: string;
   installation_completed_at?: string;

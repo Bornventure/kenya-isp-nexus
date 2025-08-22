@@ -11,9 +11,9 @@ const RejectedApplicationsTab = () => {
   const { clients } = useClients();
   const { profile } = useAuth();
 
-  // Filter rejected clients submitted by this sales user
+  // Filter clients that have rejection data (pending status with rejection_reason)
   const rejectedClients = clients.filter(
-    client => client.status === 'rejected' && client.submitted_by === profile?.id
+    client => client.rejection_reason && client.submitted_by === profile?.id
   );
 
   const handleResubmit = (clientId: string) => {
@@ -73,9 +73,11 @@ const RejectedApplicationsTab = () => {
                     <div className="bg-white border border-red-300 rounded p-3 mb-3">
                       <p className="text-sm font-medium text-red-800 mb-1">Rejection Reason:</p>
                       <p className="text-sm text-red-700">{client.rejection_reason}</p>
-                      <p className="text-xs text-red-600 mt-1">
-                        Rejected on {new Date(client.rejected_at || '').toLocaleDateString()}
-                      </p>
+                      {client.rejected_at && (
+                        <p className="text-xs text-red-600 mt-1">
+                          Rejected on {new Date(client.rejected_at).toLocaleDateString()}
+                        </p>
+                      )}
                     </div>
                   )}
                 </div>

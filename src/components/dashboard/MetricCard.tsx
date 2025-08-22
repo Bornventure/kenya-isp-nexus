@@ -2,6 +2,7 @@
 import React from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { LucideIcon } from 'lucide-react';
+import { cn } from '@/lib/utils';
 
 interface MetricCardProps {
   title: string;
@@ -10,6 +11,7 @@ interface MetricCardProps {
   changeType?: 'increase' | 'decrease' | 'neutral';
   icon: LucideIcon;
   description?: string;
+  className?: string;
 }
 
 const MetricCard: React.FC<MetricCardProps> = ({
@@ -18,7 +20,8 @@ const MetricCard: React.FC<MetricCardProps> = ({
   change,
   changeType = 'neutral',
   icon: Icon,
-  description
+  description,
+  className
 }) => {
   const getChangeColor = () => {
     switch (changeType) {
@@ -32,7 +35,7 @@ const MetricCard: React.FC<MetricCardProps> = ({
   };
 
   return (
-    <Card>
+    <Card className={cn(className)}>
       <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
         <CardTitle className="text-sm font-medium text-gray-600">
           {title}
