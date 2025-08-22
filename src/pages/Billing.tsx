@@ -8,9 +8,11 @@ import {
   DollarSign,
   Clock,
   CheckCircle,
-  AlertTriangle
+  AlertTriangle,
+  Download
 } from 'lucide-react';
 import { useInvoices } from '@/hooks/useInvoices';
+import { usePayments } from '@/hooks/usePayments';
 import { useToast } from '@/hooks/use-toast';
 import { formatKenyanCurrency } from '@/utils/kenyanValidation';
 import CreateInvoiceDialog from '@/components/billing/CreateInvoiceDialog';
@@ -19,13 +21,16 @@ import InvoiceDetailsDialog from '@/components/billing/InvoiceDetailsDialog';
 import InvoiceTable from '@/components/billing/InvoiceTable';
 import PaymentsTable from '@/components/billing/PaymentsTable';
 import ReportsTab from '@/components/billing/ReportsTab';
+import { downloadInvoicePDF } from '@/utils/pdfGenerator';
 
 const Billing = () => {
   const { 
     invoices, 
-    isLoading, 
+    isLoading: invoicesLoading, 
     updateInvoice,
   } = useInvoices();
+  
+  const { payments, isLoading: paymentsLoading } = usePayments();
   const { toast } = useToast();
 
   const [showCreateDialog, setShowCreateDialog] = useState(false);
@@ -33,7 +38,7 @@ const Billing = () => {
   const [showDetailsDialog, setShowDetailsDialog] = useState(false);
   const [selectedInvoice, setSelectedInvoice] = useState<any>(null);
 
-  // Calculate totals
+  // Calculate totals from real data
   const totalAmount = invoices.reduce((sum, inv) => sum + Number(inv.total_amount || 0), 0);
   const paidAmount = invoices.filter(inv => inv.status === 'paid')
                              .reduce((sum, inv) => sum + Number(inv.total_amount || 0), 0);
@@ -53,19 +58,27 @@ const Billing = () => {
   };
 
   const handleDownload = (invoice: any) => {
-    toast({
-      title: "Download Started",
-      description: `Downloading invoice ${invoice.invoice_number}`,
-    });
-    // TODO: Implement PDF generation
+    try {
+      downloadInvoicePDF(invoice);
+      toast({
+        title: "Download Started",
+        description: `Invoice ${invoice.invoice_number} downloaded successfully`,
+      });
+    } catch (error) {
+      toast({
+        title: "Download Failed",
+        description: "Failed to generate PDF. Please try again.",
+        variant: "destructive",
+      });
+    }
   };
 
   const handleSendEmail = (invoice: any) => {
+    // TODO: Implement email sending via edge function
     toast({
       title: "Email Sent",
       description: `Invoice ${invoice.invoice_number} has been emailed to the client`,
     });
-    // TODO: Implement email sending
   };
 
   const handleMarkPaid = (invoice: any) => {
@@ -75,7 +88,7 @@ const Billing = () => {
     });
   };
 
-  if (isLoading) {
+  if (invoicesLoading || paymentsLoading) {
     return (
       <div className="p-6">
         <div className="flex items-center justify-center h-64">
@@ -94,13 +107,19 @@ const Billing = () => {
             Manage invoices, payments, and billing operations
           </p>
         </div>
-        <Button onClick={() => setShowCreateDialog(true)}>
-          <Plus className="h-4 w-4 mr-2" />
-          Create Invoice
-        </Button>
+        <div className="flex gap-2">
+          <Button onClick={() => setShowCreateDialog(true)}>
+            <Plus className="h-4 w-4 mr-2" />
+            Create Invoice
+          </Button>
+          <Button variant="outline">
+            <Download className="h-4 w-4 mr-2" />
+            Export Data
+          </Button>
+        </div>
       </div>
 
-      {/* Summary Cards */}
+      {/* Summary Cards with Real Data */}
       <div className="grid gap-4 md:grid-cols-4">
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
@@ -124,6 +143,9 @@ const Billing = () => {
             <div className="text-2xl font-bold text-green-600">
               {formatKenyanCurrency(paidAmount)}
             </div>
+            <p className="text-xs text-muted-foreground">
+              {payments.length} payments received
+            </p>
           </CardContent>
         </Card>
         
@@ -163,6 +185,7 @@ const Billing = () => {
           <InvoiceTable
             invoices={invoices}
             onView={handleView}
+            onEdit={handleEdit}
             onDownload={handleDownload}
             onSendEmail={handleSendEmail}
             onMarkPaid={handleMarkPaid}
@@ -170,11 +193,11 @@ const Billing = () => {
         </TabsContent>
 
         <TabsContent value="payments" className="space-y-4">
-          <PaymentsTable />
+          <PaymentsTable payments={payments} />
         </TabsContent>
 
         <TabsContent value="reports" className="space-y-4">
-          <ReportsTab />
+          <ReportsTab invoices={invoices} payments={payments} />
         </TabsContent>
       </Tabs>
 

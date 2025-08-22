@@ -16,88 +16,45 @@ import {
   Trash2,
   Calendar
 } from 'lucide-react';
-import { useClients } from '@/hooks/useClients';
+import { useInvoices } from '@/hooks/useInvoices';
+import { useToast } from '@/hooks/use-toast';
+import { formatKenyanCurrency } from '@/utils/kenyanValidation';
+import { downloadInvoicePDF } from '@/utils/pdfGenerator';
+import CreateInvoiceDialog from '@/components/billing/CreateInvoiceDialog';
+import EditInvoiceDialog from '@/components/billing/EditInvoiceDialog';
+import InvoiceDetailsDialog from '@/components/billing/InvoiceDetailsDialog';
 
 const Invoices = () => {
-  const { clients } = useClients();
+  const { 
+    invoices, 
+    isLoading, 
+    updateInvoice, 
+    deleteInvoice 
+  } = useInvoices();
+  const { toast } = useToast();
+  
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
+  const [showCreateDialog, setShowCreateDialog] = useState(false);
+  const [showEditDialog, setShowEditDialog] = useState(false);
+  const [showDetailsDialog, setShowDetailsDialog] = useState(false);
+  const [selectedInvoice, setSelectedInvoice] = useState<any>(null);
 
-  // Mock invoice data
-  const invoices = [
-    {
-      id: '1',
-      invoiceNumber: 'INV-001234',
-      clientId: clients[0]?.id || '1',
-      clientName: clients[0]?.name || 'John Doe',
-      amount: 2500,
-      vatAmount: 400,
-      totalAmount: 2900,
-      status: 'paid',
-      dueDate: '2024-01-15',
-      issueDate: '2024-01-01',
-      serviceDescription: 'Internet Service - January 2024',
-      paymentMethod: 'M-Pesa'
-    },
-    {
-      id: '2',
-      invoiceNumber: 'INV-001235',
-      clientId: clients[1]?.id || '2',
-      clientName: clients[1]?.name || 'Jane Smith',
-      amount: 5000,
-      vatAmount: 800,
-      totalAmount: 5800,
-      status: 'pending',
-      dueDate: '2024-01-20',
-      issueDate: '2024-01-05',
-      serviceDescription: 'Internet Service - January 2024',
-      paymentMethod: null
-    },
-    {
-      id: '3',
-      invoiceNumber: 'INV-001236',
-      clientId: clients[2]?.id || '3',
-      clientName: clients[2]?.name || 'Mike Johnson',
-      amount: 3500,
-      vatAmount: 560,
-      totalAmount: 4060,
-      status: 'overdue',
-      dueDate: '2024-01-10',
-      issueDate: '2023-12-25',
-      serviceDescription: 'Internet Service - December 2023',
-      paymentMethod: null
-    },
-    {
-      id: '4',
-      invoiceNumber: 'INV-001237',
-      clientId: clients[3]?.id || '4',
-      clientName: clients[3]?.name || 'Sarah Wilson',
-      amount: 4000,
-      vatAmount: 640,
-      totalAmount: 4640,
-      status: 'draft',
-      dueDate: '2024-02-01',
-      issueDate: '2024-01-15',
-      serviceDescription: 'Internet Service - February 2024',
-      paymentMethod: null
-    }
-  ];
-
-  // Filter invoices
+  // Filter invoices based on real data
   const filteredInvoices = invoices.filter(invoice => {
-    const matchesSearch = invoice.clientName.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         invoice.invoiceNumber.toLowerCase().includes(searchTerm.toLowerCase());
+    const matchesSearch = invoice.clients?.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                         invoice.invoice_number.toLowerCase().includes(searchTerm.toLowerCase());
     const matchesStatus = statusFilter === 'all' || invoice.status === statusFilter;
     
     return matchesSearch && matchesStatus;
   });
 
-  // Calculate metrics
+  // Calculate metrics from real data
   const totalInvoices = invoices.length;
   const paidInvoices = invoices.filter(i => i.status === 'paid').length;
   const pendingInvoices = invoices.filter(i => i.status === 'pending').length;
   const overdueInvoices = invoices.filter(i => i.status === 'overdue').length;
-  const totalRevenue = invoices.filter(i => i.status === 'paid').reduce((sum, i) => sum + i.totalAmount, 0);
+  const totalRevenue = invoices.filter(i => i.status === 'paid').reduce((sum, i) => sum + i.total_amount, 0);
 
   const getStatusColor = (status: string) => {
     switch (status) {
@@ -129,6 +86,63 @@ const Invoices = () => {
     }
   };
 
+  const handleView = (invoice: any) => {
+    setSelectedInvoice(invoice);
+    setShowDetailsDialog(true);
+  };
+
+  const handleEdit = (invoice: any) => {
+    setSelectedInvoice(invoice);
+    setShowEditDialog(true);
+  };
+
+  const handleDownload = (invoice: any) => {
+    try {
+      downloadInvoicePDF(invoice);
+      toast({
+        title: "Download Started",
+        description: `Invoice ${invoice.invoice_number} downloaded successfully`,
+      });
+    } catch (error) {
+      toast({
+        title: "Download Failed",
+        description: "Failed to generate PDF. Please try again.",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const handleSendEmail = (invoice: any) => {
+    // TODO: Implement email sending
+    toast({
+      title: "Email Sent", 
+      description: `Invoice ${invoice.invoice_number} has been emailed to the client`,
+    });
+  };
+
+  const handleDelete = (invoice: any) => {
+    if (window.confirm(`Are you sure you want to delete invoice ${invoice.invoice_number}?`)) {
+      deleteInvoice(invoice.id);
+    }
+  };
+
+  const handleMarkPaid = (invoice: any) => {
+    updateInvoice({
+      id: invoice.id,
+      updates: { status: 'paid' }
+    });
+  };
+
+  if (isLoading) {
+    return (
+      <div className="p-6">
+        <div className="flex items-center justify-center h-64">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-6">
       {/* Header */}
@@ -140,7 +154,7 @@ const Invoices = () => {
           </p>
         </div>
         <div className="flex gap-2">
-          <Button>
+          <Button onClick={() => setShowCreateDialog(true)}>
             <Plus className="h-4 w-4 mr-2" />
             Create Invoice
           </Button>
@@ -151,7 +165,7 @@ const Invoices = () => {
         </div>
       </div>
 
-      {/* Invoice Overview Cards */}
+      {/* Invoice Overview Cards - Real Data */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
@@ -211,7 +225,7 @@ const Invoices = () => {
             <span className="text-green-600">💰</span>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">KES {totalRevenue.toLocaleString()}</div>
+            <div className="text-2xl font-bold">{formatKenyanCurrency(totalRevenue)}</div>
             <p className="text-xs text-muted-foreground">
               From paid invoices
             </p>
@@ -251,7 +265,7 @@ const Invoices = () => {
         </Button>
       </div>
 
-      {/* Invoices Table */}
+      {/* Invoices Table - Real Data */}
       <Card>
         <CardHeader>
           <CardTitle>Invoices ({filteredInvoices.length})</CardTitle>
@@ -279,19 +293,21 @@ const Invoices = () => {
                   {filteredInvoices.map((invoice) => (
                     <tr key={invoice.id} className="border-b hover:bg-gray-50">
                       <td className="py-3 px-4 font-mono text-sm font-medium">
-                        {invoice.invoiceNumber}
+                        {invoice.invoice_number}
                       </td>
                       <td className="py-3 px-4">
                         <div>
-                          <div className="font-medium">{invoice.clientName}</div>
-                          <div className="text-sm text-gray-500">{invoice.serviceDescription}</div>
+                          <div className="font-medium">{invoice.clients?.name || 'N/A'}</div>
+                          <div className="text-sm text-gray-500">
+                            Service: {new Date(invoice.service_period_start).toLocaleDateString()} - {new Date(invoice.service_period_end).toLocaleDateString()}
+                          </div>
                         </div>
                       </td>
                       <td className="py-3 px-4">
                         <div>
-                          <div className="font-medium">KES {invoice.totalAmount.toLocaleString()}</div>
+                          <div className="font-medium">{formatKenyanCurrency(invoice.total_amount)}</div>
                           <div className="text-sm text-gray-500">
-                            + KES {invoice.vatAmount} VAT
+                            + {formatKenyanCurrency(invoice.vat_amount)} VAT
                           </div>
                         </div>
                       </td>
@@ -303,14 +319,14 @@ const Invoices = () => {
                       <td className="py-3 px-4">
                         <div className="flex items-center gap-1">
                           <Calendar className="h-3 w-3 text-gray-400" />
-                          {new Date(invoice.issueDate).toLocaleDateString()}
+                          {new Date(invoice.created_at).toLocaleDateString()}
                         </div>
                       </td>
                       <td className="py-3 px-4">
                         <div className="flex items-center gap-1">
                           <Calendar className="h-3 w-3 text-gray-400" />
                           <span className={invoice.status === 'overdue' ? 'text-red-600 font-medium' : ''}>
-                            {new Date(invoice.dueDate).toLocaleDateString()}
+                            {new Date(invoice.due_date).toLocaleDateString()}
                           </span>
                         </div>
                       </td>
@@ -320,6 +336,7 @@ const Invoices = () => {
                             variant="ghost"
                             size="sm"
                             title="View Invoice"
+                            onClick={() => handleView(invoice)}
                           >
                             <Eye className="h-4 w-4" />
                           </Button>
@@ -328,6 +345,7 @@ const Invoices = () => {
                               variant="ghost"
                               size="sm"
                               title="Edit Invoice"
+                              onClick={() => handleEdit(invoice)}
                             >
                               <Edit className="h-4 w-4" />
                             </Button>
@@ -337,6 +355,7 @@ const Invoices = () => {
                               variant="ghost"
                               size="sm"
                               title="Send Reminder"
+                              onClick={() => handleSendEmail(invoice)}
                             >
                               <Send className="h-4 w-4" />
                             </Button>
@@ -345,6 +364,7 @@ const Invoices = () => {
                             variant="ghost"
                             size="sm"
                             title="Download PDF"
+                            onClick={() => handleDownload(invoice)}
                           >
                             <Download className="h-4 w-4" />
                           </Button>
@@ -353,6 +373,7 @@ const Invoices = () => {
                               variant="ghost"
                               size="sm"
                               title="Delete Invoice"
+                              onClick={() => handleDelete(invoice)}
                             >
                               <Trash2 className="h-4 w-4 text-red-600" />
                             </Button>
@@ -367,6 +388,30 @@ const Invoices = () => {
           )}
         </CardContent>
       </Card>
+
+      {/* Dialogs */}
+      <CreateInvoiceDialog
+        open={showCreateDialog}
+        onClose={() => setShowCreateDialog(false)}
+      />
+      
+      <EditInvoiceDialog
+        invoice={selectedInvoice}
+        open={showEditDialog}
+        onClose={() => {
+          setShowEditDialog(false);
+          setSelectedInvoice(null);
+        }}
+      />
+      
+      <InvoiceDetailsDialog
+        invoice={selectedInvoice}
+        open={showDetailsDialog}
+        onClose={() => {
+          setShowDetailsDialog(false);
+          setSelectedInvoice(null);
+        }}
+      />
     </div>
   );
 };

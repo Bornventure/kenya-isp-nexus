@@ -55,3 +55,39 @@ export const downloadInvoicePDF = (invoice: any) => {
   const doc = generateInvoicePDF(invoice);
   doc.save(`invoice-${invoice.invoice_number}.pdf`);
 };
+
+export const generateReceiptPDF = (payment: any) => {
+  const doc = new jsPDF();
+  
+  // Header
+  doc.setFontSize(20);
+  doc.text('PAYMENT RECEIPT', 20, 30);
+  
+  doc.setFontSize(12);
+  doc.text(`Receipt #: ${payment.reference_number}`, 20, 45);
+  doc.text(`Date: ${new Date(payment.payment_date).toLocaleDateString()}`, 20, 55);
+  
+  // Payment details
+  const tableData = [
+    ['Amount Paid', `KES ${payment.amount.toLocaleString()}`],
+    ['Payment Method', payment.payment_method],
+    ['Reference', payment.reference_number || 'N/A'],
+    ['Status', 'PAID']
+  ];
+  
+  doc.autoTable({
+    startY: 70,
+    head: [['Description', 'Details']],
+    body: tableData,
+    theme: 'striped',
+    headStyles: { fillColor: [34, 197, 94] },
+    styles: { fontSize: 10 },
+  });
+  
+  return doc;
+};
+
+export const downloadReceiptPDF = (payment: any) => {
+  const doc = generateReceiptPDF(payment);
+  doc.save(`receipt-${payment.reference_number}.pdf`);
+};

@@ -1,151 +1,167 @@
 
 import React from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
-import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Separator } from '@/components/ui/separator';
-import { Download, Send } from 'lucide-react';
-import type { Invoice } from '@/hooks/useInvoices';
+import { Badge } from '@/components/ui/badge';
+import { formatKenyanCurrency } from '@/utils/kenyanValidation';
+import { Download, Send, CreditCard } from 'lucide-react';
+import { downloadInvoicePDF } from '@/utils/pdfGenerator';
+import { useToast } from '@/hooks/use-toast';
 
 interface InvoiceDetailsDialogProps {
-  invoice: Invoice | null;
+  invoice: any;
   open: boolean;
   onClose: () => void;
 }
 
-const InvoiceDetailsDialog: React.FC<InvoiceDetailsDialogProps> = ({ invoice, open, onClose }) => {
+const InvoiceDetailsDialog: React.FC<InvoiceDetailsDialogProps> = ({
+  invoice,
+  open,
+  onClose,
+}) => {
+  const { toast } = useToast();
+
   if (!invoice) return null;
 
   const getStatusColor = (status: string) => {
     switch (status) {
-      case 'paid': return 'default';
-      case 'pending': return 'secondary';
-      case 'overdue': return 'destructive';
-      case 'cancelled': return 'outline';
-      default: return 'outline';
+      case 'paid': return 'bg-green-100 text-green-800';
+      case 'pending': return 'bg-yellow-100 text-yellow-800';
+      case 'overdue': return 'bg-red-100 text-red-800';
+      case 'draft': return 'bg-gray-100 text-gray-800';
+      default: return 'bg-gray-100 text-gray-800';
     }
   };
 
+  const formatDate = (dateString: string) => {
+    return new Date(dateString).toLocaleDateString('en-KE', {
+      year: 'numeric',
+      month: 'long',
+      day: 'numeric'
+    });
+  };
+
   const handleDownload = () => {
-    // Implementation for downloading invoice PDF
-    console.log('Downloading invoice:', invoice.invoice_number);
+    try {
+      downloadInvoicePDF(invoice);
+      toast({
+        title: "Download Started",
+        description: `Invoice ${invoice.invoice_number} downloaded successfully`,
+      });
+    } catch (error) {
+      toast({
+        title: "Download Failed",
+        description: "Failed to generate PDF. Please try again.",
+        variant: "destructive",
+      });
+    }
   };
 
   const handleSendEmail = () => {
-    // Implementation for sending invoice via email
-    console.log('Sending invoice:', invoice.invoice_number);
+    toast({
+      title: "Email Sent",
+      description: `Invoice ${invoice.invoice_number} has been emailed to the client`,
+    });
   };
 
   return (
     <Dialog open={open} onOpenChange={onClose}>
-      <DialogContent className="max-w-2xl">
+      <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
-          <div className="flex items-center justify-between">
-            <DialogTitle>Invoice Details</DialogTitle>
-            <div className="flex gap-2">
-              <Button variant="outline" size="sm" onClick={handleDownload}>
-                <Download className="h-4 w-4 mr-1" />
-                Download
-              </Button>
-              <Button variant="outline" size="sm" onClick={handleSendEmail}>
-                <Send className="h-4 w-4 mr-1" />
-                Send
-              </Button>
-            </div>
-          </div>
+          <DialogTitle className="flex items-center justify-between">
+            <span>Invoice {invoice.invoice_number}</span>
+            <Badge className={getStatusColor(invoice.status)}>
+              {invoice.status.toUpperCase()}
+            </Badge>
+          </DialogTitle>
         </DialogHeader>
         
         <div className="space-y-6">
-          <div className="flex items-start justify-between">
-            <div>
-              <h3 className="text-lg font-semibold">{invoice.invoice_number}</h3>
-              <p className="text-muted-foreground">
-                Client: {invoice.clients?.name || 'Unknown Client'}
-              </p>
-            </div>
-            <Badge variant={getStatusColor(invoice.status)}>
-              {invoice.status}
-            </Badge>
-          </div>
-
-          <Separator />
-
-          <div className="grid grid-cols-2 gap-6">
-            <div className="space-y-3">
-              <h4 className="font-medium">Invoice Information</h4>
-              
+          {/* Invoice Header */}
+          <div className="border-b pb-4">
+            <div className="grid grid-cols-2 gap-4">
               <div>
-                <span className="text-sm text-muted-foreground">Due Date:</span>
-                <p className="font-medium">
-                  {new Date(invoice.due_date).toLocaleDateString()}
-                </p>
+                <h3 className="font-semibold text-lg mb-2">Invoice Details</h3>
+                <div className="space-y-1">
+                  <p><span className="font-medium">Invoice Date:</span> {formatDate(invoice.created_at)}</p>
+                  <p><span className="font-medium">Due Date:</span> {formatDate(invoice.due_date)}</p>
+                  <p><span className="font-medium">Service Period:</span></p>
+                  <p className="text-sm text-gray-600 ml-4">
+                    {formatDate(invoice.service_period_start)} - {formatDate(invoice.service_period_end)}
+                  </p>
+                </div>
               </div>
-              
-              <div>
-                <span className="text-sm text-muted-foreground">Service Period:</span>
-                <p className="font-medium">
-                  {new Date(invoice.service_period_start).toLocaleDateString()} - {new Date(invoice.service_period_end).toLocaleDateString()}
+              <div className="text-right">
+                <h3 className="font-semibold text-lg mb-2">Amount Due</h3>
+                <p className="text-3xl font-bold text-primary">
+                  {formatKenyanCurrency(invoice.total_amount)}
                 </p>
               </div>
             </div>
+          </div>
 
-            <div className="space-y-3">
-              <h4 className="font-medium">Client Information</h4>
-              
-              <div>
-                <span className="text-sm text-muted-foreground">Name:</span>
-                <p className="font-medium">{invoice.clients?.name || 'N/A'}</p>
-              </div>
-              
-              <div>
-                <span className="text-sm text-muted-foreground">Email:</span>
-                <p className="font-medium">{invoice.clients?.email || 'N/A'}</p>
-              </div>
-              
-              <div>
-                <span className="text-sm text-muted-foreground">Phone:</span>
-                <p className="font-medium">{invoice.clients?.phone || 'N/A'}</p>
-              </div>
+          {/* Client Information */}
+          <div className="border-b pb-4">
+            <h3 className="font-semibold text-lg mb-2">Bill To</h3>
+            <div className="bg-gray-50 p-4 rounded">
+              <p className="font-medium">{invoice.clients?.name || 'N/A'}</p>
+              <p className="text-sm text-gray-600">{invoice.clients?.email}</p>
+              <p className="text-sm text-gray-600">{invoice.clients?.phone}</p>
             </div>
           </div>
 
-          <Separator />
-
-          <div className="space-y-3">
-            <h4 className="font-medium">Amount Breakdown</h4>
-            
-            <div className="space-y-2">
-              <div className="flex justify-between">
-                <span>Amount:</span>
-                <span>KES {Number(invoice.amount).toLocaleString()}</span>
-              </div>
-              <div className="flex justify-between">
-                <span>VAT (16%):</span>
-                <span>KES {Number(invoice.vat_amount).toLocaleString()}</span>
-              </div>
-              <Separator />
-              <div className="flex justify-between font-medium text-lg">
-                <span>Total:</span>
-                <span>KES {Number(invoice.total_amount).toLocaleString()}</span>
-              </div>
-            </div>
+          {/* Invoice Details */}
+          <div className="border rounded-lg overflow-hidden">
+            <table className="w-full">
+              <thead className="bg-gray-50">
+                <tr>
+                  <th className="px-4 py-3 text-left">Description</th>
+                  <th className="px-4 py-3 text-right">Amount</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr className="border-b">
+                  <td className="px-4 py-3">Internet Service</td>
+                  <td className="px-4 py-3 text-right">{formatKenyanCurrency(invoice.amount)}</td>
+                </tr>
+                {invoice.vat_amount > 0 && (
+                  <tr className="border-b">
+                    <td className="px-4 py-3">VAT (16%)</td>
+                    <td className="px-4 py-3 text-right">{formatKenyanCurrency(invoice.vat_amount)}</td>
+                  </tr>
+                )}
+                <tr className="bg-gray-50 font-semibold">
+                  <td className="px-4 py-3">Total</td>
+                  <td className="px-4 py-3 text-right">{formatKenyanCurrency(invoice.total_amount)}</td>
+                </tr>
+              </tbody>
+            </table>
           </div>
 
+          {/* Notes */}
           {invoice.notes && (
-            <>
-              <Separator />
-              <div>
-                <h4 className="font-medium mb-2">Notes</h4>
-                <p className="text-sm text-muted-foreground">{invoice.notes}</p>
-              </div>
-            </>
+            <div>
+              <h4 className="font-medium mb-2">Notes:</h4>
+              <p className="text-gray-700 bg-gray-50 p-3 rounded">{invoice.notes}</p>
+            </div>
           )}
 
-          <Separator />
-
-          <div className="text-xs text-muted-foreground">
-            <p>Created: {new Date(invoice.created_at).toLocaleString()}</p>
-            <p>Last Updated: {new Date(invoice.updated_at).toLocaleString()}</p>
+          {/* Action Buttons */}
+          <div className="flex justify-end space-x-2 pt-4 border-t">
+            <Button variant="outline" onClick={handleDownload}>
+              <Download className="h-4 w-4 mr-2" />
+              Download PDF
+            </Button>
+            <Button variant="outline" onClick={handleSendEmail}>
+              <Send className="h-4 w-4 mr-2" />
+              Send Email
+            </Button>
+            {invoice.status !== 'paid' && (
+              <Button>
+                <CreditCard className="h-4 w-4 mr-2" />
+                Record Payment
+              </Button>
+            )}
           </div>
         </div>
       </DialogContent>

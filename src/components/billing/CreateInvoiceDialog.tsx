@@ -1,13 +1,14 @@
 
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useInvoices } from '@/hooks/useInvoices';
 import { useClients } from '@/hooks/useClients';
+import { useToast } from '@/hooks/use-toast';
 
 interface CreateInvoiceDialogProps {
   open: boolean;
@@ -15,89 +16,93 @@ interface CreateInvoiceDialogProps {
 }
 
 const CreateInvoiceDialog: React.FC<CreateInvoiceDialogProps> = ({ open, onClose }) => {
-  const { createInvoice } = useInvoices();
+  const { createInvoice, isCreating } = useInvoices();
   const { clients } = useClients();
-  
+  const { toast } = useToast();
+
   const [formData, setFormData] = useState({
     client_id: '',
-    invoice_number: '',
-    amount: 0,
-    vat_amount: 0,
-    total_amount: 0,
-    status: 'draft',
+    amount: '',
+    vat_amount: '',
+    total_amount: '',
     due_date: '',
     service_period_start: '',
     service_period_end: '',
-    notes: '',
+    notes: ''
   });
 
-  // Generate invoice number when dialog opens
-  useEffect(() => {
-    if (open && !formData.invoice_number) {
-      const invoiceNumber = `INV-${Date.now()}`;
-      setFormData(prev => ({ ...prev, invoice_number: invoiceNumber }));
-    }
-  }, [open, formData.invoice_number]);
-
-  // Calculate totals when amount changes
-  useEffect(() => {
-    const vat = formData.amount * 0.16; // 16% VAT
-    const total = formData.amount + vat;
-    setFormData(prev => ({
-      ...prev,
-      vat_amount: Number(vat.toFixed(2)),
-      total_amount: Number(total.toFixed(2))
-    }));
-  }, [formData.amount]);
+  const handleInputChange = (field: string, value: string) => {
+    setFormData(prev => {
+      const updated = { ...prev, [field]: value };
+      
+      // Auto-calculate VAT and total when amount changes
+      if (field === 'amount') {
+        const amount = parseFloat(value) || 0;
+        const vatAmount = amount * 0.16;
+        const totalAmount = amount + vatAmount;
+        updated.vat_amount = vatAmount.toFixed(2);
+        updated.total_amount = totalAmount.toFixed(2);
+      }
+      
+      return updated;
+    });
+  };
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     
+    if (!formData.client_id || !formData.amount || !formData.due_date) {
+      toast({
+        title: "Validation Error",
+        description: "Please fill in all required fields",
+        variant: "destructive",
+      });
+      return;
+    }
+
     createInvoice({
-      ...formData,
-      amount: Number(formData.amount),
-      vat_amount: formData.vat_amount,
-      total_amount: formData.total_amount,
+      client_id: formData.client_id,
+      amount: parseFloat(formData.amount),
+      vat_amount: parseFloat(formData.vat_amount),
+      total_amount: parseFloat(formData.total_amount),
+      due_date: formData.due_date,
+      service_period_start: formData.service_period_start,
+      service_period_end: formData.service_period_end,
+      notes: formData.notes,
+      status: 'pending'
     });
-    
-    // Reset form
+
+    // Reset form and close dialog
     setFormData({
       client_id: '',
-      invoice_number: '',
-      amount: 0,
-      vat_amount: 0,
-      total_amount: 0,
-      status: 'draft',
+      amount: '',
+      vat_amount: '',
+      total_amount: '',
       due_date: '',
       service_period_start: '',
       service_period_end: '',
-      notes: '',
+      notes: ''
     });
-    
     onClose();
-  };
-
-  const handleInputChange = (field: string, value: any) => {
-    setFormData(prev => ({ ...prev, [field]: value }));
   };
 
   return (
     <Dialog open={open} onOpenChange={onClose}>
-      <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
+      <DialogContent className="max-w-2xl">
         <DialogHeader>
-          <DialogTitle>Create Invoice</DialogTitle>
+          <DialogTitle>Create New Invoice</DialogTitle>
         </DialogHeader>
         
         <form onSubmit={handleSubmit} className="space-y-4">
           <div className="grid grid-cols-2 gap-4">
             <div>
-              <Label>Client *</Label>
-              <Select value={formData.client_id} onValueChange={(value) => handleInputChange('client_id', value)} required>
+              <Label htmlFor="client_id">Client *</Label>
+              <Select value={formData.client_id} onValueChange={(value) => handleInputChange('client_id', value)}>
                 <SelectTrigger>
                   <SelectValue placeholder="Select client" />
                 </SelectTrigger>
                 <SelectContent>
-                  {clients.map((client) => (
+                  {clients.map(client => (
                     <SelectItem key={client.id} value={client.id}>
                       {client.name}
                     </SelectItem>
@@ -107,30 +112,19 @@ const CreateInvoiceDialog: React.FC<CreateInvoiceDialogProps> = ({ open, onClose
             </div>
             
             <div>
-              <Label htmlFor="invoice_number">Invoice Number *</Label>
-              <Input
-                id="invoice_number"
-                value={formData.invoice_number}
-                onChange={(e) => handleInputChange('invoice_number', e.target.value)}
-                required
-              />
-            </div>
-          </div>
-
-          <div className="grid grid-cols-3 gap-4">
-            <div>
               <Label htmlFor="amount">Amount (KES) *</Label>
               <Input
                 id="amount"
                 type="number"
                 step="0.01"
-                min="0"
                 value={formData.amount}
-                onChange={(e) => handleInputChange('amount', parseFloat(e.target.value) || 0)}
-                required
+                onChange={(e) => handleInputChange('amount', e.target.value)}
+                placeholder="0.00"
               />
             </div>
-            
+          </div>
+
+          <div className="grid grid-cols-2 gap-4">
             <div>
               <Label htmlFor="vat_amount">VAT Amount (16%)</Label>
               <Input
@@ -156,23 +150,7 @@ const CreateInvoiceDialog: React.FC<CreateInvoiceDialogProps> = ({ open, onClose
             </div>
           </div>
 
-          <div className="grid grid-cols-2 gap-4">
-            <div>
-              <Label>Status</Label>
-              <Select value={formData.status} onValueChange={(value) => handleInputChange('status', value)}>
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="draft">Draft</SelectItem>
-                  <SelectItem value="sent">Sent</SelectItem>
-                  <SelectItem value="paid">Paid</SelectItem>
-                  <SelectItem value="overdue">Overdue</SelectItem>
-                  <SelectItem value="cancelled">Cancelled</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-            
+          <div className="grid grid-cols-3 gap-4">
             <div>
               <Label htmlFor="due_date">Due Date *</Label>
               <Input
@@ -180,14 +158,11 @@ const CreateInvoiceDialog: React.FC<CreateInvoiceDialogProps> = ({ open, onClose
                 type="date"
                 value={formData.due_date}
                 onChange={(e) => handleInputChange('due_date', e.target.value)}
-                required
               />
             </div>
-          </div>
-
-          <div className="grid grid-cols-2 gap-4">
+            
             <div>
-              <Label htmlFor="service_period_start">Service Period Start</Label>
+              <Label htmlFor="service_period_start">Service Start</Label>
               <Input
                 id="service_period_start"
                 type="date"
@@ -197,7 +172,7 @@ const CreateInvoiceDialog: React.FC<CreateInvoiceDialogProps> = ({ open, onClose
             </div>
             
             <div>
-              <Label htmlFor="service_period_end">Service Period End</Label>
+              <Label htmlFor="service_period_end">Service End</Label>
               <Input
                 id="service_period_end"
                 type="date"
@@ -213,7 +188,7 @@ const CreateInvoiceDialog: React.FC<CreateInvoiceDialogProps> = ({ open, onClose
               id="notes"
               value={formData.notes}
               onChange={(e) => handleInputChange('notes', e.target.value)}
-              rows={3}
+              placeholder="Additional notes or description..."
             />
           </div>
 
@@ -221,8 +196,8 @@ const CreateInvoiceDialog: React.FC<CreateInvoiceDialogProps> = ({ open, onClose
             <Button type="button" variant="outline" onClick={onClose}>
               Cancel
             </Button>
-            <Button type="submit">
-              Create Invoice
+            <Button type="submit" disabled={isCreating}>
+              {isCreating ? 'Creating...' : 'Create Invoice'}
             </Button>
           </div>
         </form>

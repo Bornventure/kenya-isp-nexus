@@ -2,270 +2,195 @@
 import React, { useState } from 'react';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Button } from '@/components/ui/button';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { 
-  Pagination, 
-  PaginationContent, 
-  PaginationItem, 
-  PaginationLink, 
-  PaginationNext, 
-  PaginationPrevious 
-} from '@/components/ui/pagination';
-import { Search, Filter, Eye, Download, Send, CheckCircle, AlertTriangle, Clock } from 'lucide-react';
+  Search, 
+  Eye, 
+  Download, 
+  Send, 
+  Edit, 
+  MoreHorizontal,
+  Trash2,
+  DollarSign
+} from 'lucide-react';
+import {
+  DropdownMenu,
+  DropdownMenuTrigger,
+  DropdownMenuContent,
+  DropdownMenuItem,
+} from '@/components/ui/dropdown-menu';
 import { formatKenyanCurrency } from '@/utils/kenyanValidation';
-
-interface Invoice {
-  id: string;
-  invoice_number: string;
-  clients?: {
-    name: string;
-    email?: string;
-  };
-  total_amount: number;
-  status: string;
-  due_date: string;
-  created_at: string;
-}
+import type { Invoice } from '@/hooks/useInvoices';
 
 interface InvoiceTableProps {
   invoices: Invoice[];
   onView: (invoice: Invoice) => void;
+  onEdit?: (invoice: Invoice) => void;
   onDownload: (invoice: Invoice) => void;
   onSendEmail: (invoice: Invoice) => void;
   onMarkPaid: (invoice: Invoice) => void;
+  onDelete?: (invoice: Invoice) => void;
 }
 
 const InvoiceTable: React.FC<InvoiceTableProps> = ({
   invoices,
   onView,
+  onEdit,
   onDownload,
   onSendEmail,
-  onMarkPaid
+  onMarkPaid,
+  onDelete
 }) => {
   const [searchTerm, setSearchTerm] = useState('');
-  const [statusFilter, setStatusFilter] = useState('all');
-  const [currentPage, setCurrentPage] = useState(1);
-  const itemsPerPage = 10;
 
-  // Filter invoices
-  const filteredInvoices = invoices.filter(invoice => {
-    const matchesSearch = invoice.invoice_number?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         invoice.clients?.name?.toLowerCase().includes(searchTerm.toLowerCase());
-    const matchesStatus = statusFilter === 'all' || invoice.status === statusFilter;
-    return matchesSearch && matchesStatus;
-  });
-
-  // Paginate invoices
-  const totalPages = Math.ceil(filteredInvoices.length / itemsPerPage);
-  const startIndex = (currentPage - 1) * itemsPerPage;
-  const paginatedInvoices = filteredInvoices.slice(startIndex, startIndex + itemsPerPage);
+  const filteredInvoices = invoices.filter(invoice => 
+    invoice.invoice_number.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    invoice.clients?.name?.toLowerCase().includes(searchTerm.toLowerCase())
+  );
 
   const getStatusBadge = (status: string) => {
-    const statusConfig = {
-      paid: { variant: 'default' as const, icon: CheckCircle, color: 'text-green-600' },
-      pending: { variant: 'secondary' as const, icon: Clock, color: 'text-yellow-600' },
-      overdue: { variant: 'destructive' as const, icon: AlertTriangle, color: 'text-red-600' },
-      draft: { variant: 'outline' as const, icon: Clock, color: 'text-gray-600' }
+    const colors = {
+      paid: 'bg-green-100 text-green-800',
+      pending: 'bg-yellow-100 text-yellow-800',
+      overdue: 'bg-red-100 text-red-800',
+      draft: 'bg-gray-100 text-gray-800'
     };
     
-    const config = statusConfig[status as keyof typeof statusConfig] || statusConfig.draft;
-    const Icon = config.icon;
-    
-    return (
-      <Badge variant={config.variant} className="flex items-center gap-1 text-xs">
-        <Icon className={`h-3 w-3 ${config.color}`} />
-        {status}
-      </Badge>
-    );
+    return colors[status as keyof typeof colors] || 'bg-gray-100 text-gray-800';
   };
 
   return (
-    <div className="w-full max-w-full">
-      <Card className="w-full">
-        <CardHeader className="pb-4">
-          <CardTitle>Invoices</CardTitle>
-          <div className="flex flex-col sm:flex-row gap-4">
-            <div className="relative flex-1">
-              <Search className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
-              <Input
-                placeholder="Search invoices or clients..."
-                value={searchTerm}
-                onChange={(e) => {
-                  setSearchTerm(e.target.value);
-                  setCurrentPage(1);
-                }}
-                className="pl-10"
-              />
-            </div>
-            <Select value={statusFilter} onValueChange={(value) => {
-              setStatusFilter(value);
-              setCurrentPage(1);
-            }}>
-              <SelectTrigger className="w-full sm:w-48">
-                <Filter className="h-4 w-4 mr-2" />
-                <SelectValue placeholder="Filter by status" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">All Status</SelectItem>
-                <SelectItem value="pending">Pending</SelectItem>
-                <SelectItem value="paid">Paid</SelectItem>
-                <SelectItem value="overdue">Overdue</SelectItem>
-                <SelectItem value="draft">Draft</SelectItem>
-              </SelectContent>
-            </Select>
+    <Card>
+      <CardHeader>
+        <div className="flex items-center justify-between">
+          <CardTitle>Invoices ({filteredInvoices.length})</CardTitle>
+        </div>
+        <div className="flex items-center gap-2">
+          <Search className="h-4 w-4 text-muted-foreground" />
+          <Input
+            placeholder="Search invoices..."
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            className="max-w-sm"
+          />
+        </div>
+      </CardHeader>
+      <CardContent>
+        {filteredInvoices.length === 0 ? (
+          <div className="text-center py-8 text-gray-500">
+            <p>No invoices found</p>
+            <p className="text-sm">Create your first invoice to get started</p>
           </div>
-        </CardHeader>
-        <CardContent className="p-0">
-          {paginatedInvoices.length === 0 ? (
-            <div className="text-center py-8 text-muted-foreground px-6">
-              <p>No invoices found matching your criteria</p>
-            </div>
-          ) : (
-            <>
-              <div className="w-full overflow-auto">
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead className="min-w-[120px]">Invoice #</TableHead>
-                      <TableHead className="min-w-[150px]">Client</TableHead>
-                      <TableHead className="min-w-[100px]">Amount</TableHead>
-                      <TableHead className="min-w-[80px]">Status</TableHead>
-                      <TableHead className="min-w-[100px]">Due Date</TableHead>
-                      <TableHead className="min-w-[100px]">Created</TableHead>
-                      <TableHead className="min-w-[120px] text-center">Actions</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {paginatedInvoices.map((invoice) => (
-                      <TableRow key={invoice.id}>
-                        <TableCell className="font-medium">
-                          <span className="truncate block max-w-[120px]">
-                            {invoice.invoice_number}
-                          </span>
-                        </TableCell>
-                        <TableCell>
-                          <span className="truncate block max-w-[150px]">
-                            {invoice.clients?.name || 'N/A'}
-                          </span>
-                        </TableCell>
-                        <TableCell className="font-medium">
-                          {formatKenyanCurrency(invoice.total_amount)}
-                        </TableCell>
-                        <TableCell>{getStatusBadge(invoice.status)}</TableCell>
-                        <TableCell className="text-sm">
-                          {new Date(invoice.due_date).toLocaleDateString()}
-                        </TableCell>
-                        <TableCell className="text-sm">
-                          {new Date(invoice.created_at).toLocaleDateString()}
-                        </TableCell>
-                        <TableCell>
-                          <div className="flex justify-center space-x-1">
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              onClick={() => onView(invoice)}
-                              title="View Invoice"
-                              className="h-8 w-8 p-0"
-                            >
-                              <Eye className="h-4 w-4" />
-                            </Button>
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              onClick={() => onDownload(invoice)}
-                              title="Download PDF"
-                              className="h-8 w-8 p-0"
-                            >
-                              <Download className="h-4 w-4" />
-                            </Button>
-                            {invoice.status === 'pending' && (
-                              <>
-                                <Button
-                                  variant="ghost"
-                                  size="sm"
-                                  onClick={() => onSendEmail(invoice)}
-                                  title="Send Email"
-                                  className="h-8 w-8 p-0"
-                                >
-                                  <Send className="h-4 w-4" />
-                                </Button>
-                                <Button
-                                  variant="ghost"
-                                  size="sm"
-                                  onClick={() => onMarkPaid(invoice)}
-                                  title="Mark as Paid"
-                                  className="h-8 w-8 p-0"
-                                >
-                                  <CheckCircle className="h-4 w-4" />
-                                </Button>
-                              </>
-                            )}
-                          </div>
-                        </TableCell>
-                      </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
-              </div>
-
-              {/* Pagination */}
-              {totalPages > 1 && (
-                <div className="flex flex-col sm:flex-row items-center justify-between gap-4 p-4 border-t">
-                  <div className="text-sm text-muted-foreground">
-                    Showing {startIndex + 1} to {Math.min(startIndex + itemsPerPage, filteredInvoices.length)} of {filteredInvoices.length} invoices
-                  </div>
-                  <Pagination className="mx-0">
-                    <PaginationContent>
-                      <PaginationItem>
-                        <PaginationPrevious 
-                          onClick={() => setCurrentPage(Math.max(1, currentPage - 1))}
-                          className={currentPage === 1 ? 'pointer-events-none opacity-50' : 'cursor-pointer'}
-                        />
-                      </PaginationItem>
-                      
-                      {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
-                        let page;
-                        if (totalPages <= 5) {
-                          page = i + 1;
-                        } else if (currentPage <= 3) {
-                          page = i + 1;
-                        } else if (currentPage >= totalPages - 2) {
-                          page = totalPages - 4 + i;
-                        } else {
-                          page = currentPage - 2 + i;
-                        }
+        ) : (
+          <div className="overflow-x-auto">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Invoice #</TableHead>
+                  <TableHead>Client</TableHead>
+                  <TableHead>Amount</TableHead>
+                  <TableHead>Due Date</TableHead>
+                  <TableHead>Status</TableHead>
+                  <TableHead className="text-right">Actions</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {filteredInvoices.map((invoice) => (
+                  <TableRow key={invoice.id}>
+                    <TableCell className="font-medium font-mono">
+                      {invoice.invoice_number}
+                    </TableCell>
+                    <TableCell>
+                      <div>
+                        <div className="font-medium">{invoice.clients?.name || 'N/A'}</div>
+                        <div className="text-sm text-gray-500">{invoice.clients?.email}</div>
+                      </div>
+                    </TableCell>
+                    <TableCell>
+                      <div className="font-medium">{formatKenyanCurrency(invoice.total_amount)}</div>
+                      <div className="text-sm text-gray-500">
+                        Base: {formatKenyanCurrency(invoice.amount)}
+                      </div>
+                    </TableCell>
+                    <TableCell>
+                      <div className={invoice.status === 'overdue' ? 'text-red-600 font-medium' : ''}>
+                        {new Date(invoice.due_date).toLocaleDateString()}
+                      </div>
+                    </TableCell>
+                    <TableCell>
+                      <Badge className={getStatusBadge(invoice.status)}>
+                        {invoice.status.toUpperCase()}
+                      </Badge>
+                    </TableCell>
+                    <TableCell className="text-right">
+                      <div className="flex items-center justify-end gap-1">
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => onView(invoice)}
+                          title="View Details"
+                        >
+                          <Eye className="h-4 w-4" />
+                        </Button>
                         
-                        return (
-                          <PaginationItem key={page}>
-                            <PaginationLink
-                              onClick={() => setCurrentPage(page)}
-                              isActive={currentPage === page}
-                              className="cursor-pointer"
-                            >
-                              {page}
-                            </PaginationLink>
-                          </PaginationItem>
-                        );
-                      })}
-                      
-                      <PaginationItem>
-                        <PaginationNext 
-                          onClick={() => setCurrentPage(Math.min(totalPages, currentPage + 1))}
-                          className={currentPage === totalPages ? 'pointer-events-none opacity-50' : 'cursor-pointer'}
-                        />
-                      </PaginationItem>
-                    </PaginationContent>
-                  </Pagination>
-                </div>
-              )}
-            </>
-          )}
-        </CardContent>
-      </Card>
-    </div>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => onDownload(invoice)}
+                          title="Download PDF"
+                        >
+                          <Download className="h-4 w-4" />
+                        </Button>
+
+                        <DropdownMenu>
+                          <DropdownMenuTrigger asChild>
+                            <Button variant="ghost" size="sm">
+                              <MoreHorizontal className="h-4 w-4" />
+                            </Button>
+                          </DropdownMenuTrigger>
+                          <DropdownMenuContent align="end">
+                            {onEdit && invoice.status === 'draft' && (
+                              <DropdownMenuItem onClick={() => onEdit(invoice)}>
+                                <Edit className="h-4 w-4 mr-2" />
+                                Edit
+                              </DropdownMenuItem>
+                            )}
+                            
+                            <DropdownMenuItem onClick={() => onSendEmail(invoice)}>
+                              <Send className="h-4 w-4 mr-2" />
+                              Send Email
+                            </DropdownMenuItem>
+                            
+                            {invoice.status !== 'paid' && (
+                              <DropdownMenuItem onClick={() => onMarkPaid(invoice)}>
+                                <DollarSign className="h-4 w-4 mr-2" />
+                                Mark as Paid
+                              </DropdownMenuItem>
+                            )}
+                            
+                            {onDelete && invoice.status === 'draft' && (
+                              <DropdownMenuItem 
+                                onClick={() => onDelete(invoice)}
+                                className="text-red-600"
+                              >
+                                <Trash2 className="h-4 w-4 mr-2" />
+                                Delete
+                              </DropdownMenuItem>
+                            )}
+                          </DropdownMenuContent>
+                        </DropdownMenu>
+                      </div>
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </div>
+        )}
+      </CardContent>
+    </Card>
   );
 };
 

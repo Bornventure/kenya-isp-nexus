@@ -3,24 +3,26 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/hooks/use-toast';
-import { parseAmount } from '@/utils/currencyFormat';
 
 export interface Payment {
   id: string;
-  client_id: string | null;
-  invoice_id: string | null;
+  client_id?: string;
   amount: number;
-  payment_method: 'mpesa' | 'bank' | 'cash';
+  payment_method: string;
   payment_date: string;
-  reference_number: string | null;
-  mpesa_receipt_number: string | null;
-  notes: string | null;
+  reference_number?: string;
+  mpesa_receipt_number?: string;
+  status: string;
+  invoice_id?: string;
+  notes?: string;
   isp_company_id: string;
   created_at: string;
   clients?: {
+    id: string;
     name: string;
-    email: string;
-  } | null;
+    email?: string;
+    phone: string;
+  };
 }
 
 export const usePayments = () => {
@@ -35,84 +37,79 @@ export const usePayments = () => {
 
       console.log('Fetching payments for company:', profile.isp_company_id);
 
-      const { data, error } = await supabase
-        .from('payments')
-        .select(`
-          *,
-          clients (
-            name,
-            email
-          )
-        `)
-        .eq('isp_company_id', profile.isp_company_id)
-        .order('payment_date', { ascending: false });
+      // Try multiple payment tables
+      const tables = ['mpesa_payments', 'family_bank_payments'];
+      let allPayments: Payment[] = [];
 
-      if (error) {
-        console.error('Error fetching payments:', error);
-        throw error;
+      for (const table of tables) {
+        try {
+          const { data, error } = await supabase
+            .from(table)
+            .select(`
+              *,
+              clients (
+                id,
+                name,
+                email,
+                phone
+              )
+            `)
+            .eq('isp_company_id', profile.isp_company_id)
+            .order('created_at', { ascending: false });
+
+          if (!error && data) {
+            const transformedData = data.map(payment => ({
+              ...payment,
+              payment_date: payment.created_at,
+              reference_number: payment.trans_id || payment.reference_number || payment.id,
+              payment_method: table === 'mpesa_payments' ? 'M-Pesa' : 'Family Bank'
+            }));
+            allPayments = [...allPayments, ...transformedData];
+          }
+        } catch (err) {
+          console.warn(`Error fetching from ${table}:`, err);
+        }
       }
 
-      console.log(`Fetched ${data?.length || 0} payments for company ${profile.isp_company_id}`);
-
-      // Fix amount parsing issues
-      return (data as Payment[]).map(payment => ({
-        ...payment,
-        amount: parseAmount(payment.amount)
-      }));
+      console.log(`Fetched ${allPayments.length} payments for company ${profile.isp_company_id}`);
+      return allPayments as Payment[];
     },
     enabled: !!profile?.isp_company_id,
-    refetchInterval: 30000, // Refresh every 30 seconds for real-time updates
   });
 
-  const createPaymentMutation = useMutation({
+  const recordPayment = useMutation({
     mutationFn: async (paymentData: Omit<Payment, 'id' | 'created_at' | 'isp_company_id' | 'clients'>) => {
       if (!profile?.isp_company_id) {
         throw new Error('No ISP company associated with user');
       }
 
-      console.log('Processing manual payment:', paymentData);
+      const { data, error } = await supabase
+        .from('mpesa_payments')
+        .insert({
+          ...paymentData,
+          isp_company_id: profile.isp_company_id,
+          trans_id: paymentData.reference_number,
+          trans_amount: paymentData.amount,
+          msisdn: '254700000000', // Default, should be updated with actual client phone
+        })
+        .select()
+        .single();
 
-      const { data: processResult, error: processError } = await supabase.functions.invoke('process-payment', {
-        body: {
-          checkoutRequestId: paymentData.reference_number || `MANUAL-${Date.now()}`,
-          clientId: paymentData.client_id,
-          amount: parseAmount(paymentData.amount),
-          paymentMethod: paymentData.payment_method,
-          mpesaReceiptNumber: paymentData.mpesa_receipt_number
-        }
-      });
-
-      if (processError) {
-        console.error('Error processing payment:', processError);
-        throw new Error(`Payment processing failed: ${processError.message}`);
-      }
-
-      console.log('Payment processed successfully:', processResult);
-      return processResult;
+      if (error) throw error;
+      return data;
     },
     onSuccess: () => {
-      // Invalidate all related queries
       queryClient.invalidateQueries({ queryKey: ['payments'] });
-      queryClient.invalidateQueries({ queryKey: ['clients'] });
-      queryClient.invalidateQueries({ queryKey: ['invoices'] });
-      queryClient.invalidateQueries({ queryKey: ['wallet-transactions'] });
-      queryClient.invalidateQueries({ queryKey: ['dashboard-stats'] });
-      queryClient.invalidateQueries({ queryKey: ['revenue-data'] });
-      queryClient.invalidateQueries({ queryKey: ['system-activity'] });
-      
-      // Force refetch
-      refetch();
-      
       toast({
-        title: "Payment Processed",
-        description: "Payment has been processed successfully with automatic subscription renewal and notifications sent.",
+        title: "Payment Recorded",
+        description: "Payment has been recorded successfully.",
       });
     },
-    onError: (error) => {
-      console.error('Error processing payment:', error);
+    onError: (error: any) => {
+      console.error('Error recording payment:', error);
       toast({
         title: "Error",
-        description: `Failed to process payment: ${error.message}`,
+        description: error.message || "Failed to record payment. Please try again.",
         variant: "destructive",
       });
     },
@@ -122,8 +119,8 @@ export const usePayments = () => {
     payments,
     isLoading,
     error,
-    createPayment: createPaymentMutation.mutate,
-    isCreating: createPaymentMutation.isPending,
     refetch,
+    recordPayment: recordPayment.mutate,
+    isRecording: recordPayment.isPending,
   };
 };
