@@ -8,6 +8,22 @@ import { Client } from '@/types/client';
 // Export DatabaseClient as an alias for backward compatibility
 export type DatabaseClient = Client;
 
+// Function to transform database results to Client objects with camelCase properties
+const transformDatabaseClientToClient = (dbClient: any): Client => {
+  return {
+    ...dbClient,
+    // Add camelCase properties for backwards compatibility
+    clientType: dbClient.client_type,
+    connectionType: dbClient.connection_type,
+    monthlyRate: dbClient.monthly_rate,
+    idNumber: dbClient.id_number,
+    kraPinNumber: dbClient.kra_pin_number,
+    mpesaNumber: dbClient.mpesa_number,
+    installationDate: dbClient.installation_date,
+    servicePackage: dbClient.service_package_id,
+  };
+};
+
 export const useClients = () => {
   const { profile } = useAuth();
   const { toast } = useToast();
@@ -29,7 +45,7 @@ export const useClients = () => {
         throw error;
       }
 
-      return (data || []) as Client[];
+      return (data || []).map(transformDatabaseClientToClient);
     },
     enabled: !!profile?.isp_company_id,
   });
@@ -75,7 +91,7 @@ export const useClients = () => {
         .single();
 
       if (error) throw error;
-      return data;
+      return transformDatabaseClientToClient(data);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['clients'] });
@@ -141,7 +157,7 @@ export const useClients = () => {
         .single();
 
       if (error) throw error;
-      return data;
+      return transformDatabaseClientToClient(data);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['clients'] });

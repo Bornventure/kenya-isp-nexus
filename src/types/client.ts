@@ -41,6 +41,7 @@ export interface Client {
   installation_completed_at?: string;
   service_activated_at?: string;
   installation_date?: string;
+  notes?: string;
   
   // Legacy camelCase properties for backwards compatibility
   clientType: ClientType;
