@@ -98,112 +98,121 @@ const NotificationTemplatesList: React.FC<NotificationTemplatesListProps> = ({ o
             </CardContent>
           </Card>
         ) : (
-          templates?.map((template) => (
-            <Card key={template.id} className="hover:shadow-md transition-shadow">
-              <CardHeader>
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-3">
-                    <div>
-                      <CardTitle className="text-lg">{template.name}</CardTitle>
-                      <CardDescription className="flex items-center gap-2 mt-1">
-                        <Badge 
-                          variant="secondary" 
-                          className={categoryColors[template.category as keyof typeof categoryColors] || 'bg-gray-100 text-gray-800'}
-                        >
-                          {template.category}
-                        </Badge>
-                        <span>•</span>
-                        <span>{template.trigger_event.replace(/_/g, ' ')}</span>
-                      </CardDescription>
-                    </div>
-                  </div>
-                  
-                  <div className="flex items-center gap-2">
-                    <Badge variant={template.is_active ? "default" : "secondary"}>
-                      {template.is_active ? "Active" : "Inactive"}
-                    </Badge>
-                    
-                    <DropdownMenu>
-                      <DropdownMenuTrigger asChild>
-                        <Button variant="ghost" size="sm">
-                          <MoreHorizontal className="h-4 w-4" />
-                        </Button>
-                      </DropdownMenuTrigger>
-                      <DropdownMenuContent align="end">
-                        <DropdownMenuItem onClick={() => handlePreview(template)}>
-                          <Eye className="h-4 w-4 mr-2" />
-                          Preview
-                        </DropdownMenuItem>
-                        <DropdownMenuItem onClick={() => onEdit(template)}>
-                          <Edit className="h-4 w-4 mr-2" />
-                          Edit
-                        </DropdownMenuItem>
-                        <DropdownMenuItem onClick={() => handleDuplicate(template)}>
-                          <Copy className="h-4 w-4 mr-2" />
-                          Duplicate
-                        </DropdownMenuItem>
-                        <DropdownMenuItem 
-                          onClick={() => handleDelete(template.id)}
-                          className="text-red-600"
-                          disabled={isDeletingTemplate}
-                        >
-                          <Trash2 className="h-4 w-4 mr-2" />
-                          Delete
-                        </DropdownMenuItem>
-                      </DropdownMenuContent>
-                    </DropdownMenu>
-                  </div>
-                </div>
-              </CardHeader>
-              
-              <CardContent>
-                <div className="space-y-3">
-                  <div className="flex items-center gap-4">
-                    <div className="flex items-center gap-2">
-                      <span className="text-sm font-medium">Channels:</span>
-                      {template.channels?.includes('email') && (
-                        <Badge variant="outline" className="gap-1">
-                          <Mail className="h-3 w-3" />
-                          Email
-                        </Badge>
-                      )}
-                      {template.channels?.includes('sms') && (
-                        <Badge variant="outline" className="gap-1">
-                          <MessageSquare className="h-3 w-3" />
-                          SMS
-                        </Badge>
-                      )}
-                    </div>
-                  </div>
-                  
-                  {template.variables && template.variables.length > 0 && (
-                    <div>
-                      <span className="text-sm font-medium">Variables:</span>
-                      <div className="flex flex-wrap gap-1 mt-1">
-                        {template.variables.slice(0, 5).map((variable: string) => (
-                          <Badge key={variable} variant="outline" className="text-xs">
-                            {`{{${variable}}}`}
+          templates?.map((template) => {
+            // Safely handle variables as it might be stored as JSON
+            const variables = Array.isArray(template.variables) 
+              ? template.variables 
+              : (typeof template.variables === 'string' 
+                  ? JSON.parse(template.variables || '[]') 
+                  : []);
+            
+            return (
+              <Card key={template.id} className="hover:shadow-md transition-shadow">
+                <CardHeader>
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-3">
+                      <div>
+                        <CardTitle className="text-lg">{template.name}</CardTitle>
+                        <CardDescription className="flex items-center gap-2 mt-1">
+                          <Badge 
+                            variant="secondary" 
+                            className={categoryColors[template.category as keyof typeof categoryColors] || 'bg-gray-100 text-gray-800'}
+                          >
+                            {template.category}
                           </Badge>
-                        ))}
-                        {template.variables.length > 5 && (
-                          <Badge variant="outline" className="text-xs">
-                            +{template.variables.length - 5} more
+                          <span>•</span>
+                          <span>{template.trigger_event?.replace(/_/g, ' ') || 'No trigger'}</span>
+                        </CardDescription>
+                      </div>
+                    </div>
+                    
+                    <div className="flex items-center gap-2">
+                      <Badge variant={template.is_active ? "default" : "secondary"}>
+                        {template.is_active ? "Active" : "Inactive"}
+                      </Badge>
+                      
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <Button variant="ghost" size="sm">
+                            <MoreHorizontal className="h-4 w-4" />
+                          </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end">
+                          <DropdownMenuItem onClick={() => handlePreview(template)}>
+                            <Eye className="h-4 w-4 mr-2" />
+                            Preview
+                          </DropdownMenuItem>
+                          <DropdownMenuItem onClick={() => onEdit(template)}>
+                            <Edit className="h-4 w-4 mr-2" />
+                            Edit
+                          </DropdownMenuItem>
+                          <DropdownMenuItem onClick={() => handleDuplicate(template)}>
+                            <Copy className="h-4 w-4 mr-2" />
+                            Duplicate
+                          </DropdownMenuItem>
+                          <DropdownMenuItem 
+                            onClick={() => handleDelete(template.id)}
+                            className="text-red-600"
+                            disabled={isDeletingTemplate}
+                          >
+                            <Trash2 className="h-4 w-4 mr-2" />
+                            Delete
+                          </DropdownMenuItem>
+                        </DropdownMenuContent>
+                      </DropdownMenu>
+                    </div>
+                  </div>
+                </CardHeader>
+                
+                <CardContent>
+                  <div className="space-y-3">
+                    <div className="flex items-center gap-4">
+                      <div className="flex items-center gap-2">
+                        <span className="text-sm font-medium">Channels:</span>
+                        {template.channels?.includes('email') && (
+                          <Badge variant="outline" className="gap-1">
+                            <Mail className="h-3 w-3" />
+                            Email
+                          </Badge>
+                        )}
+                        {template.channels?.includes('sms') && (
+                          <Badge variant="outline" className="gap-1">
+                            <MessageSquare className="h-3 w-3" />
+                            SMS
                           </Badge>
                         )}
                       </div>
                     </div>
-                  )}
-                  
-                  <div className="text-xs text-muted-foreground">
-                    Created: {new Date(template.created_at).toLocaleDateString()}
-                    {template.updated_at !== template.created_at && (
-                      <span> • Updated: {new Date(template.updated_at).toLocaleDateString()}</span>
+                    
+                    {variables && variables.length > 0 && (
+                      <div>
+                        <span className="text-sm font-medium">Variables:</span>
+                        <div className="flex flex-wrap gap-1 mt-1">
+                          {variables.slice(0, 5).map((variable: string) => (
+                            <Badge key={variable} variant="outline" className="text-xs">
+                              {`{{${variable}}}`}
+                            </Badge>
+                          ))}
+                          {variables.length > 5 && (
+                            <Badge variant="outline" className="text-xs">
+                              +{variables.length - 5} more
+                            </Badge>
+                          )}
+                        </div>
+                      </div>
                     )}
+                    
+                    <div className="text-xs text-muted-foreground">
+                      Created: {new Date(template.created_at).toLocaleDateString()}
+                      {template.updated_at !== template.created_at && (
+                        <span> • Updated: {new Date(template.updated_at).toLocaleDateString()}</span>
+                      )}
+                    </div>
                   </div>
-                </div>
-              </CardContent>
-            </Card>
-          ))
+                </CardContent>
+              </Card>
+            );
+          })
         )}
       </div>
     </div>

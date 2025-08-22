@@ -233,10 +233,10 @@ const AutoNotificationSystem = () => {
                 <div key={log.id} className="flex items-center justify-between p-3 border rounded-lg">
                   <div className="flex items-center gap-3">
                     <Badge variant="outline">
-                      {log.notification_templates?.name || 'Unknown Template'}
+                      {log.template_id || 'Unknown Template'}
                     </Badge>
                     <span className="text-sm text-muted-foreground">
-                      to {log.clients?.name || 'Unknown Client'}
+                      Notification sent
                     </span>
                   </div>
                   <div className="flex items-center gap-2">
@@ -249,6 +249,11 @@ const AutoNotificationSystem = () => {
                   </div>
                 </div>
               ))}
+              {(!notificationLogs || notificationLogs.length === 0) && (
+                <div className="text-center py-4 text-muted-foreground">
+                  No recent notifications found
+                </div>
+              )}
             </div>
           )}
         </CardContent>
