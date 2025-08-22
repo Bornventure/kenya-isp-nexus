@@ -48,33 +48,33 @@ const AppContent = () => {
   }
 
   return (
-    <Layout>
-      <Routes>
-        <Route path="/login" element={<Navigate to="/" replace />} />
-        <Route path="/" element={<Dashboard />} />
-        <Route path="/clients" element={<Clients />} />
-        <Route path="/hotspots" element={<HotspotsPage />} />
-        <Route path="/service-packages" element={<ServicePackages />} />
-        <Route path="/equipment" element={<Equipment />} />
-        <Route path="/base-stations" element={<BaseStations />} />
-        <Route path="/network-map" element={<NetworkMap />} />
-        <Route path="/inventory" element={<Inventory />} />
-        <Route path="/billing" element={<Billing />} />
-        <Route path="/invoices" element={<Invoices />} />
-        <Route path="/reports" element={<Reports />} />
-        <Route path="/analytics" element={<Analytics />} />
-        <Route path="/messages" element={<Messages />} />
-        <Route path="/support" element={<Support />} />
-        <Route path="/settings" element={<Settings />} />
+    <Routes>
+      <Route path="/login" element={<Navigate to="/" replace />} />
+      <Route path="/" element={<Layout />}>
+        <Route index element={<Dashboard />} />
+        <Route path="clients" element={<Clients />} />
+        <Route path="hotspots" element={<HotspotsPage />} />
+        <Route path="service-packages" element={<ServicePackages />} />
+        <Route path="equipment" element={<Equipment />} />
+        <Route path="base-stations" element={<BaseStations />} />
+        <Route path="network-map" element={<NetworkMap />} />
+        <Route path="inventory" element={<Inventory />} />
+        <Route path="billing" element={<Billing />} />
+        <Route path="invoices" element={<Invoices />} />
+        <Route path="reports" element={<Reports />} />
+        <Route path="analytics" element={<Analytics />} />
+        <Route path="messages" element={<Messages />} />
+        <Route path="support" element={<Support />} />
+        <Route path="settings" element={<Settings />} />
         
         {/* Admin routes */}
-        <Route path="/admin/users" element={<UserManagement />} />
-        <Route path="/admin/companies" element={<CompanyManagement />} />
-        <Route path="/admin/system" element={<SystemSettings />} />
-        
-        <Route path="*" element={<Navigate to="/" replace />} />
-      </Routes>
-    </Layout>
+        <Route path="admin/users" element={<UserManagement />} />
+        <Route path="admin/companies" element={<CompanyManagement />} />
+        <Route path="admin/system" element={<SystemSettings />} />
+      </Route>
+      
+      <Route path="*" element={<Navigate to="/" replace />} />
+    </Routes>
   );
 };
 

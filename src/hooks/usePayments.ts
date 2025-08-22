@@ -37,9 +37,9 @@ export const usePayments = () => {
 
       console.log('Fetching payments for company:', profile.isp_company_id);
 
-      // Fetch from mpesa_payments table since it exists in the schema
-      const { data: mpesaData, error: mpesaError } = await supabase
-        .from('mpesa_payments')
+      // Fetch from family_bank_payments table which exists in the schema
+      const { data: familyBankData, error: familyBankError } = await supabase
+        .from('family_bank_payments')
         .select(`
           *,
           clients (
@@ -52,23 +52,23 @@ export const usePayments = () => {
         .eq('isp_company_id', profile.isp_company_id)
         .order('created_at', { ascending: false });
 
-      if (mpesaError) {
-        console.error('Error fetching M-Pesa payments:', mpesaError);
-        throw mpesaError;
+      if (familyBankError) {
+        console.error('Error fetching Family Bank payments:', familyBankError);
+        throw familyBankError;
       }
 
-      // Transform M-Pesa payments to Payment interface
-      const transformedPayments: Payment[] = (mpesaData || []).map((payment: any) => ({
+      // Transform Family Bank payments to Payment interface
+      const transformedPayments: Payment[] = (familyBankData || []).map((payment: any) => ({
         id: payment.id,
         client_id: payment.client_id,
-        amount: payment.trans_amount || payment.amount || 0,
-        payment_method: 'M-Pesa',
+        amount: payment.trans_amount || 0,
+        payment_method: 'Family Bank',
         payment_date: payment.created_at,
-        reference_number: payment.trans_id || payment.reference_number,
-        mpesa_receipt_number: payment.receipt_number,
+        reference_number: payment.trans_id,
+        mpesa_receipt_number: payment.third_party_trans_id,
         status: payment.status || 'completed',
-        invoice_id: payment.invoice_id,
-        notes: payment.notes,
+        invoice_id: payment.invoice_number,
+        notes: `Transaction: ${payment.transaction_type || 'Payment'}`,
         isp_company_id: payment.isp_company_id,
         created_at: payment.created_at,
         clients: payment.clients
@@ -86,18 +86,21 @@ export const usePayments = () => {
         throw new Error('No ISP company associated with user');
       }
 
-      // Insert into mpesa_payments table since it exists
+      // Insert into family_bank_payments table
       const { data, error } = await supabase
-        .from('mpesa_payments')
+        .from('family_bank_payments')
         .insert({
           client_id: paymentData.client_id,
           trans_amount: paymentData.amount,
           trans_id: paymentData.reference_number || `PAY-${Date.now()}`,
-          receipt_number: paymentData.mpesa_receipt_number,
-          status: 'completed',
+          third_party_trans_id: paymentData.mpesa_receipt_number,
+          status: 'verified',
           isp_company_id: profile.isp_company_id,
-          notes: paymentData.notes,
+          transaction_type: 'payment',
           msisdn: '254700000000', // Default phone, should be updated with actual client phone
+          invoice_number: paymentData.invoice_id || null,
+          first_name: 'Manual',
+          last_name: 'Payment',
         })
         .select()
         .single();
