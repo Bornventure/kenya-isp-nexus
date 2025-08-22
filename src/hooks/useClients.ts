@@ -35,18 +35,41 @@ export const useClients = () => {
   });
 
   const createClient = useMutation({
-    mutationFn: async (clientData: Omit<Client, 'id' | 'created_at' | 'updated_at' | 'isp_company_id'>) => {
+    mutationFn: async (clientData: Partial<Client>) => {
       if (!profile?.isp_company_id) {
         throw new Error('No ISP company associated with user');
       }
 
+      // Extract only database-compatible fields
+      const dbClientData = {
+        name: clientData.name,
+        email: clientData.email,
+        phone: clientData.phone,
+        address: clientData.address,
+        county: clientData.county,
+        sub_county: clientData.sub_county,
+        id_number: clientData.id_number,
+        kra_pin_number: clientData.kra_pin_number,
+        mpesa_number: clientData.mpesa_number,
+        client_type: clientData.client_type,
+        connection_type: clientData.connection_type,
+        monthly_rate: clientData.monthly_rate,
+        service_package_id: clientData.service_package_id,
+        latitude: clientData.latitude,
+        longitude: clientData.longitude,
+        status: clientData.status || 'pending',
+        balance: clientData.balance || 0,
+        wallet_balance: clientData.wallet_balance || 0,
+        is_active: clientData.is_active || false,
+        installation_date: clientData.installation_date,
+        installation_status: clientData.installation_status || 'pending',
+        submitted_by: profile.id,
+        isp_company_id: profile.isp_company_id,
+      };
+
       const { data, error } = await supabase
         .from('clients')
-        .insert({
-          ...clientData,
-          isp_company_id: profile.isp_company_id,
-          submitted_by: profile.id,
-        })
+        .insert(dbClientData)
         .select()
         .single();
 
@@ -72,9 +95,43 @@ export const useClients = () => {
 
   const updateClient = useMutation({
     mutationFn: async ({ id, updates }: { id: string; updates: Partial<Client> }) => {
+      // Extract only database-compatible fields for updates
+      const dbUpdates = {
+        name: updates.name,
+        email: updates.email,
+        phone: updates.phone,
+        address: updates.address,
+        county: updates.county,
+        sub_county: updates.sub_county,
+        id_number: updates.id_number,
+        kra_pin_number: updates.kra_pin_number,
+        mpesa_number: updates.mpesa_number,
+        client_type: updates.client_type,
+        connection_type: updates.connection_type,
+        monthly_rate: updates.monthly_rate,
+        service_package_id: updates.service_package_id,
+        latitude: updates.latitude,
+        longitude: updates.longitude,
+        status: updates.status,
+        balance: updates.balance,
+        wallet_balance: updates.wallet_balance,
+        is_active: updates.is_active,
+        installation_date: updates.installation_date,
+        installation_status: updates.installation_status,
+        notes: updates.notes,
+        updated_at: new Date().toISOString(),
+      };
+
+      // Remove undefined values
+      Object.keys(dbUpdates).forEach(key => {
+        if (dbUpdates[key as keyof typeof dbUpdates] === undefined) {
+          delete dbUpdates[key as keyof typeof dbUpdates];
+        }
+      });
+
       const { data, error } = await supabase
         .from('clients')
-        .update({ ...updates, updated_at: new Date().toISOString() })
+        .update(dbUpdates)
         .eq('id', id)
         .select()
         .single();

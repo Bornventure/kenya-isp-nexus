@@ -15,12 +15,14 @@ interface EnhancedApprovalDialogProps {
   client: Client | null;
   open: boolean;
   onClose: () => void;
+  onOpenChange: (open: boolean) => void;
 }
 
 const EnhancedApprovalDialog: React.FC<EnhancedApprovalDialogProps> = ({
   client,
   open,
-  onClose
+  onClose,
+  onOpenChange
 }) => {
   const { profile } = useAuth();
   const { processApproval, processRejection } = useWorkflowOrchestration();
@@ -67,7 +69,7 @@ const EnhancedApprovalDialog: React.FC<EnhancedApprovalDialogProps> = ({
   if (!client) return null;
 
   return (
-    <Dialog open={open} onOpenChange={onClose}>
+    <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-2xl">
         <DialogHeader>
           <DialogTitle>Review Client Application</DialogTitle>

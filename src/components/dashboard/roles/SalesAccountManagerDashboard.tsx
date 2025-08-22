@@ -7,7 +7,7 @@ import { Button } from '@/components/ui/button';
 import { useClients } from '@/hooks/useClients';
 import { useAuth } from '@/contexts/AuthContext';
 import MetricCard from '@/components/dashboard/MetricCard';
-import ClientRegistrationForm from '@/components/forms/ClientRegistrationForm';
+import ClientRegistrationForm from '@/components/clients/ClientRegistrationForm';
 import RejectedApplicationsTab from '@/components/dashboard/RejectedApplicationsTab';
 import BulkMessagingInterface from '@/components/communication/BulkMessagingInterface';
 import { Users, UserPlus, AlertTriangle, MessageSquare, Eye } from 'lucide-react';

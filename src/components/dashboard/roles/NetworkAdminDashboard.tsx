@@ -23,7 +23,7 @@ const NetworkAdminDashboard = () => {
   const pendingClients = clients.filter(client => client.status === 'pending');
   const approvedClients = clients.filter(client => client.status === 'approved');
   const activeClients = clients.filter(client => client.status === 'active');
-  const rejectedClients = clients.filter(client => client.status === 'rejected');
+  const rejectedClients = clients.filter(client => client.rejection_reason);
 
   const handleApprove = (clientId: string) => {
     const client = clients.find(c => c.id === clientId);
@@ -186,6 +186,7 @@ const NetworkAdminDashboard = () => {
       <EnhancedApprovalDialog
         open={showApprovalDialog}
         onOpenChange={setShowApprovalDialog}
+        onClose={() => setShowApprovalDialog(false)}
         client={selectedClient}
       />
     </div>

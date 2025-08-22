@@ -4,7 +4,7 @@ import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/contexts/AuthContext';
-import { Client, ClientType, ConnectionType, ClientStatus } from '@/types/client';
+import { Client, ClientType, ConnectionType } from '@/types/client';
 
 export interface FormData {
   name: string;
@@ -111,7 +111,7 @@ export const useClientRegistrationForm = ({ onClose, onSave }: { onClose: () => 
         throw new Error('Service package not found');
       }
 
-      // Prepare client data for database
+      // Prepare client data for database - using only database-compatible fields
       const clientData = {
         name: formData.name,
         email: formData.email || undefined,
@@ -128,7 +128,7 @@ export const useClientRegistrationForm = ({ onClose, onSave }: { onClose: () => 
         connection_type: formData.connection_type,
         service_package_id: formData.service_package_id,
         monthly_rate: selectedPackage.monthly_rate,
-        status: 'pending' as ClientStatus,
+        status: 'pending' as const, // Use database-compatible status
         balance: 0,
         wallet_balance: 0,
         is_active: false,
