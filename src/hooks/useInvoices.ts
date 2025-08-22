@@ -27,6 +27,8 @@ export interface Invoice {
   };
 }
 
+export type CreateInvoiceData = Omit<Invoice, 'id' | 'invoice_number' | 'created_at' | 'updated_at' | 'isp_company_id' | 'clients'>;
+
 export const useInvoices = () => {
   const { profile } = useAuth();
   const { toast } = useToast();
@@ -65,7 +67,7 @@ export const useInvoices = () => {
   });
 
   const createInvoice = useMutation({
-    mutationFn: async (invoiceData: Omit<Invoice, 'id' | 'created_at' | 'updated_at' | 'isp_company_id' | 'clients'>) => {
+    mutationFn: async (invoiceData: CreateInvoiceData) => {
       if (!profile?.isp_company_id) {
         throw new Error('No ISP company associated with user');
       }

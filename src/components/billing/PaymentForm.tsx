@@ -1,3 +1,4 @@
+
 import React, { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -18,7 +19,7 @@ import { Smartphone, Building2, Banknote, CreditCard } from 'lucide-react';
 
 const PaymentForm: React.FC = () => {
   const { clients } = useClients();
-  const { createPayment, isCreating } = usePayments();
+  const { recordPayment, isRecording } = usePayments();
   
   const [formData, setFormData] = useState({
     clientId: '',
@@ -67,7 +68,7 @@ const PaymentForm: React.FC = () => {
       invoice_id: null,
     };
 
-    createPayment(paymentData);
+    recordPayment(paymentData);
     
     // Reset form
     setFormData({
@@ -223,8 +224,8 @@ const PaymentForm: React.FC = () => {
           </div>
 
           <div className="flex justify-end">
-            <Button type="submit" disabled={isCreating}>
-              {isCreating ? 'Recording...' : 'Record Payment'}
+            <Button type="submit" disabled={isRecording}>
+              {isRecording ? 'Recording...' : 'Record Payment'}
             </Button>
           </div>
         </form>

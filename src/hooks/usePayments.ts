@@ -37,42 +37,48 @@ export const usePayments = () => {
 
       console.log('Fetching payments for company:', profile.isp_company_id);
 
-      // Try multiple payment tables
-      const tables = ['mpesa_payments', 'family_bank_payments'];
-      let allPayments: Payment[] = [];
+      // First try to get from mpesa_payments table
+      try {
+        const { data: mpesaData, error: mpesaError } = await supabase
+          .from('mpesa_payments')
+          .select(`
+            *,
+            clients (
+              id,
+              name,
+              email,
+              phone
+            )
+          `)
+          .eq('isp_company_id', profile.isp_company_id)
+          .order('created_at', { ascending: false });
 
-      for (const table of tables) {
-        try {
-          const { data, error } = await supabase
-            .from(table)
-            .select(`
-              *,
-              clients (
-                id,
-                name,
-                email,
-                phone
-              )
-            `)
-            .eq('isp_company_id', profile.isp_company_id)
-            .order('created_at', { ascending: false });
+        if (!mpesaError && mpesaData) {
+          const transformedPayments: Payment[] = mpesaData.map((payment: any) => ({
+            id: payment.id,
+            client_id: payment.client_id,
+            amount: payment.trans_amount || payment.amount || 0,
+            payment_method: 'M-Pesa',
+            payment_date: payment.created_at,
+            reference_number: payment.trans_id || payment.reference_number,
+            mpesa_receipt_number: payment.receipt_number,
+            status: payment.status || 'completed',
+            invoice_id: payment.invoice_id,
+            notes: payment.notes,
+            isp_company_id: payment.isp_company_id,
+            created_at: payment.created_at,
+            clients: payment.clients
+          }));
 
-          if (!error && data) {
-            const transformedData = data.map(payment => ({
-              ...payment,
-              payment_date: payment.created_at,
-              reference_number: payment.trans_id || payment.reference_number || payment.id,
-              payment_method: table === 'mpesa_payments' ? 'M-Pesa' : 'Family Bank'
-            }));
-            allPayments = [...allPayments, ...transformedData];
-          }
-        } catch (err) {
-          console.warn(`Error fetching from ${table}:`, err);
+          console.log(`Fetched ${transformedPayments.length} payments for company ${profile.isp_company_id}`);
+          return transformedPayments;
         }
+      } catch (err) {
+        console.warn('Error fetching from mpesa_payments:', err);
       }
 
-      console.log(`Fetched ${allPayments.length} payments for company ${profile.isp_company_id}`);
-      return allPayments as Payment[];
+      // Fallback to empty array if no payments found
+      return [];
     },
     enabled: !!profile?.isp_company_id,
   });
@@ -86,11 +92,15 @@ export const usePayments = () => {
       const { data, error } = await supabase
         .from('mpesa_payments')
         .insert({
-          ...paymentData,
-          isp_company_id: profile.isp_company_id,
-          trans_id: paymentData.reference_number,
+          client_id: paymentData.client_id,
           trans_amount: paymentData.amount,
-          msisdn: '254700000000', // Default, should be updated with actual client phone
+          payment_method: paymentData.payment_method,
+          trans_id: paymentData.reference_number || `PAY-${Date.now()}`,
+          receipt_number: paymentData.mpesa_receipt_number,
+          status: 'completed',
+          isp_company_id: profile.isp_company_id,
+          notes: paymentData.notes,
+          msisdn: '254700000000', // Default phone, should be updated with actual client phone
         })
         .select()
         .single();

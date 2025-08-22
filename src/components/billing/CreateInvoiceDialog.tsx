@@ -6,7 +6,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { useInvoices } from '@/hooks/useInvoices';
+import { useInvoices, CreateInvoiceData } from '@/hooks/useInvoices';
 import { useClients } from '@/hooks/useClients';
 import { useToast } from '@/hooks/use-toast';
 
@@ -28,7 +28,8 @@ const CreateInvoiceDialog: React.FC<CreateInvoiceDialogProps> = ({ open, onClose
     due_date: '',
     service_period_start: '',
     service_period_end: '',
-    notes: ''
+    notes: '',
+    status: 'pending'
   });
 
   const handleInputChange = (field: string, value: string) => {
@@ -60,7 +61,7 @@ const CreateInvoiceDialog: React.FC<CreateInvoiceDialogProps> = ({ open, onClose
       return;
     }
 
-    createInvoice({
+    const invoiceData: CreateInvoiceData = {
       client_id: formData.client_id,
       amount: parseFloat(formData.amount),
       vat_amount: parseFloat(formData.vat_amount),
@@ -69,8 +70,10 @@ const CreateInvoiceDialog: React.FC<CreateInvoiceDialogProps> = ({ open, onClose
       service_period_start: formData.service_period_start,
       service_period_end: formData.service_period_end,
       notes: formData.notes,
-      status: 'pending'
-    });
+      status: formData.status
+    };
+
+    createInvoice(invoiceData);
 
     // Reset form and close dialog
     setFormData({
@@ -81,7 +84,8 @@ const CreateInvoiceDialog: React.FC<CreateInvoiceDialogProps> = ({ open, onClose
       due_date: '',
       service_period_start: '',
       service_period_end: '',
-      notes: ''
+      notes: '',
+      status: 'pending'
     });
     onClose();
   };
