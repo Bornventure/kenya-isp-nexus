@@ -233,10 +233,10 @@ const AutoNotificationSystem = () => {
                 <div key={log.id} className="flex items-center justify-between p-3 border rounded-lg">
                   <div className="flex items-center gap-3">
                     <Badge variant="outline">
-                      {log.trigger_event || 'System Notification'}
+                      {log.type || 'System Notification'}
                     </Badge>
                     <span className="text-sm text-muted-foreground">
-                      Notification sent to {log.recipients?.length || 0} recipient(s)
+                      Sent to {Array.isArray(log.recipients) ? log.recipients.length : 0} recipient(s)
                     </span>
                   </div>
                   <div className="flex items-center gap-2">

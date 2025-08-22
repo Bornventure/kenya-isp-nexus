@@ -1,4 +1,3 @@
-
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
@@ -64,8 +63,7 @@ export const useAutoNotifications = () => {
         .from('notification_logs')
         .select(`
           *,
-          clients(name, email, phone),
-          notification_templates(name, category)
+          clients(name, email, phone)
         `)
         .order('created_at', { ascending: false })
         .limit(100);
