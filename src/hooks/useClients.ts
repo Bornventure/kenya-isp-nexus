@@ -57,7 +57,7 @@ export const useClients = () => {
         service_package_id: clientData.service_package_id,
         latitude: clientData.latitude,
         longitude: clientData.longitude,
-        status: clientData.status || 'pending',
+        status: 'pending' as const, // Use explicit type assertion for valid status
         balance: clientData.balance || 0,
         wallet_balance: clientData.wallet_balance || 0,
         is_active: clientData.is_active || false,
@@ -65,6 +65,7 @@ export const useClients = () => {
         installation_status: clientData.installation_status || 'pending',
         submitted_by: profile.id,
         isp_company_id: profile.isp_company_id,
+        notes: clientData.notes,
       };
 
       const { data, error } = await supabase
@@ -112,13 +113,16 @@ export const useClients = () => {
         service_package_id: updates.service_package_id,
         latitude: updates.latitude,
         longitude: updates.longitude,
-        status: updates.status,
+        status: updates.status as 'pending' | 'approved' | 'active' | 'suspended' | 'disconnected' | 'rejected', // Type assertion for valid status values
         balance: updates.balance,
         wallet_balance: updates.wallet_balance,
         is_active: updates.is_active,
         installation_date: updates.installation_date,
         installation_status: updates.installation_status,
         notes: updates.notes,
+        rejection_reason: updates.rejection_reason,
+        rejected_by: updates.rejected_by,
+        rejected_at: updates.rejected_at,
         updated_at: new Date().toISOString(),
       };
 

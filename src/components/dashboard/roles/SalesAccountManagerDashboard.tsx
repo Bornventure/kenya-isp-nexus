@@ -6,16 +6,20 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { useClients } from '@/hooks/useClients';
 import { useAuth } from '@/contexts/AuthContext';
+import { useToast } from '@/hooks/use-toast';
 import MetricCard from '@/components/dashboard/MetricCard';
 import ClientRegistrationForm from '@/components/clients/ClientRegistrationForm';
 import RejectedApplicationsTab from '@/components/dashboard/RejectedApplicationsTab';
 import BulkMessagingInterface from '@/components/communication/BulkMessagingInterface';
 import { Users, UserPlus, AlertTriangle, MessageSquare, Eye } from 'lucide-react';
+import { Client } from '@/types/client';
 
 const SalesAccountManagerDashboard = () => {
-  const { clients } = useClients();
+  const { clients, createClient } = useClients();
   const { profile } = useAuth();
+  const { toast } = useToast();
   const [selectedTab, setSelectedTab] = useState('overview');
+  const [showRegistrationForm, setShowRegistrationForm] = useState(false);
 
   // Filter clients by sales person
   const myClients = clients.filter(client => client.submitted_by === profile?.id);
@@ -27,6 +31,19 @@ const SalesAccountManagerDashboard = () => {
   const handleViewClientDetails = (clientId: string) => {
     console.log('View client details:', clientId);
     // Logic to view client details
+  };
+
+  const handleRegisterClient = (clientData: Partial<Client>) => {
+    createClient(clientData);
+    setShowRegistrationForm(false);
+    toast({
+      title: "Success",
+      description: "Client registered successfully!",
+    });
+  };
+
+  const handleCloseRegistrationForm = () => {
+    setShowRegistrationForm(false);
   };
 
   return (
@@ -60,6 +77,14 @@ const SalesAccountManagerDashboard = () => {
           icon={AlertTriangle}
         />
       </div>
+
+      {/* Registration Form Modal */}
+      {showRegistrationForm && (
+        <ClientRegistrationForm
+          onClose={handleCloseRegistrationForm}
+          onSave={handleRegisterClient}
+        />
+      )}
 
       {/* Main Content */}
       <Tabs value={selectedTab} onValueChange={setSelectedTab} className="space-y-4">
@@ -120,7 +145,7 @@ const SalesAccountManagerDashboard = () => {
                     <UserPlus className="h-12 w-12 text-gray-400 mx-auto mb-4" />
                     <h3 className="text-lg font-medium mb-2">No clients registered yet</h3>
                     <p className="text-gray-500 mb-4">Start by registering your first client</p>
-                    <Button onClick={() => setSelectedTab('register')}>
+                    <Button onClick={() => setShowRegistrationForm(true)}>
                       Register First Client
                     </Button>
                   </div>
@@ -136,7 +161,10 @@ const SalesAccountManagerDashboard = () => {
               <CardTitle>Register New Client</CardTitle>
             </CardHeader>
             <CardContent>
-              <ClientRegistrationForm />
+              <Button onClick={() => setShowRegistrationForm(true)}>
+                <UserPlus className="h-4 w-4 mr-2" />
+                Open Registration Form
+              </Button>
             </CardContent>
           </Card>
         </TabsContent>
