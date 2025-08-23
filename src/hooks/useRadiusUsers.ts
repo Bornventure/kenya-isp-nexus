@@ -40,8 +40,9 @@ export const useRadiusUsers = () => {
   const getRadiusUsers = async (): Promise<RadiusUser[]> => {
     if (!profile?.isp_company_id) return [];
 
+    // Use generic supabase query to avoid type issues
     const { data, error } = await supabase
-      .from('radius_users')
+      .from('radius_users' as any)
       .select(`
         *,
         clients (
@@ -78,7 +79,7 @@ export const useRadiusUsers = () => {
     if (!profile?.isp_company_id) throw new Error('No company ID found');
 
     const { data, error } = await supabase
-      .from('radius_users')
+      .from('radius_users' as any)
       .insert({
         username: userData.username,
         password: userData.password,
@@ -112,7 +113,7 @@ export const useRadiusUsers = () => {
     if (updates.client_id) updateData.client_id = updates.client_id;
 
     const { data, error } = await supabase
-      .from('radius_users')
+      .from('radius_users' as any)
       .update(updateData)
       .eq('id', id)
       .select()
@@ -132,7 +133,7 @@ export const useRadiusUsers = () => {
 
   const deleteRadiusUser = async (id: string): Promise<void> => {
     const { error } = await supabase
-      .from('radius_users')
+      .from('radius_users' as any)
       .delete()
       .eq('id', id);
 
@@ -209,7 +210,7 @@ export const useRadiusUsers = () => {
   const disconnectUserSessions = async (username: string): Promise<void> => {
     // End active sessions for the user
     const { error } = await supabase
-      .from('active_sessions')
+      .from('active_sessions' as any)
       .delete()
       .eq('username', username)
       .eq('isp_company_id', profile?.isp_company_id);

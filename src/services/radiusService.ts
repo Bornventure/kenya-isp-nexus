@@ -17,7 +17,7 @@ class RadiusService {
   async createUser(userData: Omit<RadiusUser, 'id' | 'created_at' | 'updated_at'>): Promise<boolean> {
     try {
       const { error } = await supabase
-        .from('radius_users')
+        .from('radius_users' as any)
         .insert(userData);
 
       if (error) {
@@ -66,7 +66,7 @@ class RadiusService {
   async updateUser(userId: string, updates: Partial<RadiusUser>): Promise<boolean> {
     try {
       const { error } = await supabase
-        .from('radius_users')
+        .from('radius_users' as any)
         .update(updates)
         .eq('id', userId);
 
@@ -89,7 +89,7 @@ class RadiusService {
   async deleteUser(userId: string): Promise<boolean> {
     try {
       const { error } = await supabase
-        .from('radius_users')
+        .from('radius_users' as any)
         .delete()
         .eq('id', userId);
 
@@ -115,7 +115,7 @@ class RadiusService {
       
       // Remove from active sessions
       const { error } = await supabase
-        .from('active_sessions')
+        .from('active_sessions' as any)
         .delete()
         .eq('username', username)
         .eq('isp_company_id', companyId);
@@ -135,7 +135,7 @@ class RadiusService {
   async getActiveSessions(companyId: string): Promise<any[]> {
     try {
       const { data, error } = await supabase
-        .from('active_sessions')
+        .from('active_sessions' as any)
         .select('*')
         .eq('isp_company_id', companyId);
 
@@ -164,7 +164,7 @@ class RadiusService {
   }): Promise<boolean> {
     try {
       const { error } = await supabase
-        .from('radius_accounting')
+        .from('radius_accounting' as any)
         .insert(accountingData);
 
       if (error) {

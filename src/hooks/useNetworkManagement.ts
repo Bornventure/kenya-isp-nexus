@@ -3,16 +3,23 @@ import { useCallback } from 'react';
 import { radiusService } from '@/services/radiusService';
 import { enhancedSnmpService } from '@/services/enhancedSnmpService';
 import { useToast } from '@/hooks/use-toast';
+import { useAuth } from '@/contexts/AuthContext';
 
 export const useNetworkManagement = () => {
   const { toast } = useToast();
+  const { profile } = useAuth();
 
   const disconnectClient = useCallback(async (clientId: string): Promise<boolean> => {
     try {
       console.log(`Disconnecting client: ${clientId}`);
       
+      if (!profile?.isp_company_id) {
+        console.error('No company ID available');
+        return false;
+      }
+      
       // Try RADIUS disconnect first
-      const radiusSuccess = await radiusService.disconnectUser(clientId);
+      const radiusSuccess = await radiusService.disconnectUser(clientId, profile.isp_company_id);
       
       // Also try SNMP disconnect
       const snmpSuccess = await enhancedSnmpService.disconnectClient(clientId);
@@ -36,7 +43,7 @@ export const useNetworkManagement = () => {
       });
       return false;
     }
-  }, [toast]);
+  }, [toast, profile?.isp_company_id]);
 
   const reconnectClient = useCallback(async (clientId: string): Promise<boolean> => {
     try {

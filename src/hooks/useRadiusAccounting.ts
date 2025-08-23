@@ -31,7 +31,7 @@ export const useRadiusAccounting = () => {
       if (!profile?.isp_company_id) return [];
 
       const { data, error } = await supabase
-        .from('radius_accounting')
+        .from('radius_accounting' as any)
         .select(`
           *,
           clients (

@@ -53,7 +53,7 @@ export const useRadiusSessions = () => {
     if (!profile?.isp_company_id) return [];
 
     const { data, error } = await supabase
-      .from('active_sessions')
+      .from('active_sessions' as any)
       .select(`
         *,
         clients (
@@ -87,7 +87,7 @@ export const useRadiusSessions = () => {
     if (!profile?.isp_company_id) return [];
 
     const { data, error } = await supabase
-      .from('radius_accounting')
+      .from('radius_accounting' as any)
       .select(`
         *,
         clients (
@@ -121,7 +121,7 @@ export const useRadiusSessions = () => {
   const terminateSessionFn = async (sessionId: string): Promise<void> => {
     // Remove from active sessions
     const { error } = await supabase
-      .from('active_sessions')
+      .from('active_sessions' as any)
       .delete()
       .eq('id', sessionId)
       .eq('isp_company_id', profile?.isp_company_id);
