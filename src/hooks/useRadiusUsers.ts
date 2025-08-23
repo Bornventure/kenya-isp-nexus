@@ -4,33 +4,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/contexts/AuthContext';
-
-export interface RadiusUser {
-  id: string;
-  username: string;
-  password?: string;
-  profile?: string;
-  status: string;
-  client_id?: string;
-  isp_company_id: string;
-  created_at: string;
-  updated_at: string;
-  // Additional computed fields for UI compatibility
-  groupName?: string;
-  maxSimultaneousUse?: number;
-  framedIpAddress?: string;
-  sessionTimeout?: number;
-  idleTimeout?: number;
-  downloadSpeed?: number;
-  uploadSpeed?: number;
-  monthlyQuota?: number;
-  dailyQuota?: number;
-  expirationDate?: string;
-  isActive: boolean;
-  lastLogin?: string;
-  totalSessions?: number;
-  dataUsed?: number;
-}
+import { RadiusUser } from '@/types/radius';
 
 export const useRadiusUsers = () => {
   const { toast } = useToast();
@@ -41,7 +15,7 @@ export const useRadiusUsers = () => {
     if (!profile?.isp_company_id) return [];
 
     const { data, error } = await supabase
-      .from('radius_users' as any)
+      .from('radius_users')
       .select('*')
       .eq('isp_company_id', profile.isp_company_id)
       .order('created_at', { ascending: false });
@@ -71,11 +45,11 @@ export const useRadiusUsers = () => {
     if (!profile?.isp_company_id) throw new Error('No company ID found');
 
     const { data, error } = await supabase
-      .from('radius_users' as any)
+      .from('radius_users')
       .insert({
         username: userData.username,
         password: userData.password,
-        profile: userData.profile || userData.groupName || 'default',
+        profile: userData.groupName || userData.profile || 'default',
         status: userData.status || 'active',
         client_id: userData.client_id,
         isp_company_id: profile.isp_company_id
@@ -101,11 +75,12 @@ export const useRadiusUsers = () => {
     if (updates.username) updateData.username = updates.username;
     if (updates.password) updateData.password = updates.password;
     if (updates.groupName) updateData.profile = updates.groupName;
+    if (updates.profile) updateData.profile = updates.profile;
     if (updates.status) updateData.status = updates.status;
     if (updates.client_id) updateData.client_id = updates.client_id;
 
     const { data, error } = await supabase
-      .from('radius_users' as any)
+      .from('radius_users')
       .update(updateData)
       .eq('id', id)
       .select()
@@ -125,7 +100,7 @@ export const useRadiusUsers = () => {
 
   const deleteRadiusUser = async (id: string): Promise<void> => {
     const { error } = await supabase
-      .from('radius_users' as any)
+      .from('radius_users')
       .delete()
       .eq('id', id);
 
@@ -202,7 +177,7 @@ export const useRadiusUsers = () => {
   const disconnectUserSessions = async (username: string): Promise<void> => {
     // End active sessions for the user
     const { error } = await supabase
-      .from('active_sessions' as any)
+      .from('active_sessions')
       .delete()
       .eq('username', username)
       .eq('isp_company_id', profile?.isp_company_id);

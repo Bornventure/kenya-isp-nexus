@@ -2,20 +2,7 @@
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
-
-export interface RadiusAccountingRecord {
-  id: string;
-  username: string;
-  nas_ip_address: string;
-  session_id: string;
-  session_time: number;
-  input_octets: number;
-  output_octets: number;
-  terminate_cause: string;
-  client_id?: string;
-  isp_company_id: string;
-  created_at: string;
-}
+import { RadiusAccountingRecord } from '@/types/radius';
 
 export const useRadiusAccounting = () => {
   const { profile } = useAuth();
@@ -26,7 +13,7 @@ export const useRadiusAccounting = () => {
       if (!profile?.isp_company_id) return [];
 
       const { data, error } = await supabase
-        .from('radius_accounting' as any)
+        .from('radius_accounting')
         .select('*')
         .eq('isp_company_id', profile.isp_company_id)
         .order('created_at', { ascending: false })

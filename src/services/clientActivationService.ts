@@ -10,7 +10,12 @@ export interface ClientActivationData {
   companyId: string;
 }
 
-export const activateClientService = async (data: ClientActivationData): Promise<boolean> => {
+export interface ClientActivationResult {
+  success: boolean;
+  message: string;
+}
+
+export const activateClientService = async (data: ClientActivationData): Promise<ClientActivationResult> => {
   try {
     console.log('Activating client service for:', data.clientId);
 
@@ -27,13 +32,20 @@ export const activateClientService = async (data: ClientActivationData): Promise
 
     if (clientError) {
       console.error('Error updating client status:', clientError);
-      return false;
+      return {
+        success: false,
+        message: `Failed to update client status: ${clientError.message}`
+      };
     }
 
     // 2. Create RADIUS user for the client
-    const radiusCreated = await radiusService.createRadiusUser(data.clientId, data.companyId);
-    if (!radiusCreated) {
-      console.warn('Failed to create RADIUS user, but continuing with activation');
+    const radiusResult = await radiusService.createRadiusUser(data.clientId, data.companyId);
+    if (!radiusResult.success) {
+      console.warn('Failed to create RADIUS user:', radiusResult.message);
+      return {
+        success: false,
+        message: `RADIUS user creation failed: ${radiusResult.message}`
+      };
     }
 
     // 3. Assign equipment if provided
@@ -55,11 +67,17 @@ export const activateClientService = async (data: ClientActivationData): Promise
     }
 
     console.log('Client service activated successfully');
-    return true;
+    return {
+      success: true,
+      message: 'Client activated successfully with RADIUS user created'
+    };
 
   } catch (error) {
     console.error('Error in client activation service:', error);
-    return false;
+    return {
+      success: false,
+      message: error instanceof Error ? error.message : 'Unknown error occurred'
+    };
   }
 };
 
