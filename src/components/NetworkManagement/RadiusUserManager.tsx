@@ -7,8 +7,9 @@ import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { useRadiusUsers, RadiusUser } from '@/hooks/useRadiusUsers';
-import { UserPlus, Edit, Trash2, Wifi, WifiOff } from 'lucide-react';
+import { useRadiusUsers } from '@/hooks/useRadiusUsers';
+import { RadiusUser } from '@/types/radius';
+import { UserPlus, Edit, Trash2, WifiOff } from 'lucide-react';
 import { formatBytes } from '@/utils/formatters';
 
 const RadiusUserManager: React.FC = () => {
@@ -125,13 +126,13 @@ const RadiusUserManager: React.FC = () => {
                 />
               </div>
               <div className="grid grid-cols-4 items-center gap-4">
-                <Label htmlFor="groupName" className="text-right">Group</Label>
-                <Select onValueChange={(value) => setFormData({ ...formData, groupName: value })}>
+                <Label htmlFor="profile" className="text-right">Profile</Label>
+                <Select onValueChange={(value) => setFormData({ ...formData, profile: value })}>
                   <SelectTrigger className="col-span-3">
-                    <SelectValue placeholder="Select group" />
+                    <SelectValue placeholder="Select profile" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="standard">Standard</SelectItem>
+                    <SelectItem value="default">Default</SelectItem>
                     <SelectItem value="premium">Premium</SelectItem>
                     <SelectItem value="enterprise">Enterprise</SelectItem>
                   </SelectContent>
@@ -161,7 +162,7 @@ const RadiusUserManager: React.FC = () => {
                     <Badge variant={user.isActive ? 'default' : 'secondary'}>
                       {user.isActive ? 'Active' : 'Inactive'}
                     </Badge>
-                    <Badge variant="outline">{user.groupName}</Badge>
+                    <Badge variant="outline">{user.profile}</Badge>
                   </div>
                   <div className="mt-2 grid grid-cols-2 md:grid-cols-4 gap-4 text-sm text-gray-600">
                     <div>

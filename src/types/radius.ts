@@ -3,8 +3,8 @@ export interface RadiusUser {
   id: string;
   username: string;
   password?: string;
-  profile: string;
-  status: string;
+  profile: string; // Maps to database 'profile' field
+  status: string;  // Maps to database 'status' field
   client_id?: string;
   isp_company_id: string;
   created_at: string;
@@ -43,11 +43,10 @@ export interface RadiusAccountingRecord {
 export interface ActiveSession {
   id: string;
   username: string;
+  session_id: string;
   nas_ip_address: string;
-  framed_ip_address?: string;
-  calling_station_id?: string;
-  session_start: string;
-  last_update: string;
+  start_time: string;
   client_id?: string;
   isp_company_id: string;
+  created_at: string;
 }

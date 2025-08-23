@@ -14,11 +14,11 @@ export const useRadiusUsers = () => {
   const getRadiusUsers = async (): Promise<RadiusUser[]> => {
     if (!profile?.isp_company_id) return [];
 
+    // Use rpc to call our custom function that will handle the query
     const { data, error } = await supabase
-      .from('radius_users')
-      .select('*')
-      .eq('isp_company_id', profile.isp_company_id)
-      .order('created_at', { ascending: false });
+      .rpc('get_radius_users_for_company', {
+        company_id: profile.isp_company_id
+      });
 
     if (error) {
       console.error('Error fetching RADIUS users:', error);
@@ -45,17 +45,14 @@ export const useRadiusUsers = () => {
     if (!profile?.isp_company_id) throw new Error('No company ID found');
 
     const { data, error } = await supabase
-      .from('radius_users')
-      .insert({
-        username: userData.username,
-        password: userData.password,
-        profile: userData.groupName || userData.profile || 'default',
-        status: userData.status || 'active',
-        client_id: userData.client_id,
-        isp_company_id: profile.isp_company_id
-      })
-      .select()
-      .single();
+      .rpc('create_radius_user', {
+        p_username: userData.username,
+        p_password: userData.password,
+        p_profile: userData.groupName || userData.profile || 'default',
+        p_status: userData.status || 'active',
+        p_client_id: userData.client_id,
+        p_company_id: profile.isp_company_id
+      });
 
     if (error) {
       console.error('Error creating RADIUS user:', error);
@@ -70,21 +67,15 @@ export const useRadiusUsers = () => {
   };
 
   const updateRadiusUser = async ({ id, updates }: { id: string; updates: Partial<RadiusUser> }): Promise<RadiusUser> => {
-    const updateData: any = {};
-    
-    if (updates.username) updateData.username = updates.username;
-    if (updates.password) updateData.password = updates.password;
-    if (updates.groupName) updateData.profile = updates.groupName;
-    if (updates.profile) updateData.profile = updates.profile;
-    if (updates.status) updateData.status = updates.status;
-    if (updates.client_id) updateData.client_id = updates.client_id;
-
     const { data, error } = await supabase
-      .from('radius_users')
-      .update(updateData)
-      .eq('id', id)
-      .select()
-      .single();
+      .rpc('update_radius_user', {
+        p_user_id: id,
+        p_username: updates.username,
+        p_password: updates.password,
+        p_profile: updates.groupName || updates.profile,
+        p_status: updates.status,
+        p_client_id: updates.client_id
+      });
 
     if (error) {
       console.error('Error updating RADIUS user:', error);
@@ -100,9 +91,9 @@ export const useRadiusUsers = () => {
 
   const deleteRadiusUser = async (id: string): Promise<void> => {
     const { error } = await supabase
-      .from('radius_users')
-      .delete()
-      .eq('id', id);
+      .rpc('delete_radius_user', {
+        p_user_id: id
+      });
 
     if (error) {
       console.error('Error deleting RADIUS user:', error);
@@ -175,12 +166,11 @@ export const useRadiusUsers = () => {
   });
 
   const disconnectUserSessions = async (username: string): Promise<void> => {
-    // End active sessions for the user
     const { error } = await supabase
-      .from('active_sessions')
-      .delete()
-      .eq('username', username)
-      .eq('isp_company_id', profile?.isp_company_id);
+      .rpc('disconnect_user_sessions', {
+        p_username: username,
+        p_company_id: profile?.isp_company_id
+      });
 
     if (error) {
       console.error('Error disconnecting user sessions:', error);

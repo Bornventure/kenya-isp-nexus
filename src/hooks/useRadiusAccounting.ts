@@ -13,11 +13,9 @@ export const useRadiusAccounting = () => {
       if (!profile?.isp_company_id) return [];
 
       const { data, error } = await supabase
-        .from('radius_accounting')
-        .select('*')
-        .eq('isp_company_id', profile.isp_company_id)
-        .order('created_at', { ascending: false })
-        .limit(1000);
+        .rpc('get_radius_accounting_for_company', {
+          company_id: profile.isp_company_id
+        });
 
       if (error) {
         console.error('Error fetching accounting records:', error);
