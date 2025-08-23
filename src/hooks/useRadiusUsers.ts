@@ -14,11 +14,11 @@ export const useRadiusUsers = () => {
   const getRadiusUsers = async (): Promise<RadiusUser[]> => {
     if (!profile?.isp_company_id) return [];
 
-    // Use rpc to call our custom function that will handle the query
     const { data, error } = await supabase
-      .rpc('get_radius_users_for_company', {
-        company_id: profile.isp_company_id
-      });
+      .from('radius_users')
+      .select('*')
+      .eq('isp_company_id', profile.isp_company_id)
+      .order('created_at', { ascending: false });
 
     if (error) {
       console.error('Error fetching RADIUS users:', error);
@@ -26,18 +26,26 @@ export const useRadiusUsers = () => {
     }
 
     return (data || []).map((user: any) => ({
-      ...user,
-      groupName: user.profile,
-      isActive: user.status === 'active',
-      // Mock values for UI compatibility
+      id: user.id,
+      username: user.username,
+      password: user.password,
+      profile: user.group_name || 'default',
+      status: user.is_active ? 'active' : 'inactive',
+      client_id: user.client_id,
+      isp_company_id: user.isp_company_id,
+      created_at: user.created_at,
+      updated_at: user.updated_at,
+      groupName: user.group_name || 'default',
+      isActive: user.is_active || false,
       maxSimultaneousUse: 1,
-      sessionTimeout: 3600,
+      sessionTimeout: parseInt(user.max_download) || 3600,
       idleTimeout: 600,
-      downloadSpeed: 5120,
-      uploadSpeed: 512,
+      downloadSpeed: parseInt(user.max_download) || 5120,
+      uploadSpeed: parseInt(user.max_upload) || 512,
       monthlyQuota: 20000,
       totalSessions: 0,
-      dataUsed: 0
+      dataUsed: 0,
+      expirationDate: user.expiration
     }));
   };
 
@@ -45,14 +53,20 @@ export const useRadiusUsers = () => {
     if (!profile?.isp_company_id) throw new Error('No company ID found');
 
     const { data, error } = await supabase
-      .rpc('create_radius_user', {
-        p_username: userData.username,
-        p_password: userData.password,
-        p_profile: userData.groupName || userData.profile || 'default',
-        p_status: userData.status || 'active',
-        p_client_id: userData.client_id,
-        p_company_id: profile.isp_company_id
-      });
+      .from('radius_users')
+      .insert({
+        username: userData.username,
+        password: userData.password,
+        group_name: userData.groupName || userData.profile || 'default',
+        is_active: userData.isActive !== false,
+        client_id: userData.client_id || '',
+        isp_company_id: profile.isp_company_id,
+        max_download: userData.downloadSpeed?.toString() || '5120',
+        max_upload: userData.uploadSpeed?.toString() || '512',
+        expiration: userData.expirationDate || new Date(Date.now() + 365 * 24 * 60 * 60 * 1000).toISOString()
+      })
+      .select()
+      .single();
 
     if (error) {
       console.error('Error creating RADIUS user:', error);
@@ -60,22 +74,45 @@ export const useRadiusUsers = () => {
     }
 
     return {
-      ...data,
-      groupName: data.profile,
-      isActive: data.status === 'active'
+      id: data.id,
+      username: data.username,
+      password: data.password,
+      profile: data.group_name,
+      status: data.is_active ? 'active' : 'inactive',
+      client_id: data.client_id,
+      isp_company_id: data.isp_company_id,
+      created_at: data.created_at,
+      updated_at: data.updated_at,
+      groupName: data.group_name,
+      isActive: data.is_active,
+      maxSimultaneousUse: 1,
+      sessionTimeout: parseInt(data.max_download) || 3600,
+      idleTimeout: 600,
+      downloadSpeed: parseInt(data.max_download) || 5120,
+      uploadSpeed: parseInt(data.max_upload) || 512,
+      monthlyQuota: 20000,
+      totalSessions: 0,
+      dataUsed: 0,
+      expirationDate: data.expiration
     };
   };
 
   const updateRadiusUser = async ({ id, updates }: { id: string; updates: Partial<RadiusUser> }): Promise<RadiusUser> => {
     const { data, error } = await supabase
-      .rpc('update_radius_user', {
-        p_user_id: id,
-        p_username: updates.username,
-        p_password: updates.password,
-        p_profile: updates.groupName || updates.profile,
-        p_status: updates.status,
-        p_client_id: updates.client_id
-      });
+      .from('radius_users')
+      .update({
+        username: updates.username,
+        password: updates.password,
+        group_name: updates.groupName || updates.profile,
+        is_active: updates.isActive,
+        client_id: updates.client_id,
+        max_download: updates.downloadSpeed?.toString(),
+        max_upload: updates.uploadSpeed?.toString(),
+        expiration: updates.expirationDate
+      })
+      .eq('id', id)
+      .select()
+      .single();
 
     if (error) {
       console.error('Error updating RADIUS user:', error);
@@ -83,17 +120,34 @@ export const useRadiusUsers = () => {
     }
 
     return {
-      ...data,
-      groupName: data.profile,
-      isActive: data.status === 'active'
+      id: data.id,
+      username: data.username,
+      password: data.password,
+      profile: data.group_name,
+      status: data.is_active ? 'active' : 'inactive',
+      client_id: data.client_id,
+      isp_company_id: data.isp_company_id,
+      created_at: data.created_at,
+      updated_at: data.updated_at,
+      groupName: data.group_name,
+      isActive: data.is_active,
+      maxSimultaneousUse: 1,
+      sessionTimeout: parseInt(data.max_download) || 3600,
+      idleTimeout: 600,
+      downloadSpeed: parseInt(data.max_download) || 5120,
+      uploadSpeed: parseInt(data.max_upload) || 512,
+      monthlyQuota: 20000,
+      totalSessions: 0,
+      dataUsed: 0,
+      expirationDate: data.expiration
     };
   };
 
   const deleteRadiusUser = async (id: string): Promise<void> => {
     const { error } = await supabase
-      .rpc('delete_radius_user', {
-        p_user_id: id
-      });
+      .from('radius_users')
+      .delete()
+      .eq('id', id);
 
     if (error) {
       console.error('Error deleting RADIUS user:', error);
@@ -166,11 +220,12 @@ export const useRadiusUsers = () => {
   });
 
   const disconnectUserSessions = async (username: string): Promise<void> => {
+    // Delete active sessions for this user
     const { error } = await supabase
-      .rpc('disconnect_user_sessions', {
-        p_username: username,
-        p_company_id: profile?.isp_company_id
-      });
+      .from('active_sessions')
+      .delete()
+      .eq('username', username)
+      .eq('isp_company_id', profile?.isp_company_id);
 
     if (error) {
       console.error('Error disconnecting user sessions:', error);

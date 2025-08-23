@@ -13,16 +13,30 @@ export const useRadiusAccounting = () => {
       if (!profile?.isp_company_id) return [];
 
       const { data, error } = await supabase
-        .rpc('get_radius_accounting_for_company', {
-          company_id: profile.isp_company_id
-        });
+        .from('radius_accounting')
+        .select('*')
+        .eq('isp_company_id', profile.isp_company_id)
+        .order('created_at', { ascending: false })
+        .limit(1000);
 
       if (error) {
         console.error('Error fetching accounting records:', error);
         throw error;
       }
 
-      return (data || []) as RadiusAccountingRecord[];
+      return (data || []).map((record: any) => ({
+        id: record.id,
+        username: record.username,
+        nas_ip_address: record.nas_ip_address,
+        session_id: record.session_id,
+        session_time: record.session_time,
+        input_octets: record.input_octets,
+        output_octets: record.output_octets,
+        terminate_cause: record.terminate_cause,
+        client_id: record.client_id,
+        isp_company_id: record.isp_company_id,
+        created_at: record.created_at
+      })) as RadiusAccountingRecord[];
     },
     enabled: !!profile?.isp_company_id,
     refetchInterval: 60000 // Refresh every minute

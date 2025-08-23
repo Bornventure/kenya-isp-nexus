@@ -19,14 +19,20 @@ class RadiusService {
   }): Promise<ServiceResult> {
     try {
       const { data, error } = await supabase
-        .rpc('create_radius_user', {
-          p_username: userData.username,
-          p_password: userData.password,
-          p_profile: userData.profile,
-          p_status: userData.status,
-          p_client_id: userData.client_id,
-          p_company_id: userData.isp_company_id
-        });
+        .from('radius_users')
+        .insert({
+          username: userData.username,
+          password: userData.password,
+          group_name: userData.profile,
+          is_active: userData.status === 'active',
+          client_id: userData.client_id || '',
+          isp_company_id: userData.isp_company_id,
+          max_download: '5120',
+          max_upload: '512',
+          expiration: new Date(Date.now() + 365 * 24 * 60 * 60 * 1000).toISOString()
+        })
+        .select()
+        .single();
 
       if (error) {
         console.error('Error creating RADIUS user:', error);
@@ -90,14 +96,19 @@ class RadiusService {
   async updateUser(userId: string, updates: Partial<RadiusUser>): Promise<ServiceResult> {
     try {
       const { data, error } = await supabase
-        .rpc('update_radius_user', {
-          p_user_id: userId,
-          p_username: updates.username,
-          p_password: updates.password,
-          p_profile: updates.profile,
-          p_status: updates.status,
-          p_client_id: updates.client_id
-        });
+        .from('radius_users')
+        .update({
+          username: updates.username,
+          password: updates.password,
+          group_name: updates.profile,
+          is_active: updates.status === 'active',
+          client_id: updates.client_id,
+          max_download: updates.downloadSpeed?.toString(),
+          max_upload: updates.uploadSpeed?.toString()
+        })
+        .eq('id', userId)
+        .select()
+        .single();
 
       if (error) {
         console.error('Error updating RADIUS user:', error);
@@ -128,9 +139,9 @@ class RadiusService {
   async deleteUser(userId: string): Promise<ServiceResult> {
     try {
       const { error } = await supabase
-        .rpc('delete_radius_user', {
-          p_user_id: userId
-        });
+        .from('radius_users')
+        .delete()
+        .eq('id', userId);
 
       if (error) {
         console.error('Error deleting RADIUS user:', error);
@@ -162,10 +173,10 @@ class RadiusService {
       console.log(`Disconnecting RADIUS user: ${username}`);
       
       const { error } = await supabase
-        .rpc('disconnect_user_sessions', {
-          p_username: username,
-          p_company_id: companyId
-        });
+        .from('active_sessions')
+        .delete()
+        .eq('username', username)
+        .eq('isp_company_id', companyId);
 
       if (error) {
         console.error('Error disconnecting user:', error);
@@ -191,9 +202,10 @@ class RadiusService {
   async getActiveSessions(companyId: string): Promise<any[]> {
     try {
       const { data, error } = await supabase
-        .rpc('get_active_sessions_for_company', {
-          company_id: companyId
-        });
+        .from('active_sessions')
+        .select('*')
+        .eq('isp_company_id', companyId)
+        .order('session_start', { ascending: false });
 
       if (error) {
         console.error('Error fetching active sessions:', error);
@@ -220,16 +232,17 @@ class RadiusService {
   }): Promise<ServiceResult> {
     try {
       const { error } = await supabase
-        .rpc('log_radius_accounting', {
-          p_username: accountingData.username,
-          p_nas_ip: accountingData.nas_ip_address,
-          p_session_id: accountingData.session_id,
-          p_session_time: accountingData.session_time,
-          p_input_octets: accountingData.input_octets,
-          p_output_octets: accountingData.output_octets,
-          p_terminate_cause: accountingData.terminate_cause,
-          p_client_id: accountingData.client_id,
-          p_company_id: accountingData.isp_company_id
+        .from('radius_accounting')
+        .insert({
+          username: accountingData.username,
+          nas_ip_address: accountingData.nas_ip_address,
+          session_id: accountingData.session_id,
+          session_time: accountingData.session_time,
+          input_octets: accountingData.input_octets,
+          output_octets: accountingData.output_octets,
+          terminate_cause: accountingData.terminate_cause,
+          client_id: accountingData.client_id,
+          isp_company_id: accountingData.isp_company_id
         });
 
       if (error) {
