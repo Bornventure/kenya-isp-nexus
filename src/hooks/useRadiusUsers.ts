@@ -40,17 +40,9 @@ export const useRadiusUsers = () => {
   const getRadiusUsers = async (): Promise<RadiusUser[]> => {
     if (!profile?.isp_company_id) return [];
 
-    // Use generic supabase query to avoid type issues
     const { data, error } = await supabase
       .from('radius_users' as any)
-      .select(`
-        *,
-        clients (
-          name,
-          email,
-          phone
-        )
-      `)
+      .select('*')
       .eq('isp_company_id', profile.isp_company_id)
       .order('created_at', { ascending: false });
 

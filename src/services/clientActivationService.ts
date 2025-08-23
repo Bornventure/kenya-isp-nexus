@@ -2,7 +2,7 @@
 import { supabase } from '@/integrations/supabase/client';
 import { radiusService } from '@/services/radiusService';
 
-interface ClientActivationData {
+export interface ClientActivationData {
   clientId: string;
   servicePackageId: string;
   equipmentId?: string;
@@ -61,4 +61,9 @@ export const activateClientService = async (data: ClientActivationData): Promise
     console.error('Error in client activation service:', error);
     return false;
   }
+};
+
+// Create the service object to match the hook's expectation
+export const clientActivationService = {
+  activateClient: activateClientService
 };

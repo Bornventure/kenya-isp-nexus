@@ -15,11 +15,6 @@ export interface RadiusAccountingRecord {
   client_id?: string;
   isp_company_id: string;
   created_at: string;
-  clients?: {
-    name: string;
-    email: string;
-    phone: string;
-  };
 }
 
 export const useRadiusAccounting = () => {
@@ -32,14 +27,7 @@ export const useRadiusAccounting = () => {
 
       const { data, error } = await supabase
         .from('radius_accounting' as any)
-        .select(`
-          *,
-          clients (
-            name,
-            email,
-            phone
-          )
-        `)
+        .select('*')
         .eq('isp_company_id', profile.isp_company_id)
         .order('created_at', { ascending: false })
         .limit(1000);
@@ -49,7 +37,7 @@ export const useRadiusAccounting = () => {
         throw error;
       }
 
-      return data as RadiusAccountingRecord[];
+      return (data || []) as RadiusAccountingRecord[];
     },
     enabled: !!profile?.isp_company_id,
     refetchInterval: 60000 // Refresh every minute
