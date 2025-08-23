@@ -69,7 +69,12 @@ export const useRadiusSessions = () => {
       throw error;
     }
 
-    return (data || []).map((session: any) => ({
+    if (!data || !Array.isArray(data)) {
+      console.warn('No active sessions data returned');
+      return [];
+    }
+
+    return data.map((session: any) => ({
       id: session.id,
       username: session.username,
       ipAddress: session.framed_ip_address || session.nas_ip_address,
@@ -104,7 +109,12 @@ export const useRadiusSessions = () => {
       throw error;
     }
 
-    return (data || []).map((session: any) => ({
+    if (!data || !Array.isArray(data)) {
+      console.warn('No accounting sessions data returned');
+      return [];
+    }
+
+    return data.map((session: any) => ({
       id: session.id,
       username: session.username,
       ipAddress: session.nas_ip_address,

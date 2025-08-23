@@ -25,7 +25,12 @@ export const useRadiusUsers = () => {
       throw error;
     }
 
-    return (data || []).map((user: any) => ({
+    if (!data || !Array.isArray(data)) {
+      console.warn('No RADIUS users data returned');
+      return [];
+    }
+
+    return data.map((user: any) => ({
       id: user.id,
       username: user.username,
       password: user.password,
@@ -73,6 +78,10 @@ export const useRadiusUsers = () => {
       throw error;
     }
 
+    if (!data) {
+      throw new Error('No data returned from user creation');
+    }
+
     return {
       id: data.id,
       username: data.username,
@@ -117,6 +126,10 @@ export const useRadiusUsers = () => {
     if (error) {
       console.error('Error updating RADIUS user:', error);
       throw error;
+    }
+
+    if (!data) {
+      throw new Error('No data returned from user update');
     }
 
     return {

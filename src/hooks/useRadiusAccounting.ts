@@ -24,7 +24,12 @@ export const useRadiusAccounting = () => {
         throw error;
       }
 
-      return (data || []).map((record: any) => ({
+      if (!data || !Array.isArray(data)) {
+        console.warn('No accounting records data returned');
+        return [];
+      }
+
+      return data.map((record: any) => ({
         id: record.id,
         username: record.username,
         nas_ip_address: record.nas_ip_address,
