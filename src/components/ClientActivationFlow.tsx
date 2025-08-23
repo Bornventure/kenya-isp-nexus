@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -11,6 +10,7 @@ import { useFullAutomation } from '@/hooks/useFullAutomation';
 import { useRadiusUsers } from '@/hooks/useRadiusUsers';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
+import { radiusDebugService } from '@/services/radiusDebugService';
 import { AlertCircle, CheckCircle, Loader2, Wifi, Database, Router, Network } from 'lucide-react';
 
 const ClientActivationFlow: React.FC = () => {
@@ -19,22 +19,37 @@ const ClientActivationFlow: React.FC = () => {
   const { users, isLoading } = useRadiusUsers();
   const { profile } = useAuth();
   
-  const [clientData, setClientData] = useState({
-    name: 'Test Client',
-    email: 'test@example.com',
-    phone: '+254700000000',
-    id_number: '12345678',
-    county: 'Nairobi',
-    sub_county: 'Westlands',
-    address: '123 Test Street',
-    monthly_rate: 2000
-  });
+  // Generate unique test data to avoid duplicates
+  const generateUniqueTestData = () => {
+    const timestamp = Date.now();
+    const randomSuffix = Math.floor(Math.random() * 1000);
+    return {
+      name: `Test Client ${timestamp}`,
+      email: `test${timestamp}@example.com`,
+      phone: `+25470000${randomSuffix.toString().padStart(4, '0')}`,
+      id_number: `${timestamp}${randomSuffix}`.slice(-8), // Keep it 8 digits
+      county: 'Nairobi',
+      sub_county: 'Westlands',
+      address: `${randomSuffix} Test Street`,
+      monthly_rate: 2000
+    };
+  };
+
+  const [clientData, setClientData] = useState(generateUniqueTestData());
   
   const [createdClientId, setCreatedClientId] = useState<string | null>(null);
   const [isCreating, setIsCreating] = useState(false);
   const [isActivating, setIsActivating] = useState(false);
   const [debugInfo, setDebugInfo] = useState<any>(null);
   const [isTestingConnectivity, setIsTestingConnectivity] = useState(false);
+  const [diagnosticReport, setDiagnosticReport] = useState<string[] | null>(null);
+
+  const resetTestData = () => {
+    setClientData(generateUniqueTestData());
+    setCreatedClientId(null);
+    setDebugInfo(null);
+    setDiagnosticReport(null);
+  };
 
   const createTestClient = async () => {
     if (!profile?.isp_company_id) {
@@ -74,7 +89,7 @@ const ClientActivationFlow: React.FC = () => {
       console.error('Error creating client:', error);
       toast({
         title: "Error",
-        description: "Failed to create test client",
+        description: error instanceof Error ? error.message : "Failed to create test client",
         variant: "destructive"
       });
     } finally {
@@ -200,6 +215,36 @@ const ClientActivationFlow: React.FC = () => {
     }
   };
 
+  const runFullDiagnostic = async () => {
+    if (!profile?.isp_company_id) return;
+
+    setIsTestingConnectivity(true);
+    try {
+      console.log('Running full RADIUS diagnostic...');
+      
+      const diagnostic = await radiusDebugService.performFullDiagnostic(createdClientId || undefined);
+      const report = radiusDebugService.generateTroubleshootingReport(diagnostic, createdClientId || undefined);
+      
+      setDiagnosticReport(report);
+      setDebugInfo(diagnostic);
+      
+      toast({
+        title: "Diagnostic Complete",
+        description: `Found ${diagnostic.radiusUsers.length} RADIUS users, ${diagnostic.recentSessions.length} sessions`,
+      });
+
+    } catch (error) {
+      console.error('Diagnostic failed:', error);
+      toast({
+        title: "Diagnostic Failed",
+        description: "Error running full diagnostic",
+        variant: "destructive"
+      });
+    } finally {
+      setIsTestingConnectivity(false);
+    }
+  };
+
   const testConnectivity = async () => {
     setIsTestingConnectivity(true);
     try {
@@ -284,17 +329,20 @@ const ClientActivationFlow: React.FC = () => {
               />
             </div>
             <div>
-              <Label htmlFor="monthly_rate">Monthly Rate (KES)</Label>
+              <Label htmlFor="id_number">ID Number</Label>
               <Input
-                id="monthly_rate"
-                type="number"
-                value={clientData.monthly_rate}
-                onChange={(e) => setClientData({...clientData, monthly_rate: Number(e.target.value)})}
+                id="id_number"
+                value={clientData.id_number}
+                onChange={(e) => setClientData({...clientData, id_number: e.target.value})}
               />
             </div>
           </div>
 
-          <div className="flex space-x-4">
+          <div className="flex space-x-2 flex-wrap gap-2">
+            <Button onClick={resetTestData} variant="outline" size="sm">
+              🔄 Reset Test Data
+            </Button>
+            
             <Button onClick={createTestClient} disabled={isCreating}>
               {isCreating ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
               1. Create Test Client
@@ -305,7 +353,6 @@ const ClientActivationFlow: React.FC = () => {
               disabled={!createdClientId || isActivating}
               variant="outline"
             >
-              {isActivating ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
               2. Approve Client
             </Button>
             
@@ -319,12 +366,12 @@ const ClientActivationFlow: React.FC = () => {
             </Button>
 
             <Button 
-              onClick={testConnectivity} 
+              onClick={runFullDiagnostic} 
               disabled={isTestingConnectivity}
               variant="secondary"
             >
-              {isTestingConnectivity ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <Network className="h-4 w-4 mr-2" />}
-              Test Connectivity
+              {isTestingConnectivity ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <Database className="h-4 w-4 mr-2" />}
+              Run Full Diagnostic
             </Button>
           </div>
 
@@ -390,6 +437,18 @@ const ClientActivationFlow: React.FC = () => {
                   <li>• Check MikroTik RADIUS configuration and connectivity to EC2</li>
                   <li>• Ensure port 1812/1813 are open on EC2 security group</li>
                 </ul>
+              </div>
+            </div>
+          )}
+
+          {diagnosticReport && (
+            <div className="mt-4 p-4 border rounded-lg bg-yellow-50">
+              <h3 className="font-semibold mb-2 text-yellow-800 flex items-center">
+                <AlertCircle className="h-5 w-5 mr-2" />
+                RADIUS Diagnostic Report:
+              </h3>
+              <div className="text-sm font-mono whitespace-pre-wrap text-yellow-700">
+                {diagnosticReport.join('\n')}
               </div>
             </div>
           )}

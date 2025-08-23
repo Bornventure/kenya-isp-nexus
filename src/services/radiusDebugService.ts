@@ -47,14 +47,17 @@ class RadiusDebugService {
       // Calculate system health metrics
       const userCount = radiusUsers?.length || 0;
       const activeSessionCount = recentSessions?.length || 0;
-      const lastUserCreated = radiusUsers?.length > 0 
-        ? radiusUsers.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())[0]?.created_at
+      
+      // Cast radiusUsers to any[] to avoid TypeScript errors when accessing properties
+      const users = (radiusUsers || []) as any[];
+      const lastUserCreated = users.length > 0 
+        ? users.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())[0]?.created_at
         : null;
 
       const diagnostic: RadiusDebugInfo = {
         databaseConnectivity,
-        radiusUsers: radiusUsers || [],
-        recentSessions: recentSessions || [],
+        radiusUsers: users,
+        recentSessions: (recentSessions || []) as any[],
         systemHealth: {
           userCount,
           activeSessionCount,
