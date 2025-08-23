@@ -19,7 +19,7 @@ class RadiusService {
   }): Promise<ServiceResult> {
     try {
       const { data, error } = await supabase
-        .from('radius_users')
+        .from('radius_users' as any)
         .insert({
           username: userData.username,
           password: userData.password,
@@ -96,7 +96,7 @@ class RadiusService {
   async updateUser(userId: string, updates: Partial<RadiusUser>): Promise<ServiceResult> {
     try {
       const { data, error } = await supabase
-        .from('radius_users')
+        .from('radius_users' as any)
         .update({
           username: updates.username,
           password: updates.password,
@@ -139,7 +139,7 @@ class RadiusService {
   async deleteUser(userId: string): Promise<ServiceResult> {
     try {
       const { error } = await supabase
-        .from('radius_users')
+        .from('radius_users' as any)
         .delete()
         .eq('id', userId);
 
@@ -173,7 +173,7 @@ class RadiusService {
       console.log(`Disconnecting RADIUS user: ${username}`);
       
       const { error } = await supabase
-        .from('active_sessions')
+        .from('active_sessions' as any)
         .delete()
         .eq('username', username)
         .eq('isp_company_id', companyId);
@@ -202,7 +202,7 @@ class RadiusService {
   async getActiveSessions(companyId: string): Promise<any[]> {
     try {
       const { data, error } = await supabase
-        .from('active_sessions')
+        .from('active_sessions' as any)
         .select('*')
         .eq('isp_company_id', companyId)
         .order('session_start', { ascending: false });
@@ -232,7 +232,7 @@ class RadiusService {
   }): Promise<ServiceResult> {
     try {
       const { error } = await supabase
-        .from('radius_accounting')
+        .from('radius_accounting' as any)
         .insert({
           username: accountingData.username,
           nas_ip_address: accountingData.nas_ip_address,

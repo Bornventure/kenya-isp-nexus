@@ -14,6 +14,45 @@ export type Database = {
   }
   public: {
     Tables: {
+      active_sessions: {
+        Row: {
+          calling_station_id: string | null
+          client_id: string | null
+          created_at: string | null
+          framed_ip_address: unknown | null
+          id: string
+          isp_company_id: string
+          last_update: string | null
+          nas_ip_address: unknown
+          session_start: string | null
+          username: string
+        }
+        Insert: {
+          calling_station_id?: string | null
+          client_id?: string | null
+          created_at?: string | null
+          framed_ip_address?: unknown | null
+          id?: string
+          isp_company_id: string
+          last_update?: string | null
+          nas_ip_address: unknown
+          session_start?: string | null
+          username: string
+        }
+        Update: {
+          calling_station_id?: string | null
+          client_id?: string | null
+          created_at?: string | null
+          framed_ip_address?: unknown | null
+          id?: string
+          isp_company_id?: string
+          last_update?: string | null
+          nas_ip_address?: unknown
+          session_start?: string | null
+          username?: string
+        }
+        Relationships: []
+      }
       audit_logs: {
         Row: {
           action: string
@@ -2879,6 +2918,48 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      radius_accounting: {
+        Row: {
+          client_id: string | null
+          created_at: string | null
+          id: string
+          input_octets: number | null
+          isp_company_id: string
+          nas_ip_address: unknown
+          output_octets: number | null
+          session_id: string
+          session_time: number | null
+          terminate_cause: string | null
+          username: string
+        }
+        Insert: {
+          client_id?: string | null
+          created_at?: string | null
+          id?: string
+          input_octets?: number | null
+          isp_company_id: string
+          nas_ip_address: unknown
+          output_octets?: number | null
+          session_id: string
+          session_time?: number | null
+          terminate_cause?: string | null
+          username: string
+        }
+        Update: {
+          client_id?: string | null
+          created_at?: string | null
+          id?: string
+          input_octets?: number | null
+          isp_company_id?: string
+          nas_ip_address?: unknown
+          output_octets?: number | null
+          session_id?: string
+          session_time?: number | null
+          terminate_cause?: string | null
+          username?: string
+        }
+        Relationships: []
       }
       radius_groups: {
         Row: {

@@ -15,7 +15,7 @@ export const useRadiusUsers = () => {
     if (!profile?.isp_company_id) return [];
 
     const { data, error } = await supabase
-      .from('radius_users')
+      .from('radius_users' as any)
       .select('*')
       .eq('isp_company_id', profile.isp_company_id)
       .order('created_at', { ascending: false });
@@ -53,7 +53,7 @@ export const useRadiusUsers = () => {
     if (!profile?.isp_company_id) throw new Error('No company ID found');
 
     const { data, error } = await supabase
-      .from('radius_users')
+      .from('radius_users' as any)
       .insert({
         username: userData.username,
         password: userData.password,
@@ -99,7 +99,7 @@ export const useRadiusUsers = () => {
 
   const updateRadiusUser = async ({ id, updates }: { id: string; updates: Partial<RadiusUser> }): Promise<RadiusUser> => {
     const { data, error } = await supabase
-      .from('radius_users')
+      .from('radius_users' as any)
       .update({
         username: updates.username,
         password: updates.password,
@@ -145,7 +145,7 @@ export const useRadiusUsers = () => {
 
   const deleteRadiusUser = async (id: string): Promise<void> => {
     const { error } = await supabase
-      .from('radius_users')
+      .from('radius_users' as any)
       .delete()
       .eq('id', id);
 
@@ -222,7 +222,7 @@ export const useRadiusUsers = () => {
   const disconnectUserSessions = async (username: string): Promise<void> => {
     // Delete active sessions for this user
     const { error } = await supabase
-      .from('active_sessions')
+      .from('active_sessions' as any)
       .delete()
       .eq('username', username)
       .eq('isp_company_id', profile?.isp_company_id);

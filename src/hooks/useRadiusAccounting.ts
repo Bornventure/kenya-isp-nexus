@@ -13,7 +13,7 @@ export const useRadiusAccounting = () => {
       if (!profile?.isp_company_id) return [];
 
       const { data, error } = await supabase
-        .from('radius_accounting')
+        .from('radius_accounting' as any)
         .select('*')
         .eq('isp_company_id', profile.isp_company_id)
         .order('created_at', { ascending: false })
