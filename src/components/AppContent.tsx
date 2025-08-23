@@ -21,6 +21,7 @@ import Analytics from '@/pages/Analytics';
 import Messages from '@/pages/Messages';
 import Support from '@/pages/Support';
 import Settings from '@/pages/Settings';
+import ClientActivationTest from '@/pages/ClientActivationTest';
 
 // Admin pages
 import UserManagement from '@/components/admin/UserManagement';
@@ -60,6 +61,7 @@ const AppContent = () => {
           <Route path="messages" element={<Messages />} />
           <Route path="support" element={<Support />} />
           <Route path="settings" element={<Settings />} />
+          <Route path="client-activation-test" element={<ClientActivationTest />} />
           
           {/* Admin routes */}
           <Route path="admin/users" element={<UserManagement />} />
