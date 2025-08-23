@@ -3,21 +3,18 @@ import { supabase } from '@/integrations/supabase/client';
 
 export interface RadiusUser {
   id: string;
-  client_id: string;
   username: string;
   password: string;
-  group_name: string;
-  max_upload: string;
-  max_download: string;
-  expiration?: string;
-  is_active: boolean;
-  isp_company_id?: string;
+  profile: string;
+  status: string;
+  client_id?: string;
+  isp_company_id: string;
   created_at?: string;
   updated_at?: string;
 }
 
 class RadiusService {
-  async createUser(userData: RadiusUser): Promise<boolean> {
+  async createUser(userData: Omit<RadiusUser, 'id' | 'created_at' | 'updated_at'>): Promise<boolean> {
     try {
       const { error } = await supabase
         .from('radius_users')
@@ -36,7 +33,7 @@ class RadiusService {
     }
   }
 
-  async createRadiusUser(clientId: string): Promise<boolean> {
+  async createRadiusUser(clientId: string, companyId: string): Promise<boolean> {
     try {
       // Get client details first
       const { data: client, error: clientError } = await supabase
@@ -50,30 +47,28 @@ class RadiusService {
         return false;
       }
 
-      const userData: Partial<RadiusUser> = {
-        client_id: clientId,
+      const userData = {
         username: client.email || client.phone,
         password: this.generateSecurePassword(),
-        group_name: 'default',
-        max_upload: '10M',
-        max_download: '10M',
-        is_active: true,
-        isp_company_id: client.isp_company_id
+        profile: 'default',
+        status: 'active',
+        client_id: clientId,
+        isp_company_id: companyId
       };
 
-      return await this.createUser(userData as RadiusUser);
+      return await this.createUser(userData);
     } catch (error) {
       console.error('Error creating RADIUS user:', error);
       return false;
     }
   }
 
-  async updateUser(clientId: string, updates: Partial<RadiusUser>): Promise<boolean> {
+  async updateUser(userId: string, updates: Partial<RadiusUser>): Promise<boolean> {
     try {
       const { error } = await supabase
         .from('radius_users')
         .update(updates)
-        .eq('client_id', clientId);
+        .eq('id', userId);
 
       if (error) {
         console.error('Error updating RADIUS user:', error);
@@ -87,16 +82,16 @@ class RadiusService {
     }
   }
 
-  async updateRadiusUser(clientId: string, updates: Partial<RadiusUser>): Promise<boolean> {
-    return this.updateUser(clientId, updates);
+  async updateRadiusUser(userId: string, updates: Partial<RadiusUser>): Promise<boolean> {
+    return this.updateUser(userId, updates);
   }
 
-  async deleteUser(clientId: string): Promise<boolean> {
+  async deleteUser(userId: string): Promise<boolean> {
     try {
       const { error } = await supabase
         .from('radius_users')
         .delete()
-        .eq('client_id', clientId);
+        .eq('id', userId);
 
       if (error) {
         console.error('Error deleting RADIUS user:', error);
@@ -110,21 +105,25 @@ class RadiusService {
     }
   }
 
-  async deleteRadiusUser(clientId: string): Promise<boolean> {
-    return this.deleteUser(clientId);
+  async deleteRadiusUser(userId: string): Promise<boolean> {
+    return this.deleteUser(userId);
   }
 
-  async disconnectUser(username: string): Promise<boolean> {
+  async disconnectUser(username: string, companyId: string): Promise<boolean> {
     try {
-      // In production, this would send actual disconnect command to RADIUS/NAS
       console.log(`Disconnecting RADIUS user: ${username}`);
       
-      // Update any active sessions to disconnected
-      await (supabase as any)
-        .from('network_sessions')
-        .update({ status: 'disconnected' })
+      // Remove from active sessions
+      const { error } = await supabase
+        .from('active_sessions')
+        .delete()
         .eq('username', username)
-        .eq('status', 'active');
+        .eq('isp_company_id', companyId);
+
+      if (error) {
+        console.error('Error disconnecting user:', error);
+        return false;
+      }
 
       return true;
     } catch (error) {
@@ -133,12 +132,12 @@ class RadiusService {
     }
   }
 
-  async getActiveSessions(): Promise<any[]> {
+  async getActiveSessions(companyId: string): Promise<any[]> {
     try {
-      const { data, error } = await (supabase as any)
-        .from('network_sessions')
+      const { data, error } = await supabase
+        .from('active_sessions')
         .select('*')
-        .eq('status', 'active');
+        .eq('isp_company_id', companyId);
 
       if (error) {
         console.error('Error fetching active sessions:', error);
@@ -149,6 +148,34 @@ class RadiusService {
     } catch (error) {
       console.error('Error fetching active sessions:', error);
       return [];
+    }
+  }
+
+  async logAccountingData(accountingData: {
+    username: string;
+    nas_ip_address: string;
+    session_id: string;
+    session_time: number;
+    input_octets: number;
+    output_octets: number;
+    terminate_cause: string;
+    client_id?: string;
+    isp_company_id: string;
+  }): Promise<boolean> {
+    try {
+      const { error } = await supabase
+        .from('radius_accounting')
+        .insert(accountingData);
+
+      if (error) {
+        console.error('Error logging accounting data:', error);
+        return false;
+      }
+
+      return true;
+    } catch (error) {
+      console.error('Error logging accounting data:', error);
+      return false;
     }
   }
 

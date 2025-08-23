@@ -3,11 +3,19 @@ import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
+import { useAuth } from '@/contexts/AuthContext';
 
 export interface RadiusUser {
   id: string;
   username: string;
   password?: string;
+  profile?: string;
+  status: string;
+  client_id?: string;
+  isp_company_id: string;
+  created_at: string;
+  updated_at: string;
+  // Additional computed fields for UI compatibility
   groupName?: string;
   maxSimultaneousUse?: number;
   framedIpAddress?: string;
@@ -19,7 +27,6 @@ export interface RadiusUser {
   dailyQuota?: number;
   expirationDate?: string;
   isActive: boolean;
-  createdAt: string;
   lastLogin?: string;
   totalSessions?: number;
   dataUsed?: number;
@@ -28,91 +35,117 @@ export interface RadiusUser {
 export const useRadiusUsers = () => {
   const { toast } = useToast();
   const queryClient = useQueryClient();
+  const { profile } = useAuth();
 
-  // Demo data for now since radius_users table doesn't exist
   const getRadiusUsers = async (): Promise<RadiusUser[]> => {
-    return [
-      {
-        id: '1',
-        username: 'user1@example.com',
-        groupName: 'premium',
-        maxSimultaneousUse: 1,
-        framedIpAddress: '192.168.1.100',
-        sessionTimeout: 3600,
-        idleTimeout: 600,
-        downloadSpeed: 10240,
-        uploadSpeed: 1024,
-        monthlyQuota: 50000,
-        dailyQuota: 2000,
-        isActive: true,
-        createdAt: new Date().toISOString(),
-        lastLogin: new Date().toISOString(),
-        totalSessions: 45,
-        dataUsed: 25000
-      },
-      {
-        id: '2',
-        username: 'user2@example.com',
-        groupName: 'standard',
-        maxSimultaneousUse: 1,
-        sessionTimeout: 3600,
-        idleTimeout: 600,
-        downloadSpeed: 5120,
-        uploadSpeed: 512,
-        monthlyQuota: 20000,
-        dailyQuota: 1000,
-        isActive: true,
-        createdAt: new Date(Date.now() - 86400000).toISOString(),
-        lastLogin: new Date(Date.now() - 3600000).toISOString(),
-        totalSessions: 23,
-        dataUsed: 12000
-      }
-    ];
+    if (!profile?.isp_company_id) return [];
+
+    const { data, error } = await supabase
+      .from('radius_users')
+      .select(`
+        *,
+        clients (
+          name,
+          email,
+          phone
+        )
+      `)
+      .eq('isp_company_id', profile.isp_company_id)
+      .order('created_at', { ascending: false });
+
+    if (error) {
+      console.error('Error fetching RADIUS users:', error);
+      throw error;
+    }
+
+    return (data || []).map((user: any) => ({
+      ...user,
+      groupName: user.profile,
+      isActive: user.status === 'active',
+      // Mock values for UI compatibility
+      maxSimultaneousUse: 1,
+      sessionTimeout: 3600,
+      idleTimeout: 600,
+      downloadSpeed: 5120,
+      uploadSpeed: 512,
+      monthlyQuota: 20000,
+      totalSessions: 0,
+      dataUsed: 0
+    }));
   };
 
   const createRadiusUser = async (userData: Partial<RadiusUser>): Promise<RadiusUser> => {
-    // This would integrate with RADIUS server to create user
-    console.log('Creating RADIUS user:', userData);
-    await new Promise(resolve => setTimeout(resolve, 1000)); // Simulate API call
-    
+    if (!profile?.isp_company_id) throw new Error('No company ID found');
+
+    const { data, error } = await supabase
+      .from('radius_users')
+      .insert({
+        username: userData.username,
+        password: userData.password,
+        profile: userData.profile || userData.groupName || 'default',
+        status: userData.status || 'active',
+        client_id: userData.client_id,
+        isp_company_id: profile.isp_company_id
+      })
+      .select()
+      .single();
+
+    if (error) {
+      console.error('Error creating RADIUS user:', error);
+      throw error;
+    }
+
     return {
-      id: Math.random().toString(36).substr(2, 9),
-      username: userData.username || '',
-      groupName: userData.groupName || 'standard',
-      maxSimultaneousUse: userData.maxSimultaneousUse || 1,
-      sessionTimeout: userData.sessionTimeout || 3600,
-      idleTimeout: userData.idleTimeout || 600,
-      downloadSpeed: userData.downloadSpeed || 5120,
-      uploadSpeed: userData.uploadSpeed || 512,
-      monthlyQuota: userData.monthlyQuota || 20000,
-      isActive: true,
-      createdAt: new Date().toISOString(),
-      totalSessions: 0,
-      dataUsed: 0
+      ...data,
+      groupName: data.profile,
+      isActive: data.status === 'active'
     };
   };
 
   const updateRadiusUser = async ({ id, updates }: { id: string; updates: Partial<RadiusUser> }): Promise<RadiusUser> => {
-    // This would integrate with RADIUS server to update user
-    console.log('Updating RADIUS user:', id, updates);
-    await new Promise(resolve => setTimeout(resolve, 1000)); // Simulate API call
+    const updateData: any = {};
     
-    const existingUsers = await getRadiusUsers();
-    const user = existingUsers.find(u => u.id === id);
-    if (!user) throw new Error('User not found');
-    
-    return { ...user, ...updates };
+    if (updates.username) updateData.username = updates.username;
+    if (updates.password) updateData.password = updates.password;
+    if (updates.groupName) updateData.profile = updates.groupName;
+    if (updates.status) updateData.status = updates.status;
+    if (updates.client_id) updateData.client_id = updates.client_id;
+
+    const { data, error } = await supabase
+      .from('radius_users')
+      .update(updateData)
+      .eq('id', id)
+      .select()
+      .single();
+
+    if (error) {
+      console.error('Error updating RADIUS user:', error);
+      throw error;
+    }
+
+    return {
+      ...data,
+      groupName: data.profile,
+      isActive: data.status === 'active'
+    };
   };
 
   const deleteRadiusUser = async (id: string): Promise<void> => {
-    // This would integrate with RADIUS server to delete user
-    console.log('Deleting RADIUS user:', id);
-    await new Promise(resolve => setTimeout(resolve, 1000)); // Simulate API call
+    const { error } = await supabase
+      .from('radius_users')
+      .delete()
+      .eq('id', id);
+
+    if (error) {
+      console.error('Error deleting RADIUS user:', error);
+      throw error;
+    }
   };
 
   const { data: users = [], isLoading } = useQuery({
-    queryKey: ['radius-users'],
+    queryKey: ['radius-users', profile?.isp_company_id],
     queryFn: getRadiusUsers,
+    enabled: !!profile?.isp_company_id,
     refetchInterval: 30000
   });
 
@@ -173,10 +206,18 @@ export const useRadiusUsers = () => {
     }
   });
 
-  // For client disconnection, we'll call the existing RADIUS session termination
   const disconnectUserSessions = async (username: string): Promise<void> => {
-    console.log('Disconnecting all sessions for user:', username);
-    await new Promise(resolve => setTimeout(resolve, 1000)); // Simulate API call
+    // End active sessions for the user
+    const { error } = await supabase
+      .from('active_sessions')
+      .delete()
+      .eq('username', username)
+      .eq('isp_company_id', profile?.isp_company_id);
+
+    if (error) {
+      console.error('Error disconnecting user sessions:', error);
+      throw error;
+    }
   };
 
   const { mutateAsync: disconnectUser, isPending: isDisconnecting } = useMutation({
@@ -187,6 +228,7 @@ export const useRadiusUsers = () => {
         description: "All user sessions have been terminated.",
       });
       queryClient.invalidateQueries({ queryKey: ['radius-sessions'] });
+      queryClient.invalidateQueries({ queryKey: ['active-sessions'] });
     },
     onError: (error) => {
       toast({

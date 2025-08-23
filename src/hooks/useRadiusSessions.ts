@@ -3,6 +3,7 @@ import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
+import { useAuth } from '@/contexts/AuthContext';
 
 export interface NetworkSession {
   id: string;
@@ -17,75 +18,132 @@ export interface NetworkSession {
   sessionId?: string;
 }
 
+export interface ActiveSession {
+  id: string;
+  username: string;
+  nas_ip_address: string;
+  framed_ip_address: string;
+  calling_station_id: string;
+  session_start: string;
+  last_update: string;
+  client_id?: string;
+  isp_company_id: string;
+}
+
+export interface RadiusAccounting {
+  id: string;
+  username: string;
+  nas_ip_address: string;
+  session_id: string;
+  session_time: number;
+  input_octets: number;
+  output_octets: number;
+  terminate_cause: string;
+  client_id?: string;
+  isp_company_id: string;
+  created_at: string;
+}
+
 export const useRadiusSessions = () => {
   const { toast } = useToast();
   const queryClient = useQueryClient();
+  const { profile } = useAuth();
 
-  // Since network_sessions table doesn't exist yet, we'll use demo data
   const getActiveSessions = async (): Promise<NetworkSession[]> => {
-    // Demo data for now
-    return [
-      {
-        id: '1',
-        username: 'user1@example.com',
-        ipAddress: '192.168.1.100',
-        startTime: new Date().toISOString(),
-        duration: 3600,
-        bytesIn: 1024000,
-        bytesOut: 512000,
-        status: 'active',
-        nasIpAddress: '192.168.1.1',
-        sessionId: 'sess_001'
-      }
-    ];
+    if (!profile?.isp_company_id) return [];
+
+    const { data, error } = await supabase
+      .from('active_sessions')
+      .select(`
+        *,
+        clients (
+          name,
+          email
+        )
+      `)
+      .eq('isp_company_id', profile.isp_company_id)
+      .order('session_start', { ascending: false });
+
+    if (error) {
+      console.error('Error fetching active sessions:', error);
+      throw error;
+    }
+
+    return (data || []).map((session: any) => ({
+      id: session.id,
+      username: session.username,
+      ipAddress: session.framed_ip_address || session.nas_ip_address,
+      startTime: session.session_start,
+      duration: Math.floor((new Date().getTime() - new Date(session.session_start).getTime()) / 1000),
+      bytesIn: 0, // Will be populated from accounting data if available
+      bytesOut: 0,
+      status: 'active' as const,
+      nasIpAddress: session.nas_ip_address,
+      sessionId: session.calling_station_id
+    }));
   };
 
   const getAllSessions = async (): Promise<NetworkSession[]> => {
-    // Demo data for now
-    return [
-      {
-        id: '1',
-        username: 'user1@example.com',
-        ipAddress: '192.168.1.100',
-        startTime: new Date().toISOString(),
-        duration: 3600,
-        bytesIn: 1024000,
-        bytesOut: 512000,
-        status: 'active',
-        nasIpAddress: '192.168.1.1',
-        sessionId: 'sess_001'
-      },
-      {
-        id: '2',
-        username: 'user2@example.com',
-        ipAddress: '192.168.1.101',
-        startTime: new Date(Date.now() - 7200000).toISOString(),
-        duration: 7200,
-        bytesIn: 2048000,
-        bytesOut: 1024000,
-        status: 'terminated',
-        nasIpAddress: '192.168.1.1',
-        sessionId: 'sess_002'
-      }
-    ];
+    if (!profile?.isp_company_id) return [];
+
+    const { data, error } = await supabase
+      .from('radius_accounting')
+      .select(`
+        *,
+        clients (
+          name,
+          email
+        )
+      `)
+      .eq('isp_company_id', profile.isp_company_id)
+      .order('created_at', { ascending: false })
+      .limit(100);
+
+    if (error) {
+      console.error('Error fetching accounting sessions:', error);
+      throw error;
+    }
+
+    return (data || []).map((session: any) => ({
+      id: session.id,
+      username: session.username,
+      ipAddress: session.nas_ip_address,
+      startTime: session.created_at,
+      duration: session.session_time || 0,
+      bytesIn: session.input_octets || 0,
+      bytesOut: session.output_octets || 0,
+      status: 'terminated' as const,
+      nasIpAddress: session.nas_ip_address,
+      sessionId: session.session_id
+    }));
   };
 
   const terminateSessionFn = async (sessionId: string): Promise<void> => {
-    // This would integrate with RADIUS server to terminate the session
-    console.log('Terminating session:', sessionId);
-    await new Promise(resolve => setTimeout(resolve, 1000)); // Simulate API call
+    // Remove from active sessions
+    const { error } = await supabase
+      .from('active_sessions')
+      .delete()
+      .eq('id', sessionId)
+      .eq('isp_company_id', profile?.isp_company_id);
+
+    if (error) {
+      console.error('Error terminating session:', error);
+      throw error;
+    }
   };
 
   const { data: activeSessions = [], isLoading } = useQuery({
-    queryKey: ['radius-sessions', 'active'],
+    queryKey: ['radius-sessions', 'active', profile?.isp_company_id],
     queryFn: getActiveSessions,
-    refetchInterval: 30000 // Refresh every 30 seconds
+    enabled: !!profile?.isp_company_id,
+    refetchInterval: 30000
   });
 
   const { data: allSessions = [], isLoading: isLoadingAll } = useQuery({
-    queryKey: ['radius-sessions', 'all'],
+    queryKey: ['radius-sessions', 'all', profile?.isp_company_id],
     queryFn: getAllSessions,
-    refetchInterval: 60000 // Refresh every minute
+    enabled: !!profile?.isp_company_id,
+    refetchInterval: 60000
   });
 
   const { mutateAsync: terminateSession, isPending: isTerminating } = useMutation({
