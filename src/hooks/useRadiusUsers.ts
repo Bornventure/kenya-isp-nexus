@@ -1,4 +1,3 @@
-
 import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
@@ -82,27 +81,30 @@ export const useRadiusUsers = () => {
       throw new Error('No data returned from user creation');
     }
 
+    // Cast data to any to avoid TypeScript errors
+    const user = data as any;
+
     return {
-      id: data.id,
-      username: data.username,
-      password: data.password,
-      profile: data.group_name,
-      status: data.is_active ? 'active' : 'inactive',
-      client_id: data.client_id,
-      isp_company_id: data.isp_company_id,
-      created_at: data.created_at,
-      updated_at: data.updated_at,
-      groupName: data.group_name,
-      isActive: data.is_active,
+      id: user.id,
+      username: user.username,
+      password: user.password,
+      profile: user.group_name,
+      status: user.is_active ? 'active' : 'inactive',
+      client_id: user.client_id,
+      isp_company_id: user.isp_company_id,
+      created_at: user.created_at,
+      updated_at: user.updated_at,
+      groupName: user.group_name,
+      isActive: user.is_active,
       maxSimultaneousUse: 1,
-      sessionTimeout: parseInt(data.max_download) || 3600,
+      sessionTimeout: parseInt(user.max_download) || 3600,
       idleTimeout: 600,
-      downloadSpeed: parseInt(data.max_download) || 5120,
-      uploadSpeed: parseInt(data.max_upload) || 512,
+      downloadSpeed: parseInt(user.max_download) || 5120,
+      uploadSpeed: parseInt(user.max_upload) || 512,
       monthlyQuota: 20000,
       totalSessions: 0,
       dataUsed: 0,
-      expirationDate: data.expiration
+      expirationDate: user.expiration
     };
   };
 
@@ -132,27 +134,30 @@ export const useRadiusUsers = () => {
       throw new Error('No data returned from user update');
     }
 
+    // Cast data to any to avoid TypeScript errors
+    const user = data as any;
+
     return {
-      id: data.id,
-      username: data.username,
-      password: data.password,
-      profile: data.group_name,
-      status: data.is_active ? 'active' : 'inactive',
-      client_id: data.client_id,
-      isp_company_id: data.isp_company_id,
-      created_at: data.created_at,
-      updated_at: data.updated_at,
-      groupName: data.group_name,
-      isActive: data.is_active,
+      id: user.id,
+      username: user.username,
+      password: user.password,
+      profile: user.group_name,
+      status: user.is_active ? 'active' : 'inactive',
+      client_id: user.client_id,
+      isp_company_id: user.isp_company_id,
+      created_at: user.created_at,
+      updated_at: user.updated_at,
+      groupName: user.group_name,
+      isActive: user.is_active,
       maxSimultaneousUse: 1,
-      sessionTimeout: parseInt(data.max_download) || 3600,
+      sessionTimeout: parseInt(user.max_download) || 3600,
       idleTimeout: 600,
-      downloadSpeed: parseInt(data.max_download) || 5120,
-      uploadSpeed: parseInt(data.max_upload) || 512,
+      downloadSpeed: parseInt(user.max_download) || 5120,
+      uploadSpeed: parseInt(user.max_upload) || 512,
       monthlyQuota: 20000,
       totalSessions: 0,
       dataUsed: 0,
-      expirationDate: data.expiration
+      expirationDate: user.expiration
     };
   };
 
