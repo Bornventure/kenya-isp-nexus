@@ -1,4 +1,3 @@
-
 import { useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -9,9 +8,28 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Switch } from '@/components/ui/switch';
 import { useRadiusServers } from '@/hooks/useRadiusServers';
 import { useMikrotikRouters } from '@/hooks/useMikrotikRouters';
-import { Plus, Server, Trash2, Settings } from 'lucide-react';
+import { Plus, Server, Trash2, Settings, Clock, CheckCircle } from 'lucide-react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
+
+const formatSyncStatus = (lastSyncedAt?: string) => {
+  if (!lastSyncedAt) {
+    return { text: 'Never synced', variant: 'secondary' as const, icon: Clock };
+  }
+  
+  const syncDate = new Date(lastSyncedAt);
+  const now = new Date();
+  const diffMinutes = Math.floor((now.getTime() - syncDate.getTime()) / (1000 * 60));
+  
+  if (diffMinutes < 5) {
+    return { text: 'Recently synced', variant: 'default' as const, icon: CheckCircle };
+  } else if (diffMinutes < 60) {
+    return { text: `${diffMinutes}m ago`, variant: 'outline' as const, icon: Clock };
+  } else {
+    const diffHours = Math.floor(diffMinutes / 60);
+    return { text: `${diffHours}h ago`, variant: 'secondary' as const, icon: Clock };
+  }
+};
 
 export const RadiusServerManager = () => {
   const { radiusServers, isLoading, createRadiusServer, updateRadiusServer, deleteRadiusServer, isCreating, isDeleting } = useRadiusServers();
@@ -215,64 +233,73 @@ export const RadiusServerManager = () => {
             </div>
 
             <div className="grid gap-4">
-              {radiusServers.map((server) => (
-                <div key={server.id} className="border rounded-lg p-4 space-y-3">
-                  <div className="flex justify-between items-start">
-                    <div>
-                      <div className="flex items-center gap-2 mb-1">
-                        <h3 className="font-medium">{server.name}</h3>
-                        {server.is_enabled ? (
-                          <Badge className="bg-green-100 text-green-800 border-green-200">Enabled</Badge>
-                        ) : (
-                          <Badge variant="secondary">Disabled</Badge>
-                        )}
-                        {server.is_primary && (
-                          <Badge variant="outline">Primary</Badge>
-                        )}
+              {radiusServers.map((server) => {
+                const syncStatus = formatSyncStatus(server.last_synced_at);
+                const SyncIcon = syncStatus.icon;
+                
+                return (
+                  <div key={server.id} className="border rounded-lg p-4 space-y-3">
+                    <div className="flex justify-between items-start">
+                      <div>
+                        <div className="flex items-center gap-2 mb-1">
+                          <h3 className="font-medium">{server.name}</h3>
+                          {server.is_enabled ? (
+                            <Badge className="bg-green-100 text-green-800 border-green-200">Enabled</Badge>
+                          ) : (
+                            <Badge variant="secondary">Disabled</Badge>
+                          )}
+                          {server.is_primary && (
+                            <Badge variant="outline">Primary</Badge>
+                          )}
+                          <Badge variant={syncStatus.variant} className="flex items-center gap-1">
+                            <SyncIcon className="h-3 w-3" />
+                            {syncStatus.text}
+                          </Badge>
+                        </div>
+                        <p className="text-sm text-muted-foreground">
+                          Router: {server.router?.name} ({server.router?.ip_address})
+                        </p>
+                        <p className="text-sm">
+                          Auth: {server.auth_port} | Accounting: {server.accounting_port} | Timeout: {server.timeout_seconds}s
+                        </p>
                       </div>
-                      <p className="text-sm text-muted-foreground">
-                        Router: {server.router?.name} ({server.router?.ip_address})
-                      </p>
-                      <p className="text-sm">
-                        Auth: {server.auth_port} | Accounting: {server.accounting_port} | Timeout: {server.timeout_seconds}s
-                      </p>
-                    </div>
-                    <div className="flex gap-2">
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        onClick={() => toggleServerStatus(server.id, server.is_enabled)}
-                      >
-                        <Settings className="h-4 w-4 mr-1" />
-                        {server.is_enabled ? 'Disable' : 'Enable'}
-                      </Button>
-                      <AlertDialog>
-                        <AlertDialogTrigger asChild>
-                          <Button size="sm" variant="destructive">
-                            <Trash2 className="h-4 w-4 mr-1" />
-                            Remove
-                          </Button>
-                        </AlertDialogTrigger>
-                        <AlertDialogContent>
-                          <AlertDialogHeader>
-                            <AlertDialogTitle>Remove RADIUS Configuration</AlertDialogTitle>
-                            <AlertDialogDescription>
-                              Are you sure you want to remove RADIUS configuration for "{server.name}"? 
-                              The router will remain in your inventory but won't authenticate via RADIUS.
-                            </AlertDialogDescription>
-                          </AlertDialogHeader>
-                          <AlertDialogFooter>
-                            <AlertDialogCancel>Cancel</AlertDialogCancel>
-                            <AlertDialogAction onClick={() => deleteRadiusServer(server.id)}>
-                              Remove RADIUS Config
-                            </AlertDialogAction>
-                          </AlertDialogFooter>
-                        </AlertDialogContent>
-                      </AlertDialog>
+                      <div className="flex gap-2">
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() => toggleServerStatus(server.id, server.is_enabled)}
+                        >
+                          <Settings className="h-4 w-4 mr-1" />
+                          {server.is_enabled ? 'Disable' : 'Enable'}
+                        </Button>
+                        <AlertDialog>
+                          <AlertDialogTrigger asChild>
+                            <Button size="sm" variant="destructive">
+                              <Trash2 className="h-4 w-4 mr-1" />
+                              Remove
+                            </Button>
+                          </AlertDialogTrigger>
+                          <AlertDialogContent>
+                            <AlertDialogHeader>
+                              <AlertDialogTitle>Remove RADIUS Configuration</AlertDialogTitle>
+                              <AlertDialogDescription>
+                                Are you sure you want to remove RADIUS configuration for "{server.name}"? 
+                                The router will remain in your inventory but won't authenticate via RADIUS.
+                              </AlertDialogDescription>
+                            </AlertDialogHeader>
+                            <AlertDialogFooter>
+                              <AlertDialogCancel>Cancel</AlertDialogCancel>
+                              <AlertDialogAction onClick={() => deleteRadiusServer(server.id)}>
+                                Remove RADIUS Config
+                              </AlertDialogAction>
+                            </AlertDialogFooter>
+                          </AlertDialogContent>
+                        </AlertDialog>
+                      </div>
                     </div>
                   </div>
-                </div>
-              ))}
+                );
+              })}
 
               {radiusServers.length === 0 && (
                 <div className="text-center py-8">

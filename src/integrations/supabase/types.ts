@@ -3070,6 +3070,7 @@ export type Database = {
           is_enabled: boolean
           is_primary: boolean
           isp_company_id: string | null
+          last_synced_at: string | null
           name: string
           router_id: string | null
           server_address: string
@@ -3085,6 +3086,7 @@ export type Database = {
           is_enabled?: boolean
           is_primary?: boolean
           isp_company_id?: string | null
+          last_synced_at?: string | null
           name: string
           router_id?: string | null
           server_address: string
@@ -3100,6 +3102,7 @@ export type Database = {
           is_enabled?: boolean
           is_primary?: boolean
           isp_company_id?: string | null
+          last_synced_at?: string | null
           name?: string
           router_id?: string | null
           server_address?: string

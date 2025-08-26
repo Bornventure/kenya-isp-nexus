@@ -1,3 +1,4 @@
+
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
@@ -13,10 +14,11 @@ export interface RadiusServer {
   timeout_seconds: number;
   is_enabled: boolean;
   is_primary: boolean;
-  router_id: string; // New field linking to mikrotik_routers
+  router_id: string;
   isp_company_id: string;
   created_at: string;
   updated_at: string;
+  last_synced_at?: string; // New field for sync tracking
   // Include router details via join
   router?: {
     id: string;
