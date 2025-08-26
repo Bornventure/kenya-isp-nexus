@@ -3071,6 +3071,7 @@ export type Database = {
           is_primary: boolean
           isp_company_id: string | null
           name: string
+          router_id: string | null
           server_address: string
           shared_secret: string
           timeout_seconds: number
@@ -3085,6 +3086,7 @@ export type Database = {
           is_primary?: boolean
           isp_company_id?: string | null
           name: string
+          router_id?: string | null
           server_address: string
           shared_secret: string
           timeout_seconds?: number
@@ -3099,6 +3101,7 @@ export type Database = {
           is_primary?: boolean
           isp_company_id?: string | null
           name?: string
+          router_id?: string | null
           server_address?: string
           shared_secret?: string
           timeout_seconds?: number
@@ -3110,6 +3113,13 @@ export type Database = {
             columns: ["isp_company_id"]
             isOneToOne: false
             referencedRelation: "isp_companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "radius_servers_router_id_fkey"
+            columns: ["router_id"]
+            isOneToOne: true
+            referencedRelation: "mikrotik_routers"
             referencedColumns: ["id"]
           },
         ]
