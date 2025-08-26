@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -6,7 +5,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { X, Save, User, MapPin, Wifi, Loader2 } from 'lucide-react';
+import { X, Save, User, MapPin, Wifi, Loader2, AlertCircle } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/contexts/AuthContext';
 import { useServicePackages } from '@/hooks/useServicePackages';
@@ -23,6 +22,10 @@ const SalesClientRegistrationForm: React.FC<SalesClientRegistrationFormProps> = 
   const { servicePackages, isLoading: packagesLoading } = useServicePackages();
   const [isSubmitting, setIsSubmitting] = useState(false);
 
+  // Check if there are active service packages
+  const activePackages = servicePackages.filter(pkg => pkg.is_active);
+  const hasActivePackages = activePackages.length > 0;
+
   const [formData, setFormData] = useState({
     name: '',
     email: '',
@@ -38,6 +41,7 @@ const SalesClientRegistrationForm: React.FC<SalesClientRegistrationFormProps> = 
     latitude: null as number | null,
     longitude: null as number | null,
     service_package_id: '',
+    monthly_rate: 0,
     notes: '',
   });
 
@@ -48,6 +52,12 @@ const SalesClientRegistrationForm: React.FC<SalesClientRegistrationFormProps> = 
     if (errors[field]) {
       setErrors(prev => ({ ...prev, [field]: '' }));
     }
+  };
+
+  const handlePackageChange = (packageId: string) => {
+    const selectedPackage = activePackages.find(p => p.id === packageId);
+    updateFormData('service_package_id', packageId);
+    updateFormData('monthly_rate', selectedPackage?.monthly_rate || 0);
   };
 
   const validateForm = () => {
@@ -80,10 +90,19 @@ const SalesClientRegistrationForm: React.FC<SalesClientRegistrationFormProps> = 
     
     if (!validateForm()) return;
 
+    if (!hasActivePackages) {
+      toast({
+        title: "No Service Packages Available",
+        description: "Cannot create client without active service packages. Please contact your administrator.",
+        variant: "destructive",
+      });
+      return;
+    }
+
     setIsSubmitting(true);
 
     try {
-      const selectedPackage = servicePackages.find(pkg => pkg.id === formData.service_package_id);
+      const selectedPackage = activePackages.find(pkg => pkg.id === formData.service_package_id);
       
       const clientData = {
         ...formData,
@@ -126,6 +145,54 @@ const SalesClientRegistrationForm: React.FC<SalesClientRegistrationFormProps> = 
       setIsSubmitting(false);
     }
   };
+
+  if (packagesLoading) {
+    return (
+      <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+        <Card className="w-full max-w-md">
+          <CardHeader>
+            <CardTitle>Loading Service Packages...</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="flex items-center justify-center p-8">
+              <Loader2 className="h-8 w-8 animate-spin" />
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
+
+  if (!hasActivePackages) {
+    return (
+      <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+        <Card className="w-full max-w-md">
+          <CardHeader className="flex flex-row items-center justify-between">
+            <CardTitle className="flex items-center gap-2">
+              <AlertCircle className="h-5 w-5 text-orange-500" />
+              No Service Packages
+            </CardTitle>
+            <Button variant="ghost" size="sm" onClick={onClose}>
+              <X className="h-4 w-4" />
+            </Button>
+          </CardHeader>
+          <CardContent>
+            <div className="text-center p-4">
+              <p className="text-muted-foreground mb-4">
+                No active service packages are available. Client registration requires at least one active service package.
+              </p>
+              <p className="text-sm text-muted-foreground mb-4">
+                Please contact your administrator to create service packages before registering customers.
+              </p>
+              <Button onClick={onClose} variant="outline" className="w-full">
+                Close
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
@@ -296,12 +363,12 @@ const SalesClientRegistrationForm: React.FC<SalesClientRegistrationFormProps> = 
                 </div>
                 <div>
                   <Label htmlFor="service_package_id">Service Package *</Label>
-                  <Select value={formData.service_package_id} onValueChange={(value) => updateFormData('service_package_id', value)}>
+                  <Select value={formData.service_package_id} onValueChange={handlePackageChange}>
                     <SelectTrigger className={errors.service_package_id ? 'border-red-500' : ''}>
-                      <SelectValue placeholder={packagesLoading ? 'Loading packages...' : 'Select Package'} />
+                      <SelectValue placeholder="Select Package" />
                     </SelectTrigger>
                     <SelectContent>
-                      {servicePackages.map(pkg => (
+                      {activePackages.map(pkg => (
                         <SelectItem key={pkg.id} value={pkg.id}>
                           {pkg.name} - {pkg.speed} (KES {pkg.monthly_rate.toLocaleString()}/month)
                         </SelectItem>
@@ -309,6 +376,20 @@ const SalesClientRegistrationForm: React.FC<SalesClientRegistrationFormProps> = 
                     </SelectContent>
                   </Select>
                   {errors.service_package_id && <p className="text-sm text-red-500 mt-1">{errors.service_package_id}</p>}
+                </div>
+                <div>
+                  <Label htmlFor="monthly_rate">Monthly Rate (KES)</Label>
+                  <Input
+                    id="monthly_rate"
+                    type="number"
+                    value={formData.monthly_rate}
+                    readOnly
+                    disabled
+                    className="bg-muted"
+                  />
+                  <p className="text-xs text-muted-foreground mt-1">
+                    Automatically set based on selected service package
+                  </p>
                 </div>
                 <div className="md:col-span-2">
                   <Label htmlFor="notes">Additional Notes</Label>
@@ -327,7 +408,7 @@ const SalesClientRegistrationForm: React.FC<SalesClientRegistrationFormProps> = 
               <Button type="button" variant="outline" onClick={onClose} disabled={isSubmitting}>
                 Cancel
               </Button>
-              <Button type="submit" className="gap-2" disabled={isSubmitting || packagesLoading}>
+              <Button type="submit" className="gap-2" disabled={isSubmitting}>
                 {isSubmitting ? (
                   <Loader2 className="h-4 w-4 animate-spin" />
                 ) : (

@@ -8,6 +8,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { useClients } from '@/hooks/useClients';
 import { useServicePackages } from '@/hooks/useServicePackages';
 import { useAuth } from '@/contexts/AuthContext';
+import { useToast } from '@/hooks/use-toast';
 import { Client, ClientType, ConnectionType } from '@/types/client';
 
 interface CustomerRegistrationFormProps {
@@ -17,8 +18,9 @@ interface CustomerRegistrationFormProps {
 
 const CustomerRegistrationForm: React.FC<CustomerRegistrationFormProps> = ({ onClose, onSuccess }) => {
   const { createClient } = useClients();
-  const { servicePackages } = useServicePackages();
+  const { servicePackages, isLoading: packagesLoading } = useServicePackages();
   const { profile } = useAuth();
+  const { toast } = useToast();
   
   const [formData, setFormData] = useState({
     name: '',
@@ -35,13 +37,43 @@ const CustomerRegistrationForm: React.FC<CustomerRegistrationFormProps> = ({ onC
     monthly_rate: 0,
   });
 
+  const [isSubmitting, setIsSubmitting] = useState(false);
+
+  // Check if there are active service packages
+  const activePackages = servicePackages.filter(pkg => pkg.is_active);
+  const hasActivePackages = activePackages.length > 0;
+
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     
     if (!profile?.isp_company_id) {
-      console.error('No ISP company ID found');
+      toast({
+        title: "Error",
+        description: "No ISP company ID found",
+        variant: "destructive",
+      });
       return;
     }
+
+    if (!hasActivePackages) {
+      toast({
+        title: "No Service Packages Available",
+        description: "Cannot create client without active service packages. Please contact your administrator to create service packages first.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    if (!formData.service_package_id) {
+      toast({
+        title: "Service Package Required",
+        description: "Please select a service package to continue.",
+        variant: "destructive",
+      });
+      return;
+    }
+    
+    setIsSubmitting(true);
     
     // Create client data that matches the Client interface exactly
     const clientData: Omit<Client, 'id' | 'created_at' | 'updated_at' | 'isp_company_id'> = {
@@ -111,17 +143,56 @@ const CustomerRegistrationForm: React.FC<CustomerRegistrationFormProps> = ({ onC
       onSuccess(clientData);
     }
     
+    setIsSubmitting(false);
     onClose();
   };
 
   const handlePackageChange = (packageId: string) => {
-    const selectedPackage = servicePackages.find(p => p.id === packageId);
+    const selectedPackage = activePackages.find(p => p.id === packageId);
     setFormData(prev => ({
       ...prev,
       service_package_id: packageId,
       monthly_rate: selectedPackage?.monthly_rate || 0
     }));
   };
+
+  if (packagesLoading) {
+    return (
+      <Card>
+        <CardHeader>
+          <CardTitle>Loading Service Packages...</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="flex items-center justify-center p-8">
+            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+          </div>
+        </CardContent>
+      </Card>
+    );
+  }
+
+  if (!hasActivePackages) {
+    return (
+      <Card>
+        <CardHeader>
+          <CardTitle>No Service Packages Available</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="text-center p-8">
+            <p className="text-muted-foreground mb-4">
+              No active service packages are available. Customer registration requires at least one active service package.
+            </p>
+            <p className="text-sm text-muted-foreground mb-4">
+              Please contact your administrator to create service packages before registering customers.
+            </p>
+            <Button onClick={onClose} variant="outline">
+              Close
+            </Button>
+          </div>
+        </CardContent>
+      </Card>
+    );
+  }
 
   return (
     <Card>
@@ -138,6 +209,7 @@ const CustomerRegistrationForm: React.FC<CustomerRegistrationFormProps> = ({ onC
                 value={formData.name}
                 onChange={(e) => setFormData(prev => ({ ...prev, name: e.target.value }))}
                 required
+                disabled={isSubmitting}
               />
             </div>
             
@@ -148,6 +220,7 @@ const CustomerRegistrationForm: React.FC<CustomerRegistrationFormProps> = ({ onC
                 value={formData.phone}
                 onChange={(e) => setFormData(prev => ({ ...prev, phone: e.target.value }))}
                 required
+                disabled={isSubmitting}
               />
             </div>
             
@@ -158,6 +231,7 @@ const CustomerRegistrationForm: React.FC<CustomerRegistrationFormProps> = ({ onC
                 type="email"
                 value={formData.email}
                 onChange={(e) => setFormData(prev => ({ ...prev, email: e.target.value }))}
+                disabled={isSubmitting}
               />
             </div>
             
@@ -168,6 +242,7 @@ const CustomerRegistrationForm: React.FC<CustomerRegistrationFormProps> = ({ onC
                 value={formData.id_number}
                 onChange={(e) => setFormData(prev => ({ ...prev, id_number: e.target.value }))}
                 required
+                disabled={isSubmitting}
               />
             </div>
             
@@ -177,6 +252,7 @@ const CustomerRegistrationForm: React.FC<CustomerRegistrationFormProps> = ({ onC
                 id="mpesa_number"
                 value={formData.mpesa_number}
                 onChange={(e) => setFormData(prev => ({ ...prev, mpesa_number: e.target.value }))}
+                disabled={isSubmitting}
               />
             </div>
             
@@ -187,6 +263,7 @@ const CustomerRegistrationForm: React.FC<CustomerRegistrationFormProps> = ({ onC
                 value={formData.county}
                 onChange={(e) => setFormData(prev => ({ ...prev, county: e.target.value }))}
                 required
+                disabled={isSubmitting}
               />
             </div>
             
@@ -196,6 +273,7 @@ const CustomerRegistrationForm: React.FC<CustomerRegistrationFormProps> = ({ onC
                 id="sub_county"
                 value={formData.sub_county}
                 onChange={(e) => setFormData(prev => ({ ...prev, sub_county: e.target.value }))}
+                disabled={isSubmitting}
               />
             </div>
             
@@ -206,6 +284,7 @@ const CustomerRegistrationForm: React.FC<CustomerRegistrationFormProps> = ({ onC
                 value={formData.client_type}
                 onChange={(e) => setFormData(prev => ({ ...prev, client_type: e.target.value as ClientType }))}
                 className="w-full p-2 border rounded"
+                disabled={isSubmitting}
               >
                 <option value="individual">Individual</option>
                 <option value="business">Business</option>
@@ -221,6 +300,7 @@ const CustomerRegistrationForm: React.FC<CustomerRegistrationFormProps> = ({ onC
                 value={formData.connection_type}
                 onChange={(e) => setFormData(prev => ({ ...prev, connection_type: e.target.value as ConnectionType }))}
                 className="w-full p-2 border rounded"
+                disabled={isSubmitting}
               >
                 <option value="fiber">Fiber</option>
                 <option value="wireless">Wireless</option>
@@ -230,20 +310,37 @@ const CustomerRegistrationForm: React.FC<CustomerRegistrationFormProps> = ({ onC
             </div>
             
             <div>
-              <Label htmlFor="service_package_id">Service Package</Label>
+              <Label htmlFor="service_package_id">Service Package *</Label>
               <select
                 id="service_package_id"
                 value={formData.service_package_id}
                 onChange={(e) => handlePackageChange(e.target.value)}
                 className="w-full p-2 border rounded"
+                required
+                disabled={isSubmitting}
               >
                 <option value="">Select a package</option>
-                {servicePackages.map(pkg => (
+                {activePackages.map(pkg => (
                   <option key={pkg.id} value={pkg.id}>
-                    {pkg.name} - KSh {pkg.monthly_rate.toLocaleString()}
+                    {pkg.name} - {pkg.speed} - KSh {pkg.monthly_rate.toLocaleString()}/month
                   </option>
                 ))}
               </select>
+            </div>
+
+            <div>
+              <Label htmlFor="monthly_rate">Monthly Rate (KSh)</Label>
+              <Input
+                id="monthly_rate"
+                type="number"
+                value={formData.monthly_rate}
+                readOnly
+                disabled
+                className="bg-muted"
+              />
+              <p className="text-xs text-muted-foreground mt-1">
+                Automatically set based on selected service package
+              </p>
             </div>
           </div>
           
@@ -254,15 +351,16 @@ const CustomerRegistrationForm: React.FC<CustomerRegistrationFormProps> = ({ onC
               value={formData.address}
               onChange={(e) => setFormData(prev => ({ ...prev, address: e.target.value }))}
               required
+              disabled={isSubmitting}
             />
           </div>
           
           <div className="flex justify-end gap-3">
-            <Button type="button" variant="outline" onClick={onClose}>
+            <Button type="button" variant="outline" onClick={onClose} disabled={isSubmitting}>
               Cancel
             </Button>
-            <Button type="submit">
-              Register Customer
+            <Button type="submit" disabled={isSubmitting}>
+              {isSubmitting ? 'Registering...' : 'Register Customer'}
             </Button>
           </div>
         </form>
