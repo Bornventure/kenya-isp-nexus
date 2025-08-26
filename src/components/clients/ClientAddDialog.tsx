@@ -1,12 +1,15 @@
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Plus } from 'lucide-react';
+import { Plus, Loader2, AlertCircle } from 'lucide-react';
 import { ClientType, ConnectionType } from '@/types/client';
+import { useServicePackages } from '@/hooks/useServicePackages';
+import { useAuth } from '@/contexts/AuthContext';
+import { useToast } from '@/hooks/use-toast';
 
 interface ClientAddDialogProps {
   onAddClient: (clientData: any) => void;
@@ -15,6 +18,10 @@ interface ClientAddDialogProps {
 
 const ClientAddDialog: React.FC<ClientAddDialogProps> = ({ onAddClient, isLoading = false }) => {
   const [open, setOpen] = useState(false);
+  const { servicePackages, isLoading: packagesLoading } = useServicePackages();
+  const { profile } = useAuth();
+  const { toast } = useToast();
+  
   const [formData, setFormData] = useState({
     name: '',
     email: '',
@@ -27,11 +34,45 @@ const ClientAddDialog: React.FC<ClientAddDialogProps> = ({ onAddClient, isLoadin
     mpesa_number: '',
     client_type: 'individual' as ClientType,
     connection_type: 'fiber' as ConnectionType,
+    service_package_id: '',
     monthly_rate: 0,
   });
 
+  // Check if there are active service packages
+  const activePackages = servicePackages.filter(pkg => pkg.is_active);
+  const hasActivePackages = activePackages.length > 0;
+
+  // Update monthly rate when service package changes
+  useEffect(() => {
+    if (formData.service_package_id) {
+      const selectedPackage = activePackages.find(pkg => pkg.id === formData.service_package_id);
+      if (selectedPackage) {
+        setFormData(prev => ({ ...prev, monthly_rate: selectedPackage.monthly_rate }));
+      }
+    }
+  }, [formData.service_package_id, activePackages]);
+
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
+
+    if (!hasActivePackages) {
+      toast({
+        title: "No Service Packages Available",
+        description: "Cannot create client without active service packages. Please contact your administrator.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    if (!formData.service_package_id) {
+      toast({
+        title: "Service Package Required",
+        description: "Please select a service package to continue.",
+        variant: "destructive",
+      });
+      return;
+    }
+    
     onAddClient(formData);
     setOpen(false);
     setFormData({
@@ -46,9 +87,28 @@ const ClientAddDialog: React.FC<ClientAddDialogProps> = ({ onAddClient, isLoadin
       mpesa_number: '',
       client_type: 'individual' as ClientType,
       connection_type: 'fiber' as ConnectionType,
+      service_package_id: '',
       monthly_rate: 0,
     });
   };
+
+  if (packagesLoading) {
+    return (
+      <Button disabled>
+        <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+        Loading Packages...
+      </Button>
+    );
+  }
+
+  if (!hasActivePackages) {
+    return (
+      <Button disabled variant="outline" className="gap-2">
+        <AlertCircle className="h-4 w-4" />
+        No Service Packages Available
+      </Button>
+    );
+  }
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>
@@ -180,21 +240,46 @@ const ClientAddDialog: React.FC<ClientAddDialogProps> = ({ onAddClient, isLoadin
             </div>
           </div>
 
-          <div>
-            <Label htmlFor="monthly_rate">Monthly Rate (KES)</Label>
-            <Input
-              id="monthly_rate"
-              type="number"
-              value={formData.monthly_rate}
-              onChange={(e) => setFormData({ ...formData, monthly_rate: Number(e.target.value) })}
-            />
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <Label htmlFor="service_package_id">Service Package *</Label>
+              <Select 
+                value={formData.service_package_id} 
+                onValueChange={(value) => setFormData({ ...formData, service_package_id: value })}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Select a service package" />
+                </SelectTrigger>
+                <SelectContent>
+                  {activePackages.map(pkg => (
+                    <SelectItem key={pkg.id} value={pkg.id}>
+                      {pkg.name} - {pkg.speed} (KES {pkg.monthly_rate.toLocaleString()}/month)
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div>
+              <Label htmlFor="monthly_rate">Monthly Rate (KES)</Label>
+              <Input
+                id="monthly_rate"
+                type="number"
+                value={formData.monthly_rate}
+                readOnly
+                disabled
+                className="bg-muted"
+              />
+              <p className="text-xs text-muted-foreground mt-1">
+                Automatically set based on selected service package
+              </p>
+            </div>
           </div>
 
           <div className="flex justify-end space-x-2">
             <Button type="button" variant="outline" onClick={() => setOpen(false)}>
               Cancel
             </Button>
-            <Button type="submit" disabled={isLoading}>
+            <Button type="submit" disabled={isLoading || !formData.service_package_id}>
               {isLoading ? 'Adding...' : 'Add Client'}
             </Button>
           </div>

@@ -45,6 +45,9 @@ const ClientEditDialog: React.FC<ClientEditDialogProps> = ({
     longitude: null as number | null,
   });
 
+  // Filter active service packages
+  const activePackages = servicePackages.filter(pkg => pkg.is_active);
+
   useEffect(() => {
     if (client) {
       setFormData({
@@ -67,6 +70,16 @@ const ClientEditDialog: React.FC<ClientEditDialogProps> = ({
       });
     }
   }, [client]);
+
+  // Auto-update monthly rate when service package changes
+  useEffect(() => {
+    if (formData.service_package_id) {
+      const selectedPackage = activePackages.find(pkg => pkg.id === formData.service_package_id);
+      if (selectedPackage && selectedPackage.monthly_rate !== formData.monthly_rate) {
+        setFormData(prev => ({ ...prev, monthly_rate: selectedPackage.monthly_rate }));
+      }
+    }
+  }, [formData.service_package_id, activePackages]);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -217,9 +230,9 @@ const ClientEditDialog: React.FC<ClientEditDialogProps> = ({
                   <SelectValue placeholder="Select package" />
                 </SelectTrigger>
                 <SelectContent>
-                  {servicePackages.map((pkg) => (
+                  {activePackages.map((pkg) => (
                     <SelectItem key={pkg.id} value={pkg.id}>
-                      {pkg.name} - KES {pkg.monthly_rate}
+                      {pkg.name} - {pkg.speed} (KES {pkg.monthly_rate.toLocaleString()}/month)
                     </SelectItem>
                   ))}
                 </SelectContent>
@@ -232,10 +245,13 @@ const ClientEditDialog: React.FC<ClientEditDialogProps> = ({
                 id="monthly_rate"
                 type="number"
                 value={formData.monthly_rate}
-                onChange={(e) => handleInputChange('monthly_rate', parseFloat(e.target.value))}
-                min="0"
-                step="0.01"
+                readOnly
+                disabled
+                className="bg-muted"
               />
+              <p className="text-xs text-muted-foreground mt-1">
+                Automatically set based on selected service package
+              </p>
             </div>
           </div>
 

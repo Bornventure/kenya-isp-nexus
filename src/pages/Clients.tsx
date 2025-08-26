@@ -1,165 +1,209 @@
 
 import React, { useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Search, MapPin, Phone, Mail, Edit, Trash2 } from 'lucide-react';
-import { useClients, type DatabaseClient } from '@/hooks/useClients';
+import { Badge } from '@/components/ui/badge';
+import { useClients } from '@/hooks/useClients';
+import { useClientDeletion } from '@/hooks/useClientDeletion';
+import { useToast } from '@/hooks/use-toast';
 import ClientAddDialog from '@/components/clients/ClientAddDialog';
 import ClientEditDialog from '@/components/clients/ClientEditDialog';
+import { 
+  Search, 
+  Edit, 
+  Trash2, 
+  Plus, 
+  Users, 
+  Phone, 
+  Mail, 
+  MapPin,
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger
+} from 'lucide-react';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from '@/components/ui/alert-dialog';
+import type { Client } from '@/types/client';
 
 const Clients = () => {
-  const { clients, isLoading, createClient, updateClient, deleteClient } = useClients();
   const [searchTerm, setSearchTerm] = useState('');
-  const [statusFilter, setStatusFilter] = useState('all');
-  const [selectedClient, setSelectedClient] = useState<DatabaseClient | null>(null);
+  const [selectedClient, setSelectedClient] = useState<Client | null>(null);
+  const [editDialogOpen, setEditDialogOpen] = useState(false);
+  const { clients, isLoading, createClient } = useClients();
+  const { deleteClient, isDeletingClient } = useClientDeletion();
+  const { toast } = useToast();
 
-  const filteredClients = clients.filter(client => {
-    const matchesSearch = client.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         client.phone.includes(searchTerm) ||
-                         client.email?.toLowerCase().includes(searchTerm.toLowerCase());
-    const matchesStatus = statusFilter === 'all' || client.status === statusFilter;
-    return matchesSearch && matchesStatus;
-  });
+  const filteredClients = clients.filter(client =>
+    client.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    client.email?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    client.phone?.includes(searchTerm)
+  );
+
+  const handleDeleteClient = (clientId: string) => {
+    deleteClient(clientId);
+  };
+
+  const handleEditClient = (client: Client) => {
+    setSelectedClient(client);
+    setEditDialogOpen(true);
+  };
 
   const getStatusColor = (status: string) => {
     switch (status) {
       case 'active': return 'bg-green-100 text-green-800';
-      case 'suspended': return 'bg-red-100 text-red-800';
-      case 'pending': return 'bg-yellow-100 text-yellow-800';
-      case 'disconnected': return 'bg-gray-100 text-gray-800';
+      case 'suspended': return 'bg-yellow-100 text-yellow-800';
+      case 'pending': return 'bg-blue-100 text-blue-800';
+      case 'disconnected': return 'bg-red-100 text-red-800';
       default: return 'bg-gray-100 text-gray-800';
     }
   };
 
-  const handleAddClient = (clientData: any) => {
-    createClient(clientData);
-  };
-
-  const handleUpdateClient = (clientData: any) => {
-    if (selectedClient) {
-      updateClient({ id: selectedClient.id, updates: clientData });
-      setSelectedClient(null);
-    }
-  };
-
-  const handleDeleteClient = (clientId: string) => {
-    if (window.confirm('Are you sure you want to delete this client?')) {
-      deleteClient(clientId);
-    }
-  };
-
   if (isLoading) {
-    return <div className="p-6">Loading clients...</div>;
+    return (
+      <div className="flex items-center justify-center h-64">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+      </div>
+    );
   }
 
   return (
-    <div className="p-6">
-      <div className="flex justify-between items-center mb-6">
-        <h1 className="text-2xl font-bold">Clients</h1>
-        <ClientAddDialog onAddClient={handleAddClient} />
-      </div>
-
-      {/* Filters */}
-      <div className="flex gap-4 mb-6">
-        <div className="relative flex-1">
-          <Search className="absolute left-3 top-3 h-4 w-4 text-gray-400" />
-          <Input
-            placeholder="Search clients..."
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-            className="pl-10"
-          />
+    <div className="space-y-6">
+      <div className="flex justify-between items-center">
+        <div>
+          <h1 className="text-3xl font-bold">Clients</h1>
+          <p className="text-muted-foreground">Manage your client base</p>
         </div>
-        <Select value={statusFilter} onValueChange={setStatusFilter}>
-          <SelectTrigger className="w-48">
-            <SelectValue placeholder="Filter by status" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">All Status</SelectItem>
-            <SelectItem value="active">Active</SelectItem>
-            <SelectItem value="suspended">Suspended</SelectItem>
-            <SelectItem value="pending">Pending</SelectItem>
-            <SelectItem value="disconnected">Disconnected</SelectItem>
-          </SelectContent>
-        </Select>
+        <ClientAddDialog onAddClient={createClient} />
       </div>
 
-      {/* Clients Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-        {filteredClients.map((client) => (
-          <Card key={client.id} className="hover:shadow-lg transition-shadow">
-            <CardHeader className="pb-3">
-              <div className="flex justify-between items-start">
-                <CardTitle className="text-lg">{client.name}</CardTitle>
-                <Badge className={getStatusColor(client.status)}>
-                  {client.status}
-                </Badge>
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <Users className="h-5 w-5" />
+            Client Management
+          </CardTitle>
+          <div className="flex items-center space-x-2">
+            <Search className="h-4 w-4" />
+            <Input
+              placeholder="Search clients..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="max-w-sm"
+            />
+          </div>
+        </CardHeader>
+        <CardContent>
+          <div className="grid gap-4">
+            {filteredClients.length === 0 ? (
+              <div className="text-center py-8 text-muted-foreground">
+                {searchTerm ? 'No clients found matching your search.' : 'No clients found. Add your first client!'}
               </div>
-            </CardHeader>
-            <CardContent className="space-y-3">
-              <div className="flex items-center gap-2 text-sm text-gray-600">
-                <Phone className="h-4 w-4" />
-                {client.phone}
-              </div>
-              {client.email && (
-                <div className="flex items-center gap-2 text-sm text-gray-600">
-                  <Mail className="h-4 w-4" />
-                  {client.email}
+            ) : (
+              filteredClients.map((client) => (
+                <div
+                  key={client.id}
+                  className="flex items-center justify-between p-4 border rounded-lg hover:bg-muted/50"
+                >
+                  <div className="flex-1">
+                    <div className="flex items-center gap-3 mb-2">
+                      <h3 className="font-semibold">{client.name}</h3>
+                      <Badge className={getStatusColor(client.status)}>
+                        {client.status}
+                      </Badge>
+                    </div>
+                    <div className="flex items-center gap-4 text-sm text-muted-foreground">
+                      <div className="flex items-center gap-1">
+                        <Phone className="h-4 w-4" />
+                        {client.phone}
+                      </div>
+                      {client.email && (
+                        <div className="flex items-center gap-1">
+                          <Mail className="h-4 w-4" />
+                          {client.email}
+                        </div>
+                      )}
+                      <div className="flex items-center gap-1">
+                        <MapPin className="h-4 w-4" />
+                        {client.county}
+                      </div>
+                      <div className="font-medium">
+                        KES {client.monthly_rate?.toLocaleString()}/month
+                      </div>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => handleEditClient(client)}
+                    >
+                      <Edit className="h-4 w-4" />
+                    </Button>
+                    <AlertDialog>
+                      <AlertDialogTrigger asChild>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          disabled={isDeletingClient}
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
+                      </AlertDialogTrigger>
+                      <AlertDialogContent>
+                        <AlertDialogHeader>
+                          <AlertDialogTitle>Delete Client</AlertDialogTitle>
+                          <AlertDialogDescription>
+                            Are you sure you want to delete {client.name}? This will:
+                            <ul className="list-disc list-inside mt-2 space-y-1">
+                              <li>Preserve all financial records (invoices, payments) for audit purposes</li>
+                              <li>Return assigned equipment to inventory</li>
+                              <li>Remove operational data (sessions, assignments)</li>
+                              <li>Permanently delete the client profile</li>
+                            </ul>
+                            This action cannot be undone.
+                          </AlertDialogDescription>
+                        </AlertDialogHeader>
+                        <AlertDialogFooter>
+                          <AlertDialogCancel>Cancel</AlertDialogCancel>
+                          <AlertDialogAction
+                            onClick={() => handleDeleteClient(client.id)}
+                            className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                            disabled={isDeletingClient}
+                          >
+                            {isDeletingClient ? 'Deleting...' : 'Delete Client'}
+                          </AlertDialogAction>
+                        </AlertDialogFooter>
+                      </AlertDialogContent>
+                    </AlertDialog>
+                  </div>
                 </div>
-              )}
-              <div className="flex items-center gap-2 text-sm text-gray-600">
-                <MapPin className="h-4 w-4" />
-                {client.county}, {client.sub_county}
-              </div>
-              <div className="text-sm">
-                <span className="font-medium">Monthly Rate:</span> KES {client.monthly_rate.toLocaleString()}
-              </div>
-              <div className="text-sm">
-                <span className="font-medium">Connection:</span> {client.connection_type}
-              </div>
-              
-              <div className="flex gap-2 pt-2">
-                <Button
-                  size="sm"
-                  variant="outline"
-                  onClick={() => setSelectedClient(client)}
-                >
-                  <Edit className="h-4 w-4 mr-1" />
-                  Edit
-                </Button>
-                <Button
-                  size="sm"
-                  variant="outline"
-                  onClick={() => handleDeleteClient(client.id)}
-                  className="text-red-600 hover:text-red-800"
-                >
-                  <Trash2 className="h-4 w-4 mr-1" />
-                  Delete
-                </Button>
-              </div>
-            </CardContent>
-          </Card>
-        ))}
-      </div>
+              ))
+            )}
+          </div>
+        </CardContent>
+      </Card>
 
-      {filteredClients.length === 0 && (
-        <div className="text-center py-12">
-          <p className="text-gray-500">No clients found matching your criteria.</p>
-        </div>
-      )}
-
-      {/* Edit Dialog */}
-      {selectedClient && (
-        <ClientEditDialog
-          client={selectedClient}
-          open={!!selectedClient}
-          onOpenChange={(open) => !open && setSelectedClient(null)}
-          onUpdateClient={handleUpdateClient}
-        />
-      )}
+      <ClientEditDialog
+        client={selectedClient}
+        open={editDialogOpen}
+        onOpenChange={setEditDialogOpen}
+      />
     </div>
   );
 };
