@@ -1,278 +1,136 @@
 
 import { supabase } from '@/integrations/supabase/client';
-import { RadiusUser, RadiusAccountingRecord } from '@/types/radius';
+import { formatSpeedForRadius } from '@/utils/speedConverter';
 
-interface ServiceResult {
-  success: boolean;
-  message: string;
-  data?: any;
-}
-
-class RadiusService {
-  async createUser(userData: {
-    username: string;
-    password: string;
-    profile: string;
-    status: string;
-    client_id?: string;
-    isp_company_id: string;
-  }): Promise<ServiceResult> {
+export class RadiusService {
+  async createRadiusUser(clientId: string, username: string, password: string) {
     try {
+      // Get client with service package details
+      const { data: client } = await supabase
+        .from('clients')
+        .select('*, service_packages(*)')
+        .eq('id', clientId)
+        .single();
+
+      if (!client || !client.service_packages) {
+        throw new Error('Client or service package not found');
+      }
+
+      // Convert speed from service package to proper format for RADIUS
+      const speedLimits = formatSpeedForRadius(client.service_packages.speed);
+
+      // Create RADIUS user with proper speed limits
       const { data, error } = await supabase
-        .from('radius_users' as any)
+        .from('radius_users')
         .insert({
-          username: userData.username,
-          password: userData.password,
-          group_name: userData.profile,
-          is_active: userData.status === 'active',
-          client_id: userData.client_id || '',
-          isp_company_id: userData.isp_company_id,
-          max_download: '5120',
-          max_upload: '512',
-          expiration: new Date(Date.now() + 365 * 24 * 60 * 60 * 1000).toISOString()
+          username,
+          password,
+          profile: 'default',
+          status: 'active',
+          client_id: clientId,
+          isp_company_id: client.isp_company_id,
+          // Store speed limits for QoS
+          download_speed: speedLimits.download,
+          upload_speed: speedLimits.upload,
+          monthly_quota: client.service_packages.data_limit || null
         })
         .select()
         .single();
 
       if (error) {
         console.error('Error creating RADIUS user:', error);
-        return {
-          success: false,
-          message: `Database error: ${error.message}`
-        };
+        throw error;
       }
 
-      console.log('RADIUS user created successfully:', data);
-      return {
-        success: true,
-        message: 'RADIUS user created successfully',
-        data
-      };
+      console.log(`RADIUS user created: ${username} with speeds ${speedLimits.download}/${speedLimits.upload} Kbps`);
+      return data;
     } catch (error) {
-      console.error('Error in RADIUS service:', error);
-      return {
-        success: false,
-        message: error instanceof Error ? error.message : 'Unknown error'
-      };
+      console.error('RADIUS user creation error:', error);
+      throw error;
     }
   }
 
-  async createRadiusUser(clientId: string, companyId: string): Promise<ServiceResult> {
+  async updateClientQoS(clientId: string, servicePackageId: string) {
     try {
-      // Get client details first
-      const { data: client, error: clientError } = await supabase
-        .from('clients')
+      // Get service package details
+      const { data: servicePackage } = await supabase
+        .from('service_packages')
         .select('*')
-        .eq('id', clientId)
+        .eq('id', servicePackageId)
         .single();
 
-      if (clientError || !client) {
-        console.error('Error fetching client:', clientError);
-        return {
-          success: false,
-          message: 'Client not found'
-        };
+      if (!servicePackage) {
+        throw new Error('Service package not found');
       }
 
-      const userData = {
-        username: client.email || client.phone,
-        password: this.generateSecurePassword(),
-        profile: 'default',
-        status: 'active',
-        client_id: clientId,
-        isp_company_id: companyId
-      };
+      // Get RADIUS user for this client
+      const { data: radiusUser } = await supabase
+        .from('radius_users')
+        .select('*')
+        .eq('client_id', clientId)
+        .single();
 
-      return await this.createUser(userData);
-    } catch (error) {
-      console.error('Error creating RADIUS user:', error);
-      return {
-        success: false,
-        message: error instanceof Error ? error.message : 'Unknown error'
-      };
-    }
-  }
+      if (!radiusUser) {
+        console.log('No RADIUS user found for client:', clientId);
+        return;
+      }
 
-  async updateUser(userId: string, updates: Partial<RadiusUser>): Promise<ServiceResult> {
-    try {
-      const { data, error } = await supabase
-        .from('radius_users' as any)
+      // Convert speed and update RADIUS user
+      const speedLimits = formatSpeedForRadius(servicePackage.speed);
+
+      const { error } = await supabase
+        .from('radius_users')
         .update({
-          username: updates.username,
-          password: updates.password,
-          group_name: updates.profile,
-          is_active: updates.status === 'active',
-          client_id: updates.client_id,
-          max_download: updates.downloadSpeed?.toString(),
-          max_upload: updates.uploadSpeed?.toString()
+          download_speed: speedLimits.download,
+          upload_speed: speedLimits.upload,
+          monthly_quota: servicePackage.data_limit || null
         })
-        .eq('id', userId)
-        .select()
-        .single();
+        .eq('client_id', clientId);
 
       if (error) {
-        console.error('Error updating RADIUS user:', error);
-        return {
-          success: false,
-          message: `Update failed: ${error.message}`
-        };
+        console.error('Error updating RADIUS QoS:', error);
+        throw error;
       }
 
-      return {
-        success: true,
-        message: 'RADIUS user updated successfully',
-        data
-      };
+      console.log(`Updated QoS for client ${clientId}: ${speedLimits.download}/${speedLimits.upload} Kbps`);
     } catch (error) {
-      console.error('Error updating RADIUS user:', error);
-      return {
-        success: false,
-        message: error instanceof Error ? error.message : 'Unknown error'
-      };
+      console.error('QoS update error:', error);
+      throw error;
     }
   }
 
-  async updateRadiusUser(userId: string, updates: Partial<RadiusUser>): Promise<ServiceResult> {
-    return this.updateUser(userId, updates);
-  }
-
-  async deleteUser(userId: string): Promise<ServiceResult> {
+  async disconnectClient(clientId: string) {
     try {
       const { error } = await supabase
-        .from('radius_users' as any)
-        .delete()
-        .eq('id', userId);
+        .from('radius_users')
+        .update({ status: 'blocked' })
+        .eq('client_id', clientId);
 
-      if (error) {
-        console.error('Error deleting RADIUS user:', error);
-        return {
-          success: false,
-          message: `Delete failed: ${error.message}`
-        };
-      }
+      if (error) throw error;
 
-      return {
-        success: true,
-        message: 'RADIUS user deleted successfully'
-      };
+      console.log(`Client ${clientId} disconnected from RADIUS`);
+      return true;
     } catch (error) {
-      console.error('Error deleting RADIUS user:', error);
-      return {
-        success: false,
-        message: error instanceof Error ? error.message : 'Unknown error'
-      };
+      console.error('Error disconnecting client:', error);
+      return false;
     }
   }
 
-  async deleteRadiusUser(userId: string): Promise<ServiceResult> {
-    return this.deleteUser(userId);
-  }
-
-  async disconnectUser(username: string, companyId: string): Promise<ServiceResult> {
-    try {
-      console.log(`Disconnecting RADIUS user: ${username}`);
-      
-      const { error } = await supabase
-        .from('active_sessions' as any)
-        .delete()
-        .eq('username', username)
-        .eq('isp_company_id', companyId);
-
-      if (error) {
-        console.error('Error disconnecting user:', error);
-        return {
-          success: false,
-          message: `Disconnect failed: ${error.message}`
-        };
-      }
-
-      return {
-        success: true,
-        message: `User ${username} disconnected successfully`
-      };
-    } catch (error) {
-      console.error('Error disconnecting user:', error);
-      return {
-        success: false,
-        message: error instanceof Error ? error.message : 'Unknown error'
-      };
-    }
-  }
-
-  async getActiveSessions(companyId: string): Promise<any[]> {
-    try {
-      const { data, error } = await supabase
-        .from('active_sessions' as any)
-        .select('*')
-        .eq('isp_company_id', companyId)
-        .order('session_start', { ascending: false });
-
-      if (error) {
-        console.error('Error fetching active sessions:', error);
-        return [];
-      }
-
-      return data || [];
-    } catch (error) {
-      console.error('Error fetching active sessions:', error);
-      return [];
-    }
-  }
-
-  async logAccountingData(accountingData: {
-    username: string;
-    nas_ip_address: string;
-    session_id: string;
-    session_time: number;
-    input_octets: number;
-    output_octets: number;
-    terminate_cause: string;
-    client_id?: string;
-    isp_company_id: string;
-  }): Promise<ServiceResult> {
+  async reconnectClient(clientId: string) {
     try {
       const { error } = await supabase
-        .from('radius_accounting' as any)
-        .insert({
-          username: accountingData.username,
-          nas_ip_address: accountingData.nas_ip_address,
-          session_id: accountingData.session_id,
-          session_time: accountingData.session_time,
-          input_octets: accountingData.input_octets,
-          output_octets: accountingData.output_octets,
-          terminate_cause: accountingData.terminate_cause,
-          client_id: accountingData.client_id,
-          isp_company_id: accountingData.isp_company_id
-        });
+        .from('radius_users')
+        .update({ status: 'active' })
+        .eq('client_id', clientId);
 
-      if (error) {
-        console.error('Error logging accounting data:', error);
-        return {
-          success: false,
-          message: `Accounting log failed: ${error.message}`
-        };
-      }
+      if (error) throw error;
 
-      return {
-        success: true,
-        message: 'Accounting data logged successfully'
-      };
+      console.log(`Client ${clientId} reconnected to RADIUS`);
+      return true;
     } catch (error) {
-      console.error('Error logging accounting data:', error);
-      return {
-        success: false,
-        message: error instanceof Error ? error.message : 'Unknown error'
-      };
+      console.error('Error reconnecting client:', error);
+      return false;
     }
-  }
-
-  private generateSecurePassword(): string {
-    const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789!@#$%^&*';
-    let password = '';
-    for (let i = 0; i < 12; i++) {
-      password += chars.charAt(Math.floor(Math.random() * chars.length));
-    }
-    return password;
   }
 }
 

@@ -49,11 +49,11 @@ export const useWorkflowOrchestration = () => {
 
   const processRejection = useCallback(async (clientId: string, rejectionReason: string, rejectedBy: string) => {
     try {
-      // Update client status to pending (not rejected, as rejected is not in the allowed enum)
+      // Update client status to rejected
       await supabase
         .from('clients')
         .update({
-          status: 'pending' as const,
+          status: 'rejected' as const,
           rejection_reason: rejectionReason,
           rejected_by: rejectedBy,
           rejected_at: new Date().toISOString()
@@ -100,7 +100,7 @@ export const useWorkflowOrchestration = () => {
 
   const processApproval = useCallback(async (clientId: string, equipmentId: string, approvedBy: string) => {
     try {
-      // Update client status
+      // Update client status to approved
       await supabase
         .from('clients')
         .update({
@@ -110,24 +110,47 @@ export const useWorkflowOrchestration = () => {
         })
         .eq('id', clientId);
 
-      // Assign equipment
-      await supabase
-        .from('equipment_assignments')
-        .insert({
-          client_id: clientId,
-          equipment_id: equipmentId,
-          assigned_by: approvedBy,
-          isp_company_id: (await supabase.from('clients').select('isp_company_id').eq('id', clientId).single()).data?.isp_company_id
-        });
+      // Get client and company info for invoice generation
+      const { data: client } = await supabase
+        .from('clients')
+        .select('*, service_packages(*)')
+        .eq('id', clientId)
+        .single();
+
+      if (!client) {
+        throw new Error('Client not found');
+      }
 
       // Generate installation invoice
-      await supabase.functions.invoke('generate-installation-invoice', {
+      const { data: invoiceData, error: invoiceError } = await supabase.functions.invoke('generate-installation-invoice', {
         body: { client_id: clientId }
+      });
+
+      if (invoiceError) {
+        console.error('Error generating installation invoice:', invoiceError);
+        throw invoiceError;
+      }
+
+      console.log('Installation invoice generated:', invoiceData);
+
+      // Send SMS notification about the approval and invoice
+      await supabase.functions.invoke('send-notifications', {
+        body: {
+          client_id: clientId,
+          type: 'client_approved',
+          title: 'Service Application Approved',
+          message: `Your internet service application has been approved! Installation invoice has been sent to you.`,
+          data: {
+            client_name: client.name,
+            invoice_number: invoiceData?.invoice?.invoice_number,
+            total_amount: invoiceData?.invoice?.total_amount
+          }
+        }
       });
 
       toast({
         title: "Client Approved",
-        description: "Installation invoice has been generated.",
+        description: "Installation invoice has been generated and sent to the client.",
       });
     } catch (error) {
       console.error('Error processing approval:', error);
@@ -141,6 +164,17 @@ export const useWorkflowOrchestration = () => {
 
   const activateClientService = useCallback(async (clientId: string) => {
     try {
+      // Get client with service package details
+      const { data: client } = await supabase
+        .from('clients')
+        .select('*, service_packages(*)')
+        .eq('id', clientId)
+        .single();
+
+      if (!client) {
+        throw new Error('Client not found');
+      }
+
       // Use the existing client activation service
       const { data, error } = await supabase.functions.invoke('activate-client-service', {
         body: { client_id: clientId }
@@ -164,17 +198,31 @@ export const useWorkflowOrchestration = () => {
         body: {
           client_id: clientId,
           type: 'service_activation',
+          title: 'Internet Service Activated',
+          message: `Congratulations! Your internet service has been activated. Welcome to our network!`,
           data: {
-            activation_date: new Date().toISOString()
+            activation_date: new Date().toISOString(),
+            service_package: client.service_packages?.name,
+            speed: client.service_packages?.speed
           }
         }
       });
 
       console.log('Client service activated:', clientId);
+
+      toast({
+        title: "Service Activated",
+        description: "Client service has been activated successfully.",
+      });
     } catch (error) {
       console.error('Error activating client service:', error);
+      toast({
+        title: "Error",
+        description: "Failed to activate client service.",
+        variant: "destructive",
+      });
     }
-  }, []);
+  }, [toast]);
 
   return {
     notifyNetworkAdmin,

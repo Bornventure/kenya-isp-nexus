@@ -1,4 +1,3 @@
-
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
@@ -36,7 +35,22 @@ export const useClients = () => {
 
       const { data, error } = await supabase
         .from('clients')
-        .select('*')
+        .select(`
+          *,
+          service_packages (
+            id,
+            name,
+            speed,
+            monthly_rate,
+            setup_fee,
+            data_limit,
+            description,
+            is_active,
+            isp_company_id,
+            created_at,
+            updated_at
+          )
+        `)
         .eq('isp_company_id', profile.isp_company_id)
         .order('created_at', { ascending: false });
 

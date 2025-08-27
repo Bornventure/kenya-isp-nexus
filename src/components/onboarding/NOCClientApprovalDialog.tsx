@@ -8,7 +8,7 @@ import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Separator } from '@/components/ui/separator';
 import { CheckCircle, XCircle, User, Phone, Mail, MapPin, Package, Calendar, CreditCard, Loader2 } from 'lucide-react';
-import { useClients } from '@/hooks/useClients';
+import { useWorkflowOrchestration } from '@/hooks/useWorkflowOrchestration';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/contexts/AuthContext';
 
@@ -27,7 +27,7 @@ const NOCClientApprovalDialog: React.FC<NOCClientApprovalDialogProps> = ({
 }) => {
   const [notes, setNotes] = useState('');
   const [isProcessing, setIsProcessing] = useState(false);
-  const { updateClient } = useClients();
+  const { processApproval, processRejection } = useWorkflowOrchestration();
   const { toast } = useToast();
   const { profile } = useAuth();
 
@@ -45,19 +45,12 @@ const NOCClientApprovalDialog: React.FC<NOCClientApprovalDialogProps> = ({
     try {
       console.log('Approving client:', client.id);
       
-      await updateClient({
-        id: client.id,
-        updates: {
-          status: 'approved',
-          approved_by: profile.id,
-          approved_at: new Date().toISOString(),
-          installation_status: 'scheduled'
-        }
-      });
+      // Use the workflow orchestration for proper approval process
+      await processApproval(client.id, 'default-equipment-id', profile.id);
 
       toast({
         title: "Client Approved",
-        description: `${client.name} has been approved and scheduled for installation.`,
+        description: `${client.name} has been approved. Installation invoice generated and sent via SMS.`,
       });
 
       onApprove?.();
@@ -97,23 +90,12 @@ const NOCClientApprovalDialog: React.FC<NOCClientApprovalDialogProps> = ({
     try {
       console.log('Rejecting client:', client.id);
       
-      // Update client status to suspended and record approval details
-      await updateClient({
-        id: client.id,
-        updates: {
-          status: 'suspended',
-          approved_by: profile.id,
-          approved_at: new Date().toISOString()
-        }
-      });
-
-      // Note: The rejection reason is stored in the notes state but not persisted 
-      // since the DatabaseClient type doesn't have a notes field
-      console.log('Rejection reason:', notes.trim());
+      // Use the workflow orchestration for proper rejection process
+      await processRejection(client.id, notes.trim(), profile.id);
 
       toast({
         title: "Client Rejected",
-        description: `${client.name} has been rejected with the provided reason.`,
+        description: `${client.name} has been rejected. Sales team has been notified.`,
         variant: "destructive",
       });
 
@@ -132,6 +114,8 @@ const NOCClientApprovalDialog: React.FC<NOCClientApprovalDialogProps> = ({
   };
 
   if (!client) return null;
+
+  const servicePackage = client.service_packages;
 
   return (
     <Dialog open={open} onOpenChange={onClose}>
@@ -202,12 +186,29 @@ const NOCClientApprovalDialog: React.FC<NOCClientApprovalDialogProps> = ({
                 </div>
                 <div className="flex items-center gap-2">
                   <Package className="h-4 w-4 text-muted-foreground" />
-                  <span>{client.service_packages?.name || 'Package not assigned'}</span>
+                  <span>{servicePackage?.name || 'Package not assigned'}</span>
                 </div>
-                <div className="flex items-center gap-2">
-                  <Calendar className="h-4 w-4 text-muted-foreground" />
-                  <span>Rate: KES {client.monthly_rate?.toLocaleString()}/month</span>
-                </div>
+                {servicePackage && (
+                  <>
+                    <div className="text-sm">
+                      <strong>Speed:</strong> {servicePackage.speed}
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <Calendar className="h-4 w-4 text-muted-foreground" />
+                      <span>Monthly Rate: KES {client.monthly_rate?.toLocaleString()}/month</span>
+                    </div>
+                    {servicePackage.setup_fee && servicePackage.setup_fee > 0 && (
+                      <div className="text-sm">
+                        <strong>Setup Fee:</strong> KES {servicePackage.setup_fee.toLocaleString()}
+                      </div>
+                    )}
+                    {servicePackage.data_limit && (
+                      <div className="text-sm">
+                        <strong>Data Limit:</strong> {servicePackage.data_limit} MB
+                      </div>
+                    )}
+                  </>
+                )}
                 {client.installation_date && (
                   <div className="text-sm">
                     <strong>Installation Date:</strong> {new Date(client.installation_date).toLocaleDateString()}
