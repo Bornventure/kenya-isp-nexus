@@ -3239,12 +3239,14 @@ export type Database = {
           connection_types: Database["public"]["Enums"]["connection_type"][]
           created_at: string | null
           data_cap_gb: number | null
+          data_limit: number | null
           description: string | null
           id: string
           is_active: boolean | null
           isp_company_id: string | null
           monthly_rate: number
           name: string
+          setup_fee: number | null
           speed: string
           updated_at: string | null
         }
@@ -3252,12 +3254,14 @@ export type Database = {
           connection_types: Database["public"]["Enums"]["connection_type"][]
           created_at?: string | null
           data_cap_gb?: number | null
+          data_limit?: number | null
           description?: string | null
           id?: string
           is_active?: boolean | null
           isp_company_id?: string | null
           monthly_rate: number
           name: string
+          setup_fee?: number | null
           speed: string
           updated_at?: string | null
         }
@@ -3265,12 +3269,14 @@ export type Database = {
           connection_types?: Database["public"]["Enums"]["connection_type"][]
           created_at?: string | null
           data_cap_gb?: number | null
+          data_limit?: number | null
           description?: string | null
           id?: string
           is_active?: boolean | null
           isp_company_id?: string | null
           monthly_rate?: number
           name?: string
+          setup_fee?: number | null
           speed?: string
           updated_at?: string | null
         }
