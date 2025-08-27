@@ -17,7 +17,7 @@ export const usePaymentMonitoring = () => {
             id,
             name,
             status,
-            service_packages(*)
+            service_packages:service_package_id(*)
           )
         `)
         .eq('status', 'paid')
@@ -43,15 +43,15 @@ export const usePaymentMonitoring = () => {
         }
       }
 
-      // Check for M-Pesa payments that might need to be linked to invoices
-      const { data: mpesaPayments } = await supabase
-        .from('mpesa_payments')
+      // Check for Family Bank payments that might need to be linked to invoices
+      const { data: familyBankPayments } = await supabase
+        .from('family_bank_payments')
         .select('*')
-        .eq('status', 'completed')
-        .is('linked_invoice_id', null);
+        .eq('status', 'verified')
+        .is('invoice_number', null);
 
-      // Try to match M-Pesa payments to installation invoices by phone number
-      for (const payment of mpesaPayments || []) {
+      // Try to match Family Bank payments to installation invoices by phone number
+      for (const payment of familyBankPayments || []) {
         const { data: matchingInvoice } = await supabase
           .from('installation_invoices')
           .select(`
@@ -59,10 +59,10 @@ export const usePaymentMonitoring = () => {
             clients(phone)
           `)
           .eq('status', 'pending')
-          .eq('total_amount', payment.amount);
+          .eq('total_amount', payment.trans_amount);
 
         const phoneMatch = matchingInvoice?.find(inv => 
-          inv.clients?.phone === payment.phone_number
+          inv.clients?.phone === payment.msisdn
         );
 
         if (phoneMatch) {
@@ -72,19 +72,19 @@ export const usePaymentMonitoring = () => {
             .update({
               status: 'paid',
               paid_at: new Date().toISOString(),
-              payment_method: 'mpesa',
-              payment_reference: payment.mpesa_receipt_number
+              payment_method: 'family_bank',
+              payment_reference: payment.trans_id
             })
             .eq('id', phoneMatch.id);
 
           await supabase
-            .from('mpesa_payments')
+            .from('family_bank_payments')
             .update({
-              linked_invoice_id: phoneMatch.id
+              invoice_number: phoneMatch.invoice_number
             })
             .eq('id', payment.id);
 
-          console.log(`Linked M-Pesa payment ${payment.mpesa_receipt_number} to invoice ${phoneMatch.invoice_number}`);
+          console.log(`Linked Family Bank payment ${payment.trans_id} to invoice ${phoneMatch.invoice_number}`);
         }
       }
     } catch (error) {

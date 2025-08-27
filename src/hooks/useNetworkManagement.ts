@@ -19,7 +19,7 @@ export const useNetworkManagement = () => {
       }
       
       // Try RADIUS disconnect first
-      const radiusSuccess = await radiusService.disconnectUser(clientId, profile.isp_company_id);
+      const radiusSuccess = await radiusService.disconnectClient(clientId);
       
       // Also try SNMP disconnect
       const snmpSuccess = await enhancedSnmpService.disconnectClient(clientId);

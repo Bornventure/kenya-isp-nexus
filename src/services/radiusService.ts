@@ -3,12 +3,12 @@ import { supabase } from '@/integrations/supabase/client';
 import { formatSpeedForRadius } from '@/utils/speedConverter';
 
 export class RadiusService {
-  async createRadiusUser(clientId: string, username: string, password: string) {
+  async createRadiusUser(clientId: string, companyId: string) {
     try {
       // Get client with service package details
       const { data: client } = await supabase
         .from('clients')
-        .select('*, service_packages(*)')
+        .select('*, service_packages:service_package_id(*)')
         .eq('id', clientId)
         .single();
 
@@ -19,20 +19,23 @@ export class RadiusService {
       // Convert speed from service package to proper format for RADIUS
       const speedLimits = formatSpeedForRadius(client.service_packages.speed);
 
-      // Create RADIUS user with proper speed limits
+      // Generate username and password
+      const username = `${client.name.replace(/\s+/g, '').toLowerCase()}_${clientId.slice(0, 8)}`;
+      const password = Math.random().toString(36).slice(-8);
+
+      // Check if radius_users table exists and has the expected columns
       const { data, error } = await supabase
         .from('radius_users')
         .insert({
           username,
           password,
-          profile: 'default',
-          status: 'active',
+          group_name: 'default',
+          is_active: true,
           client_id: clientId,
-          isp_company_id: client.isp_company_id,
-          // Store speed limits for QoS
-          download_speed: speedLimits.download,
-          upload_speed: speedLimits.upload,
-          monthly_quota: client.service_packages.data_limit || null
+          isp_company_id: companyId,
+          // Use the existing column names from the schema
+          max_download: speedLimits.download.toString(),
+          max_upload: speedLimits.upload.toString(),
         })
         .select()
         .single();
@@ -63,27 +66,14 @@ export class RadiusService {
         throw new Error('Service package not found');
       }
 
-      // Get RADIUS user for this client
-      const { data: radiusUser } = await supabase
-        .from('radius_users')
-        .select('*')
-        .eq('client_id', clientId)
-        .single();
-
-      if (!radiusUser) {
-        console.log('No RADIUS user found for client:', clientId);
-        return;
-      }
-
       // Convert speed and update RADIUS user
       const speedLimits = formatSpeedForRadius(servicePackage.speed);
 
       const { error } = await supabase
         .from('radius_users')
         .update({
-          download_speed: speedLimits.download,
-          upload_speed: speedLimits.upload,
-          monthly_quota: servicePackage.data_limit || null
+          max_download: speedLimits.download.toString(),
+          max_upload: speedLimits.upload.toString(),
         })
         .eq('client_id', clientId);
 
@@ -103,7 +93,7 @@ export class RadiusService {
     try {
       const { error } = await supabase
         .from('radius_users')
-        .update({ status: 'blocked' })
+        .update({ is_active: false })
         .eq('client_id', clientId);
 
       if (error) throw error;
@@ -120,7 +110,7 @@ export class RadiusService {
     try {
       const { error } = await supabase
         .from('radius_users')
-        .update({ status: 'active' })
+        .update({ is_active: true })
         .eq('client_id', clientId);
 
       if (error) throw error;

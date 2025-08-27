@@ -39,12 +39,14 @@ export const activateClientService = async (data: ClientActivationData): Promise
     }
 
     // 2. Create RADIUS user for the client
-    const radiusResult = await radiusService.createRadiusUser(data.clientId, data.companyId);
-    if (!radiusResult.success) {
-      console.warn('Failed to create RADIUS user:', radiusResult.message);
+    try {
+      const radiusUser = await radiusService.createRadiusUser(data.clientId, data.companyId);
+      console.log('RADIUS user created successfully:', radiusUser);
+    } catch (radiusError) {
+      console.warn('Failed to create RADIUS user:', radiusError);
       return {
         success: false,
-        message: `RADIUS user creation failed: ${radiusResult.message}`
+        message: `RADIUS user creation failed: ${radiusError instanceof Error ? radiusError.message : 'Unknown error'}`
       };
     }
 

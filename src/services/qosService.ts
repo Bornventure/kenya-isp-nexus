@@ -25,13 +25,12 @@ export class QoSService {
         convertedSpeeds: speedLimits
       });
 
-      // Update RADIUS user speeds
+      // Update RADIUS user speeds using correct column names
       const { error: radiusError } = await supabase
         .from('radius_users')
         .update({
-          download_speed: speedLimits.download,
-          upload_speed: speedLimits.upload,
-          monthly_quota: servicePackage.data_limit || null
+          max_download: speedLimits.download.toString(),
+          max_upload: speedLimits.upload.toString(),
         })
         .eq('client_id', clientId);
 
@@ -56,7 +55,7 @@ export class QoSService {
       // Get client with service package
       const { data: client } = await supabase
         .from('clients')
-        .select('*, service_packages(*)')
+        .select('*, service_packages:service_package_id(*)')
         .eq('id', clientId)
         .single();
 
@@ -68,6 +67,38 @@ export class QoSService {
     } catch (error) {
       console.error('Error applying QoS to client:', error);
       throw error;
+    }
+  }
+
+  async initializeQoSFromDatabase() {
+    // Placeholder for initializing QoS from database
+    console.log('Initializing QoS from database...');
+  }
+
+  async monitorQoSCompliance() {
+    // Placeholder for monitoring QoS compliance
+    console.log('Monitoring QoS compliance...');
+  }
+
+  async removeQoSFromClient(clientId: string) {
+    try {
+      // Remove QoS by setting speeds to 0 or removing the RADIUS user
+      const { error } = await supabase
+        .from('radius_users')
+        .update({
+          max_download: '0',
+          max_upload: '0',
+          is_active: false
+        })
+        .eq('client_id', clientId);
+
+      if (error) throw error;
+
+      console.log(`QoS removed for client ${clientId}`);
+      return true;
+    } catch (error) {
+      console.error('Error removing QoS from client:', error);
+      return false;
     }
   }
 }
