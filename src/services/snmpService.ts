@@ -1,3 +1,4 @@
+
 import { supabase } from '@/integrations/supabase/client';
 import { qosService } from './qosService';
 
@@ -16,9 +17,9 @@ export class SnmpService {
       // Initialize QoS from database
       await qosService.initializeQoSFromDatabase();
       
-      // Get network devices from database
+      // Get network devices from equipment table instead of non-existent network_devices
       const { data: devices } = await supabase
-        .from('network_devices')
+        .from('equipment')
         .select('*')
         .eq('status', 'active');
 
@@ -63,10 +64,10 @@ export class SnmpService {
             }
           } else {
             device.status = 'offline';
-            console.warn(`Device ${device.name} is offline`);
+            console.warn(`Device ${device.type || 'Unknown'} is offline`);
           }
         } catch (error) {
-          console.error(`Error monitoring device ${device.name}:`, error);
+          console.error(`Error monitoring device ${device.type || 'Unknown'}:`, error);
         }
       }
     } catch (error) {
@@ -84,11 +85,14 @@ export class SnmpService {
       // Get client's network information
       const { data: client } = await supabase
         .from('clients')
-        .select('*, radius_users(*)')
+        .select(`
+          *,
+          radius_users:radius_users!radius_users_client_id_fkey(*)
+        `)
         .eq('id', clientId)
         .single();
 
-      if (!client || !client.radius_users) {
+      if (!client || !client.radius_users || client.radius_users.length === 0) {
         console.warn('Client or RADIUS user not found');
         return false;
       }
@@ -97,7 +101,7 @@ export class SnmpService {
       const device = this.findDeviceForClient(client);
       if (device) {
         // Send SNMP command to disconnect client
-        await this.sendSnmpDisconnect(device, client.radius_users.username);
+        await this.sendSnmpDisconnect(device, client.radius_users[0].username);
       }
 
       return true;
@@ -114,11 +118,14 @@ export class SnmpService {
       // Get client's network information
       const { data: client } = await supabase
         .from('clients')
-        .select('*, radius_users(*)')
+        .select(`
+          *,
+          radius_users:radius_users!radius_users_client_id_fkey(*)
+        `)
         .eq('id', clientId)
         .single();
 
-      if (!client || !client.radius_users) {
+      if (!client || !client.radius_users || client.radius_users.length === 0) {
         console.warn('Client or RADIUS user not found');
         return false;
       }
@@ -130,7 +137,7 @@ export class SnmpService {
       const device = this.findDeviceForClient(client);
       if (device) {
         // Send SNMP command to reconnect client
-        await this.sendSnmpReconnect(device, client.radius_users.username);
+        await this.sendSnmpReconnect(device, client.radius_users[0].username);
       }
 
       return true;
@@ -154,7 +161,11 @@ export class SnmpService {
       // Get client information
       const { data: client } = await supabase
         .from('clients')
-        .select('*, radius_users(*), service_packages:service_package_id(*)')
+        .select(`
+          *,
+          radius_users:radius_users!radius_users_client_id_fkey(*),
+          service_packages:service_package_id(*)
+        `)
         .eq('id', clientId)
         .single();
 
@@ -164,9 +175,9 @@ export class SnmpService {
 
       // Find the device managing this client
       const device = this.findDeviceForClient(client);
-      if (device && client.service_packages) {
+      if (device && client.service_packages && client.radius_users && client.radius_users.length > 0) {
         // Send SNMP command to apply speed limits
-        await this.sendSnmpSpeedLimit(device, client.radius_users?.username, client.service_packages);
+        await this.sendSnmpSpeedLimit(device, client.radius_users[0].username, client.service_packages);
       }
 
       return true;
@@ -206,17 +217,16 @@ export class SnmpService {
 
   private async updateDeviceStats(deviceId: string, stats: any) {
     try {
+      // Use bandwidth_statistics table instead of non-existent device_statistics
       await supabase
-        .from('device_statistics')
+        .from('bandwidth_statistics')
         .insert({
-          device_id: deviceId,
-          cpu_usage: stats.cpuUsage,
-          memory_usage: stats.memoryUsage,
-          bytes_in: stats.interfaceStats.bytesIn,
-          bytes_out: stats.interfaceStats.bytesOut,
-          packets_in: stats.interfaceStats.packetsIn,
-          packets_out: stats.interfaceStats.packetsOut,
-          recorded_at: new Date().toISOString()
+          equipment_id: deviceId,
+          in_octets: stats.interfaceStats.bytesIn,
+          out_octets: stats.interfaceStats.bytesOut,
+          in_packets: stats.interfaceStats.packetsIn,
+          out_packets: stats.interfaceStats.packetsOut,
+          timestamp: new Date().toISOString()
         });
     } catch (error) {
       console.error('Error updating device stats:', error);
@@ -231,7 +241,7 @@ export class SnmpService {
 
   private async sendSnmpDisconnect(device: any, username: string) {
     try {
-      console.log(`Sending SNMP disconnect command to ${device.name} for user ${username}`);
+      console.log(`Sending SNMP disconnect command to ${device.type || 'device'} for user ${username}`);
       // Implement actual SNMP disconnect command here
       return true;
     } catch (error) {
@@ -242,7 +252,7 @@ export class SnmpService {
 
   private async sendSnmpReconnect(device: any, username: string) {
     try {
-      console.log(`Sending SNMP reconnect command to ${device.name} for user ${username}`);
+      console.log(`Sending SNMP reconnect command to ${device.type || 'device'} for user ${username}`);
       // Implement actual SNMP reconnect command here
       return true;
     } catch (error) {
@@ -253,7 +263,7 @@ export class SnmpService {
 
   private async sendSnmpSpeedLimit(device: any, username: string, servicePackage: any) {
     try {
-      console.log(`Sending SNMP speed limit command to ${device.name} for user ${username}`);
+      console.log(`Sending SNMP speed limit command to ${device.type || 'device'} for user ${username}`);
       console.log(`Speed limits: ${servicePackage.speed}`);
       // Implement actual SNMP speed limit command here
       return true;
