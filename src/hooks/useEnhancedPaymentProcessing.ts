@@ -18,13 +18,16 @@ export const useEnhancedPaymentProcessing = () => {
     }) => {
       console.log('Processing manual payment:', paymentData);
 
+      // Map payment method to match database enum
+      const dbPaymentMethod = paymentData.paymentMethod === 'bank_transfer' ? 'bank' : paymentData.paymentMethod;
+
       // 1. Create payment record
       const { data: payment, error: paymentError } = await supabase
         .from('payments')
         .insert({
           client_id: paymentData.clientId,
           amount: paymentData.amount,
-          payment_method: paymentData.paymentMethod,
+          payment_method: dbPaymentMethod as 'mpesa' | 'bank' | 'cash',
           payment_date: new Date().toISOString(),
           reference_number: paymentData.referenceNumber,
           notes: paymentData.notes || `Manual ${paymentData.paymentMethod} payment`,
@@ -40,7 +43,7 @@ export const useEnhancedPaymentProcessing = () => {
         clientId: paymentData.clientId,
         paymentId: payment.id,
         amount: paymentData.amount,
-        paymentMethod: paymentData.paymentMethod,
+        paymentMethod: dbPaymentMethod as 'mpesa' | 'cash' | 'family_bank' | 'bank_transfer',
         referenceNumber: paymentData.referenceNumber
       });
 

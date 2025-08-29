@@ -179,7 +179,7 @@ export function EnhancedClientAuthProvider({ children }: { children: React.React
             session_start: sessionData.session_start,
             data_used_mb: 0, // Will be populated from bandwidth_statistics
             session_duration_minutes: Math.floor((new Date().getTime() - new Date(sessionData.session_start).getTime()) / (1000 * 60)),
-            ip_address: sessionData.framed_ip_address || 'N/A'
+            ip_address: sessionData.framed_ip_address?.toString() || 'N/A'
           }
         };
         setClient(updatedClient);
@@ -210,7 +210,7 @@ export function EnhancedClientAuthProvider({ children }: { children: React.React
       session_start: sessions[0].session_start,
       data_used_mb: 0,
       session_duration_minutes: Math.floor((new Date().getTime() - new Date(sessions[0].session_start).getTime()) / (1000 * 60)),
-      ip_address: sessions[0].framed_ip_address || 'N/A'
+      ip_address: sessions[0].framed_ip_address?.toString() || 'N/A'
     } : undefined;
 
     return {

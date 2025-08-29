@@ -1,74 +1,105 @@
 
 import React from 'react';
 import { useAuth } from '@/contexts/AuthContext';
-import SuperAdminDashboard from './roles/SuperAdminDashboard';
-import ISPAdminDashboard from './roles/ISPAdminDashboard';
-import BillingFinanceDashboard from './roles/BillingFinanceDashboard';
-import CustomerSupportDashboard from './roles/CustomerSupportDashboard';
-import SalesAccountManagerDashboard from './roles/SalesAccountManagerDashboard';
-import NetworkOperationsDashboard from './roles/NetworkOperationsDashboard';
-import InfrastructureAssetDashboard from './roles/InfrastructureAssetDashboard';
-import HotspotAdminDashboard from './roles/HotspotAdminDashboard';
+import CompanySpecificDashboard from './CompanySpecificDashboard';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Badge } from '@/components/ui/badge';
+import { Crown, Building, User } from 'lucide-react';
 
 export const RoleBasedDashboard = () => {
   const { profile } = useAuth();
 
   if (!profile) {
     return (
-      <div className="flex items-center justify-center h-48">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+      <Card>
+        <CardContent className="p-6">
+          <p className="text-muted-foreground">Loading dashboard...</p>
+        </CardContent>
+      </Card>
+    );
+  }
+
+  const getDashboardTitle = () => {
+    switch (profile.role) {
+      case 'super_admin':
+        return 'Super Admin Dashboard';
+      case 'isp_admin':
+        return 'ISP Admin Dashboard';
+      case 'isp_user':
+        return 'ISP User Dashboard';
+      default:
+        return 'Dashboard';
+    }
+  };
+
+  const getRoleIcon = () => {
+    switch (profile.role) {
+      case 'super_admin':
+        return <Crown className="h-5 w-5" />;
+      case 'isp_admin':
+        return <Building className="h-5 w-5" />;
+      default:
+        return <User className="h-5 w-5" />;
+    }
+  };
+
+  const getRoleBadgeVariant = () => {
+    switch (profile.role) {
+      case 'super_admin':
+        return 'destructive';
+      case 'isp_admin':
+        return 'default';
+      default:
+        return 'secondary';
+    }
+  };
+
+  // Super Admin gets a different view (could be implemented later for multi-tenancy)
+  if (profile.role === 'super_admin') {
+    return (
+      <div className="space-y-6">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            {getRoleIcon()}
+            <h1 className="text-2xl font-bold">{getDashboardTitle()}</h1>
+          </div>
+          <Badge variant={getRoleBadgeVariant()}>
+            {profile.role.replace('_', ' ').toUpperCase()}
+          </Badge>
+        </div>
+        
+        <Card>
+          <CardHeader>
+            <CardTitle>Multi-Tenant Management</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <p className="text-muted-foreground">
+              Super Admin dashboard for managing multiple ISP companies will be implemented here.
+              For now, you have access to all company data through the regular dashboard.
+            </p>
+          </CardContent>
+        </Card>
+        
+        {/* For now, show the regular dashboard for super admin too */}
+        <CompanySpecificDashboard />
       </div>
     );
   }
 
-  console.log('Current user role:', profile.role);
-
-  const renderDashboard = () => {
-    switch (profile.role) {
-      case 'super_admin':
-        console.log('Rendering SuperAdminDashboard for super_admin');
-        return <SuperAdminDashboard />;
-      case 'isp_admin':
-        console.log('Rendering ISPAdminDashboard for isp_admin');
-        return <ISPAdminDashboard />;
-      case 'billing_admin':
-      case 'billing_finance':
-        console.log('Rendering BillingFinanceDashboard for billing role');
-        return <BillingFinanceDashboard />;
-      case 'customer_support':
-        console.log('Rendering CustomerSupportDashboard for customer_support');
-        return <CustomerSupportDashboard />;
-      case 'sales_manager':
-      case 'sales_account_manager':
-        console.log('Rendering SalesAccountManagerDashboard for sales role');
-        return <SalesAccountManagerDashboard />;
-      case 'network_engineer':
-      case 'network_operations':
-        console.log('Rendering NetworkOperationsDashboard for network role');
-        return <NetworkOperationsDashboard />;
-      case 'infrastructure_manager':
-      case 'infrastructure_asset':
-        console.log('Rendering InfrastructureAssetDashboard for infrastructure role');
-        return <InfrastructureAssetDashboard />;
-      case 'hotspot_admin':
-        console.log('Rendering HotspotAdminDashboard for hotspot_admin');
-        return <HotspotAdminDashboard />;
-      case 'technician':
-        console.log('Rendering InfrastructureAssetDashboard for technician');
-        return <InfrastructureAssetDashboard />; // Technicians get infrastructure dashboard
-      case 'readonly':
-        console.log('Rendering ISPAdminDashboard for readonly user');
-        return <ISPAdminDashboard />; // Read-only users get ISP admin dashboard view
-      default:
-        console.log('Unhandled role, rendering ISPAdminDashboard:', profile.role);
-        // For any unhandled roles, show ISP admin dashboard instead of super admin
-        return <ISPAdminDashboard />;
-    }
-  };
-
+  // Regular ISP users get the company-specific dashboard
   return (
-    <div className="w-full">
-      {renderDashboard()}
+    <div className="space-y-6">
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-3">
+          {getRoleIcon()}
+          <h1 className="text-2xl font-bold">{getDashboardTitle()}</h1>
+        </div>
+        <Badge variant={getRoleBadgeVariant()}>
+          {profile.role.replace('_', ' ').toUpperCase()}
+        </Badge>
+      </div>
+      
+      <CompanySpecificDashboard />
     </div>
   );
 };

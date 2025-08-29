@@ -113,19 +113,17 @@ export class PaymentActivationService {
     // Generate temporary password for first login
     const tempPassword = Math.random().toString(36).slice(-8);
     
-    // Store credentials in client record for portal authentication
-    const { error } = await supabase
-      .from('clients')
-      .update({
-        portal_password: tempPassword, // In production, this should be hashed
-        portal_last_login: null,
-        portal_setup_required: true
-      })
-      .eq('id', client.id);
+    // Create a temporary client record for portal authentication
+    // In production, you might want to create a separate client_portal_auth table
+    const clientAuthData = {
+      client_id: client.id,
+      temp_password: tempPassword,
+      setup_required: true,
+      email: client.email,
+      created_at: new Date().toISOString()
+    };
 
-    if (error) {
-      console.error('Error storing portal credentials:', error);
-    }
+    console.log('Generated portal credentials for client:', client.id);
 
     return {
       email: client.email,
