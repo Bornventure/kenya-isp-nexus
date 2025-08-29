@@ -37,7 +37,7 @@ export const usePayments = () => {
 
       console.log('Fetching payments for company:', profile.isp_company_id);
 
-      // Fetch from family_bank_payments table which exists in the schema
+      // Fetch from family_bank_payments table
       const { data: familyBankData, error: familyBankError } = await supabase
         .from('family_bank_payments')
         .select(`
@@ -54,11 +54,31 @@ export const usePayments = () => {
 
       if (familyBankError) {
         console.error('Error fetching Family Bank payments:', familyBankError);
-        throw familyBankError;
       }
 
-      // Transform Family Bank payments to Payment interface
-      const transformedPayments: Payment[] = (familyBankData || []).map((payment: any) => ({
+      // Fetch manual payments from installation_invoices
+      const { data: manualPayments, error: manualError } = await supabase
+        .from('installation_invoices')
+        .select(`
+          *,
+          clients (
+            id,
+            name,
+            email,
+            phone
+          )
+        `)
+        .eq('isp_company_id', profile.isp_company_id)
+        .eq('status', 'paid')
+        .not('payment_method', 'is', null)
+        .order('paid_at', { ascending: false });
+
+      if (manualError) {
+        console.error('Error fetching manual payments:', manualError);
+      }
+
+      // Transform Family Bank payments
+      const transformedFamilyBankPayments: Payment[] = (familyBankData || []).map((payment: any) => ({
         id: payment.id,
         client_id: payment.client_id,
         amount: payment.trans_amount || 0,
@@ -74,8 +94,29 @@ export const usePayments = () => {
         clients: payment.clients
       }));
 
-      console.log(`Fetched ${transformedPayments.length} payments for company ${profile.isp_company_id}`);
-      return transformedPayments;
+      // Transform manual payments from installation invoices
+      const transformedManualPayments: Payment[] = (manualPayments || []).map((invoice: any) => ({
+        id: `manual-${invoice.id}`,
+        client_id: invoice.client_id,
+        amount: invoice.total_amount || 0,
+        payment_method: invoice.payment_method || 'Manual',
+        payment_date: invoice.paid_at || invoice.created_at,
+        reference_number: invoice.payment_reference || invoice.invoice_number,
+        mpesa_receipt_number: null,
+        status: 'completed',
+        invoice_id: invoice.invoice_number,
+        notes: `Installation invoice payment: ${invoice.notes || ''}`,
+        isp_company_id: invoice.isp_company_id,
+        created_at: invoice.paid_at || invoice.created_at,
+        clients: invoice.clients
+      }));
+
+      // Combine all payments and sort by date
+      const allPayments = [...transformedFamilyBankPayments, ...transformedManualPayments]
+        .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
+
+      console.log(`Fetched ${allPayments.length} total payments for company ${profile.isp_company_id}`);
+      return allPayments;
     },
     enabled: !!profile?.isp_company_id,
   });

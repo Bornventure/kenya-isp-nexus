@@ -6,22 +6,28 @@ import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Eye, Download, Search, Filter, Plus } from 'lucide-react';
+import { Eye, Download, Search, Plus } from 'lucide-react';
 import { useInvoices } from '@/hooks/useInvoices';
 import { useInstallationInvoices } from '@/hooks/useInstallationInvoices';
 import InvoiceViewer from './InvoiceViewer';
 import InstallationInvoiceViewer from '../onboarding/InstallationInvoiceViewer';
+import ManualPaymentDialog from '../onboarding/ManualPaymentDialog';
 import CreateInvoiceDialog from './CreateInvoiceDialog';
 import { downloadInvoicePDF, downloadRegularInvoicePDF } from '@/utils/pdfGenerator';
+import { usePaymentSettings } from '@/hooks/usePaymentSettings';
+import { useToast } from '@/hooks/use-toast';
 
 const InvoicesPage = () => {
   const { invoices: regularInvoices, isLoading: regularLoading } = useInvoices();
   const { invoices: installationInvoices, isLoading: installationLoading } = useInstallationInvoices();
+  const { mpesaSettings, familyBankSettings } = usePaymentSettings();
+  const { toast } = useToast();
   
   const [selectedInvoice, setSelectedInvoice] = useState<any>(null);
   const [selectedInstallationInvoice, setSelectedInstallationInvoice] = useState<any>(null);
   const [showInvoiceViewer, setShowInvoiceViewer] = useState(false);
   const [showInstallationViewer, setShowInstallationViewer] = useState(false);
+  const [showManualPaymentDialog, setShowManualPaymentDialog] = useState(false);
   const [showCreateDialog, setShowCreateDialog] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
@@ -36,15 +42,49 @@ const InvoicesPage = () => {
     setShowInstallationViewer(true);
   };
 
+  const handleManualPayment = (invoice: any) => {
+    setSelectedInstallationInvoice(invoice);
+    setShowManualPaymentDialog(true);
+  };
+
   const handleDownloadRegularInvoice = (invoice: any) => {
-    downloadRegularInvoicePDF(invoice);
+    try {
+      downloadRegularInvoicePDF(invoice);
+      toast({
+        title: "Download Started",
+        description: `Invoice ${invoice.invoice_number} downloaded successfully`,
+      });
+    } catch (error) {
+      toast({
+        title: "Download Failed",
+        description: "Failed to generate PDF. Please try again.",
+        variant: "destructive",
+      });
+    }
   };
 
   const handleDownloadInstallationInvoice = (invoice: any) => {
-    downloadInvoicePDF(invoice);
+    try {
+      const invoiceData = {
+        ...invoice,
+        mpesa_settings: mpesaSettings,
+        family_bank_settings: familyBankSettings,
+      };
+      downloadInvoicePDF(invoiceData);
+      toast({
+        title: "Download Started",
+        description: `Invoice ${invoice.invoice_number} downloaded successfully`,
+      });
+    } catch (error) {
+      toast({
+        title: "Download Failed",
+        description: "Failed to generate PDF. Please try again.",
+        variant: "destructive",
+      });
+    }
   };
 
-  const filterInvoices = (invoices: any[], type: 'regular' | 'installation') => {
+  const filterInvoices = (invoices: any[]) => {
     return invoices.filter((invoice) => {
       const matchesSearch = 
         invoice.invoice_number?.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -76,14 +116,16 @@ const InvoicesPage = () => {
     invoice, 
     type, 
     onView, 
-    onDownload 
+    onDownload,
+    onManualPayment 
   }: { 
     invoice: any; 
     type: 'regular' | 'installation';
     onView: (invoice: any) => void;
     onDownload: (invoice: any) => void;
+    onManualPayment?: (invoice: any) => void;
   }) => (
-    <tr className="border-b">
+    <tr className="border-b hover:bg-gray-50">
       <td className="p-4">
         <div>
           <div className="font-medium">{invoice.invoice_number}</div>
@@ -123,6 +165,16 @@ const InvoicesPage = () => {
           >
             <Download className="h-4 w-4" />
           </Button>
+          {type === 'installation' && invoice.status === 'pending' && onManualPayment && (
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={() => onManualPayment(invoice)}
+              title="Record Manual Payment"
+            >
+              Pay
+            </Button>
+          )}
         </div>
       </td>
     </tr>
@@ -134,9 +186,9 @@ const InvoicesPage = () => {
     ...installationInvoices.map(inv => ({ ...inv, type: 'installation' }))
   ].sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
 
-  const filteredRegularInvoices = filterInvoices(regularInvoices, 'regular');
-  const filteredInstallationInvoices = filterInvoices(installationInvoices, 'installation');
-  const filteredAllInvoices = filterInvoices(allInvoices, 'regular');
+  const filteredRegularInvoices = filterInvoices(regularInvoices);
+  const filteredInstallationInvoices = filterInvoices(installationInvoices);
+  const filteredAllInvoices = filterInvoices(allInvoices);
 
   return (
     <div className="space-y-6">
@@ -224,6 +276,7 @@ const InvoicesPage = () => {
                           type={invoice.type as 'regular' | 'installation'}
                           onView={invoice.type === 'installation' ? handleViewInstallationInvoice : handleViewRegularInvoice}
                           onDownload={invoice.type === 'installation' ? handleDownloadInstallationInvoice : handleDownloadRegularInvoice}
+                          onManualPayment={invoice.type === 'installation' ? handleManualPayment : undefined}
                         />
                       ))}
                     </tbody>
@@ -310,6 +363,7 @@ const InvoicesPage = () => {
                           type="installation"
                           onView={handleViewInstallationInvoice}
                           onDownload={handleDownloadInstallationInvoice}
+                          onManualPayment={handleManualPayment}
                         />
                       ))}
                     </tbody>
@@ -339,6 +393,18 @@ const InvoicesPage = () => {
           open={showInstallationViewer}
           onClose={() => {
             setShowInstallationViewer(false);
+            setSelectedInstallationInvoice(null);
+          }}
+          onManualPayment={handleManualPayment}
+        />
+      )}
+
+      {selectedInstallationInvoice && (
+        <ManualPaymentDialog
+          invoice={selectedInstallationInvoice}
+          open={showManualPaymentDialog}
+          onClose={() => {
+            setShowManualPaymentDialog(false);
             setSelectedInstallationInvoice(null);
           }}
         />
