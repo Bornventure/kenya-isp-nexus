@@ -21,10 +21,18 @@ serve(async (req) => {
 
     const { client_id } = await req.json();
 
-    // Get client details
+    // Get client details with service package
     const { data: client, error: clientError } = await supabaseClient
       .from('clients')
-      .select('*')
+      .select(`
+        *,
+        service_packages (
+          id,
+          name,
+          setup_fee,
+          monthly_rate
+        )
+      `)
       .eq('id', client_id)
       .single();
 
@@ -32,10 +40,22 @@ serve(async (req) => {
       throw new Error('Client not found');
     }
 
-    // Generate installation invoice
-    const installationAmount = 2500; // Standard installation fee
-    const vatAmount = installationAmount * 0.16;
-    const totalAmount = installationAmount + vatAmount;
+    // Get installation fee from service package setup_fee or system settings
+    let installationFee = client.service_packages?.setup_fee || 2500;
+    
+    // If no setup fee in package, get from system settings
+    if (!client.service_packages?.setup_fee) {
+      const { data: settings } = await supabaseClient
+        .from('system_settings')
+        .select('installation_fee')
+        .eq('isp_company_id', client.isp_company_id)
+        .single();
+      
+      installationFee = settings?.installation_fee || 2500;
+    }
+
+    const vatAmount = installationFee * 0.16;
+    const totalAmount = installationFee + vatAmount;
 
     // Generate tracking number
     const trackingNumber = `TRK-${Date.now()}-${client.phone.slice(-4)}`;
@@ -49,7 +69,7 @@ serve(async (req) => {
         client_id: client_id,
         invoice_number: invoiceNumber,
         tracking_number: trackingNumber,
-        amount: installationAmount,
+        amount: installationFee,
         vat_amount: vatAmount,
         total_amount: totalAmount,
         status: 'pending',
@@ -68,22 +88,50 @@ serve(async (req) => {
       throw invoiceError;
     }
 
-    // Send installation invoice SMS
-    await fetch(`${Deno.env.get("SUPABASE_URL")}/functions/v1/send-notifications`, {
+    // Get payment settings for SMS
+    const { data: mpesaSettings } = await supabaseClient
+      .from('mpesa_settings')
+      .select('*')
+      .eq('isp_company_id', client.isp_company_id)
+      .eq('is_active', true)
+      .single();
+
+    const { data: familyBankSettings } = await supabaseClient
+      .from('family_bank_settings')
+      .select('*')
+      .eq('isp_company_id', client.isp_company_id)
+      .eq('is_active', true)
+      .single();
+
+    // Send installation invoice SMS with real payment details
+    const paymentInstructions = [];
+    
+    if (mpesaSettings) {
+      paymentInstructions.push(`M-Pesa: Paybill ${mpesaSettings.shortcode}, Account: ${client.phone}`);
+    }
+    
+    if (familyBankSettings) {
+      paymentInstructions.push(`Family Bank: Paybill ${familyBankSettings.paybill_number}, Account: ${client.phone}`);
+    }
+
+    const smsMessage = `Dear ${client.name}, 
+Your internet service installation invoice ${invoiceNumber} for KES ${totalAmount.toLocaleString()} has been generated. 
+Tracking: ${trackingNumber}
+Payment Options:
+${paymentInstructions.join('\n')}
+Installation will be scheduled after payment confirmation.`;
+
+    // Use Celcomafrica SMS gateway
+    await fetch('https://ddljuawonxdnesrnclsx.supabase.co/functions/v1/send-sms', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
         'Authorization': `Bearer ${Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")}`
       },
       body: JSON.stringify({
-        client_id: client_id,
-        type: 'installation_invoice',
-        data: {
-          invoice_number: invoiceNumber,
-          tracking_number: trackingNumber,
-          amount: totalAmount,
-          payment_instructions: `Pay KES ${totalAmount} to Paybill 123456, Account: ${client.phone}`
-        }
+        phone: client.phone,
+        message: smsMessage,
+        gateway: 'celcomafrica'
       })
     });
 
@@ -93,7 +141,7 @@ serve(async (req) => {
       JSON.stringify({
         success: true,
         invoice,
-        message: 'Installation invoice generated and sent to client'
+        message: 'Installation invoice generated and SMS sent via Celcomafrica'
       }),
       {
         headers: { ...corsHeaders, "Content-Type": "application/json" },

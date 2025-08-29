@@ -1232,6 +1232,48 @@ export type Database = {
         }
         Relationships: []
       }
+      family_bank_settings: {
+        Row: {
+          client_id: string | null
+          client_secret: string | null
+          created_at: string | null
+          id: string
+          is_active: boolean | null
+          isp_company_id: string
+          merchant_code: string
+          paybill_number: string
+          stk_url: string | null
+          token_url: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          client_id?: string | null
+          client_secret?: string | null
+          created_at?: string | null
+          id?: string
+          is_active?: boolean | null
+          isp_company_id: string
+          merchant_code: string
+          paybill_number: string
+          stk_url?: string | null
+          token_url?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          client_id?: string | null
+          client_secret?: string | null
+          created_at?: string | null
+          id?: string
+          is_active?: boolean | null
+          isp_company_id?: string
+          merchant_code?: string
+          paybill_number?: string
+          stk_url?: string | null
+          token_url?: string | null
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
       family_bank_stk_callbacks: {
         Row: {
           callback_raw: Json
@@ -1601,10 +1643,12 @@ export type Database = {
           id: string
           invoice_number: string
           isp_company_id: string
+          manual_payment_details: Json | null
           notes: string | null
           paid_at: string | null
           payment_method: string | null
           payment_reference: string | null
+          payment_type: string | null
           status: string | null
           total_amount: number
           tracking_number: string | null
@@ -1622,10 +1666,12 @@ export type Database = {
           id?: string
           invoice_number: string
           isp_company_id: string
+          manual_payment_details?: Json | null
           notes?: string | null
           paid_at?: string | null
           payment_method?: string | null
           payment_reference?: string | null
+          payment_type?: string | null
           status?: string | null
           total_amount?: number
           tracking_number?: string | null
@@ -1643,10 +1689,12 @@ export type Database = {
           id?: string
           invoice_number?: string
           isp_company_id?: string
+          manual_payment_details?: Json | null
           notes?: string | null
           paid_at?: string | null
           payment_method?: string | null
           payment_reference?: string | null
+          payment_type?: string | null
           status?: string | null
           total_amount?: number
           tracking_number?: string | null

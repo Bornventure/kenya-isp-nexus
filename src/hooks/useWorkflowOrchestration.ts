@@ -110,18 +110,7 @@ export const useWorkflowOrchestration = () => {
         })
         .eq('id', clientId);
 
-      // Get client and company info for invoice generation
-      const { data: client } = await supabase
-        .from('clients')
-        .select('*, service_packages(*)')
-        .eq('id', clientId)
-        .single();
-
-      if (!client) {
-        throw new Error('Client not found');
-      }
-
-      // Generate installation invoice
+      // Generate installation invoice immediately after approval
       const { data: invoiceData, error: invoiceError } = await supabase.functions.invoke('generate-installation-invoice', {
         body: { client_id: clientId }
       });
@@ -133,24 +122,9 @@ export const useWorkflowOrchestration = () => {
 
       console.log('Installation invoice generated:', invoiceData);
 
-      // Send SMS notification about the approval and invoice
-      await supabase.functions.invoke('send-notifications', {
-        body: {
-          client_id: clientId,
-          type: 'client_approved',
-          title: 'Service Application Approved',
-          message: `Your internet service application has been approved! Installation invoice has been sent to you.`,
-          data: {
-            client_name: client.name,
-            invoice_number: invoiceData?.invoice?.invoice_number,
-            total_amount: invoiceData?.invoice?.total_amount
-          }
-        }
-      });
-
       toast({
         title: "Client Approved",
-        description: "Installation invoice has been generated and sent to the client.",
+        description: "Installation invoice has been generated and sent to the client via SMS.",
       });
     } catch (error) {
       console.error('Error processing approval:', error);
@@ -193,18 +167,12 @@ export const useWorkflowOrchestration = () => {
         })
         .eq('id', clientId);
 
-      // Send activation SMS
-      await supabase.functions.invoke('send-notifications', {
+      // Send activation SMS using Celcomafrica
+      await supabase.functions.invoke('send-sms', {
         body: {
-          client_id: clientId,
-          type: 'service_activation',
-          title: 'Internet Service Activated',
-          message: `Congratulations! Your internet service has been activated. Welcome to our network!`,
-          data: {
-            activation_date: new Date().toISOString(),
-            service_package: client.service_packages?.name,
-            speed: client.service_packages?.speed
-          }
+          phone: client.phone,
+          message: `Congratulations ${client.name}! Your internet service has been activated successfully. Welcome to our network! Your service package: ${client.service_packages?.name}`,
+          gateway: 'celcomafrica'
         }
       });
 
@@ -212,7 +180,7 @@ export const useWorkflowOrchestration = () => {
 
       toast({
         title: "Service Activated",
-        description: "Client service has been activated successfully.",
+        description: "Client service has been activated successfully and SMS notification sent.",
       });
     } catch (error) {
       console.error('Error activating client service:', error);

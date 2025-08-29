@@ -20,6 +20,8 @@ export interface InstallationInvoice {
   isp_company_id: string;
   equipment_details?: any;
   notes?: string;
+  tracking_number?: string;
+  manual_payment_details?: any;
   clients?: {
     name: string;
     email: string;
@@ -72,46 +74,10 @@ export const useInstallationInvoices = () => {
         throw new Error('No ISP company associated with user');
       }
 
-      // Get installation fee from system settings
-      const { data: settings, error: settingsError } = await supabase
-        .from('system_settings')
-        .select('installation_fee')
-        .eq('isp_company_id', profile.isp_company_id)
-        .single();
-
-      if (settingsError) {
-        console.error('Error fetching installation fee:', settingsError);
-        throw settingsError;
-      }
-
-      const installationFee = settings?.installation_fee || 0;
-      const vatAmount = installationFee * 0.16;
-      const totalAmount = installationFee + vatAmount;
-
-      // Generate invoice number
-      const { data: invoiceNumber, error: invoiceNumberError } = await supabase
-        .rpc('generate_installation_invoice_number');
-
-      if (invoiceNumberError) {
-        console.error('Error generating invoice number:', invoiceNumberError);
-        throw invoiceNumberError;
-      }
-
-      const { data, error } = await supabase
-        .from('installation_invoices')
-        .insert({
-          client_id: invoiceData.client_id,
-          invoice_number: invoiceNumber,
-          amount: installationFee,
-          vat_amount: vatAmount,
-          total_amount: totalAmount,
-          status: 'pending',
-          isp_company_id: profile.isp_company_id,
-          equipment_details: invoiceData.equipment_details,
-          notes: invoiceData.notes,
-        })
-        .select()
-        .single();
+      // Call the edge function to generate the installation invoice
+      const { data, error } = await supabase.functions.invoke('generate-installation-invoice', {
+        body: { client_id: invoiceData.client_id }
+      });
 
       if (error) throw error;
       return data;
@@ -120,7 +86,7 @@ export const useInstallationInvoices = () => {
       queryClient.invalidateQueries({ queryKey: ['installation-invoices'] });
       toast({
         title: "Installation Invoice Created",
-        description: "Installation invoice has been generated successfully.",
+        description: "Installation invoice has been generated and sent to client.",
       });
     },
     onError: (error) => {
