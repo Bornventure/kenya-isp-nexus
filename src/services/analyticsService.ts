@@ -57,7 +57,7 @@ class AnalyticsService {
       const totalRouters = equipment?.filter(eq => eq.status === 'deployed').length || 0;
       const activeEquipment = equipment?.filter(eq => eq.status !== 'retired').length || 0;
       const activeHotspots = equipment?.filter(eq => eq.type?.toLowerCase().includes('hotspot')).length || 0;
-      const pendingTickets = tickets?.filter(t => t.status === 'open' || t.status === 'pending').length || 0;
+      const pendingTickets = tickets?.filter(t => t.status === 'open').length || 0;
 
       return {
         totalClients,
@@ -97,6 +97,9 @@ class AnalyticsService {
         activeHotspots: 0,
         pendingTickets: 0,
         activeEquipment: 0,
+        clientGrowth: 0,
+        revenueGrowth: 0,
+        connectionGrowth: 0,
         network: {
           activeRouters: 0,
           uptime: '0%',
