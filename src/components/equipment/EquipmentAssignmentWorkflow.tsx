@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -20,11 +19,11 @@ interface EquipmentAssignmentWorkflowProps {
 interface EquipmentItem {
   id: string;
   name?: string;
+  manufacturer?: string;
   serial_number: string;
   model: string;
   type: string;
   brand?: string;
-  manufacturer?: string;
   status: string;
   purchase_date?: string;
   warranty_expiry?: string;
@@ -90,13 +89,12 @@ const EquipmentAssignmentWorkflow: React.FC<EquipmentAssignmentWorkflowProps> = 
 
       if (error) throw error;
 
-      // Type-safe mapping with proper handling of nullable fields
       const equipmentItems: EquipmentItem[] = (data || []).map(item => ({
         ...item,
         ip_address: item.ip_address ? String(item.ip_address) : '',
         status: item.status || 'available',
         brand: item.brand || '',
-        manufacturer: item.manufacturer || item.brand || '',
+        manufacturer: item.manufacturer || item.brand || 'Unknown',
         name: item.name || `${item.brand || ''} ${item.model || ''}`.trim() || item.type,
         approval_status: item.approval_status || 'pending',
         approved_at: item.approved_at || '',
@@ -104,7 +102,7 @@ const EquipmentAssignmentWorkflow: React.FC<EquipmentAssignmentWorkflowProps> = 
         auto_discovered: item.auto_discovered || false,
         base_station_id: item.base_station_id || '',
         firmware_version: item.firmware_version || '',
-        warranty_expiry: item.warranty_expiry || '',
+        warranty_expiry: item.warranty_end_date || '',
         warranty_end_date: item.warranty_end_date || '',
         mac_address: item.mac_address || '',
         location: item.location || '',
@@ -117,7 +115,7 @@ const EquipmentAssignmentWorkflow: React.FC<EquipmentAssignmentWorkflowProps> = 
         snmp_version: item.snmp_version || 0,
         vlan_id: item.vlan_id || 0,
         location_coordinates: item.location_coordinates || null,
-        connection_status: item.connection_status || ''
+        connection_status: item.connection_status || 'disconnected'
       }));
 
       setAvailableEquipment(equipmentItems);

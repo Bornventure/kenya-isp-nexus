@@ -19,7 +19,10 @@ export const useRevenueData = (months: number = 12) => {
   
   return useQuery({
     queryKey: ['revenue-data', profile?.isp_company_id, months],
-    queryFn: () => analyticsService.getRevenueData(profile?.isp_company_id || '', months),
+    queryFn: async () => {
+      const data = await analyticsService.getRevenueData(profile?.isp_company_id || '', months);
+      return { data }; // Wrap in data property for chart components
+    },
     enabled: !!profile?.isp_company_id,
   });
 };
@@ -29,7 +32,10 @@ export const useClientGrowthData = (months: number = 12) => {
   
   return useQuery({
     queryKey: ['client-growth-data', profile?.isp_company_id, months],
-    queryFn: () => analyticsService.getClientGrowthData(profile?.isp_company_id || '', months),
+    queryFn: async () => {
+      const data = await analyticsService.getClientGrowthData(profile?.isp_company_id || '', months);
+      return { data }; // Wrap in data property for chart components
+    },
     enabled: !!profile?.isp_company_id,
   });
 };
@@ -39,7 +45,10 @@ export const useTicketAnalytics = () => {
   
   return useQuery({
     queryKey: ['ticket-analytics', profile?.isp_company_id],
-    queryFn: () => analyticsService.getTicketAnalytics(profile?.isp_company_id || ''),
+    queryFn: async () => {
+      const data = await analyticsService.getTicketAnalytics(profile?.isp_company_id || '');
+      return { data }; // Wrap in data property for support stats component
+    },
     enabled: !!profile?.isp_company_id,
     refetchInterval: 10 * 60 * 1000, // Refresh every 10 minutes
   });

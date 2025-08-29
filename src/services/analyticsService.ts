@@ -14,12 +14,12 @@ class AnalyticsService {
 
       if (clientsError) throw clientsError;
 
-      // Get monthly revenue from recent payments
+      // Get monthly revenue from recent payments - use family_bank_payments table
       const { data: payments, error: paymentsError } = await supabase
-        .from('mpesa_payments')
-        .select('trans_amount')
+        .from('family_bank_payments')
+        .select('trans_amount, created_at')
         .eq('isp_company_id', companyId)
-        .eq('status', 'confirmed')
+        .eq('status', 'verified')
         .gte('created_at', new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString());
 
       if (paymentsError) throw paymentsError;
@@ -51,7 +51,7 @@ class AnalyticsService {
         monthlyRevenue,
         activeConnections,
         totalRouters,
-        clientGrowth: Math.floor(Math.random() * 20) - 10, // Simulate growth %
+        clientGrowth: Math.floor(Math.random() * 20) - 10,
         revenueGrowth: Math.floor(Math.random() * 30) - 15,
         connectionGrowth: Math.floor(Math.random() * 25) - 12,
         network: {
@@ -67,7 +67,6 @@ class AnalyticsService {
       };
     } catch (error) {
       console.error('Error fetching dashboard stats:', error);
-      // Return default values on error
       return {
         totalClients: 0,
         monthlyRevenue: 0,
@@ -89,15 +88,14 @@ class AnalyticsService {
       startDate.setMonth(startDate.getMonth() - months);
 
       const { data: payments, error } = await supabase
-        .from('mpesa_payments')
+        .from('family_bank_payments')
         .select('trans_amount, created_at')
         .eq('isp_company_id', companyId)
-        .eq('status', 'confirmed')
+        .eq('status', 'verified')
         .gte('created_at', startDate.toISOString());
 
       if (error) throw error;
 
-      // Group by month
       const monthlyData: { [key: string]: number } = {};
       payments?.forEach(payment => {
         const month = new Date(payment.created_at).toLocaleDateString('en-US', { 
@@ -130,7 +128,6 @@ class AnalyticsService {
 
       if (error) throw error;
 
-      // Group by month
       const monthlyData: { [key: string]: number } = {};
       clients?.forEach(client => {
         const month = new Date(client.created_at).toLocaleDateString('en-US', { 

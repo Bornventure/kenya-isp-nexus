@@ -66,11 +66,11 @@ export const useRealTimeNetworkMonitoring = () => {
           name: device.name || `${device.brand || ''} ${device.model || ''}`.trim() || 'Unknown Device',
           ip: convertToString(device.ip_address),
           status: Math.random() > 0.2 ? 'online' : 'offline' as 'online' | 'offline',
-          uptime: Math.floor(Math.random() * 168) + 1, // 1-168 hours
-          cpuUsage: Math.floor(Math.random() * 60) + 10, // 10-70%
-          memoryUsage: Math.floor(Math.random() * 50) + 20, // 20-70%
-          activeSessions: Math.floor(Math.random() * 10), // 0-9 sessions
-          lastSeen: new Date(Date.now() - Math.random() * 3600000).toISOString() // Last hour
+          uptime: Math.floor(Math.random() * 168) + 1,
+          cpuUsage: Math.floor(Math.random() * 60) + 10,
+          memoryUsage: Math.floor(Math.random() * 50) + 20,
+          activeSessions: Math.floor(Math.random() * 10),
+          lastSeen: new Date(Date.now() - Math.random() * 3600000).toISOString()
         }));
 
         setDeviceStatuses(statuses);
