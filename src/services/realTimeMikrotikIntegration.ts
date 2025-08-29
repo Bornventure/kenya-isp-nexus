@@ -1,4 +1,3 @@
-
 import { supabase } from '@/integrations/supabase/client';
 
 interface MikroTikDevice {
@@ -255,14 +254,18 @@ export class RealTimeMikroTikIntegration {
       // Store discovered devices in database
       const devices = devicesResult.data || [];
       for (const device of devices) {
+        // Generate a serial number for auto-discovered devices
+        const serialNumber = `AUTO-${device.ip_address.replace(/\./g, '-')}-${Date.now()}`;
+        
         await supabase
           .from('equipment')
           .upsert({
+            serial_number: serialNumber,
             ip_address: device.ip_address,
             type: 'Router',
             brand: 'MikroTik',
             model: device.board || 'Unknown',
-            status: device.status === 'online' ? 'active' : 'inactive',
+            status: device.status === 'online' ? 'available' : 'maintenance',
             firmware_version: device.version,
             auto_discovered: true,
             isp_company_id: companyId,

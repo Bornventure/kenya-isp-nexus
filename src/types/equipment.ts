@@ -7,7 +7,7 @@ export interface Equipment {
   type: string;
   brand?: string;
   manufacturer?: string;
-  status: 'available' | 'deployed' | 'maintenance' | 'retired';
+  status: 'available' | 'deployed' | 'maintenance' | 'retired' | 'assigned';
   purchase_date?: string;
   warranty_expiry?: string;
   warranty_end_date?: string;

@@ -23,7 +23,7 @@ interface Equipment {
   model?: string;
   serial_number: string;
   mac_address?: string;
-  status: string;
+  status: 'available' | 'deployed' | 'maintenance' | 'retired' | 'assigned';
   client_id?: string;
   ip_address?: string;
   location?: string;
@@ -80,6 +80,8 @@ const EquipmentAssignmentWorkflow = () => {
         return <CheckCircle className="h-4 w-4 text-green-500" />;
       case 'assigned':
         return <User className="h-4 w-4 text-blue-500" />;
+      case 'deployed':
+        return <User className="h-4 w-4 text-blue-500" />;
       case 'maintenance':
         return <Settings className="h-4 w-4 text-yellow-500" />;
       default:
@@ -92,6 +94,7 @@ const EquipmentAssignmentWorkflow = () => {
       case 'available':
         return 'default';
       case 'assigned':
+      case 'deployed':
         return 'secondary';
       case 'maintenance':
         return 'destructive';
@@ -116,7 +119,7 @@ const EquipmentAssignmentWorkflow = () => {
   }
 
   const availableEquipment = equipment?.filter(eq => eq.status === 'available') || [];
-  const assignedEquipment = equipment?.filter(eq => eq.status === 'assigned') || [];
+  const assignedEquipment = equipment?.filter(eq => eq.status === 'assigned' || eq.status === 'deployed') || [];
 
   return (
     <div className="space-y-6">

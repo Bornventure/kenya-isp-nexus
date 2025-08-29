@@ -2,9 +2,15 @@
 // Analytics types for company-specific dashboard
 export interface DashboardStats {
   totalClients: number;
+  activeClients: number;
+  suspendedClients: number;
   monthlyRevenue: number;
+  totalRevenue: number;
   activeConnections: number;
   totalRouters: number;
+  activeHotspots: number;
+  pendingTickets: number;
+  activeEquipment: number;
   clientGrowth?: number;
   revenueGrowth?: number;
   connectionGrowth?: number;
