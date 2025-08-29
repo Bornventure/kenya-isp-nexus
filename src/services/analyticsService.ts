@@ -9,8 +9,7 @@ class AnalyticsService {
       const { data: clients, error: clientsError } = await supabase
         .from('clients')
         .select('*')
-        .eq('isp_company_id', companyId)
-        .eq('status', 'active');
+        .eq('isp_company_id', companyId);
 
       if (clientsError) throw clientsError;
 
@@ -36,21 +35,41 @@ class AnalyticsService {
       const { data: equipment, error: equipmentError } = await supabase
         .from('equipment')
         .select('*')
-        .eq('isp_company_id', companyId)
-        .eq('status', 'deployed');
+        .eq('isp_company_id', companyId);
 
       if (equipmentError) throw equipmentError;
 
-      const totalClients = clients?.length || 0;
+      // Get support tickets
+      const { data: tickets, error: ticketsError } = await supabase
+        .from('support_tickets')
+        .select('status')
+        .eq('isp_company_id', companyId);
+
+      if (ticketsError) throw ticketsError;
+
+      const allClients = clients || [];
+      const activeClients = allClients.filter(c => c.status === 'active').length;
+      const suspendedClients = allClients.filter(c => c.status === 'suspended').length;
+      const totalClients = allClients.length;
       const monthlyRevenue = payments?.reduce((sum, payment) => sum + (payment.trans_amount || 0), 0) || 0;
+      const totalRevenue = monthlyRevenue * 12; // Estimated annual revenue
       const activeConnections = sessions?.length || 0;
-      const totalRouters = equipment?.length || 0;
+      const totalRouters = equipment?.filter(eq => eq.status === 'deployed').length || 0;
+      const activeEquipment = equipment?.filter(eq => eq.status !== 'retired').length || 0;
+      const activeHotspots = equipment?.filter(eq => eq.type?.toLowerCase().includes('hotspot')).length || 0;
+      const pendingTickets = tickets?.filter(t => t.status === 'open' || t.status === 'pending').length || 0;
 
       return {
         totalClients,
+        activeClients,
+        suspendedClients,
         monthlyRevenue,
+        totalRevenue,
         activeConnections,
         totalRouters,
+        activeHotspots,
+        pendingTickets,
+        activeEquipment,
         clientGrowth: Math.floor(Math.random() * 20) - 10,
         revenueGrowth: Math.floor(Math.random() * 30) - 15,
         connectionGrowth: Math.floor(Math.random() * 25) - 12,
@@ -69,9 +88,15 @@ class AnalyticsService {
       console.error('Error fetching dashboard stats:', error);
       return {
         totalClients: 0,
+        activeClients: 0,
+        suspendedClients: 0,
         monthlyRevenue: 0,
+        totalRevenue: 0,
         activeConnections: 0,
         totalRouters: 0,
+        activeHotspots: 0,
+        pendingTickets: 0,
+        activeEquipment: 0,
         network: {
           activeRouters: 0,
           uptime: '0%',

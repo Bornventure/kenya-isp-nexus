@@ -44,7 +44,7 @@ const EditEquipmentDialog: React.FC<EditEquipmentDialogProps> = ({
         model: equipment.model || '',
         serial_number: equipment.serial_number || '',
         mac_address: equipment.mac_address || '',
-        status: equipment.status || 'available',
+        status: equipment.status === 'assigned' ? 'deployed' : equipment.status || 'available',
         location: equipment.location || '',
         purchase_date: equipment.purchase_date ? equipment.purchase_date.split('T')[0] : '',
         warranty_expiry: equipment.warranty_expiry || equipment.warranty_end_date ? (equipment.warranty_expiry || equipment.warranty_end_date)!.split('T')[0] : '',
