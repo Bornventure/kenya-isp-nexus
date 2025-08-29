@@ -30,7 +30,7 @@ export class RealTimeMikrotikIntegration {
       for (const router of routers || []) {
         this.devices.set(router.id, {
           id: router.id,
-          ip: router.ip_address,
+          ip: String(router.ip_address),
           username: router.admin_username,
           password: router.admin_password,
           port: 8728 // RouterOS API port
@@ -203,7 +203,10 @@ export class RealTimeMikrotikIntegration {
       });
 
       if (!secretResult.success) {
-        throw new Error(secretResult.error || 'Failed to create PPPoE secret');
+        return {
+          success: false,
+          message: secretResult.error || 'Failed to create PPPoE secret'
+        };
       }
 
       // Create simple queue for bandwidth limitation
@@ -285,7 +288,7 @@ export class RealTimeMikrotikIntegration {
   async addDeviceToMonitoring(router: any): Promise<void> {
     this.devices.set(router.id, {
       id: router.id,
-      ip: router.ip_address,
+      ip: String(router.ip_address),
       username: router.admin_username,
       password: router.admin_password,
       port: 8728

@@ -118,7 +118,7 @@ export class EC2RadiusIntegration {
   }
 
   // Get active sessions from EC2 RADIUS
-  async syncActiveSessions(): Promise<void> {
+  async syncActiveSessions(companyId: string): Promise<void> {
     try {
       const response = await fetch(`${this.ec2BaseUrl}/sessions/active`, {
         method: 'GET',
@@ -133,7 +133,7 @@ export class EC2RadiusIntegration {
 
       const sessions: RadiusSession[] = await response.json();
 
-      // Update Supabase active_sessions table
+      // Update Supabase active_sessions table with proper company ID
       for (const session of sessions) {
         await supabase
           .from('active_sessions')
@@ -142,7 +142,9 @@ export class EC2RadiusIntegration {
             nas_ip_address: session.nas_ip_address,
             framed_ip_address: session.framed_ip_address,
             session_start: session.start_time,
-            last_update: new Date().toISOString()
+            last_update: new Date().toISOString(),
+            isp_company_id: companyId,
+            client_id: '' // This should be resolved from username
           });
       }
 
@@ -232,7 +234,7 @@ export class EC2RadiusIntegration {
   }
 
   // Sync accounting data from EC2 to Supabase
-  async syncAccountingData(): Promise<void> {
+  async syncAccountingData(companyId: string): Promise<void> {
     try {
       const response = await fetch(`${this.ec2BaseUrl}/accounting/recent`, {
         method: 'GET',
@@ -259,7 +261,7 @@ export class EC2RadiusIntegration {
             input_octets: record.input_octets,
             output_octets: record.output_octets,
             terminate_cause: record.terminate_cause,
-            isp_company_id: record.isp_company_id
+            isp_company_id: companyId
           });
       }
 

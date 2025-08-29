@@ -9,7 +9,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Badge } from '@/components/ui/badge';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
-import { Equipment } from '@/types/equipment';
+import { useAuth } from '@/contexts/AuthContext';
 import { Loader2, Router, Wifi, Cable, Settings } from 'lucide-react';
 
 interface EquipmentAssignmentWorkflowProps {
@@ -17,14 +17,49 @@ interface EquipmentAssignmentWorkflowProps {
   onAssignmentComplete: () => void;
 }
 
-interface EquipmentItem extends Equipment {
+interface EquipmentItem {
+  id: string;
+  name?: string;
+  serial_number: string;
+  model: string;
+  type: string;
+  brand?: string;
+  manufacturer?: string;
+  status: string;
+  purchase_date?: string;
+  warranty_expiry?: string;
+  warranty_end_date?: string;
+  mac_address?: string;
+  location?: string;
+  notes?: string;
+  equipment_type_id?: string;
+  equipment_types?: {
+    name: string;
+  };
+  isp_company_id: string;
+  created_at: string;
+  updated_at: string;
+  client_id?: string;
   ip_address: string;
+  approval_status?: string;
+  approved_at?: string;
+  approved_by?: string;
+  auto_discovered?: boolean;
+  base_station_id?: string;
+  firmware_version?: string;
+  port_number?: number;
+  snmp_community?: string;
+  snmp_version?: number;
+  vlan_id?: number;
+  location_coordinates?: any;
+  connection_status?: string;
 }
 
 const EquipmentAssignmentWorkflow: React.FC<EquipmentAssignmentWorkflowProps> = ({
   clientId,
   onAssignmentComplete
 }) => {
+  const { profile } = useAuth();
   const [availableEquipment, setAvailableEquipment] = useState<EquipmentItem[]>([]);
   const [selectedEquipment, setSelectedEquipment] = useState<string[]>([]);
   const [networkConfig, setNetworkConfig] = useState({
@@ -55,10 +90,34 @@ const EquipmentAssignmentWorkflow: React.FC<EquipmentAssignmentWorkflowProps> = 
 
       if (error) throw error;
 
-      // Type-safe mapping with proper IP address handling
+      // Type-safe mapping with proper handling of nullable fields
       const equipmentItems: EquipmentItem[] = (data || []).map(item => ({
         ...item,
-        ip_address: item.ip_address?.toString() || ''
+        ip_address: item.ip_address ? String(item.ip_address) : '',
+        status: item.status || 'available',
+        brand: item.brand || '',
+        manufacturer: item.manufacturer || item.brand || '',
+        name: item.name || `${item.brand || ''} ${item.model || ''}`.trim() || item.type,
+        approval_status: item.approval_status || 'pending',
+        approved_at: item.approved_at || '',
+        approved_by: item.approved_by || '',
+        auto_discovered: item.auto_discovered || false,
+        base_station_id: item.base_station_id || '',
+        firmware_version: item.firmware_version || '',
+        warranty_expiry: item.warranty_expiry || '',
+        warranty_end_date: item.warranty_end_date || '',
+        mac_address: item.mac_address || '',
+        location: item.location || '',
+        notes: item.notes || '',
+        equipment_type_id: item.equipment_type_id || '',
+        purchase_date: item.purchase_date || '',
+        client_id: item.client_id || '',
+        port_number: item.port_number || 0,
+        snmp_community: item.snmp_community || '',
+        snmp_version: item.snmp_version || 0,
+        vlan_id: item.vlan_id || 0,
+        location_coordinates: item.location_coordinates || null,
+        connection_status: item.connection_status || ''
       }));
 
       setAvailableEquipment(equipmentItems);
@@ -95,15 +154,25 @@ const EquipmentAssignmentWorkflow: React.FC<EquipmentAssignmentWorkflowProps> = 
       return;
     }
 
+    if (!profile?.isp_company_id) {
+      toast({
+        title: "Error",
+        description: "Company information not found",
+        variant: "destructive",
+      });
+      return;
+    }
+
     setIsAssigning(true);
     try {
-      // Create equipment assignments
+      // Create equipment assignments with proper company ID
       const assignments = selectedEquipment.map(equipmentId => ({
         client_id: clientId,
         equipment_id: equipmentId,
-        assigned_by: '', // Will be filled by RLS
+        assigned_by: profile.id,
         installation_notes: networkConfig.notes,
-        status: 'assigned'
+        status: 'assigned',
+        isp_company_id: profile.isp_company_id
       }));
 
       const { error: assignmentError } = await supabase
