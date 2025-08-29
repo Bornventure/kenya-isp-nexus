@@ -42,3 +42,46 @@ export const formatMpesaNumber = (number: string): string => {
   }
   return number;
 };
+
+export const KENYAN_COUNTIES = [
+  {
+    name: 'Nairobi',
+    subCounties: ['Westlands', 'Dagoretti North', 'Dagoretti South', 'Langata', 'Kibra', 'Roysambu', 'Kasarani', 'Ruaraka', 'Embakasi South', 'Embakasi North', 'Embakasi Central', 'Embakasi East', 'Embakasi West', 'Makadara', 'Kamukunji', 'Starehe', 'Mathare']
+  },
+  {
+    name: 'Mombasa',
+    subCounties: ['Changamwe', 'Jomba', 'Kisauni', 'Nyali', 'Likoni', 'Mvita']
+  },
+  {
+    name: 'Kiambu',
+    subCounties: ['Gatundu South', 'Gatundu North', 'Juja', 'Thika Town', 'Ruiru', 'Githunguri', 'Kiambu', 'Kiambaa', 'Kabete', 'Kikuyu', 'Limuru', 'Lari']
+  },
+  {
+    name: 'Nakuru',
+    subCounties: ['Nakuru Town West', 'Nakuru Town East', 'Bahati', 'Njoro', 'Molo', 'Gilgil', 'Naivasha', 'Kuresoi South', 'Kuresoi North', 'Subukia', 'Rongai']
+  },
+  {
+    name: 'Kisumu',
+    subCounties: ['Kisumu East', 'Kisumu West', 'Kisumu Central', 'Seme', 'Nyando', 'Muhoroni', 'Nyakach']
+  },
+  {
+    name: 'Uasin Gishu',
+    subCounties: ['Soy', 'Turbo', 'Moiben', 'Ainabkoi', 'Kapseret', 'Kesses']
+  },
+  {
+    name: 'Machakos',
+    subCounties: ['Machakos Town', 'Athi River', 'Mavoko', 'Kathiani', 'Masinga', 'Yatta', 'Kangundo', 'Matungulu']
+  },
+  {
+    name: 'Meru',
+    subCounties: ['Imenti North', 'Imenti South', 'Imenti Central', 'Tigania West', 'Tigania East', 'North Imenti', 'Buuri', 'Igembe South', 'Igembe Central', 'Igembe North']
+  },
+  {
+    name: 'Kilifi',
+    subCounties: ['Kilifi North', 'Kilifi South', 'Kaloleni', 'Rabai', 'Ganze', 'Malindi', 'Magarini']
+  },
+  {
+    name: 'Kakamega',
+    subCounties: ['Lugari', 'Likuyani', 'Malava', 'Lurambi', 'Navakholo', 'Mumias West', 'Mumias East', 'Matungu', 'Butere', 'Khwisero', 'Shinyalu', 'Ikolomani']
+  }
+];
