@@ -1,435 +1,254 @@
-import React, { useState, useEffect } from 'react';
+
+import React, { useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Textarea } from '@/components/ui/textarea';
 import { Badge } from '@/components/ui/badge';
+import { 
+  Monitor, 
+  User, 
+  CheckCircle, 
+  AlertCircle, 
+  Clock,
+  Wifi,
+  Settings
+} from 'lucide-react';
+import { useEquipment } from '@/hooks/useEquipment';
+import { useClients } from '@/hooks/useClients';
 import { useToast } from '@/hooks/use-toast';
-import { supabase } from '@/integrations/supabase/client';
-import { useAuth } from '@/contexts/AuthContext';
-import { Loader2, Router, Wifi, Cable, Settings } from 'lucide-react';
 
-interface EquipmentAssignmentWorkflowProps {
-  clientId: string;
-  onAssignmentComplete: () => void;
-}
-
-interface EquipmentItem {
+interface Equipment {
   id: string;
-  name?: string;
-  manufacturer?: string;
-  serial_number: string;
-  model: string;
   type: string;
   brand?: string;
-  status: string;
-  purchase_date?: string;
-  warranty_expiry?: string;
-  warranty_end_date?: string;
+  model?: string;
+  serial_number: string;
   mac_address?: string;
+  status: string;
+  client_id?: string;
+  ip_address?: string;
   location?: string;
   notes?: string;
-  equipment_type_id?: string;
-  equipment_types?: {
-    name: string;
-  };
-  isp_company_id: string;
   created_at: string;
-  updated_at: string;
-  client_id?: string;
-  ip_address: string;
-  approval_status?: string;
-  approved_at?: string;
-  approved_by?: string;
-  auto_discovered?: boolean;
-  base_station_id?: string;
-  firmware_version?: string;
-  port_number?: number;
-  snmp_community?: string;
-  snmp_version?: number;
-  vlan_id?: number;
-  location_coordinates?: any;
-  connection_status?: string;
+  isp_company_id: string;
 }
 
-const EquipmentAssignmentWorkflow: React.FC<EquipmentAssignmentWorkflowProps> = ({
-  clientId,
-  onAssignmentComplete
-}) => {
-  const { profile } = useAuth();
-  const [availableEquipment, setAvailableEquipment] = useState<EquipmentItem[]>([]);
-  const [selectedEquipment, setSelectedEquipment] = useState<string[]>([]);
-  const [networkConfig, setNetworkConfig] = useState({
-    pppoe_username: '',
-    pppoe_password: '',
-    ip_allocation: 'dynamic',
-    static_ip: '',
-    bandwidth_limit_download: '',
-    bandwidth_limit_upload: '',
-    vlan_id: '',
-    notes: ''
-  });
-  const [isLoading, setIsLoading] = useState(true);
-  const [isAssigning, setIsAssigning] = useState(false);
+const EquipmentAssignmentWorkflow = () => {
+  const { equipment, isLoading: equipmentLoading, updateEquipment } = useEquipment();
+  const { clients, isLoading: clientsLoading } = useClients();
   const { toast } = useToast();
-
-  useEffect(() => {
-    fetchAvailableEquipment();
-  }, []);
-
-  const fetchAvailableEquipment = async () => {
-    try {
-      const { data, error } = await supabase
-        .from('equipment')
-        .select('*')
-        .eq('status', 'available')
-        .in('type', ['router', 'access_point', 'switch', 'cable', 'antenna']);
-
-      if (error) throw error;
-
-      const equipmentItems: EquipmentItem[] = (data || []).map(item => ({
-        ...item,
-        ip_address: item.ip_address ? String(item.ip_address) : '',
-        status: item.status || 'available',
-        brand: item.brand || '',
-        manufacturer: item.manufacturer || item.brand || 'Unknown',
-        name: item.name || `${item.brand || ''} ${item.model || ''}`.trim() || item.type,
-        approval_status: item.approval_status || 'pending',
-        approved_at: item.approved_at || '',
-        approved_by: item.approved_by || '',
-        auto_discovered: item.auto_discovered || false,
-        base_station_id: item.base_station_id || '',
-        firmware_version: item.firmware_version || '',
-        warranty_expiry: item.warranty_end_date || '',
-        warranty_end_date: item.warranty_end_date || '',
-        mac_address: item.mac_address || '',
-        location: item.location || '',
-        notes: item.notes || '',
-        equipment_type_id: item.equipment_type_id || '',
-        purchase_date: item.purchase_date || '',
-        client_id: item.client_id || '',
-        port_number: item.port_number || 0,
-        snmp_community: item.snmp_community || '',
-        snmp_version: item.snmp_version || 0,
-        vlan_id: item.vlan_id || 0,
-        location_coordinates: item.location_coordinates || null,
-        connection_status: item.connection_status || 'disconnected'
-      }));
-
-      setAvailableEquipment(equipmentItems);
-    } catch (error) {
-      console.error('Error fetching equipment:', error);
-      toast({
-        title: "Error",
-        description: "Failed to load available equipment",
-        variant: "destructive",
-      });
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  const generatePPPoECredentials = () => {
-    const username = `client_${clientId.substring(0, 8)}_${Date.now()}`;
-    const password = Math.random().toString(36).slice(-12);
-    
-    setNetworkConfig(prev => ({
-      ...prev,
-      pppoe_username: username,
-      pppoe_password: password
-    }));
-  };
+  const [selectedEquipment, setSelectedEquipment] = useState<Equipment | null>(null);
+  const [selectedClient, setSelectedClient] = useState<string>('');
 
   const handleAssignEquipment = async () => {
-    if (selectedEquipment.length === 0) {
+    if (!selectedEquipment || !selectedClient) {
       toast({
-        title: "No Equipment Selected",
-        description: "Please select at least one equipment item to assign",
+        title: "Assignment Error",
+        description: "Please select both equipment and client",
         variant: "destructive",
       });
       return;
     }
 
-    if (!profile?.isp_company_id) {
-      toast({
-        title: "Error",
-        description: "Company information not found",
-        variant: "destructive",
-      });
-      return;
-    }
-
-    setIsAssigning(true);
     try {
-      // Create equipment assignments with proper company ID
-      const assignments = selectedEquipment.map(equipmentId => ({
-        client_id: clientId,
-        equipment_id: equipmentId,
-        assigned_by: profile.id,
-        installation_notes: networkConfig.notes,
-        status: 'assigned',
-        isp_company_id: profile.isp_company_id
-      }));
+      await updateEquipment({
+        id: selectedEquipment.id,
+        updates: {
+          client_id: selectedClient,
+          status: 'assigned'
+        }
+      });
 
-      const { error: assignmentError } = await supabase
-        .from('client_equipment_assignments')
-        .insert(assignments);
+      toast({
+        title: "Equipment Assigned",
+        description: `${selectedEquipment.brand || 'Equipment'} ${selectedEquipment.model || selectedEquipment.type} has been assigned successfully.`,
+      });
 
-      if (assignmentError) throw assignmentError;
-
-      // Update equipment status to deployed
-      const { error: equipmentError } = await supabase
-        .from('equipment')
-        .update({ 
-          status: 'deployed',
-          client_id: clientId
-        })
-        .in('id', selectedEquipment);
-
-      if (equipmentError) throw equipmentError;
-
-      // Create network configuration record
-      const networkConfigData = {
-        client_id: clientId,
-        pppoe_username: networkConfig.pppoe_username,
-        pppoe_password: networkConfig.pppoe_password,
-        ip_allocation_type: networkConfig.ip_allocation,
-        static_ip_address: networkConfig.static_ip || null,
-        bandwidth_download: networkConfig.bandwidth_limit_download ? parseInt(networkConfig.bandwidth_limit_download) : null,
-        bandwidth_upload: networkConfig.bandwidth_limit_upload ? parseInt(networkConfig.bandwidth_limit_upload) : null,
-        vlan_id: networkConfig.vlan_id ? parseInt(networkConfig.vlan_id) : null,
-        configuration_notes: networkConfig.notes,
-        status: 'pending_deployment'
-      };
-
-      // Call the MikroTik configuration function
-      const configResult = await configureMikroTikForClient(networkConfigData);
-      
-      if (configResult.success) {
-        toast({
-          title: "Equipment Assigned Successfully",
-          description: "Equipment has been assigned and MikroTik configuration is in progress",
-        });
-        onAssignmentComplete();
-      } else {
-        toast({
-          title: "Assignment Complete, Configuration Pending",
-          description: "Equipment assigned but MikroTik configuration needs manual setup",
-          variant: "destructive",
-        });
-      }
-
+      setSelectedEquipment(null);
+      setSelectedClient('');
     } catch (error) {
-      console.error('Error assigning equipment:', error);
       toast({
         title: "Assignment Failed",
         description: "Failed to assign equipment. Please try again.",
         variant: "destructive",
       });
-    } finally {
-      setIsAssigning(false);
     }
   };
 
-  const configureMikroTikForClient = async (config: any) => {
-    try {
-      // This would integrate with MikroTik RouterOS API
-      // For now, we'll simulate the configuration
-      console.log('Configuring MikroTik for client:', config);
-      
-      // In production, this would:
-      // 1. Create PPPoE secret
-      // 2. Set bandwidth limits
-      // 3. Configure VLAN if specified
-      // 4. Set up RADIUS authentication
-      
-      return { success: true, message: 'Configuration applied successfully' };
-    } catch (error) {
-      console.error('MikroTik configuration error:', error);
-      return { success: false, message: 'Configuration failed' };
+  const getStatusIcon = (status: string) => {
+    switch (status) {
+      case 'available':
+        return <CheckCircle className="h-4 w-4 text-green-500" />;
+      case 'assigned':
+        return <User className="h-4 w-4 text-blue-500" />;
+      case 'maintenance':
+        return <Settings className="h-4 w-4 text-yellow-500" />;
+      default:
+        return <AlertCircle className="h-4 w-4 text-gray-500" />;
     }
   };
 
-  if (isLoading) {
+  const getStatusColor = (status: string) => {
+    switch (status) {
+      case 'available':
+        return 'default';
+      case 'assigned':
+        return 'secondary';
+      case 'maintenance':
+        return 'destructive';
+      default:
+        return 'outline';
+    }
+  };
+
+  if (equipmentLoading || clientsLoading) {
     return (
-      <Card>
-        <CardContent className="flex items-center justify-center p-6">
-          <Loader2 className="h-6 w-6 animate-spin mr-2" />
-          Loading available equipment...
-        </CardContent>
-      </Card>
+      <div className="space-y-6">
+        <Card>
+          <CardContent className="p-6">
+            <div className="animate-pulse space-y-4">
+              <div className="h-4 bg-gray-200 rounded w-3/4"></div>
+              <div className="h-4 bg-gray-200 rounded w-1/2"></div>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
     );
   }
 
+  const availableEquipment = equipment?.filter(eq => eq.status === 'available') || [];
+  const assignedEquipment = equipment?.filter(eq => eq.status === 'assigned') || [];
+
   return (
     <div className="space-y-6">
+      <div className="flex items-center justify-between">
+        <div>
+          <h2 className="text-2xl font-bold">Equipment Assignment</h2>
+          <p className="text-muted-foreground">Assign equipment to clients and manage allocations</p>
+        </div>
+      </div>
+
+      {/* Assignment Form */}
       <Card>
         <CardHeader>
-          <CardTitle>Equipment Assignment & Network Configuration</CardTitle>
+          <CardTitle className="flex items-center gap-2">
+            <Monitor className="h-5 w-5" />
+            Assign Equipment
+          </CardTitle>
         </CardHeader>
-        <CardContent className="space-y-6">
-          {/* Available Equipment */}
-          <div>
-            <Label className="text-base font-medium">Available Equipment</Label>
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3 mt-2">
-              {availableEquipment.map((equipment) => (
-                <div
-                  key={equipment.id}
-                  className={`p-3 border rounded-lg cursor-pointer transition-colors ${
-                    selectedEquipment.includes(equipment.id)
-                      ? 'bg-primary/10 border-primary'
-                      : 'hover:bg-muted/50'
-                  }`}
-                  onClick={() => {
-                    setSelectedEquipment(prev =>
-                      prev.includes(equipment.id)
-                        ? prev.filter(id => id !== equipment.id)
-                        : [...prev, equipment.id]
-                    );
-                  }}
-                >
-                  <div className="flex items-center space-x-2">
-                    {equipment.type === 'router' && <Router className="h-4 w-4" />}
-                    {equipment.type === 'access_point' && <Wifi className="h-4 w-4" />}
-                    {equipment.type === 'cable' && <Cable className="h-4 w-4" />}
-                    {!['router', 'access_point', 'cable'].includes(equipment.type) && <Settings className="h-4 w-4" />}
-                    <span className="font-medium">{equipment.brand} {equipment.model}</span>
+        <CardContent className="space-y-4">
+          <div className="grid md:grid-cols-2 gap-4">
+            <div>
+              <label className="text-sm font-medium">Select Equipment</label>
+              <div className="mt-2 space-y-2 max-h-40 overflow-y-auto">
+                {availableEquipment.map((eq) => (
+                  <div
+                    key={eq.id}
+                    className={`p-3 border rounded-lg cursor-pointer transition-colors ${
+                      selectedEquipment?.id === eq.id
+                        ? 'border-primary bg-primary/10'
+                        : 'border-gray-200 hover:border-gray-300'
+                    }`}
+                    onClick={() => setSelectedEquipment(eq)}
+                  >
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <p className="font-medium">{eq.brand || 'Unknown Brand'} {eq.model || eq.type}</p>
+                        <p className="text-sm text-muted-foreground">S/N: {eq.serial_number}</p>
+                      </div>
+                      <Badge variant={getStatusColor(eq.status)}>
+                        {eq.status}
+                      </Badge>
+                    </div>
                   </div>
-                  <div className="text-sm text-muted-foreground mt-1">
-                    Type: {equipment.type} | Serial: {equipment.serial_number}
-                    {equipment.ip_address && ` | IP: ${equipment.ip_address}`}
+                ))}
+              </div>
+            </div>
+
+            <div>
+              <label className="text-sm font-medium">Select Client</label>
+              <div className="mt-2 space-y-2 max-h-40 overflow-y-auto">
+                {clients?.map((client) => (
+                  <div
+                    key={client.id}
+                    className={`p-3 border rounded-lg cursor-pointer transition-colors ${
+                      selectedClient === client.id
+                        ? 'border-primary bg-primary/10'
+                        : 'border-gray-200 hover:border-gray-300'
+                    }`}
+                    onClick={() => setSelectedClient(client.id)}
+                  >
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <p className="font-medium">{client.name}</p>
+                        <p className="text-sm text-muted-foreground">{client.phone}</p>
+                      </div>
+                      <Badge variant="outline">
+                        {client.status}
+                      </Badge>
+                    </div>
                   </div>
-                  <Badge variant="outline" className="mt-2">
-                    {equipment.status}
-                  </Badge>
-                </div>
-              ))}
+                ))}
+              </div>
             </div>
           </div>
 
-          {/* Network Configuration */}
-          {selectedEquipment.length > 0 && (
+          <Button 
+            onClick={handleAssignEquipment}
+            disabled={!selectedEquipment || !selectedClient}
+            className="w-full"
+          >
+            <User className="h-4 w-4 mr-2" />
+            Assign Equipment
+          </Button>
+        </CardContent>
+      </Card>
+
+      {/* Assigned Equipment */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <Wifi className="h-5 w-5" />
+            Assigned Equipment
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          {assignedEquipment.length === 0 ? (
+            <p className="text-muted-foreground text-center py-4">No equipment currently assigned</p>
+          ) : (
             <div className="space-y-4">
-              <Label className="text-base font-medium">Network Configuration</Label>
-              
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div>
-                  <Label htmlFor="pppoe_username">PPPoE Username</Label>
-                  <div className="flex space-x-2">
-                    <Input
-                      id="pppoe_username"
-                      value={networkConfig.pppoe_username}
-                      onChange={(e) => setNetworkConfig(prev => ({...prev, pppoe_username: e.target.value}))}
-                      placeholder="Enter PPPoE username"
-                    />
-                    <Button 
-                      type="button" 
-                      variant="outline" 
-                      onClick={generatePPPoECredentials}
-                      size="sm"
-                    >
-                      Generate
-                    </Button>
+              {assignedEquipment.map((eq) => {
+                const assignedClient = clients?.find(c => c.id === eq.client_id);
+                return (
+                  <div key={eq.id} className="flex items-center justify-between p-4 border rounded-lg">
+                    <div className="flex items-center gap-4">
+                      {getStatusIcon(eq.status)}
+                      <div>
+                        <p className="font-medium">{eq.brand || 'Unknown Brand'} {eq.model || eq.type}</p>
+                        <p className="text-sm text-muted-foreground">
+                          S/N: {eq.serial_number} | Assigned to: {assignedClient?.name || 'Unknown Client'}
+                        </p>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <Badge variant={getStatusColor(eq.status)}>
+                        {eq.status}
+                      </Badge>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => {
+                          updateEquipment({
+                            id: eq.id,
+                            updates: { client_id: null, status: 'available' }
+                          });
+                        }}
+                      >
+                        Unassign
+                      </Button>
+                    </div>
                   </div>
-                </div>
-
-                <div>
-                  <Label htmlFor="pppoe_password">PPPoE Password</Label>
-                  <Input
-                    id="pppoe_password"
-                    type="password"
-                    value={networkConfig.pppoe_password}
-                    onChange={(e) => setNetworkConfig(prev => ({...prev, pppoe_password: e.target.value}))}
-                    placeholder="Enter PPPoE password"
-                  />
-                </div>
-
-                <div>
-                  <Label htmlFor="ip_allocation">IP Allocation</Label>
-                  <Select 
-                    value={networkConfig.ip_allocation} 
-                    onValueChange={(value) => setNetworkConfig(prev => ({...prev, ip_allocation: value}))}
-                  >
-                    <SelectTrigger>
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="dynamic">Dynamic (DHCP)</SelectItem>
-                      <SelectItem value="static">Static IP</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-
-                {networkConfig.ip_allocation === 'static' && (
-                  <div>
-                    <Label htmlFor="static_ip">Static IP Address</Label>
-                    <Input
-                      id="static_ip"
-                      value={networkConfig.static_ip}
-                      onChange={(e) => setNetworkConfig(prev => ({...prev, static_ip: e.target.value}))}
-                      placeholder="192.168.1.100"
-                    />
-                  </div>
-                )}
-
-                <div>
-                  <Label htmlFor="download_limit">Download Limit (Mbps)</Label>
-                  <Input
-                    id="download_limit"
-                    value={networkConfig.bandwidth_limit_download}
-                    onChange={(e) => setNetworkConfig(prev => ({...prev, bandwidth_limit_download: e.target.value}))}
-                    placeholder="100"
-                  />
-                </div>
-
-                <div>
-                  <Label htmlFor="upload_limit">Upload Limit (Mbps)</Label>
-                  <Input
-                    id="upload_limit"
-                    value={networkConfig.bandwidth_limit_upload}
-                    onChange={(e) => setNetworkConfig(prev => ({...prev, bandwidth_limit_upload: e.target.value}))}
-                    placeholder="50"
-                  />
-                </div>
-
-                <div>
-                  <Label htmlFor="vlan_id">VLAN ID (Optional)</Label>
-                  <Input
-                    id="vlan_id"
-                    value={networkConfig.vlan_id}
-                    onChange={(e) => setNetworkConfig(prev => ({...prev, vlan_id: e.target.value}))}
-                    placeholder="100"
-                  />
-                </div>
-              </div>
-
-              <div>
-                <Label htmlFor="notes">Installation Notes</Label>
-                <Textarea
-                  id="notes"
-                  value={networkConfig.notes}
-                  onChange={(e) => setNetworkConfig(prev => ({...prev, notes: e.target.value}))}
-                  placeholder="Any special installation notes or requirements..."
-                  rows={3}
-                />
-              </div>
-
-              <Button 
-                onClick={handleAssignEquipment}
-                disabled={isAssigning}
-                className="w-full"
-              >
-                {isAssigning ? (
-                  <>
-                    <Loader2 className="h-4 w-4 animate-spin mr-2" />
-                    Assigning Equipment...
-                  </>
-                ) : (
-                  'Assign Equipment & Configure Network'
-                )}
-              </Button>
+                );
+              })}
             </div>
           )}
         </CardContent>

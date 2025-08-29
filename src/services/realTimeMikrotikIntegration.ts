@@ -1,307 +1,280 @@
 
 import { supabase } from '@/integrations/supabase/client';
-import { realMikrotikService } from './realMikrotikService';
 
 interface MikroTikDevice {
   id: string;
-  ip: string;
-  username: string;
-  password: string;
-  port: number;
+  name: string;
+  ip_address: string;
+  status: 'online' | 'offline' | 'error';
+  uptime?: string;
+  version?: string;
+  board?: string;
 }
 
-export class RealTimeMikrotikIntegration {
-  private monitoringInterval: NodeJS.Timeout | null = null;
-  private devices: Map<string, MikroTikDevice> = new Map();
+interface MikroTikInterface {
+  name: string;
+  status: 'up' | 'down';
+  rx_bytes: number;
+  tx_bytes: number;
+  rx_packets: number;
+  tx_packets: number;
+}
 
-  // Initialize monitoring for all company MikroTik routers
-  async initializeMonitoring(companyId: string): Promise<void> {
-    try {
-      // Get all MikroTik routers for the company
-      const { data: routers, error } = await supabase
-        .from('mikrotik_routers')
-        .select('*')
-        .eq('isp_company_id', companyId)
-        .eq('status', 'active');
+interface MikroTikClient {
+  mac_address: string;
+  ip_address: string;
+  interface: string;
+  uptime: string;
+  rx_bytes: number;
+  tx_bytes: number;
+}
 
-      if (error) throw error;
+interface MikroTikResponse {
+  success: boolean;
+  message: string;
+  data?: any;
+  error?: string;
+}
 
-      // Register devices for monitoring
-      for (const router of routers || []) {
-        this.devices.set(router.id, {
-          id: router.id,
-          ip: String(router.ip_address),
-          username: router.admin_username,
-          password: router.admin_password,
-          port: 8728 // RouterOS API port
-        });
-      }
-
-      // Start monitoring
-      this.startRealTimeMonitoring();
-
-      console.log(`Initialized monitoring for ${this.devices.size} MikroTik devices`);
-    } catch (error) {
-      console.error('Failed to initialize MikroTik monitoring:', error);
-    }
-  }
-
-  // Start real-time monitoring
-  private startRealTimeMonitoring(): void {
-    if (this.monitoringInterval) {
-      clearInterval(this.monitoringInterval);
-    }
-
-    this.monitoringInterval = setInterval(async () => {
-      await this.monitorAllDevices();
-    }, 30000); // Monitor every 30 seconds
-
-    console.log('Real-time MikroTik monitoring started');
-  }
-
-  // Monitor all devices
-  private async monitorAllDevices(): Promise<void> {
-    for (const [deviceId, device] of this.devices.entries()) {
-      try {
-        await this.monitorDevice(device);
-      } catch (error) {
-        console.error(`Monitoring failed for device ${deviceId}:`, error);
-      }
-    }
-  }
-
-  // Monitor individual device
-  private async monitorDevice(device: MikroTikDevice): Promise<void> {
-    try {
-      // Test connection and get system info
-      const connectionResult = await realMikrotikService.testConnection({
-        ip: device.ip,
-        username: device.username,
-        password: device.password,
-        port: device.port
-      });
-
-      // Update device status
-      await supabase
-        .from('mikrotik_routers')
-        .update({
-          connection_status: connectionResult.success ? 'online' : 'offline',
-          last_test_results: JSON.stringify(connectionResult)
-        })
-        .eq('id', device.id);
-
-      if (connectionResult.success) {
-        // Get active sessions
-        const activeSessions = await realMikrotikService.getActiveSessions({
-          ip: device.ip,
-          username: device.username,
-          password: device.password,
-          port: device.port
-        });
-
-        // Sync sessions to Supabase
-        await this.syncSessionsToSupabase(activeSessions, device.id);
-
-        // Get interface statistics
-        const interfaceStats = await realMikrotikService.getInterfaceStats({
-          ip: device.ip,
-          username: device.username,
-          password: device.password,
-          port: device.port
-        });
-
-        // Store interface statistics
-        await this.storeInterfaceStats(interfaceStats, device.id);
-      }
-
-    } catch (error) {
-      console.error(`Device monitoring error for ${device.ip}:`, error);
-    }
-  }
-
-  // Sync active sessions to Supabase
-  private async syncSessionsToSupabase(sessions: any[], deviceId: string): Promise<void> {
-    try {
-      for (const session of sessions) {
-        // Find corresponding client
-        const { data: radiusUser } = await supabase
-          .from('radius_users')
-          .select('client_id, isp_company_id')
-          .eq('username', session.name)
-          .single();
-
-        if (radiusUser) {
-          // Upsert active session
-          await supabase
-            .from('active_sessions')
-            .upsert({
-              username: session.name,
-              nas_ip_address: deviceId,
-              framed_ip_address: session.address,
-              session_start: new Date().toISOString(), // In production, parse actual start time
-              client_id: radiusUser.client_id,
-              isp_company_id: radiusUser.isp_company_id,
-              last_update: new Date().toISOString()
-            });
-        }
-      }
-    } catch (error) {
-      console.error('Session sync error:', error);
-    }
-  }
-
-  // Store interface statistics
-  private async storeInterfaceStats(stats: any[], deviceId: string): Promise<void> {
-    try {
-      for (const stat of stats) {
-        await supabase
-          .from('interface_statistics')
-          .insert({
-            equipment_id: deviceId,
-            interface_index: parseInt(stat['.id'].substring(1)),
-            interface_name: stat.name,
-            status: stat.running === 'true' ? 'up' : 'down',
-            speed: parseInt(stat['tx-byte']) || 0,
-            utilization: 0, // Calculate based on capacity
-            errors: 0,
-            isp_company_id: '' // Will be filled by RLS
-          });
-      }
-    } catch (error) {
-      console.error('Interface stats storage error:', error);
-    }
-  }
-
-  // Configure client on MikroTik
-  async configureClientOnMikroTik(clientConfig: {
-    deviceId: string;
+export class RealTimeMikroTikIntegration {
+  private baseUrl: string;
+  private credentials: {
     username: string;
     password: string;
-    downloadLimit: string;
-    uploadLimit: string;
-    ipAddress?: string;
-  }): Promise<{ success: boolean; message: string }> {
+    port: number;
+  };
+
+  constructor() {
+    this.baseUrl = 'https://ddljuawonxdnesrnclsx.supabase.co/functions/v1';
+    this.credentials = {
+      username: process.env.MIKROTIK_USER || 'admin',
+      password: process.env.MIKROTIK_PASSWORD || '',
+      port: parseInt(process.env.MIKROTIK_PORT || '8728'),
+    };
+  }
+
+  async discoverDevices(companyId: string): Promise<MikroTikResponse> {
     try {
-      const device = this.devices.get(clientConfig.deviceId);
-      if (!device) {
-        throw new Error('Device not found');
-      }
-
-      // Create PPPoE secret
-      const secretResult = await realMikrotikService.createPPPoESecret({
-        ip: device.ip,
-        username: device.username,
-        password: device.password,
-        port: device.port
-      }, {
-        name: clientConfig.username,
-        password: clientConfig.password,
-        service: 'pppoe',
-        profile: 'default',
-        disabled: false,
-        comment: `Auto-generated for client`
+      const { data, error } = await supabase.functions.invoke('mikrotik-discovery', {
+        body: { 
+          company_id: companyId,
+          action: 'discover_devices'
+        }
       });
 
-      if (!secretResult.success) {
-        return {
-          success: false,
-          message: secretResult.error || 'Failed to create PPPoE secret'
-        };
+      if (error) {
+        return { success: false, message: `Discovery failed: ${error.message}`, error: error.message };
       }
 
-      // Create simple queue for bandwidth limitation
-      const queueResult = await realMikrotikService.createSimpleQueue({
-        ip: device.ip,
-        username: device.username,
-        password: device.password,
-        port: device.port
-      }, {
-        name: `queue-${clientConfig.username}`,
-        target: clientConfig.ipAddress || `${clientConfig.username}`,
-        maxDownload: clientConfig.downloadLimit,
-        maxUpload: clientConfig.uploadLimit,
-        disabled: false
-      });
-
-      if (!queueResult.success) {
-        console.warn('Queue creation failed:', queueResult.error);
-      }
-
-      return {
-        success: true,
-        message: `Client ${clientConfig.username} configured successfully on ${device.ip}`
-      };
-
+      return { success: true, message: 'Devices discovered successfully', data };
     } catch (error) {
-      console.error('Client configuration failed:', error);
-      return {
-        success: false,
-        message: error instanceof Error ? error.message : 'Configuration failed'
-      };
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred';
+      return { success: false, message: `Device discovery error: ${errorMessage}`, error: errorMessage };
     }
   }
 
-  // Disconnect client from MikroTik
-  async disconnectClientFromMikroTik(deviceId: string, username: string): Promise<{ success: boolean; message: string }> {
+  async getDeviceInfo(deviceIp: string): Promise<MikroTikResponse> {
     try {
-      const device = this.devices.get(deviceId);
-      if (!device) {
-        throw new Error('Device not found');
+      const { data, error } = await supabase.functions.invoke('mikrotik-management', {
+        body: {
+          action: 'get_device_info',
+          device_ip: deviceIp,
+          credentials: this.credentials
+        }
+      });
+
+      if (error) {
+        return { success: false, message: `Failed to get device info: ${error.message}`, error: error.message };
       }
 
-      const result = await realMikrotikService.disconnectUser({
-        ip: device.ip,
-        username: device.username,
-        password: device.password,
-        port: device.port
-      }, username);
+      return { success: true, message: 'Device information retrieved successfully', data };
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred';
+      return { success: false, message: `Device info error: ${errorMessage}`, error: errorMessage };
+    }
+  }
 
-      if (result.success) {
-        // Remove from active sessions
+  async getInterfaceStats(deviceIp: string): Promise<MikroTikResponse> {
+    try {
+      const { data, error } = await supabase.functions.invoke('mikrotik-management', {
+        body: {
+          action: 'get_interface_stats',
+          device_ip: deviceIp,
+          credentials: this.credentials
+        }
+      });
+
+      if (error) {
+        return { success: false, message: `Failed to get interface stats: ${error.message}`, error: error.message };
+      }
+
+      return { success: true, message: 'Interface statistics retrieved successfully', data };
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred';
+      return { success: false, message: `Interface stats error: ${errorMessage}`, error: errorMessage };
+    }
+  }
+
+  async getActiveClients(deviceIp: string): Promise<MikroTikResponse> {
+    try {
+      const { data, error } = await supabase.functions.invoke('mikrotik-management', {
+        body: {
+          action: 'get_active_clients',
+          device_ip: deviceIp,
+          credentials: this.credentials
+        }
+      });
+
+      if (error) {
+        return { success: false, message: `Failed to get active clients: ${error.message}`, error: error.message };
+      }
+
+      return { success: true, message: 'Active clients retrieved successfully', data };
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred';
+      return { success: false, message: `Active clients error: ${errorMessage}`, error: errorMessage };
+    }
+  }
+
+  async disconnectClient(deviceIp: string, clientIp: string): Promise<MikroTikResponse> {
+    try {
+      const { data, error } = await supabase.functions.invoke('mikrotik-management', {
+        body: {
+          action: 'disconnect_client',
+          device_ip: deviceIp,
+          client_ip: clientIp,
+          credentials: this.credentials
+        }
+      });
+
+      if (error) {
+        return { success: false, message: `Failed to disconnect client: ${error.message}`, error: error.message };
+      }
+
+      return { success: true, message: 'Client disconnected successfully', data };
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred';
+      return { success: false, message: `Client disconnect error: ${errorMessage}`, error: errorMessage };
+    }
+  }
+
+  async blockClient(deviceIp: string, clientMac: string): Promise<MikroTikResponse> {
+    try {
+      const { data, error } = await supabase.functions.invoke('mikrotik-management', {
+        body: {
+          action: 'block_client',
+          device_ip: deviceIp,
+          client_mac: clientMac,
+          credentials: this.credentials
+        }
+      });
+
+      if (error) {
+        return { success: false, message: `Failed to block client: ${error.message}`, error: error.message };
+      }
+
+      return { success: true, message: 'Client blocked successfully', data };
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred';
+      return { success: false, message: `Client block error: ${errorMessage}`, error: errorMessage };
+    }
+  }
+
+  async unblockClient(deviceIp: string, clientMac: string): Promise<MikroTikResponse> {
+    try {
+      const { data, error } = await supabase.functions.invoke('mikrotik-management', {
+        body: {
+          action: 'unblock_client',
+          device_ip: deviceIp,
+          client_mac: clientMac,
+          credentials: this.credentials
+        }
+      });
+
+      if (error) {
+        return { success: false, message: `Failed to unblock client: ${error.message}`, error: error.message };
+      }
+
+      return { success: true, message: 'Client unblocked successfully', data };
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred';
+      return { success: false, message: `Client unblock error: ${errorMessage}`, error: errorMessage };
+    }
+  }
+
+  async createFirewallRule(deviceIp: string, rule: any): Promise<MikroTikResponse> {
+    try {
+      const { data, error } = await supabase.functions.invoke('mikrotik-management', {
+        body: {
+          action: 'create_firewall_rule',
+          device_ip: deviceIp,
+          rule: rule,
+          credentials: this.credentials
+        }
+      });
+
+      if (error) {
+        return { success: false, message: `Failed to create firewall rule: ${error.message}`, error: error.message };
+      }
+
+      return { success: true, message: 'Firewall rule created successfully', data };
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred';
+      return { success: false, message: `Firewall rule error: ${errorMessage}`, error: errorMessage };
+    }
+  }
+
+  async getBandwidthStats(deviceIp: string): Promise<MikroTikResponse> {
+    try {
+      const { data, error } = await supabase.functions.invoke('mikrotik-management', {
+        body: {
+          action: 'get_bandwidth_stats',
+          device_ip: deviceIp,
+          credentials: this.credentials
+        }
+      });
+
+      if (error) {
+        return { success: false, message: `Failed to get bandwidth stats: ${error.message}`, error: error.message };
+      }
+
+      return { success: true, message: 'Bandwidth statistics retrieved successfully', data };
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred';
+      return { success: false, message: `Bandwidth stats error: ${errorMessage}`, error: errorMessage };
+    }
+  }
+
+  async syncWithDatabase(companyId: string): Promise<MikroTikResponse> {
+    try {
+      const devicesResult = await this.discoverDevices(companyId);
+      if (!devicesResult.success) {
+        return devicesResult;
+      }
+
+      // Store discovered devices in database
+      const devices = devicesResult.data || [];
+      for (const device of devices) {
         await supabase
-          .from('active_sessions')
-          .delete()
-          .eq('username', username)
-          .eq('nas_ip_address', deviceId);
+          .from('equipment')
+          .upsert({
+            ip_address: device.ip_address,
+            type: 'Router',
+            brand: 'MikroTik',
+            model: device.board || 'Unknown',
+            status: device.status === 'online' ? 'active' : 'inactive',
+            firmware_version: device.version,
+            auto_discovered: true,
+            isp_company_id: companyId,
+          });
       }
 
-      return result;
+      return { success: true, message: 'Database sync completed successfully', data: { synced_devices: devices.length } };
     } catch (error) {
-      console.error('Disconnect failed:', error);
-      return {
-        success: false,
-        message: error instanceof Error ? error.message : 'Disconnect failed'
-      };
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred';
+      return { success: false, message: `Database sync error: ${errorMessage}`, error: errorMessage };
     }
-  }
-
-  // Stop monitoring
-  stopMonitoring(): void {
-    if (this.monitoringInterval) {
-      clearInterval(this.monitoringInterval);
-      this.monitoringInterval = null;
-    }
-    console.log('MikroTik monitoring stopped');
-  }
-
-  // Add new device to monitoring
-  async addDeviceToMonitoring(router: any): Promise<void> {
-    this.devices.set(router.id, {
-      id: router.id,
-      ip: String(router.ip_address),
-      username: router.admin_username,
-      password: router.admin_password,
-      port: 8728
-    });
-
-    console.log(`Added device ${router.name} to monitoring`);
-  }
-
-  // Remove device from monitoring
-  removeDeviceFromMonitoring(deviceId: string): void {
-    this.devices.delete(deviceId);
-    console.log(`Removed device ${deviceId} from monitoring`);
   }
 }
 
-export const realTimeMikrotikIntegration = new RealTimeMikrotikIntegration();
+export const mikrotikService = new RealTimeMikroTikIntegration();

@@ -1,51 +1,42 @@
 
 import { useState, useEffect } from 'react';
-import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
-import { DeviceStatus } from '@/types/analytics';
+import { useToast } from '@/hooks/use-toast';
+import { supabase } from '@/integrations/supabase/client';
 
-interface NetworkSession {
+interface NetworkDevice {
   id: string;
-  username: string;
-  client_id: string;
-  nas_ip_address: string;
-  framed_ip_address: string;
-  session_start: string;
-  last_update: string;
+  type: string;
+  brand?: string;
+  model?: string;
+  status: string;
+  ip_address?: string;
+  last_seen?: string;
+  uptime?: number;
+  cpu_usage?: number;
+  memory_usage?: number;
+  interface_count?: number;
 }
 
-interface BandwidthData {
-  timestamp: string;
-  download: number;
-  upload: number;
-  client_id: string;
+interface NetworkAlert {
+  id: string;
+  device_id: string;
+  alert_type: string;
+  message: string;
+  severity: 'low' | 'medium' | 'high' | 'critical';
+  created_at: string;
+  resolved: boolean;
 }
 
 export const useRealTimeNetworkMonitoring = () => {
   const { profile } = useAuth();
-  const [deviceStatuses, setDeviceStatuses] = useState<DeviceStatus[]>([]);
-  const [activeSessions, setActiveSessions] = useState<NetworkSession[]>([]);
-  const [bandwidthData, setBandwidthData] = useState<BandwidthData[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
+  const { toast } = useToast();
+  const [devices, setDevices] = useState<NetworkDevice[]>([]);
+  const [alerts, setAlerts] = useState<NetworkAlert[]>([]);
+  const [isMonitoring, setIsMonitoring] = useState(false);
+  const [lastUpdate, setLastUpdate] = useState<Date | null>(null);
 
-  // Type guard functions
-  const isString = (value: unknown): value is string => {
-    return typeof value === 'string';
-  };
-
-  const isNumber = (value: unknown): value is number => {
-    return typeof value === 'number';
-  };
-
-  const convertToString = (value: unknown): string => {
-    if (isString(value)) return value;
-    if (isNumber(value)) return value.toString();
-    if (value === null || value === undefined) return '';
-    return String(value);
-  };
-
-  // Fetch device statuses
-  const fetchDeviceStatuses = async () => {
+  const fetchDevices = async () => {
     if (!profile?.isp_company_id) return;
 
     try {
@@ -53,189 +44,108 @@ export const useRealTimeNetworkMonitoring = () => {
         .from('equipment')
         .select('*')
         .eq('isp_company_id', profile.isp_company_id)
-        .eq('status', 'deployed');
+        .eq('status', 'active');
 
-      if (error) {
-        console.error('Error fetching equipment:', error);
-        return;
-      }
+      if (error) throw error;
 
-      if (equipment) {
-        const statuses: DeviceStatus[] = equipment.map(device => ({
-          id: device.id,
-          name: device.name || `${device.brand || ''} ${device.model || ''}`.trim() || 'Unknown Device',
-          ip: convertToString(device.ip_address),
-          status: Math.random() > 0.2 ? 'online' : 'offline' as 'online' | 'offline',
-          uptime: Math.floor(Math.random() * 168) + 1,
-          cpuUsage: Math.floor(Math.random() * 60) + 10,
-          memoryUsage: Math.floor(Math.random() * 50) + 20,
-          activeSessions: Math.floor(Math.random() * 10),
-          lastSeen: new Date(Date.now() - Math.random() * 3600000).toISOString()
-        }));
+      const networkDevices: NetworkDevice[] = (equipment || []).map(eq => ({
+        id: eq.id,
+        type: eq.type || 'Unknown',
+        brand: eq.brand || undefined,
+        model: eq.model || undefined,
+        status: eq.status || 'unknown',
+        ip_address: eq.ip_address ? String(eq.ip_address) : undefined,
+        last_seen: eq.updated_at || eq.created_at,
+        uptime: Math.floor(Math.random() * 168), // Simulated uptime in hours
+        cpu_usage: Math.floor(Math.random() * 100),
+        memory_usage: Math.floor(Math.random() * 100),
+        interface_count: Math.floor(Math.random() * 8) + 1,
+      }));
 
-        setDeviceStatuses(statuses);
-      }
+      setDevices(networkDevices);
+      setLastUpdate(new Date());
     } catch (error) {
-      console.error('Error in fetchDeviceStatuses:', error);
+      console.error('Error fetching network devices:', error);
+      toast({
+        title: "Network Monitoring Error",
+        description: "Failed to fetch network devices",
+        variant: "destructive",
+      });
     }
   };
 
-  // Fetch active sessions
-  const fetchActiveSessions = async () => {
-    if (!profile?.isp_company_id) return;
-
-    try {
-      const { data: sessions, error } = await supabase
-        .from('active_sessions')
-        .select('*')
-        .eq('isp_company_id', profile.isp_company_id);
-
-      if (error) {
-        console.error('Error fetching active sessions:', error);
-        return;
-      }
-
-      if (sessions) {
-        const formattedSessions: NetworkSession[] = sessions.map(session => ({
-          id: session.id,
-          username: session.username,
-          client_id: session.client_id || '',
-          nas_ip_address: convertToString(session.nas_ip_address),
-          framed_ip_address: convertToString(session.framed_ip_address),
-          session_start: session.session_start || new Date().toISOString(),
-          last_update: session.last_update || new Date().toISOString()
-        }));
-
-        setActiveSessions(formattedSessions);
-      }
-    } catch (error) {
-      console.error('Error in fetchActiveSessions:', error);
-    }
+  const generateMockAlerts = (): NetworkAlert[] => {
+    const alertTypes = ['High CPU Usage', 'Interface Down', 'Connection Timeout', 'Memory Warning'];
+    const severities: ('low' | 'medium' | 'high' | 'critical')[] = ['low', 'medium', 'high', 'critical'];
+    
+    return devices.slice(0, 3).map((device, index) => ({
+      id: `alert-${device.id}-${index}`,
+      device_id: device.id,
+      alert_type: alertTypes[index % alertTypes.length],
+      message: `${alertTypes[index % alertTypes.length]} detected on ${device.brand || 'Device'} ${device.model || device.type}`,
+      severity: severities[index % severities.length],
+      created_at: new Date(Date.now() - Math.random() * 3600000).toISOString(),
+      resolved: Math.random() > 0.7,
+    }));
   };
 
-  // Fetch bandwidth data
-  const fetchBandwidthData = async () => {
-    if (!profile?.isp_company_id) return;
-
-    try {
-      const { data: bandwidth, error } = await supabase
-        .from('bandwidth_statistics')
-        .select('*')
-        .eq('isp_company_id', profile.isp_company_id)
-        .gte('timestamp', new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString())
-        .order('timestamp', { ascending: false })
-        .limit(100);
-
-      if (error) {
-        console.error('Error fetching bandwidth data:', error);
-        return;
-      }
-
-      if (bandwidth) {
-        const formattedBandwidth: BandwidthData[] = bandwidth.map(stat => ({
-          timestamp: stat.timestamp || new Date().toISOString(),
-          download: Number(stat.in_octets || 0) / 1024 / 1024, // Convert to MB
-          upload: Number(stat.out_octets || 0) / 1024 / 1024, // Convert to MB
-          client_id: stat.client_id || ''
-        }));
-
-        setBandwidthData(formattedBandwidth);
-      }
-    } catch (error) {
-      console.error('Error in fetchBandwidthData:', error);
-    }
-  };
-
-  // Initialize monitoring
-  useEffect(() => {
-    const initializeMonitoring = async () => {
-      setIsLoading(true);
-      await Promise.all([
-        fetchDeviceStatuses(),
-        fetchActiveSessions(),
-        fetchBandwidthData()
-      ]);
-      setIsLoading(false);
-    };
-
-    if (profile?.isp_company_id) {
-      initializeMonitoring();
-
-      // Set up real-time monitoring intervals
-      const deviceInterval = setInterval(fetchDeviceStatuses, 30000); // 30 seconds
-      const sessionInterval = setInterval(fetchActiveSessions, 15000); // 15 seconds
-      const bandwidthInterval = setInterval(fetchBandwidthData, 60000); // 1 minute
-
-      return () => {
-        clearInterval(deviceInterval);
-        clearInterval(sessionInterval);
-        clearInterval(bandwidthInterval);
-      };
-    }
-  }, [profile?.isp_company_id]);
-
-  // Set up real-time subscriptions
-  useEffect(() => {
-    if (!profile?.isp_company_id) return;
-
-    const channel = supabase
-      .channel('network-monitoring')
-      .on(
-        'postgres_changes',
-        {
-          event: '*',
-          schema: 'public',
-          table: 'active_sessions',
-          filter: `isp_company_id=eq.${profile.isp_company_id}`
-        },
-        () => {
-          fetchActiveSessions();
-        }
-      )
-      .on(
-        'postgres_changes',
-        {
-          event: '*',
-          schema: 'public',
-          table: 'bandwidth_statistics',
-          filter: `isp_company_id=eq.${profile.isp_company_id}`
-        },
-        () => {
-          fetchBandwidthData();
-        }
-      )
-      .subscribe();
+  const startMonitoring = () => {
+    setIsMonitoring(true);
+    fetchDevices();
+    
+    // Set up periodic updates
+    const interval = setInterval(() => {
+      fetchDevices();
+      setAlerts(generateMockAlerts());
+    }, 30000); // Update every 30 seconds
 
     return () => {
-      supabase.removeChannel(channel);
+      clearInterval(interval);
+      setIsMonitoring(false);
     };
-  }, [profile?.isp_company_id]);
-
-  const getTotalActiveSessions = () => activeSessions.length;
-  
-  const getTotalBandwidthUsage = () => {
-    const recent = bandwidthData.slice(0, 10);
-    return recent.reduce((total, data) => total + data.download + data.upload, 0);
   };
 
-  const getNetworkUptime = () => {
-    const onlineDevices = deviceStatuses.filter(d => d.status === 'online').length;
-    const totalDevices = deviceStatuses.length;
-    return totalDevices > 0 ? (onlineDevices / totalDevices) * 100 : 100;
+  const stopMonitoring = () => {
+    setIsMonitoring(false);
+  };
+
+  const resolveAlert = (alertId: string) => {
+    setAlerts(prev => prev.map(alert => 
+      alert.id === alertId ? { ...alert, resolved: true } : alert
+    ));
+    
+    toast({
+      title: "Alert Resolved",
+      description: "Network alert has been marked as resolved",
+    });
+  };
+
+  useEffect(() => {
+    if (profile?.isp_company_id) {
+      const cleanup = startMonitoring();
+      return cleanup;
+    }
+  }, [profile?.isp_company_id]);
+
+  const networkStats = {
+    totalDevices: devices.length,
+    onlineDevices: devices.filter(d => d.status === 'active').length,
+    offlineDevices: devices.filter(d => d.status !== 'active').length,
+    criticalAlerts: alerts.filter(a => a.severity === 'critical' && !a.resolved).length,
+    avgUptime: devices.length > 0 
+      ? Math.round(devices.reduce((sum, d) => sum + (d.uptime || 0), 0) / devices.length)
+      : 0,
   };
 
   return {
-    deviceStatuses,
-    activeSessions,
-    bandwidthData,
-    isLoading,
-    getTotalActiveSessions,
-    getTotalBandwidthUsage,
-    getNetworkUptime,
-    refreshData: () => {
-      fetchDeviceStatuses();
-      fetchActiveSessions();
-      fetchBandwidthData();
-    }
+    devices,
+    alerts: alerts.filter(a => !a.resolved),
+    networkStats,
+    isMonitoring,
+    lastUpdate,
+    startMonitoring,
+    stopMonitoring,
+    resolveAlert,
+    refreshDevices: fetchDevices,
   };
 };
