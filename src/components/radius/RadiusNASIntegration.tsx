@@ -4,7 +4,8 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { RadiusServerManager } from '@/components/NetworkManagement/RadiusServerManager';
 import { MikrotikRouterManager } from '@/components/NetworkManagement/MikrotikRouterManager';
-import { Server, Router, Network } from 'lucide-react';
+import { RadiusDataExport } from '@/components/radius/RadiusDataExport';
+import { Server, Router, Network, Download } from 'lucide-react';
 
 const RadiusNASIntegration = () => {
   return (
@@ -23,7 +24,7 @@ const RadiusNASIntegration = () => {
           </p>
           
           <Tabs defaultValue="routers" className="w-full">
-            <TabsList className="grid w-full grid-cols-2">
+            <TabsList className="grid w-full grid-cols-3">
               <TabsTrigger value="routers" className="flex items-center gap-2">
                 <Router className="h-4 w-4" />
                 Router Inventory
@@ -31,6 +32,10 @@ const RadiusNASIntegration = () => {
               <TabsTrigger value="radius" className="flex items-center gap-2">
                 <Server className="h-4 w-4" />
                 RADIUS Configuration
+              </TabsTrigger>
+              <TabsTrigger value="export" className="flex items-center gap-2">
+                <Download className="h-4 w-4" />
+                EC2 Export
               </TabsTrigger>
             </TabsList>
             
@@ -40,6 +45,10 @@ const RadiusNASIntegration = () => {
             
             <TabsContent value="radius" className="mt-6">
               <RadiusServerManager />
+            </TabsContent>
+
+            <TabsContent value="export" className="mt-6">
+              <RadiusDataExport />
             </TabsContent>
           </Tabs>
         </CardContent>

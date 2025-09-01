@@ -1,3 +1,4 @@
+
 import { useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -41,7 +42,7 @@ export const RadiusServerManager = () => {
     auth_port: 1812,
     accounting_port: 1813,
     shared_secret: '',
-    timeout_seconds: 5,
+    timeout_seconds: 30,
     is_enabled: true,
     is_primary: false,
     router_id: '',
@@ -64,7 +65,7 @@ export const RadiusServerManager = () => {
       auth_port: 1812,
       accounting_port: 1813,
       shared_secret: '',
-      timeout_seconds: 5,
+      timeout_seconds: 30,
       is_enabled: true,
       is_primary: false,
       router_id: '',
