@@ -1,3 +1,4 @@
+
 import React, { useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -6,12 +7,11 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Textarea } from '@/components/ui/textarea';
-import { Plus, TestTube, Settings, Trash2, Router } from 'lucide-react';
+import { Plus, TestTube, Trash2, Router } from 'lucide-react';
 import { useMikrotikRouters } from '@/hooks/useMikrotikRouters';
 
 export const MikrotikRouterManager = () => {
-  const { routers, isLoading, createRouter, updateRouter, deleteRouter, testConnection, isCreating, isDeleting, isTesting } = useMikrotikRouters();
+  const { routers, isLoading, createRouter, deleteRouter, testConnection, isCreating, isDeleting, isTesting } = useMikrotikRouters();
   const [showAddDialog, setShowAddDialog] = useState(false);
   const [newRouter, setNewRouter] = useState({
     name: '',
@@ -29,9 +29,8 @@ export const MikrotikRouterManager = () => {
   const handleAddRouter = () => {
     createRouter({
       ...newRouter,
-      status: 'pending' as const,
-      last_test_results: null,
-      connection_status: 'offline' as const,
+      status: 'active',
+      connection_status: 'offline',
     });
     setNewRouter({
       name: '',
@@ -58,6 +57,17 @@ export const MikrotikRouterManager = () => {
         return <Badge variant="secondary">Testing</Badge>;
       default:
         return <Badge variant="outline">Unknown</Badge>;
+    }
+  };
+
+  const getLastTestTime = (lastTestResults: string | null) => {
+    if (!lastTestResults) return null;
+    
+    try {
+      const results = JSON.parse(lastTestResults);
+      return results.timestamp ? new Date(results.timestamp).toLocaleString() : null;
+    } catch {
+      return null;
     }
   };
 
@@ -171,7 +181,7 @@ export const MikrotikRouterManager = () => {
                     <div>
                       <div className="flex items-center gap-2 mb-1">
                         <h3 className="font-medium">{router.name}</h3>
-                        {getStatusBadge(router.connection_status)}
+                        {getStatusBadge(router.connection_status || 'offline')}
                       </div>
                       <p className="text-sm text-muted-foreground">{router.ip_address}</p>
                       <p className="text-sm">Interface: {router.pppoe_interface}</p>
@@ -213,7 +223,7 @@ export const MikrotikRouterManager = () => {
                   
                   {router.last_test_results && (
                     <div className="text-xs text-muted-foreground">
-                      Last test: {new Date(router.last_test_results.timestamp || '').toLocaleString()}
+                      Last test: {getLastTestTime(router.last_test_results)}
                     </div>
                   )}
                 </div>

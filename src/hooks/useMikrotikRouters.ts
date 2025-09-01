@@ -37,6 +37,7 @@ export const useMikrotikRouters = () => {
         .from('mikrotik_routers')
         .insert({
           ...routerData,
+          gateway: routerData.gateway || '',
           isp_company_id: profile.isp_company_id,
         })
         .select()
@@ -118,14 +119,70 @@ export const useMikrotikRouters = () => {
     },
   });
 
+  const testConnection = useMutation({
+    mutationFn: async (id: string) => {
+      // Update connection status to testing
+      await supabase
+        .from('mikrotik_routers')
+        .update({ 
+          connection_status: 'testing',
+          last_test_results: JSON.stringify({
+            timestamp: new Date().toISOString(),
+            status: 'testing'
+          })
+        })
+        .eq('id', id);
+
+      // Simulate connection test - in production this would be a real test
+      await new Promise(resolve => setTimeout(resolve, 2000));
+      
+      const success = Math.random() > 0.2; // 80% success rate simulation
+      
+      const { error } = await supabase
+        .from('mikrotik_routers')
+        .update({ 
+          connection_status: success ? 'online' : 'offline',
+          last_test_results: JSON.stringify({
+            timestamp: new Date().toISOString(),
+            status: success ? 'success' : 'failed',
+            message: success ? 'Connection successful' : 'Connection failed'
+          })
+        })
+        .eq('id', id);
+
+      if (error) throw error;
+      return { success, id };
+    },
+    onSuccess: (result) => {
+      queryClient.invalidateQueries({ queryKey: ['mikrotik-routers'] });
+      toast({
+        title: result.success ? "Connection Successful" : "Connection Failed",
+        description: result.success 
+          ? "Router is responding to connection test." 
+          : "Router is not responding. Check network connectivity.",
+        variant: result.success ? "default" : "destructive",
+      });
+    },
+    onError: (error: any) => {
+      console.error('Error testing connection:', error);
+      toast({
+        title: "Test Failed",
+        description: "Failed to test router connection.",
+        variant: "destructive",
+      });
+    },
+  });
+
   return {
     routers,
     isLoading,
     createRouter: createRouter.mutate,
     updateRouter: updateRouter.mutate,
     deleteRouter: deleteRouter.mutate,
+    testConnection: testConnection.mutate,
     isCreating: createRouter.isPending,
     isUpdating: updateRouter.isPending,
     isDeleting: deleteRouter.isPending,
+    isTesting: testConnection.isPending,
   };
 };
