@@ -13,9 +13,11 @@ const Layout: React.FC = () => {
   return (
     <div className="flex min-h-screen w-full bg-background">
       <Sidebar />
-      <div className="flex-1 flex flex-col">
+      
+      {/* Main content area with proper margins */}
+      <div className="flex-1 flex flex-col lg:ml-0">
         {/* Header */}
-        <header className="flex items-center justify-between px-6 py-4 bg-background border-b border-border">
+        <header className="flex items-center justify-between px-6 py-4 bg-background border-b border-border lg:pl-20">
           <div className="flex items-center gap-2">
             <h1 className="text-xl font-bold text-foreground">ISP Management</h1>
           </div>
@@ -32,7 +34,7 @@ const Layout: React.FC = () => {
           </div>
         </header>
         
-        <main className="flex-1 p-6 overflow-y-auto">
+        <main className="flex-1 p-6 overflow-y-auto lg:pl-20">
           <Outlet />
         </main>
       </div>

@@ -24,7 +24,11 @@ import {
   UserCog,
   Database,
   Shield,
-  Network
+  Network,
+  Menu,
+  X,
+  ChevronLeft,
+  ChevronRight
 } from 'lucide-react';
 
 interface MenuItem {
@@ -39,6 +43,8 @@ const Sidebar = () => {
   const { profile } = useAuth();
   const location = useLocation();
   const [expandedItems, setExpandedItems] = useState<string[]>(['admin']);
+  const [isOpen, setIsOpen] = useState(true);
+  const [isMobileOpen, setIsMobileOpen] = useState(false);
 
   const toggleExpanded = (itemName: string) => {
     setExpandedItems(prev => 
@@ -47,6 +53,10 @@ const Sidebar = () => {
         : [...prev, itemName]
     );
   };
+
+  const toggleSidebar = () => setIsOpen(!isOpen);
+  const toggleMobileSidebar = () => setIsMobileOpen(!isMobileOpen);
+  const closeMobileSidebar = () => setIsMobileOpen(false);
 
   const menuItems: MenuItem[] = [
     {
@@ -177,21 +187,24 @@ const Sidebar = () => {
             className={cn(
               "w-full flex items-center justify-between px-3 py-2 text-sm font-medium rounded-md transition-colors",
               "text-gray-700 hover:text-gray-900 hover:bg-gray-100 dark:text-gray-300 dark:hover:text-gray-100 dark:hover:bg-gray-800",
-              depth > 0 && "ml-4"
+              depth > 0 && "ml-4",
+              !isOpen && "justify-center"
             )}
           >
             <div className="flex items-center">
               <item.icon className="mr-3 h-5 w-5" />
-              {item.name}
+              {(isOpen || isMobileOpen) && item.name}
             </div>
-            <ChevronDown 
-              className={cn(
-                "h-4 w-4 transition-transform",
-                isExpanded && "rotate-180"
-              )} 
-            />
+            {(isOpen || isMobileOpen) && (
+              <ChevronDown 
+                className={cn(
+                  "h-4 w-4 transition-transform",
+                  isExpanded && "rotate-180"
+                )} 
+              />
+            )}
           </button>
-          {isExpanded && (
+          {isExpanded && (isOpen || isMobileOpen) && (
             <div className="mt-1 space-y-1">
               {item.children?.map(child => renderMenuItem(child, depth + 1))}
             </div>
@@ -204,38 +217,98 @@ const Sidebar = () => {
       <NavLink
         key={item.name}
         to={item.href!}
+        onClick={closeMobileSidebar}
         className={({ isActive }) =>
           cn(
             "flex items-center px-3 py-2 text-sm font-medium rounded-md transition-colors",
             isActive
               ? "bg-primary text-primary-foreground"
               : "text-gray-700 hover:text-gray-900 hover:bg-gray-100 dark:text-gray-300 dark:hover:text-gray-100 dark:hover:bg-gray-800",
-            depth > 0 && "ml-8"
+            depth > 0 && "ml-8",
+            !isOpen && "justify-center"
           )
         }
+        title={!isOpen ? item.name : undefined}
       >
-        <item.icon className="mr-3 h-5 w-5" />
-        {item.name}
+        <item.icon className="h-5 w-5 mr-3 flex-shrink-0" />
+        {(isOpen || isMobileOpen) && (
+          <span className="truncate">
+            {item.name}
+          </span>
+        )}
       </NavLink>
     );
   };
 
   return (
-    <aside className="w-64 bg-white dark:bg-gray-900 border-r border-gray-200 dark:border-gray-700 flex flex-col">
-      <div className="flex-1 flex flex-col pt-5 pb-4 overflow-y-auto">
-        <div className="flex items-center flex-shrink-0 px-4">
-          <img 
-            src="/lovable-uploads/29dec1bf-11a7-44c4-b61f-4cdfe1cbdc5c.png" 
-            alt="DataDefender Logo" 
-            className="h-8 w-8 object-contain"
-          />
-          <span className="ml-2 text-xl font-bold text-gray-900 dark:text-gray-100">DataDefender</span>
+    <>
+      {/* Mobile overlay */}
+      {isMobileOpen && (
+        <div 
+          className="fixed inset-0 bg-black bg-opacity-50 z-40 lg:hidden"
+          onClick={closeMobileSidebar}
+        />
+      )}
+
+      {/* Mobile toggle button */}
+      <button
+        onClick={toggleMobileSidebar}
+        className="fixed top-4 left-4 z-50 lg:hidden p-2 rounded-md bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 shadow-lg"
+      >
+        {isMobileOpen ? (
+          <X className="h-5 w-5 text-gray-600 dark:text-gray-300" />
+        ) : (
+          <Menu className="h-5 w-5 text-gray-600 dark:text-gray-300" />
+        )}
+      </button>
+
+      {/* Sidebar */}
+      <aside className={cn(
+        "fixed left-0 top-0 h-full bg-white dark:bg-gray-900 border-r border-gray-200 dark:border-gray-700 z-50 transition-all duration-300 ease-in-out flex flex-col",
+        // Desktop behavior
+        "hidden lg:flex",
+        isOpen ? "lg:w-64" : "lg:w-16",
+        // Mobile behavior
+        "lg:relative lg:translate-x-0",
+        isMobileOpen ? "flex w-64 lg:hidden" : "lg:flex"
+      )}>
+        <div className="flex-1 flex flex-col pt-5 pb-4 overflow-y-auto">
+          {/* Header with logo and toggle */}
+          <div className="flex items-center justify-between px-4 mb-8">
+            <div className={cn(
+              "flex items-center transition-opacity duration-200",
+              (!isOpen && !isMobileOpen) ? "opacity-0" : "opacity-100"
+            )}>
+              <img 
+                src="/lovable-uploads/29dec1bf-11a7-44c4-b61f-4cdfe1cbdc5c.png" 
+                alt="DataDefender Logo" 
+                className="h-8 w-8 object-contain flex-shrink-0"
+              />
+              {(isOpen || isMobileOpen) && (
+                <span className="ml-2 text-xl font-bold text-gray-900 dark:text-gray-100">DataDefender</span>
+              )}
+            </div>
+            
+            {/* Desktop toggle button */}
+            <button
+              onClick={toggleSidebar}
+              className="hidden lg:flex p-1 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
+            >
+              {isOpen ? (
+                <ChevronLeft className="h-5 w-5 text-gray-500" />
+              ) : (
+                <ChevronRight className="h-5 w-5 text-gray-500" />
+              )}
+            </button>
+          </div>
+
+          {/* Navigation */}
+          <nav className="flex-1 px-3 space-y-1 overflow-y-auto">
+            {menuItems.map(item => renderMenuItem(item))}
+          </nav>
         </div>
-        <nav className="mt-8 flex-1 px-3 space-y-1 overflow-y-auto">
-          {menuItems.map(item => renderMenuItem(item))}
-        </nav>
-      </div>
-    </aside>
+      </aside>
+    </>
   );
 };
 
