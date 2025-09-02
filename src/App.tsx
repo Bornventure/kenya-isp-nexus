@@ -5,6 +5,7 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { AuthProvider } from "@/contexts/AuthContext";
+import { ThemeProvider } from "@/contexts/ThemeContext";
 import ProtectedRoute from "@/components/auth/ProtectedRoute";
 import PublicRoute from "@/components/auth/PublicRoute";
 import Layout from "@/components/layout/Layout";
@@ -34,54 +35,56 @@ const queryClient = new QueryClient();
 
 const App = () => (
   <QueryClientProvider client={queryClient}>
-    <TooltipProvider>
-      <Toaster />
-      <Sonner />
-      <BrowserRouter>
-        <AuthProvider>
-          <Routes>
-            <Route path="/register-company" element={<CompanyRegistration />} />
-            <Route 
-              path="/login" 
-              element={
-                <PublicRoute>
-                  <Login />
-                </PublicRoute>
-              } 
-            />
-            <Route 
-              path="/" 
-              element={
-                <ProtectedRoute>
-                  <Layout />
-                </ProtectedRoute>
-              }
-            >
-              <Route index element={<Navigate to="/dashboard" replace />} />
-              <Route path="dashboard" element={<Dashboard />} />
-              <Route path="clients" element={<Clients />} />
-              <Route path="network-management" element={<NetworkManagement />} />
-              <Route path="hotspots" element={<Hotspots />} />
-              <Route path="service-packages" element={<ServicePackages />} />
-              <Route path="equipment" element={<Equipment />} />
-              <Route path="base-stations" element={<BaseStations />} />
-              <Route path="network-map" element={<NetworkMap />} />
-              <Route path="inventory" element={<Inventory />} />
-              <Route path="billing" element={<Billing />} />
-              <Route path="invoices" element={<Invoices />} />
-              <Route path="reports" element={<Reports />} />
-              <Route path="analytics" element={<Analytics />} />
-              <Route path="messages" element={<Messages />} />
-              <Route path="support" element={<Support />} />
-              <Route path="settings" element={<Settings />} />
-              <Route path="admin/users" element={<UserManagement />} />
-              <Route path="admin/companies" element={<CompanyManagement />} />
-              <Route path="admin/system" element={<SystemSettings />} />
-            </Route>
-          </Routes>
-        </AuthProvider>
-      </BrowserRouter>
-    </TooltipProvider>
+    <ThemeProvider>
+      <TooltipProvider>
+        <Toaster />
+        <Sonner />
+        <BrowserRouter>
+          <AuthProvider>
+            <Routes>
+              <Route path="/register-company" element={<CompanyRegistration />} />
+              <Route 
+                path="/login" 
+                element={
+                  <PublicRoute>
+                    <Login />
+                  </PublicRoute>
+                } 
+              />
+              <Route 
+                path="/" 
+                element={
+                  <ProtectedRoute>
+                    <Layout />
+                  </ProtectedRoute>
+                }
+              >
+                <Route index element={<Navigate to="/dashboard" replace />} />
+                <Route path="dashboard" element={<Dashboard />} />
+                <Route path="clients" element={<Clients />} />
+                <Route path="network-management" element={<NetworkManagement />} />
+                <Route path="hotspots" element={<Hotspots />} />
+                <Route path="service-packages" element={<ServicePackages />} />
+                <Route path="equipment" element={<Equipment />} />
+                <Route path="base-stations" element={<BaseStations />} />
+                <Route path="network-map" element={<NetworkMap />} />
+                <Route path="inventory" element={<Inventory />} />
+                <Route path="billing" element={<Billing />} />
+                <Route path="invoices" element={<Invoices />} />
+                <Route path="reports" element={<Reports />} />
+                <Route path="analytics" element={<Analytics />} />
+                <Route path="messages" element={<Messages />} />
+                <Route path="support" element={<Support />} />
+                <Route path="settings" element={<Settings />} />
+                <Route path="admin/users" element={<UserManagement />} />
+                <Route path="admin/companies" element={<CompanyManagement />} />
+                <Route path="admin/system" element={<SystemSettings />} />
+              </Route>
+            </Routes>
+          </AuthProvider>
+        </BrowserRouter>
+      </TooltipProvider>
+    </ThemeProvider>
   </QueryClientProvider>
 );
 
