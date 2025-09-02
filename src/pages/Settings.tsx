@@ -15,17 +15,22 @@ import {
   Save,
   TestTube,
   Eye,
-  EyeOff
+  EyeOff,
+  RefreshCw,
+  Wrench
 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { mikrotikService } from '@/services/mikrotikService';
 import { supabase } from '@/integrations/supabase/client';
+import { useAuth } from '@/contexts/AuthContext';
 import NotificationTemplates from '@/components/communication/NotificationTemplates';
 
 const SettingsPage = () => {
   const { toast } = useToast();
+  const { profile } = useAuth();
   const [showPasswords, setShowPasswords] = useState(false);
   const [isTesting, setIsTesting] = useState(false);
+  const [isProcessingRadius, setIsProcessingRadius] = useState(false);
 
   // MikroTik Configuration State
   const [mikrotikConfig, setMikrotikConfig] = useState({
@@ -160,6 +165,41 @@ const SettingsPage = () => {
     });
   };
 
+  const handleProcessRadiusRecords = async () => {
+    setIsProcessingRadius(true);
+    try {
+      const { data, error } = await supabase.functions.invoke('process-radius-records', {
+        body: {}
+      });
+
+      if (error) {
+        throw error;
+      }
+
+      if (data.success) {
+        toast({
+          title: "Radius Processing Complete",
+          description: `Processed ${data.processed_count} records. ${data.error_count > 0 ? `${data.error_count} errors occurred.` : 'All records processed successfully.'}`,
+        });
+      } else {
+        toast({
+          title: "Radius Processing Failed",
+          description: data.error || "Failed to process radius records.",
+          variant: "destructive",
+        });
+      }
+    } catch (error) {
+      console.error('Radius processing error:', error);
+      toast({
+        title: "Processing Failed",
+        description: "An error occurred while processing radius records.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsProcessingRadius(false);
+    }
+  };
+
   return (
     <div className="space-y-6">
       {/* Header */}
@@ -171,12 +211,13 @@ const SettingsPage = () => {
       </div>
 
       <Tabs defaultValue="sms">
-        <TabsList className="grid w-full grid-cols-5">
+        <TabsList className="grid w-full grid-cols-6">
           <TabsTrigger value="sms">SMS</TabsTrigger>
           <TabsTrigger value="mikrotik">MikroTik</TabsTrigger>
           <TabsTrigger value="radius">RADIUS</TabsTrigger>
           <TabsTrigger value="email">Email</TabsTrigger>
           <TabsTrigger value="templates">Templates</TabsTrigger>
+          {profile?.role === 'super_admin' && <TabsTrigger value="admin">Admin Tools</TabsTrigger>}
         </TabsList>
 
         <TabsContent value="sms" className="space-y-6">
@@ -564,6 +605,47 @@ const SettingsPage = () => {
         <TabsContent value="templates" className="space-y-6">
           <NotificationTemplates />
         </TabsContent>
+
+        {profile?.role === 'super_admin' && (
+          <TabsContent value="admin" className="space-y-6">
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Wrench className="h-5 w-5" />
+                  Super Admin Tools
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="bg-amber-50 border border-amber-200 rounded-lg p-4">
+                  <h4 className="font-medium text-amber-800 mb-2">RADIUS Record Processing</h4>
+                  <p className="text-sm text-amber-700 mb-3">
+                    Manually trigger the radius webhook processing for all existing clients and routers. 
+                    Use this as a redundancy measure if database triggers fail or delay.
+                  </p>
+                  <Button 
+                    onClick={handleProcessRadiusRecords}
+                    disabled={isProcessingRadius}
+                    variant="outline"
+                    className="gap-2"
+                  >
+                    <RefreshCw className={`h-4 w-4 ${isProcessingRadius ? 'animate-spin' : ''}`} />
+                    {isProcessingRadius ? 'Processing Records...' : 'Process All RADIUS Records'}
+                  </Button>
+                </div>
+
+                <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+                  <h4 className="font-medium text-blue-800 mb-2">What this does:</h4>
+                  <ul className="text-sm text-blue-700 space-y-1">
+                    <li>• Processes all existing clients and routers in the database</li>
+                    <li>• Sends their data to the radius-webhook for RADIUS server synchronization</li>
+                    <li>• Provides redundancy in case automatic triggers don't fire immediately</li>
+                    <li>• Safe to run multiple times - won't create duplicates</li>
+                  </ul>
+                </div>
+              </CardContent>
+            </Card>
+          </TabsContent>
+        )}
       </Tabs>
     </div>
   );
