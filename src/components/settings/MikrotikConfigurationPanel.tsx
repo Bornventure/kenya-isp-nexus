@@ -131,7 +131,12 @@ const MikrotikConfigurationPanel = () => {
     setTimeout(() => {
       const newRouter = routers.find(r => r.name === routerName && r.ip_address === config.host);
       if (newRouter) {
-        testConnection(newRouter.id);
+        testConnection({
+          id: newRouter.id,
+          ip_address: newRouter.ip_address,
+          admin_username: newRouter.admin_username,
+          admin_password: newRouter.admin_password
+        });
         setLastTestTime(new Date().toLocaleString());
       }
     }, 1000);

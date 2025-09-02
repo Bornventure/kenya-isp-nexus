@@ -445,7 +445,12 @@ const SystemInfrastructure = () => {
                         <Button
                           variant="outline"
                           size="sm"
-                          onClick={() => testConnection(router.id)}
+                          onClick={() => testConnection({
+                            id: router.id,
+                            ip_address: router.ip_address,
+                            admin_username: router.admin_username,
+                            admin_password: router.admin_password
+                          })}
                         >
                           Test Connection
                         </Button>

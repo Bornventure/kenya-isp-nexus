@@ -255,4 +255,5 @@ const RadiusDataExport = () => {
   );
 };
 
+export { RadiusDataExport };
 export default RadiusDataExport;

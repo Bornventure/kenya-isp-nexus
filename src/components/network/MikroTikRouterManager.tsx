@@ -71,7 +71,6 @@ export const MikrotikRouterManager = () => {
       createRouter({
         ...formData,
         snmp_version: Number(formData.snmp_version),
-        isp_company_id: profile.isp_company_id,
       });
     }
     

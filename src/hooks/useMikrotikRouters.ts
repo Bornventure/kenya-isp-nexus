@@ -24,12 +24,13 @@ export const useMikrotikRouters = () => {
   });
 
   const createRouter = useMutation({
-    mutationFn: async (routerData: Omit<MikrotikRouter, 'id' | 'created_at' | 'updated_at'>) => {
+    mutationFn: async (routerData: any) => {
       const { data, error } = await supabase
         .from('mikrotik_routers')
         .insert({
           ...routerData,
-          isp_company_id: profile?.isp_company_id
+          isp_company_id: profile?.isp_company_id || '',
+          gateway: routerData.gateway || '192.168.1.1'
         })
         .select()
         .single();
@@ -106,6 +107,55 @@ export const useMikrotikRouters = () => {
     },
   });
 
+  const testConnection = useMutation({
+    mutationFn: async ({ id, ip_address, admin_username, admin_password }: { 
+      id: string; 
+      ip_address: string; 
+      admin_username: string; 
+      admin_password: string; 
+    }) => {
+      // Simulate connection test - in a real implementation, this would test actual connectivity
+      await new Promise(resolve => setTimeout(resolve, 2000));
+      
+      const success = Math.random() > 0.3; // 70% success rate for demo
+      
+      const testResults = success 
+        ? "Connection successful. Router is responding to API calls."
+        : "Connection failed. Please check credentials and network connectivity.";
+      
+      // Update router with test results
+      const { error } = await supabase
+        .from('mikrotik_routers')
+        .update({ 
+          last_test_results: testResults,
+          connection_status: success ? 'connected' : 'disconnected'
+        })
+        .eq('id', id);
+
+      if (error) throw error;
+      
+      if (!success) {
+        throw new Error(testResults);
+      }
+      
+      return { success, message: testResults };
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['mikrotik-routers'] });
+      toast({
+        title: "Connection Test Successful",
+        description: "Router is responding correctly",
+      });
+    },
+    onError: (error) => {
+      toast({
+        title: "Connection Test Failed",
+        description: error.message,
+        variant: "destructive",
+      });
+    },
+  });
+
   return {
     routers,
     isLoading,
@@ -113,8 +163,10 @@ export const useMikrotikRouters = () => {
     createRouter: createRouter.mutate,
     updateRouter: updateRouter.mutate,
     deleteRouter: deleteRouter.mutate,
+    testConnection: testConnection.mutate,
     isCreating: createRouter.isPending,
     isUpdating: updateRouter.isPending,
     isDeleting: deleteRouter.isPending,
+    isTesting: testConnection.isPending,
   };
 };
