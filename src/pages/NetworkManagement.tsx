@@ -1,13 +1,13 @@
 
 import React from 'react';
 import { useAuth } from '@/contexts/AuthContext';
-import ProductionNetworkPanel from '@/components/network/ProductionNetworkPanel';
+import EnhancedProductionNetworkPanel from '@/components/network/EnhancedProductionNetworkPanel';
 
 const NetworkManagement = () => {
   const { profile } = useAuth();
 
-  // Only allow ISP admins and super admins
-  if (!profile || !['isp_admin', 'super_admin'].includes(profile.role)) {
+  // Allow super_admin, isp_admin, and network_admin access
+  if (!profile || !['super_admin', 'isp_admin', 'network_admin'].includes(profile.role)) {
     return (
       <div className="p-6">
         <div className="text-center">
@@ -20,7 +20,7 @@ const NetworkManagement = () => {
 
   return (
     <div className="p-6">
-      <ProductionNetworkPanel />
+      <EnhancedProductionNetworkPanel />
     </div>
   );
 };

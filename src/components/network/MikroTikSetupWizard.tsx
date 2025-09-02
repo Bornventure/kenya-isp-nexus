@@ -4,413 +4,278 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
-import { Badge } from '@/components/ui/badge';
-import { Alert, AlertDescription } from '@/components/ui/alert';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Progress } from '@/components/ui/progress';
-import { 
-  Router, 
-  TestTube, 
-  CheckCircle, 
-  AlertCircle, 
-  Settings,
-  Network,
-  Key,
-  Wifi
-} from 'lucide-react';
-import { useToast } from '@/hooks/use-toast';
+import { useMikrotikRouters } from '@/hooks/useMikrotikRouters';
+import { useAuth } from '@/contexts/AuthContext';
+import { Router, CheckCircle, AlertCircle } from 'lucide-react';
 
 const MikroTikSetupWizard = () => {
-  const { toast } = useToast();
-  const [currentStep, setCurrentStep] = useState(1);
-  const [isLoading, setIsLoading] = useState(false);
-  const [connectionStatus, setConnectionStatus] = useState<'idle' | 'testing' | 'success' | 'failed'>('idle');
+  const { createRouter, isCreating } = useMikrotikRouters();
+  const { profile } = useAuth();
   
-  const [config, setConfig] = useState({
-    // Basic Router Info
-    routerName: '',
-    ipAddress: '',
-    adminUsername: 'admin',
-    adminPassword: '',
-    
-    // SNMP Settings
-    snmpCommunity: 'public',
-    snmpVersion: '2c',
-    
-    // PPPoE Settings
-    pppoeInterface: 'ether1',
-    dnsServers: '8.8.8.8,8.8.4.4',
-    
-    // Network Settings
-    clientNetwork: '10.10.0.0/16',
+  const [formData, setFormData] = useState({
+    name: '',
+    ip_address: '',
+    admin_username: 'admin',
+    admin_password: '',
+    snmp_community: 'public',
+    snmp_version: 2,
+    pppoe_interface: 'ether1',
+    dns_servers: '8.8.8.8,8.8.4.4',
+    client_network: '192.168.1.0/24',
     gateway: '192.168.1.1',
-    
-    // Testing
-    testResults: {} as any
+    status: 'offline' as const,
+    connection_status: 'disconnected' as const,
+    last_test_results: '',
   });
 
-  const steps = [
-    { id: 1, title: 'Router Connection', icon: Router },
-    { id: 2, title: 'SNMP Setup', icon: Network },
-    { id: 3, title: 'PPPoE Config', icon: Wifi },
-    { id: 4, title: 'Test & Verify', icon: TestTube }
-  ];
+  const [currentStep, setCurrentStep] = useState(1);
+  const [testResult, setTestResult] = useState<{ success: boolean; message: string } | null>(null);
 
-  const handleInputChange = (field: string, value: string) => {
-    setConfig(prev => ({ ...prev, [field]: value }));
+  const handleInputChange = (field: string, value: any) => {
+    setFormData(prev => ({ ...prev, [field]: value }));
   };
 
   const testConnection = async () => {
-    setIsLoading(true);
-    setConnectionStatus('testing');
+    // Simulate connection test
+    setTestResult(null);
+    await new Promise(resolve => setTimeout(resolve, 2000));
     
-    try {
-      // Simulate testing the connection
-      await new Promise(resolve => setTimeout(resolve, 2000));
-      
-      // Mock test results
-      const results = {
-        ping: Math.random() > 0.2,
-        ssh: Math.random() > 0.3,
-        snmp: Math.random() > 0.2,
-        api: Math.random() > 0.4
-      };
-      
-      setConfig(prev => ({ ...prev, testResults: results }));
-      
-      const allPassed = Object.values(results).every(Boolean);
-      setConnectionStatus(allPassed ? 'success' : 'failed');
-      
-      toast({
-        title: allPassed ? "Connection Successful" : "Connection Issues Detected",
-        description: allPassed 
-          ? "All tests passed! Your MikroTik router is ready for integration." 
-          : "Some tests failed. Please check your configuration.",
-        variant: allPassed ? "default" : "destructive",
-      });
-      
-    } catch (error) {
-      setConnectionStatus('failed');
-      toast({
-        title: "Connection Failed",
-        description: "Unable to connect to the router. Please check your settings.",
-        variant: "destructive",
-      });
-    } finally {
-      setIsLoading(false);
-    }
+    const success = Math.random() > 0.3; // 70% success rate for demo
+    setTestResult({
+      success,
+      message: success ? 'Connection successful!' : 'Connection failed. Please check your settings.'
+    });
   };
 
-  const saveConfiguration = async () => {
-    setIsLoading(true);
-    try {
-      // Here you would save to your database/backend
-      await new Promise(resolve => setTimeout(resolve, 1000));
-      
-      toast({
-        title: "Configuration Saved",
-        description: "MikroTik router has been successfully integrated with your ISP system.",
-      });
-      
-      // Reset wizard or redirect
-    } catch (error) {
-      toast({
-        title: "Save Failed",
-        description: "Failed to save configuration. Please try again.",
-        variant: "destructive",
-      });
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  const getStepIcon = (stepId: number) => {
-    const step = steps.find(s => s.id === stepId);
-    if (!step) return null;
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
     
-    const Icon = step.icon;
-    return <Icon className="h-5 w-5" />;
+    if (!profile?.isp_company_id) {
+      console.error('No ISP company ID found');
+      return;
+    }
+    
+    createRouter({
+      ...formData,
+      snmp_version: Number(formData.snmp_version),
+      isp_company_id: profile.isp_company_id,
+    });
   };
 
-  const progress = (currentStep / steps.length) * 100;
+  const nextStep = () => setCurrentStep(prev => prev + 1);
+  const prevStep = () => setCurrentStep(prev => prev - 1);
 
   return (
-    <div className="space-y-6">
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <Router className="h-6 w-6" />
-            MikroTik Router Setup Wizard
-          </CardTitle>
-          <div className="space-y-2">
-            <Progress value={progress} className="w-full" />
-            <div className="flex justify-between text-sm text-muted-foreground">
-              {steps.map((step, index) => (
-                <div 
-                  key={step.id} 
-                  className={`flex items-center gap-1 ${currentStep >= step.id ? 'text-primary' : ''}`}
-                >
-                  {getStepIcon(step.id)}
-                  <span className="hidden sm:inline">{step.title}</span>
-                </div>
-              ))}
-            </div>
-          </div>
-        </CardHeader>
-        <CardContent>
-          <Tabs value={currentStep.toString()} className="w-full">
-            <TabsContent value="1" className="space-y-4">
-              <h3 className="text-lg font-semibold">Step 1: Router Connection Details</h3>
-              <p className="text-muted-foreground">
-                Enter your MikroTik router's basic connection information.
-              </p>
-              
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label htmlFor="routerName">Router Name</Label>
+    <Card>
+      <CardHeader>
+        <CardTitle className="flex items-center gap-2">
+          <Router className="h-5 w-5" />
+          MikroTik Router Setup Wizard - Step {currentStep} of 3
+        </CardTitle>
+      </CardHeader>
+      <CardContent>
+        <form onSubmit={handleSubmit} className="space-y-6">
+          {currentStep === 1 && (
+            <div className="space-y-4">
+              <h3 className="text-lg font-medium">Basic Information</h3>
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <Label htmlFor="name">Router Name *</Label>
                   <Input
-                    id="routerName"
-                    placeholder="Main Router"
-                    value={config.routerName}
-                    onChange={(e) => handleInputChange('routerName', e.target.value)}
+                    id="name"
+                    value={formData.name}
+                    onChange={(e) => handleInputChange('name', e.target.value)}
+                    placeholder="Main Office Router"
+                    required
                   />
                 </div>
                 
-                <div className="space-y-2">
-                  <Label htmlFor="ipAddress">IP Address</Label>
+                <div>
+                  <Label htmlFor="ip_address">IP Address *</Label>
                   <Input
-                    id="ipAddress"
+                    id="ip_address"
+                    value={formData.ip_address}
+                    onChange={(e) => handleInputChange('ip_address', e.target.value)}
                     placeholder="192.168.1.1"
-                    value={config.ipAddress}
-                    onChange={(e) => handleInputChange('ipAddress', e.target.value)}
+                    required
+                  />
+                </div>
+
+                <div>
+                  <Label htmlFor="admin_username">Admin Username *</Label>
+                  <Input
+                    id="admin_username"
+                    value={formData.admin_username}
+                    onChange={(e) => handleInputChange('admin_username', e.target.value)}
+                    required
                   />
                 </div>
                 
-                <div className="space-y-2">
-                  <Label htmlFor="adminUsername">Admin Username</Label>
+                <div>
+                  <Label htmlFor="admin_password">Admin Password *</Label>
                   <Input
-                    id="adminUsername"
-                    placeholder="admin"
-                    value={config.adminUsername}
-                    onChange={(e) => handleInputChange('adminUsername', e.target.value)}
-                  />
-                </div>
-                
-                <div className="space-y-2">
-                  <Label htmlFor="adminPassword">Admin Password</Label>
-                  <Input
-                    id="adminPassword"
+                    id="admin_password"
                     type="password"
-                    placeholder="Enter router password"
-                    value={config.adminPassword}
-                    onChange={(e) => handleInputChange('adminPassword', e.target.value)}
+                    value={formData.admin_password}
+                    onChange={(e) => handleInputChange('admin_password', e.target.value)}
+                    required
                   />
                 </div>
               </div>
-
-              <Alert>
-                <AlertCircle className="h-4 w-4" />
-                <AlertDescription>
-                  Make sure your MikroTik router is accessible from this network and has API access enabled.
-                </AlertDescription>
-              </Alert>
-            </TabsContent>
-
-            <TabsContent value="2" className="space-y-4">
-              <h3 className="text-lg font-semibold">Step 2: SNMP Configuration</h3>
-              <p className="text-muted-foreground">
-                Configure SNMP settings for network monitoring.
-              </p>
               
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label htmlFor="snmpCommunity">SNMP Community String</Label>
-                  <Input
-                    id="snmpCommunity"
-                    placeholder="public"
-                    value={config.snmpCommunity}
-                    onChange={(e) => handleInputChange('snmpCommunity', e.target.value)}
-                  />
-                </div>
-                
-                <div className="space-y-2">
-                  <Label htmlFor="snmpVersion">SNMP Version</Label>
-                  <select 
-                    className="w-full p-2 border rounded-md"
-                    value={config.snmpVersion}
-                    onChange={(e) => handleInputChange('snmpVersion', e.target.value)}
-                  >
-                    <option value="1">SNMP v1</option>
-                    <option value="2c">SNMP v2c</option>
-                    <option value="3">SNMP v3</option>
-                  </select>
-                </div>
+              <div className="flex justify-end">
+                <Button type="button" onClick={nextStep}>
+                  Next
+                </Button>
               </div>
+            </div>
+          )}
 
-              <Alert>
-                <Settings className="h-4 w-4" />
-                <AlertDescription>
-                  You need to enable SNMP on your MikroTik router: <br />
-                  <code className="text-sm">/snmp set enabled=yes</code>
-                </AlertDescription>
-              </Alert>
-            </TabsContent>
-
-            <TabsContent value="3" className="space-y-4">
-              <h3 className="text-lg font-semibold">Step 3: PPPoE Configuration</h3>
-              <p className="text-muted-foreground">
-                Configure PPPoE settings for client connections.
-              </p>
-              
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label htmlFor="pppoeInterface">PPPoE Interface</Label>
+          {currentStep === 2 && (
+            <div className="space-y-4">
+              <h3 className="text-lg font-medium">Network Configuration</h3>
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <Label htmlFor="snmp_community">SNMP Community</Label>
                   <Input
-                    id="pppoeInterface"
-                    placeholder="ether1"
-                    value={config.pppoeInterface}
-                    onChange={(e) => handleInputChange('pppoeInterface', e.target.value)}
+                    id="snmp_community"
+                    value={formData.snmp_community}
+                    onChange={(e) => handleInputChange('snmp_community', e.target.value)}
                   />
                 </div>
                 
-                <div className="space-y-2">
-                  <Label htmlFor="clientNetwork">Client Network Range</Label>
+                <div>
+                  <Label>SNMP Version</Label>
+                  <Select value={formData.snmp_version.toString()} onValueChange={(value) => handleInputChange('snmp_version', parseInt(value))}>
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="1">v1</SelectItem>
+                      <SelectItem value="2">v2c</SelectItem>
+                      <SelectItem value="3">v3</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <div>
+                  <Label htmlFor="pppoe_interface">PPPoE Interface</Label>
                   <Input
-                    id="clientNetwork"
-                    placeholder="10.10.0.0/16"
-                    value={config.clientNetwork}
-                    onChange={(e) => handleInputChange('clientNetwork', e.target.value)}
+                    id="pppoe_interface"
+                    value={formData.pppoe_interface}
+                    onChange={(e) => handleInputChange('pppoe_interface', e.target.value)}
                   />
                 </div>
                 
-                <div className="space-y-2">
-                  <Label htmlFor="dnsServers">DNS Servers</Label>
+                <div>
+                  <Label htmlFor="dns_servers">DNS Servers</Label>
                   <Input
-                    id="dnsServers"
+                    id="dns_servers"
+                    value={formData.dns_servers}
+                    onChange={(e) => handleInputChange('dns_servers', e.target.value)}
                     placeholder="8.8.8.8,8.8.4.4"
-                    value={config.dnsServers}
-                    onChange={(e) => handleInputChange('dnsServers', e.target.value)}
+                  />
+                </div>
+
+                <div>
+                  <Label htmlFor="client_network">Client Network</Label>
+                  <Input
+                    id="client_network"
+                    value={formData.client_network}
+                    onChange={(e) => handleInputChange('client_network', e.target.value)}
+                    placeholder="192.168.1.0/24"
                   />
                 </div>
                 
-                <div className="space-y-2">
+                <div>
                   <Label htmlFor="gateway">Gateway</Label>
                   <Input
                     id="gateway"
-                    placeholder="192.168.1.1"
-                    value={config.gateway}
+                    value={formData.gateway}
                     onChange={(e) => handleInputChange('gateway', e.target.value)}
+                    placeholder="192.168.1.1"
                   />
                 </div>
               </div>
 
-              <div className="space-y-2">
-                <Label>RouterOS Commands (Copy these to your router)</Label>
+              <div>
+                <Label htmlFor="notes">Notes</Label>
                 <Textarea
-                  readOnly
-                  className="font-mono text-sm"
-                  rows={6}
-                  value={`# Enable PPPoE Server
-/interface pppoe-server server
-add service-name=isp-service interface=${config.pppoeInterface} disabled=no
-
-# Create IP Pool for clients
-/ip pool add name=client-pool ranges=${config.clientNetwork.split('/')[0]}-${config.clientNetwork.split('/')[0].replace(/\d+$/, '254')}
-
-# Create PPP Profile  
-/ppp profile add name=client-profile local-address=${config.gateway} remote-address=client-pool dns-server=${config.dnsServers}`}
+                  id="notes"
+                  value={formData.last_test_results}
+                  onChange={(e) => handleInputChange('last_test_results', e.target.value)}
+                  rows={3}
+                  placeholder="Additional configuration notes..."
                 />
               </div>
-            </TabsContent>
-
-            <TabsContent value="4" className="space-y-4">
-              <h3 className="text-lg font-semibold">Step 4: Test & Verify Connection</h3>
-              <p className="text-muted-foreground">
-                Test the connection to your MikroTik router and verify all services.
-              </p>
               
-              <div className="flex gap-4 mb-6">
-                <Button 
-                  onClick={testConnection} 
-                  disabled={isLoading}
-                  className="flex items-center gap-2"
-                >
-                  <TestTube className="h-4 w-4" />
-                  {isLoading ? 'Testing...' : 'Run Connection Tests'}
+              <div className="flex justify-between">
+                <Button type="button" variant="outline" onClick={prevStep}>
+                  Previous
+                </Button>
+                <Button type="button" onClick={nextStep}>
+                  Next
                 </Button>
               </div>
+            </div>
+          )}
 
-              {Object.keys(config.testResults).length > 0 && (
-                <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                  {Object.entries(config.testResults).map(([test, passed]) => (
-                    <Card key={test} className="p-4">
-                      <div className="flex items-center gap-2">
-                        {passed ? (
-                          <CheckCircle className="h-5 w-5 text-green-500" />
-                        ) : (
-                          <AlertCircle className="h-5 w-5 text-red-500" />
-                        )}
-                        <div>
-                          <div className="font-medium capitalize">{test}</div>
-                          <Badge variant={passed ? "default" : "destructive"}>
-                            {passed ? 'Passed' : 'Failed'}
-                          </Badge>
-                        </div>
-                      </div>
-                    </Card>
-                  ))}
+          {currentStep === 3 && (
+            <div className="space-y-4">
+              <h3 className="text-lg font-medium">Test Connection & Finalize</h3>
+              
+              <div className="bg-gray-50 p-4 rounded-lg">
+                <h4 className="font-medium mb-2">Configuration Summary</h4>
+                <div className="space-y-1 text-sm">
+                  <p><strong>Name:</strong> {formData.name}</p>
+                  <p><strong>IP Address:</strong> {formData.ip_address}</p>
+                  <p><strong>Admin Username:</strong> {formData.admin_username}</p>
+                  <p><strong>Client Network:</strong> {formData.client_network}</p>
+                  <p><strong>DNS Servers:</strong> {formData.dns_servers}</p>
                 </div>
-              )}
+              </div>
 
-              {connectionStatus === 'success' && (
-                <Alert>
-                  <CheckCircle className="h-4 w-4" />
-                  <AlertDescription>
-                    All connection tests passed! Your MikroTik router is ready for integration.
-                  </AlertDescription>
-                </Alert>
-              )}
-
-              {connectionStatus === 'failed' && (
-                <Alert variant="destructive">
-                  <AlertCircle className="h-4 w-4" />
-                  <AlertDescription>
-                    Some tests failed. Please check your router configuration and network connectivity.
-                  </AlertDescription>
-                </Alert>
-              )}
-            </TabsContent>
-          </Tabs>
-          
-          <div className="flex justify-between mt-6">
-            <Button
-              variant="outline"
-              onClick={() => setCurrentStep(Math.max(1, currentStep - 1))}
-              disabled={currentStep === 1}
-            >
-              Previous
-            </Button>
-            
-            {currentStep < 4 ? (
-              <Button
-                onClick={() => setCurrentStep(Math.min(4, currentStep + 1))}
-                disabled={currentStep === 1 && (!config.ipAddress || !config.adminUsername)}
-              >
-                Next
-              </Button>
-            ) : (
-              <Button
-                onClick={saveConfiguration}
-                disabled={isLoading || connectionStatus !== 'success'}
-              >
-                {isLoading ? 'Saving...' : 'Save Configuration'}
-              </Button>
-            )}
-          </div>
-        </CardContent>
-      </Card>
-    </div>
+              <div className="space-y-3">
+                <Button 
+                  type="button" 
+                  onClick={testConnection}
+                  className="w-full"
+                >
+                  Test Connection
+                </Button>
+                
+                {testResult && (
+                  <div className={`flex items-center gap-2 p-3 rounded-lg ${
+                    testResult.success ? 'bg-green-50 text-green-700' : 'bg-red-50 text-red-700'
+                  }`}>
+                    {testResult.success ? (
+                      <CheckCircle className="h-4 w-4" />
+                    ) : (
+                      <AlertCircle className="h-4 w-4" />
+                    )}
+                    <span>{testResult.message}</span>
+                  </div>
+                )}
+              </div>
+              
+              <div className="flex justify-between">
+                <Button type="button" variant="outline" onClick={prevStep}>
+                  Previous
+                </Button>
+                <Button 
+                  type="submit" 
+                  disabled={isCreating}
+                >
+                  {isCreating ? 'Creating...' : 'Create Router'}
+                </Button>
+              </div>
+            </div>
+          )}
+        </form>
+      </CardContent>
+    </Card>
   );
 };
 

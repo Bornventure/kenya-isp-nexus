@@ -1,10 +1,10 @@
 
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
-import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/hooks/use-toast';
+import { useAuth } from '@/contexts/AuthContext';
 
-export interface RadiusServer {
+interface RadiusServer {
   id: string;
   name: string;
   server_address: string;
@@ -15,53 +15,44 @@ export interface RadiusServer {
   is_enabled: boolean;
   is_primary: boolean;
   router_id: string;
-  isp_company_id: string;
-  created_at: string;
-  updated_at: string;
   last_synced_at?: string;
   router?: {
-    id: string;
     name: string;
     ip_address: string;
   };
+  isp_company_id: string;
+  created_at: string;
+  updated_at: string;
 }
 
 export const useRadiusServers = () => {
-  const { profile } = useAuth();
   const { toast } = useToast();
   const queryClient = useQueryClient();
+  const { profile } = useAuth();
 
-  const { data: radiusServers = [], isLoading } = useQuery({
-    queryKey: ['radius-servers', profile?.isp_company_id],
+  const { data: radiusServers = [], isLoading, error } = useQuery({
+    queryKey: ['radius-servers'],
     queryFn: async () => {
-      if (!profile?.isp_company_id) return [];
-
       const { data, error } = await supabase
         .from('radius_servers')
         .select(`
           *,
-          router:mikrotik_routers(id, name, ip_address)
+          router:mikrotik_routers(name, ip_address)
         `)
-        .eq('isp_company_id', profile.isp_company_id)
         .order('created_at', { ascending: false });
 
       if (error) throw error;
-      return (data || []) as RadiusServer[];
+      return data as RadiusServer[];
     },
-    enabled: !!profile?.isp_company_id,
   });
 
   const createRadiusServer = useMutation({
-    mutationFn: async (serverData: Omit<RadiusServer, 'id' | 'created_at' | 'updated_at' | 'isp_company_id' | 'router'>) => {
-      if (!profile?.isp_company_id) {
-        throw new Error('No ISP company associated with user');
-      }
-
+    mutationFn: async (serverData: Omit<RadiusServer, 'id' | 'created_at' | 'updated_at' | 'router' | 'isp_company_id'>) => {
       const { data, error } = await supabase
         .from('radius_servers')
         .insert({
           ...serverData,
-          isp_company_id: profile.isp_company_id,
+          isp_company_id: profile?.isp_company_id
         })
         .select()
         .single();
@@ -72,15 +63,14 @@ export const useRadiusServers = () => {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['radius-servers'] });
       toast({
-        title: "RADIUS Server Added",
-        description: "Router has been enabled for RADIUS authentication.",
+        title: "Success",
+        description: "RADIUS server configuration created successfully",
       });
     },
-    onError: (error: any) => {
-      console.error('Error creating RADIUS server:', error);
+    onError: (error) => {
       toast({
         title: "Error",
-        description: "Failed to enable RADIUS. Please try again.",
+        description: "Failed to create RADIUS server: " + error.message,
         variant: "destructive",
       });
     },
@@ -90,7 +80,7 @@ export const useRadiusServers = () => {
     mutationFn: async ({ id, updates }: { id: string; updates: Partial<RadiusServer> }) => {
       const { data, error } = await supabase
         .from('radius_servers')
-        .update({ ...updates, updated_at: new Date().toISOString() })
+        .update(updates)
         .eq('id', id)
         .select()
         .single();
@@ -101,15 +91,14 @@ export const useRadiusServers = () => {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['radius-servers'] });
       toast({
-        title: "RADIUS Server Updated",
-        description: "RADIUS configuration has been updated successfully.",
+        title: "Success",
+        description: "RADIUS server updated successfully",
       });
     },
-    onError: (error: any) => {
-      console.error('Error updating RADIUS server:', error);
+    onError: (error) => {
       toast({
         title: "Error",
-        description: "Failed to update RADIUS configuration.",
+        description: "Failed to update RADIUS server: " + error.message,
         variant: "destructive",
       });
     },
@@ -123,20 +112,18 @@ export const useRadiusServers = () => {
         .eq('id', id);
 
       if (error) throw error;
-      return id;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['radius-servers'] });
       toast({
-        title: "RADIUS Configuration Removed",
-        description: "Router RADIUS configuration has been removed.",
+        title: "Success",
+        description: "RADIUS server configuration removed successfully",
       });
     },
-    onError: (error: any) => {
-      console.error('Error deleting RADIUS server:', error);
+    onError: (error) => {
       toast({
         title: "Error",
-        description: "Failed to remove RADIUS configuration.",
+        description: "Failed to remove RADIUS server: " + error.message,
         variant: "destructive",
       });
     },
@@ -145,6 +132,7 @@ export const useRadiusServers = () => {
   return {
     radiusServers,
     isLoading,
+    error,
     createRadiusServer: createRadiusServer.mutate,
     updateRadiusServer: updateRadiusServer.mutate,
     deleteRadiusServer: deleteRadiusServer.mutate,
