@@ -11,9 +11,37 @@ serve(async (req) => {
   }
 
   try {
-    const { record } = await req.json()
+    const { record, table_name } = await req.json()
 
-    console.log('Processing radius webhook for record:', record)
+    console.log('Processing radius webhook for table:', table_name, 'record:', record)
+
+    let webhookData
+    if (table_name === 'mikrotik_routers') {
+      // Handle MikroTik router data
+      webhookData = {
+        router_id: record.id,
+        router_name: record.name,
+        ip_address: record.ip_address,
+        admin_username: record.admin_username,
+        admin_password: record.admin_password,
+        action: "router_connect",
+        type: "router"
+      }
+    } else if (table_name === 'clients') {
+      // Handle client data - check if client has radius credentials
+      webhookData = {
+        client_id: record.id,
+        username: record.radius_username || record.phone || record.email,
+        password: record.radius_password || 'default_password',
+        client_name: record.name,
+        phone: record.phone,
+        email: record.email,
+        action: "client_connect",
+        type: "client"
+      }
+    } else {
+      throw new Error(`Unsupported table: ${table_name}`)
+    }
 
     const res = await fetch("https://radius.lakelink.co.ke/radius-webhook", {
       method: "POST",
@@ -21,12 +49,7 @@ serve(async (req) => {
         "Authorization": "Bearer 7be15e5c7e40e658bac7ff64eab3bae6841b5f3224939b088f14635e67769984",
         "Content-Type": "application/json",
       },
-      body: JSON.stringify({
-        client_id: record.id,
-        username: record.username,
-        password: record.password,
-        action: "connect",
-      }),
+      body: JSON.stringify(webhookData),
     })
 
     const responseText = await res.text()
