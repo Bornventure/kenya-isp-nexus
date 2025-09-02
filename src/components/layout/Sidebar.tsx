@@ -176,7 +176,7 @@ const Sidebar = () => {
             onClick={() => toggleExpanded(item.name)}
             className={cn(
               "w-full flex items-center justify-between px-3 py-2 text-sm font-medium rounded-md transition-colors",
-              "text-gray-700 hover:text-gray-900 hover:bg-gray-100",
+              "text-gray-700 hover:text-gray-900 hover:bg-gray-100 dark:text-gray-300 dark:hover:text-gray-100 dark:hover:bg-gray-800",
               depth > 0 && "ml-4"
             )}
           >
@@ -209,7 +209,7 @@ const Sidebar = () => {
             "flex items-center px-3 py-2 text-sm font-medium rounded-md transition-colors",
             isActive
               ? "bg-primary text-primary-foreground"
-              : "text-gray-700 hover:text-gray-900 hover:bg-gray-100",
+              : "text-gray-700 hover:text-gray-900 hover:bg-gray-100 dark:text-gray-300 dark:hover:text-gray-100 dark:hover:bg-gray-800",
             depth > 0 && "ml-8"
           )
         }
@@ -221,13 +221,17 @@ const Sidebar = () => {
   };
 
   return (
-    <aside className="w-64 bg-white border-r border-gray-200 flex flex-col">
+    <aside className="w-64 bg-white dark:bg-gray-900 border-r border-gray-200 dark:border-gray-700 flex flex-col">
       <div className="flex-1 flex flex-col pt-5 pb-4 overflow-y-auto">
         <div className="flex items-center flex-shrink-0 px-4">
-          <Shield className="h-8 w-8 text-primary" />
-          <span className="ml-2 text-xl font-bold text-gray-900">DataDefender</span>
+          <img 
+            src="/lovable-uploads/29dec1bf-11a7-44c4-b61f-4cdfe1cbdc5c.png" 
+            alt="DataDefender Logo" 
+            className="h-8 w-8 object-contain"
+          />
+          <span className="ml-2 text-xl font-bold text-gray-900 dark:text-gray-100">DataDefender</span>
         </div>
-        <nav className="mt-8 flex-1 px-3 space-y-1">
+        <nav className="mt-8 flex-1 px-3 space-y-1 overflow-y-auto">
           {menuItems.map(item => renderMenuItem(item))}
         </nav>
       </div>
