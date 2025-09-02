@@ -18,36 +18,25 @@ import {
   Activity
 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
-import { mikrotikService, type MikrotikConfig } from '@/services/mikrotikService';
+import { useMikrotikRouters } from '@/hooks/useMikrotikRouters';
 
 const MikrotikConfigurationPanel = () => {
   const { toast } = useToast();
-  const [config, setConfig] = useState<MikrotikConfig>({
+  const { routers, createRouter, testConnection, isCreating, isTesting } = useMikrotikRouters();
+  
+  const [config, setConfig] = useState({
     host: '192.168.100.2',
-    user: 'admin',
+    user: 'admin', 
     password: 'admin123',
     port: 8728
   });
   const [isLoading, setIsLoading] = useState(false);
-  const [isTesting, setIsTesting] = useState(false);
   const [connectionStatus, setConnectionStatus] = useState<'unknown' | 'success' | 'error'>('unknown');
   const [systemInfo, setSystemInfo] = useState<any>(null);
   const [lastTestTime, setLastTestTime] = useState<string | null>(null);
+  const [routerName, setRouterName] = useState('');
 
-  useEffect(() => {
-    loadConfiguration();
-  }, []);
-
-  const loadConfiguration = async () => {
-    try {
-      const currentConfig = await mikrotikService.getConfig();
-      setConfig(currentConfig);
-    } catch (error) {
-      console.error('Failed to load MikroTik configuration:', error);
-    }
-  };
-
-  const handleConfigChange = (field: keyof MikrotikConfig, value: string | number) => {
+  const handleConfigChange = (field: string, value: string | number) => {
     setConfig(prev => ({
       ...prev,
       [field]: field === 'port' ? Number(value) : value
@@ -56,18 +45,52 @@ const MikrotikConfigurationPanel = () => {
   };
 
   const handleSave = async () => {
+    if (!routerName.trim()) {
+      toast({
+        title: "Router Name Required",
+        description: "Please enter a router name before saving.",
+        variant: "destructive",
+      });
+      return;
+    }
+
     setIsLoading(true);
     try {
-      await mikrotikService.updateConfig(config);
+      const routerData = {
+        name: routerName,
+        ip_address: config.host,
+        admin_username: config.user,
+        admin_password: config.password,
+        snmp_community: 'public',
+        snmp_version: 2,
+        pppoe_interface: 'ether1',
+        dns_servers: '8.8.8.8,8.8.4.4',
+        client_network: '192.168.1.0/24',
+        gateway: config.host,
+        status: 'offline' as const,
+        connection_status: 'disconnected' as const,
+        last_test_results: '',
+      };
+
+      createRouter(routerData);
+      
+      setRouterName('');
+      setConfig({
+        host: '192.168.100.2',
+        user: 'admin',
+        password: 'admin123',
+        port: 8728
+      });
+      
       toast({
-        title: "Configuration Saved",
-        description: "MikroTik configuration has been updated successfully.",
+        title: "Router Added",
+        description: "MikroTik router has been added to the system and will be picked up by the EC2 server.",
       });
     } catch (error) {
       console.error('Save error:', error);
       toast({
         title: "Save Failed",
-        description: error instanceof Error ? error.message : 'Failed to save configuration',
+        description: error instanceof Error ? error.message : 'Failed to save router',
         variant: "destructive",
       });
     } finally {
@@ -76,48 +99,59 @@ const MikrotikConfigurationPanel = () => {
   };
 
   const handleTestConnection = async () => {
-    setIsTesting(true);
-    setConnectionStatus('unknown');
-    
-    try {
-      // First save the current config
-      await mikrotikService.updateConfig(config);
-      
-      // Then test the connection
-      const result = await mikrotikService.testConnection();
-      
-      if (result.success) {
-        setConnectionStatus('success');
-        setSystemInfo(result.systemInfo);
-        setLastTestTime(new Date().toLocaleString());
-        toast({
-          title: "Connection Successful",
-          description: "Successfully connected to MikroTik router.",
-        });
-      } else {
-        setConnectionStatus('error');
-        setSystemInfo(null);
-        toast({
-          title: "Connection Failed",
-          description: result.error || 'Failed to connect to MikroTik router',
-          variant: "destructive",
-        });
-      }
-    } catch (error) {
-      console.error('Test connection error:', error);
-      setConnectionStatus('error');
-      setSystemInfo(null);
+    if (!routerName.trim()) {
       toast({
-        title: "Test Failed",
-        description: error instanceof Error ? error.message : 'Unknown error occurred',
+        title: "Router Name Required", 
+        description: "Please enter a router name before testing.",
         variant: "destructive",
       });
-    } finally {
-      setIsTesting(false);
+      return;
     }
+
+    // First save the router, then test it
+    const routerData = {
+      name: routerName,
+      ip_address: config.host,
+      admin_username: config.user,
+      admin_password: config.password,
+      snmp_community: 'public',
+      snmp_version: 2,
+      pppoe_interface: 'ether1', 
+      dns_servers: '8.8.8.8,8.8.4.4',
+      client_network: '192.168.1.0/24',
+      gateway: config.host,
+      status: 'offline' as const,
+      connection_status: 'disconnected' as const,
+      last_test_results: '',
+    };
+
+    createRouter(routerData);
+
+    // Find the router we just created and test it
+    setTimeout(() => {
+      const newRouter = routers.find(r => r.name === routerName && r.ip_address === config.host);
+      if (newRouter) {
+        testConnection(newRouter.id);
+        setLastTestTime(new Date().toLocaleString());
+      }
+    }, 1000);
   };
 
   const getStatusBadge = () => {
+    const latestRouter = routers.find(r => r.name === routerName && r.ip_address === config.host);
+    if (latestRouter) {
+      switch (latestRouter.connection_status) {
+        case 'online':
+          return <Badge className="bg-green-100 text-green-800 border-green-200"><CheckCircle className="h-3 w-3 mr-1" />Connected</Badge>;
+        case 'offline':
+          return <Badge variant="destructive"><AlertCircle className="h-3 w-3 mr-1" />Failed</Badge>;
+        case 'testing':
+          return <Badge variant="outline">Testing...</Badge>;
+        default:
+          return <Badge variant="outline">Unknown</Badge>;
+      }
+    }
+    
     switch (connectionStatus) {
       case 'success':
         return <Badge className="bg-green-100 text-green-800 border-green-200"><CheckCircle className="h-3 w-3 mr-1" />Connected</Badge>;
@@ -141,10 +175,20 @@ const MikrotikConfigurationPanel = () => {
           <Alert>
             <Settings className="h-4 w-4" />
             <AlertDescription>
-              Configure the connection settings for your MikroTik RouterOS device. 
+              Add MikroTik routers to the system. The EC2 server monitors the database every minute for new routers.
               Make sure the RouterOS API is enabled and accessible.
             </AlertDescription>
           </Alert>
+
+          <div className="space-y-2">
+            <Label htmlFor="routerName">Router Name</Label>
+            <Input
+              id="routerName"
+              value={routerName}
+              onChange={(e) => setRouterName(e.target.value)}
+              placeholder="Main Office Router"
+            />
+          </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div className="space-y-2">
@@ -195,21 +239,21 @@ const MikrotikConfigurationPanel = () => {
           <div className="flex flex-col sm:flex-row gap-3">
             <Button 
               onClick={handleTestConnection} 
-              disabled={isTesting}
+              disabled={isTesting || !routerName.trim()}
               className="flex items-center gap-2"
             >
               <TestTube className="h-4 w-4" />
-              {isTesting ? 'Testing...' : 'Test Connection'}
+              {isTesting ? 'Testing...' : 'Add & Test Router'}
             </Button>
             
             <Button 
               onClick={handleSave} 
-              disabled={isLoading}
+              disabled={isLoading || isCreating || !routerName.trim()}
               variant="outline"
               className="flex items-center gap-2"
             >
               <Save className="h-4 w-4" />
-              {isLoading ? 'Saving...' : 'Save Configuration'}
+              {isLoading || isCreating ? 'Adding...' : 'Add Router'}
             </Button>
           </div>
 
@@ -225,21 +269,29 @@ const MikrotikConfigurationPanel = () => {
               </div>
             )}
 
-            {systemInfo && connectionStatus === 'success' && (
-              <div className="p-4 bg-green-50 border border-green-200 rounded-lg">
-                <h4 className="font-medium text-green-800 mb-2 flex items-center gap-2">
+            {routers.length > 0 && (
+              <div className="p-4 bg-blue-50 border border-blue-200 rounded-lg">
+                <h4 className="font-medium text-blue-800 mb-2 flex items-center gap-2">
                   <Activity className="h-4 w-4" />
-                  System Information
+                  Configured Routers ({routers.length})
                 </h4>
-                <div className="grid grid-cols-2 gap-2 text-sm">
-                  <div>
-                    <span className="text-green-700">Router Identity:</span>
-                    <div className="font-mono">{systemInfo.identity}</div>
-                  </div>
-                  <div>
-                    <span className="text-green-700">Interfaces:</span>
-                    <div className="font-mono">{systemInfo.interfaceCount}</div>
-                  </div>
+                <div className="space-y-2">
+                  {routers.slice(0, 3).map((router) => (
+                    <div key={router.id} className="flex items-center justify-between text-sm">
+                      <span className="text-blue-700">{router.name} ({router.ip_address})</span>
+                      <Badge 
+                        variant={router.connection_status === 'online' ? 'default' : 'destructive'}
+                        className="text-xs"
+                      >
+                        {router.connection_status}
+                      </Badge>
+                    </div>
+                  ))}
+                  {routers.length > 3 && (
+                    <div className="text-xs text-blue-600">
+                      ...and {routers.length - 3} more router(s)
+                    </div>
+                  )}
                 </div>
               </div>
             )}
@@ -272,9 +324,9 @@ const MikrotikConfigurationPanel = () => {
             </div>
 
             <div className="p-3 bg-purple-50 border border-purple-200 rounded-lg">
-              <h4 className="font-medium text-purple-800 mb-2">3. Firewall Configuration</h4>
+              <h4 className="font-medium text-purple-800 mb-2">3. EC2 Integration</h4>
               <div className="text-purple-700 text-xs">
-                Ensure port 8728 is accessible from your application server. Add firewall rules if necessary.
+                Your EC2 server checks the database every minute for new routers. Once added, the router will be automatically picked up and configured for RADIUS integration.
               </div>
             </div>
           </div>

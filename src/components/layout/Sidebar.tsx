@@ -1,3 +1,4 @@
+
 import React, { useState } from 'react';
 import { NavLink, useLocation } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
@@ -22,7 +23,8 @@ import {
   Building,
   UserCog,
   Database,
-  Shield
+  Shield,
+  Network
 } from 'lucide-react';
 
 interface MenuItem {
@@ -56,6 +58,12 @@ const Sidebar = () => {
       name: 'Clients',
       href: '/clients',
       icon: Users,
+    },
+    {
+      name: 'Network Management',
+      href: '/network-management',
+      icon: Network,
+      roles: ['isp_admin', 'super_admin'],
     },
     {
       name: 'Hotspots',
