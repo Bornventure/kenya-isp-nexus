@@ -20,18 +20,49 @@ serve(async (req) => {
 
     const { 
       client_id, 
+      router_id,
       sync_status, 
       error_message, 
       sync_details,
       ec2_instance_id,
-      mikrotik_router_id 
+      mikrotik_router_id,
+      radius_config 
     } = await req.json()
 
-    if (!client_id || !sync_status) {
-      throw new Error('client_id and sync_status are required')
+    console.log('Processing sync callback:', { client_id, router_id, sync_status, error_message })
+
+    // Handle router status updates
+    if (router_id) {
+      const routerUpdateData = {
+        connection_status: sync_status === 'synced' ? 'connected' : 'configuration_failed',
+        last_test_results: error_message || 'RADIUS configuration completed successfully',
+        updated_at: new Date().toISOString()
+      }
+
+      if (radius_config) {
+        routerUpdateData.radius_config = radius_config
+      }
+
+      const { error: routerError } = await supabaseClient
+        .from('mikrotik_routers')
+        .update(routerUpdateData)
+        .eq('id', router_id)
+
+      if (routerError) {
+        console.error('Error updating router status:', routerError)
+        throw routerError
+      }
+
+      console.log('Successfully updated router status:', router_id, 'to', routerUpdateData.connection_status)
     }
 
-    console.log(`Processing sync callback for client ${client_id}: ${sync_status}`)
+    // Handle client status updates
+    if (!client_id && !router_id) {
+      throw new Error('Either client_id or router_id is required')
+    }
+
+    if (client_id) {
+      console.log(`Processing sync callback for client ${client_id}: ${sync_status}`)
 
     // Update client sync status
     const updateData: any = {
