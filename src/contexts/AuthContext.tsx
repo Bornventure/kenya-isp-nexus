@@ -87,8 +87,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             
             if (!mounted) return;
             
-            // Only update loading state for initial session and sign in/out events
-            if (event === 'INITIAL_SESSION' || event === 'SIGNED_IN' || event === 'SIGNED_OUT') {
+            // Handle different auth events appropriately
+            if (event === 'INITIAL_SESSION') {
               setSession(session);
               setUser(session?.user ?? null);
               
@@ -106,6 +106,22 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
               if (mounted) {
                 setLoading(false);
               }
+            } else if (event === 'SIGNED_IN') {
+              setSession(session);
+              setUser(session?.user ?? null);
+              
+              if (session?.user) {
+                setTimeout(() => {
+                  if (mounted) {
+                    fetchUserProfile(session.user.id);
+                  }
+                }, 0);
+              }
+            } else if (event === 'SIGNED_OUT') {
+              setSession(null);
+              setUser(null);
+              setProfile(null);
+              setProfileError(null);
             }
           }
         );
