@@ -35,12 +35,17 @@ serve(async (req) => {
     if (router_id) {
       const routerUpdateData = {
         connection_status: sync_status === 'synced' ? 'connected' : 'configuration_failed',
-        last_test_results: error_message || 'RADIUS configuration completed successfully',
+        last_test_results: radius_config ? 
+          JSON.stringify({ 
+            message: error_message || 'RADIUS configuration completed successfully',
+            config: radius_config,
+            timestamp: new Date().toISOString()
+          }) : 
+          JSON.stringify({ 
+            message: error_message || 'RADIUS configuration completed successfully',
+            timestamp: new Date().toISOString()
+          }),
         updated_at: new Date().toISOString()
-      }
-
-      if (radius_config) {
-        routerUpdateData.radius_config = radius_config
       }
 
       const { error: routerError } = await supabaseClient
@@ -129,15 +134,91 @@ serve(async (req) => {
         .single()
     }
 
+    // Get comprehensive router details if router_id is provided
+    let routerDetails = null
+    let authenticatedUsers = []
+    let radiusServerInfo = null
+
+    if (router_id) {
+      // Get detailed router information
+      const { data: router } = await supabaseClient
+        .from('mikrotik_routers')
+        .select(`
+          *,
+          isp_companies(name)
+        `)
+        .eq('id', router_id)
+        .single()
+
+      routerDetails = router
+
+      // Get RADIUS server configuration for this router
+      const { data: radiusServers } = await supabaseClient
+        .from('radius_servers')
+        .select('*')
+        .eq('router_id', router_id)
+
+      radiusServerInfo = radiusServers
+
+      // Get authenticated users/clients connected to this router
+      const { data: activeSessions } = await supabaseClient
+        .from('active_sessions')
+        .select(`
+          *,
+          clients(id, name, email, phone, status)
+        `)
+        .eq('nas_ip_address', router?.ip_address)
+
+      authenticatedUsers = activeSessions || []
+
+      // Get RADIUS users associated with this router's network
+      const { data: radiusUsers } = await supabaseClient
+        .from('radius_users')
+        .select(`
+          *,
+          clients(id, name, email, phone, status, monthly_rate)
+        `)
+        .eq('isp_company_id', router?.isp_company_id)
+        .eq('is_active', true)
+
+      // Combine session data with user data for comprehensive view
+      const userSummary = radiusUsers?.map(user => ({
+        ...user,
+        has_active_session: activeSessions?.some(session => 
+          session.username === user.username
+        ) || false,
+        session_details: activeSessions?.find(session => 
+          session.username === user.username
+        )
+      })) || []
+
+      authenticatedUsers = userSummary
+    }
+
     return new Response(
       JSON.stringify({
         success: true,
         message: `Sync callback processed successfully`,
         data: {
           client_id,
+          router_id,
           sync_status,
-          last_synced: updateData.last_radius_sync_at,
-          client_info: updatedClient
+          last_synced: client_id ? updateData?.last_radius_sync_at : new Date().toISOString(),
+          client_info: client_id ? updatedClient : null,
+          router_details: routerDetails,
+          radius_servers: radiusServerInfo,
+          authenticated_users: authenticatedUsers,
+          connection_summary: {
+            total_active_users: authenticatedUsers.length,
+            router_status: routerDetails?.connection_status,
+            router_ip: routerDetails?.ip_address,
+            last_updated: new Date().toISOString(),
+            sync_details: {
+              ec2_instance_id,
+              mikrotik_router_id,
+              radius_config: radius_config ? 'provided' : 'not_provided'
+            }
+          }
         }
       }),
       { 
