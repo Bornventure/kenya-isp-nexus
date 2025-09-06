@@ -3,21 +3,26 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { AlertTriangle, Activity, Users, Zap, Settings, Router } from 'lucide-react';
-import { MikrotikRouterManager } from './MikroTikRouterManager';
+import { AlertTriangle, Activity, Users, Zap, Settings, Router, Server, UserCheck, Wifi, RefreshCw } from 'lucide-react';
+import { MikrotikRouterManager } from '@/components/network/MikroTikRouterManager';
+import { RadiusServerManager } from '@/components/NetworkManagement/RadiusServerManager';
+import RadiusUserManager from '@/components/NetworkManagement/RadiusUserManager';
 import { useMikrotikRouters } from '@/hooks/useMikrotikRouters';
 import { useClients } from '@/hooks/useClients';
+import { useRadiusServers } from '@/hooks/useRadiusServers';
 import { useProductionNetworkManagement } from '@/hooks/useProductionNetworkManagement';
 
 const EnhancedProductionNetworkPanel = () => {
-  const { routers } = useMikrotikRouters();
-  const { clients } = useClients();
+  const { routers, isLoading: routersLoading } = useMikrotikRouters();
+  const { clients, isLoading: clientsLoading } = useClients();
+  const { radiusServers, isLoading: radiusLoading } = useRadiusServers();
   const { disconnectClient, reconnectClient, applySpeedLimit } = useProductionNetworkManagement();
   const [activeTab, setActiveTab] = useState('overview');
 
-  const onlineRouters = routers.filter(r => r.connection_status === 'online');
+  const connectedRouters = routers.filter(r => r.connection_status === 'connected');
   const activeClients = clients.filter(c => c.status === 'active');
   const suspendedClients = clients.filter(c => c.status === 'suspended');
+  const radiusEnabledRouters = radiusServers.filter(s => s.is_enabled).length;
 
   const handleClientAction = async (action: 'disconnect' | 'reconnect' | 'speed_limit', clientId: string, packageId?: string) => {
     try {
@@ -58,7 +63,7 @@ const EnhancedProductionNetworkPanel = () => {
             <Router className="h-4 w-4 text-green-600" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-green-600">{onlineRouters.length}</div>
+            <div className="text-2xl font-bold text-green-600">{connectedRouters.length}</div>
             <p className="text-xs text-muted-foreground">of {routers.length} total</p>
           </CardContent>
         </Card>
@@ -87,22 +92,23 @@ const EnhancedProductionNetworkPanel = () => {
 
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">System Status</CardTitle>
-            <Activity className="h-4 w-4 text-green-600" />
+            <CardTitle className="text-sm font-medium">RADIUS Servers</CardTitle>
+            <Server className="h-4 w-4 text-purple-600" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-green-600">Online</div>
-            <p className="text-xs text-muted-foreground">all systems operational</p>
+            <div className="text-2xl font-bold text-purple-600">{radiusEnabledRouters}</div>
+            <p className="text-xs text-muted-foreground">enabled routers</p>
           </CardContent>
         </Card>
       </div>
 
       <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-4">
-        <TabsList className="grid w-full grid-cols-4">
-          <TabsTrigger value="overview">Network Overview</TabsTrigger>
+        <TabsList className="grid w-full grid-cols-5">
+          <TabsTrigger value="overview">Overview</TabsTrigger>
           <TabsTrigger value="routers">Router Management</TabsTrigger>
           <TabsTrigger value="clients">Client Control</TabsTrigger>
           <TabsTrigger value="radius">RADIUS Config</TabsTrigger>
+          <TabsTrigger value="radius-users">RADIUS Users</TabsTrigger>
         </TabsList>
 
         <TabsContent value="overview" className="space-y-4">
@@ -121,8 +127,8 @@ const EnhancedProductionNetworkPanel = () => {
                         <p className="text-sm text-muted-foreground">{router.ip_address}</p>
                       </div>
                     </div>
-                    <Badge variant={router.connection_status === 'online' ? 'default' : 'destructive'}>
-                      {router.connection_status}
+                    <Badge variant={router.connection_status === 'connected' ? 'default' : 'destructive'}>
+                      {router.connection_status || 'unknown'}
                     </Badge>
                   </div>
                 ))}
@@ -165,133 +171,152 @@ const EnhancedProductionNetworkPanel = () => {
         <TabsContent value="clients" className="space-y-4">
           <Card>
             <CardHeader>
-              <CardTitle>Client Network Control</CardTitle>
-              <p className="text-sm text-muted-foreground">
-                Manage client connections and apply speed limits directly from the ISP system
-              </p>
+              <div className="flex justify-between items-start">
+                <div>
+                  <CardTitle className="flex items-center gap-2">
+                    <Users className="h-5 w-5" />
+                    Client Network Control
+                  </CardTitle>
+                  <p className="text-sm text-muted-foreground mt-1">
+                    Manage client connections, assign services, and control network access in real-time
+                  </p>
+                </div>
+                <div className="flex gap-2">
+                  <Button variant="outline" size="sm" onClick={() => window.location.reload()}>
+                    <RefreshCw className="h-4 w-4 mr-1" />
+                    Refresh Status
+                  </Button>
+                </div>
+              </div>
             </CardHeader>
             <CardContent>
               <div className="space-y-4">
-                {clients.map((client) => (
-                  <div key={client.id} className="flex items-center justify-between p-3 border rounded">
-                    <div className="flex items-center gap-3">
-                      <Users className="h-4 w-4" />
-                      <div>
-                        <p className="font-medium">{client.name}</p>
-                        <p className="text-sm text-muted-foreground">
-                          {client.service_packages?.name} - {client.service_packages?.speed}
-                        </p>
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+                  <Card>
+                    <CardContent className="p-4">
+                      <div className="flex items-center justify-between">
+                        <div>
+                          <p className="text-sm font-medium">Active Sessions</p>
+                          <p className="text-2xl font-bold text-green-600">{activeClients.length}</p>
+                        </div>
+                        <Wifi className="h-8 w-8 text-green-600" />
                       </div>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <Badge variant={client.status === 'active' ? 'default' : client.status === 'suspended' ? 'destructive' : 'secondary'}>
-                        {client.status}
-                      </Badge>
-                      <div className="flex gap-1">
-                        {client.status === 'active' && (
+                    </CardContent>
+                  </Card>
+                  <Card>
+                    <CardContent className="p-4">
+                      <div className="flex items-center justify-between">
+                        <div>
+                          <p className="text-sm font-medium">Suspended</p>
+                          <p className="text-2xl font-bold text-red-600">{suspendedClients.length}</p>
+                        </div>
+                        <AlertTriangle className="h-8 w-8 text-red-600" />
+                      </div>
+                    </CardContent>
+                  </Card>
+                  <Card>
+                    <CardContent className="p-4">
+                      <div className="flex items-center justify-between">
+                        <div>
+                          <p className="text-sm font-medium">Total Clients</p>
+                          <p className="text-2xl font-bold">{clients.length}</p>
+                        </div>
+                        <UserCheck className="h-8 w-8 text-blue-600" />
+                      </div>
+                    </CardContent>
+                  </Card>
+                </div>
+
+                <div className="space-y-3">
+                  {clients.map((client) => (
+                    <div key={client.id} className="border rounded-lg p-4">
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-4">
+                          <div className="flex-shrink-0">
+                            <div className={`w-3 h-3 rounded-full ${
+                              client.status === 'active' ? 'bg-green-500' : 
+                              client.status === 'suspended' ? 'bg-red-500' : 'bg-gray-500'
+                            }`} />
+                          </div>
+                          <div className="flex-1">
+                            <div className="flex items-center gap-2 mb-1">
+                              <h3 className="font-medium">{client.name}</h3>
+                              <Badge variant={
+                                client.status === 'active' ? 'default' : 
+                                client.status === 'suspended' ? 'destructive' : 'secondary'
+                              }>
+                                {client.status}
+                              </Badge>
+                            </div>
+                            <div className="grid grid-cols-1 md:grid-cols-3 gap-2 text-sm text-muted-foreground">
+                              <p>📞 {client.phone}</p>
+                              <p>💼 {client.service_packages?.name || 'No package'}</p>
+                              <p>⚡ {client.service_packages?.speed || 'No speed limit'}</p>
+                            </div>
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-2 text-sm text-muted-foreground mt-1">
+                              <p>💰 Rate: KES {client.monthly_rate || 0}/month</p>
+                              <p>📍 {client.address}</p>
+                            </div>
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          {client.status === 'active' && (
+                            <Button
+                              size="sm"
+                              variant="destructive"
+                              onClick={() => handleClientAction('disconnect', client.id)}
+                            >
+                              Disconnect
+                            </Button>
+                          )}
+                          {client.status === 'suspended' && (
+                            <Button
+                              size="sm"
+                              variant="default"
+                              onClick={() => handleClientAction('reconnect', client.id)}
+                            >
+                              Reconnect
+                            </Button>
+                          )}
                           <Button
                             size="sm"
-                            variant="destructive"
-                            onClick={() => handleClientAction('disconnect', client.id)}
+                            variant="outline"
+                            onClick={() => handleClientAction('speed_limit', client.id, client.service_package_id || '')}
                           >
-                            Disconnect
+                            <Zap className="h-3 w-3 mr-1" />
+                            Apply Speed
                           </Button>
-                        )}
-                        {client.status === 'suspended' && (
-                          <Button
-                            size="sm"
-                            variant="default"
-                            onClick={() => handleClientAction('reconnect', client.id)}
-                          >
-                            Reconnect
-                          </Button>
-                        )}
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          onClick={() => handleClientAction('speed_limit', client.id, client.service_package_id || '')}
-                        >
-                          <Zap className="h-3 w-3 mr-1" />
-                          Apply Speed
-                        </Button>
+                        </div>
                       </div>
                     </div>
-                  </div>
-                ))}
-                {clients.length === 0 && (
-                  <p className="text-center text-muted-foreground py-8">
-                    No clients found. Add clients to start managing their network access.
-                  </p>
-                )}
+                  ))}
+                  {clients.length === 0 && !clientsLoading && (
+                    <div className="text-center py-8">
+                      <Users className="h-12 w-12 text-gray-400 mx-auto mb-4" />
+                      <h3 className="text-lg font-medium mb-2">No Clients Found</h3>
+                      <p className="text-gray-500 mb-4">
+                        Add clients to start managing their network access and service assignments.
+                      </p>
+                    </div>
+                  )}
+                  {clientsLoading && (
+                    <div className="text-center py-8">
+                      <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-gray-900 mx-auto"></div>
+                      <p className="text-muted-foreground mt-2">Loading clients...</p>
+                    </div>
+                  )}
+                </div>
               </div>
             </CardContent>
           </Card>
         </TabsContent>
 
         <TabsContent value="radius" className="space-y-4">
-          <Card>
-            <CardHeader>
-              <CardTitle>RADIUS Integration</CardTitle>
-              <p className="text-sm text-muted-foreground">
-                Configure FreeRADIUS integration with MikroTik routers for PPPoE authentication
-              </p>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="bg-amber-50 border border-amber-200 rounded-lg p-4">
-                <div className="flex items-start gap-2">
-                  <Settings className="h-5 w-5 text-amber-600 mt-0.5" />
-                  <div>
-                    <h4 className="font-medium text-amber-800">RADIUS Configuration Required</h4>
-                    <p className="text-sm text-amber-700 mt-1">
-                      To enable automatic PPPoE user provisioning and speed limit management:
-                    </p>
-                    <ul className="text-sm text-amber-700 mt-2 space-y-1 ml-4">
-                      <li>• Configure FreeRADIUS server integration</li>
-                      <li>• Set up MikroTik NAS client configuration</li>
-                      <li>• Enable automatic user provisioning</li>
-                      <li>• Configure speed limit attributes</li>
-                    </ul>
-                  </div>
-                </div>
-              </div>
+          <RadiusServerManager />
+        </TabsContent>
 
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <Card>
-                  <CardHeader className="pb-3">
-                    <CardTitle className="text-base">RADIUS Server Status</CardTitle>
-                  </CardHeader>
-                  <CardContent>
-                    <div className="flex items-center justify-between">
-                      <span>FreeRADIUS Service</span>
-                      <Badge variant="secondary">Not Configured</Badge>
-                    </div>
-                  </CardContent>
-                </Card>
-
-                <Card>
-                  <CardHeader className="pb-3">
-                    <CardTitle className="text-base">Auto Provisioning</CardTitle>
-                  </CardHeader>
-                  <CardContent>
-                    <div className="flex items-center justify-between">
-                      <span>User Creation</span>
-                      <Badge variant="secondary">Disabled</Badge>
-                    </div>
-                  </CardContent>
-                </Card>
-              </div>
-
-              <div className="pt-4">
-                <Button disabled>
-                  <Settings className="h-4 w-4 mr-2" />
-                  Configure RADIUS Integration
-                </Button>
-                <p className="text-xs text-muted-foreground mt-2">
-                  This feature requires additional server configuration and will be available in the next update.
-                </p>
-              </div>
-            </CardContent>
-          </Card>
+        <TabsContent value="radius-users" className="space-y-4">
+          <RadiusUserManager />
         </TabsContent>
       </Tabs>
     </div>

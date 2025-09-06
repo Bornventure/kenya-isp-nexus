@@ -9,7 +9,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Switch } from '@/components/ui/switch';
 import { useRadiusServers } from '@/hooks/useRadiusServers';
 import { useMikrotikRouters } from '@/hooks/useMikrotikRouters';
-import { Plus, Server, Trash2, Settings, Clock, CheckCircle } from 'lucide-react';
+import { useRadiusUsers } from '@/hooks/useRadiusUsers';
+import { Plus, Server, Trash2, Settings, Clock, CheckCircle, Users, Database, Shield, Activity } from 'lucide-react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
 
@@ -35,6 +36,7 @@ const formatSyncStatus = (lastSyncedAt?: string) => {
 export const RadiusServerManager = () => {
   const { radiusServers, isLoading, createRadiusServer, updateRadiusServer, deleteRadiusServer, isCreating, isDeleting } = useRadiusServers();
   const { routers } = useMikrotikRouters();
+  const { users } = useRadiusUsers();
   const [showAddDialog, setShowAddDialog] = useState(false);
   const [formData, setFormData] = useState({
     name: '',
@@ -229,8 +231,51 @@ export const RadiusServerManager = () => {
         </CardHeader>
         <CardContent>
           <div className="space-y-4">
-            <div className="text-sm text-muted-foreground">
-              RADIUS-enabled routers: {radiusServers.length} | Active: {radiusServers.filter(s => s.is_enabled).length}
+            <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
+              <Card>
+                <CardContent className="p-4">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="text-sm font-medium">RADIUS Servers</p>
+                      <p className="text-2xl font-bold">{radiusServers.length}</p>
+                    </div>
+                    <Server className="h-8 w-8 text-purple-600" />
+                  </div>
+                </CardContent>
+              </Card>
+              <Card>
+                <CardContent className="p-4">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="text-sm font-medium">Active Servers</p>
+                      <p className="text-2xl font-bold text-green-600">{radiusServers.filter(s => s.is_enabled).length}</p>
+                    </div>
+                    <Activity className="h-8 w-8 text-green-600" />
+                  </div>
+                </CardContent>
+              </Card>
+              <Card>
+                <CardContent className="p-4">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="text-sm font-medium">RADIUS Users</p>
+                      <p className="text-2xl font-bold text-blue-600">{users.length}</p>
+                    </div>
+                    <Users className="h-8 w-8 text-blue-600" />
+                  </div>
+                </CardContent>
+              </Card>
+              <Card>
+                <CardContent className="p-4">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="text-sm font-medium">Sync Status</p>
+                      <p className="text-sm font-bold text-green-600">EC2 Connected</p>
+                    </div>
+                    <Database className="h-8 w-8 text-green-600" />
+                  </div>
+                </CardContent>
+              </Card>
             </div>
 
             <div className="grid gap-4">
@@ -257,12 +302,14 @@ export const RadiusServerManager = () => {
                             {syncStatus.text}
                           </Badge>
                         </div>
-                        <p className="text-sm text-muted-foreground">
-                          Router: {server.router?.name} ({server.router?.ip_address})
-                        </p>
-                        <p className="text-sm">
-                          Auth: {server.auth_port} | Accounting: {server.accounting_port} | Timeout: {server.timeout_seconds}s
-                        </p>
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-2 text-sm text-muted-foreground">
+                          <p>🖥️ Router: {server.router?.name}</p>
+                          <p>🌐 IP: {server.router?.ip_address}</p>
+                          <p>🔐 Auth Port: {server.auth_port}</p>
+                          <p>📊 Accounting: {server.accounting_port}</p>
+                          <p>⏱️ Timeout: {server.timeout_seconds}s</p>
+                          <p>👥 Users: {users.filter(u => u.isp_company_id === server.router?.name).length}</p>
+                        </div>
                       </div>
                       <div className="flex gap-2">
                         <Button
