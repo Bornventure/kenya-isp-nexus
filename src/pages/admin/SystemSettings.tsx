@@ -3,6 +3,7 @@ import React from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Settings } from 'lucide-react';
 import { MessageTestingCard } from '@/components/admin/MessageTestingCard';
+import { PaymentGatewayTestingCard } from '@/components/admin/PaymentGatewayTestingCard';
 import { useAuth } from '@/contexts/AuthContext';
 
 const SystemSettings = () => {
@@ -28,7 +29,12 @@ const SystemSettings = () => {
         </CardContent>
       </Card>
 
-      {isSuperAdmin && <MessageTestingCard />}
+      {isSuperAdmin && (
+        <>
+          <MessageTestingCard />
+          <PaymentGatewayTestingCard />
+        </>
+      )}
     </div>
   );
 };
