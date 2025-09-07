@@ -145,7 +145,7 @@ serve(async (req) => {
     const { data: stkRequest, error: stkError } = await supabase
       .from('family_bank_stk_requests')
       .insert({
-        client_id,
+        client_id: client_id === 'test-client-id' ? null : client_id,
         invoice_id,
         amount,
         phone_number: formattedPhone,
