@@ -2,8 +2,13 @@
 import React from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Settings } from 'lucide-react';
+import { MessageTestingCard } from '@/components/admin/MessageTestingCard';
+import { useAuth } from '@/contexts/AuthContext';
 
 const SystemSettings = () => {
+  const { profile } = useAuth();
+  const isSuperAdmin = profile?.role === 'super_admin';
+
   return (
     <div className="space-y-6">
       <div className="flex items-center gap-2">
@@ -22,6 +27,8 @@ const SystemSettings = () => {
           {/* System settings functionality will be implemented here */}
         </CardContent>
       </Card>
+
+      {isSuperAdmin && <MessageTestingCard />}
     </div>
   );
 };
