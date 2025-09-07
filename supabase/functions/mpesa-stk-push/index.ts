@@ -174,7 +174,12 @@ serve(async (req) => {
           payment_method: 'mpesa',
           payment_date: new Date().toISOString(),
           reference_number: stkData.CheckoutRequestID,
-          notes: `PENDING M-Pesa confirmation - STK Push initiated for ${mpesaPhone}`,
+          notes: JSON.stringify({
+            status: 'pending',
+            checkout_request_id: stkData.CheckoutRequestID,
+            phone: mpesaPhone,
+            initiated_at: new Date().toISOString()
+          }),
           isp_company_id: client.isp_company_id
         })
         .select()

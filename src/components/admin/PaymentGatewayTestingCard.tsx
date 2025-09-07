@@ -66,12 +66,14 @@ export const PaymentGatewayTestingCard = () => {
         if (error) throw error;
         result = data;
       } else {
+        // For Family Bank, we need different parameters
         const { data, error } = await supabase.functions.invoke('family-bank-stk-push', {
           body: {
-            phone: testData.phoneNumber,
+            client_id: 'test-client-id', // Use a test client ID
+            invoice_id: null,
             amount: parseFloat(testData.amount),
-            account_reference: testData.reference || 'TEST_REF',
-            transaction_description: 'Family Bank Payment Gateway Test'
+            phone_number: testData.phoneNumber,
+            account_reference: testData.reference || 'TEST_REF'
           }
         });
 
@@ -83,7 +85,7 @@ export const PaymentGatewayTestingCard = () => {
         success: result.success || result.ResponseCode === '0',
         message: result.success ? 'STK Push initiated successfully' : result.message || 'STK Push failed',
         details: result,
-        transactionId: result.CheckoutRequestID || result.checkoutRequestId
+        transactionId: result.CheckoutRequestID || result.checkoutRequestId || result.transaction_id
       });
 
       toast({
@@ -122,11 +124,21 @@ export const PaymentGatewayTestingCard = () => {
     setIsLoading(true);
 
     try {
-      const { data, error } = await supabase.functions.invoke('check-payment-status', {
-        body: {
+      let requestBody;
+      if (testData.gateway === 'mpesa') {
+        requestBody = {
           checkoutRequestId: testResult.transactionId,
-          provider: testData.gateway
-        }
+          paymentMethod: 'mpesa'
+        };
+      } else {
+        requestBody = {
+          third_party_trans_id: testResult.transactionId,
+          paymentMethod: 'family_bank'
+        };
+      }
+
+      const { data, error } = await supabase.functions.invoke('check-payment-status', {
+        body: requestBody
       });
 
       if (error) throw error;

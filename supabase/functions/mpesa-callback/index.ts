@@ -115,8 +115,15 @@ serve(async (req) => {
       })
     }
 
-    // Find the pending payment record by phone number or checkout request ID
+    // Find the pending payment record by checkout request ID or phone number
     console.log('Looking for pending payment record...')
+    
+    // First try to find by CheckoutRequestID if available in the callback
+    let checkoutRequestID = null;
+    if (stkCallbackData?.CheckoutRequestID) {
+      checkoutRequestID = stkCallbackData.CheckoutRequestID;
+      console.log('Found CheckoutRequestID in callback:', checkoutRequestID);
+    }
     
     // Clean phone number for search
     let cleanPhone = phoneNumber.toString()
@@ -124,15 +131,41 @@ serve(async (req) => {
       cleanPhone = '0' + cleanPhone.substring(3)
     }
 
-    const { data: pendingPayments, error: searchError } = await supabase
-      .from('payments')
-      .select(`
-        *,
-        clients!inner (*)
-      `)
-      .eq('payment_method', 'mpesa')
-      .ilike('notes', '%PENDING%')
-      .or(`reference_number.ilike.%${cleanPhone}%,clients.phone.eq.${cleanPhone},clients.mpesa_number.eq.${phoneNumber}`)
+    let pendingPayments = [];
+    let searchError = null;
+
+    // First try to find by CheckoutRequestID
+    if (checkoutRequestID) {
+      const { data: paymentsByCheckout, error: checkoutError } = await supabase
+        .from('payments')
+        .select(`
+          *,
+          clients!inner (*)
+        `)
+        .eq('payment_method', 'mpesa')
+        .eq('reference_number', checkoutRequestID);
+        
+      if (!checkoutError && paymentsByCheckout && paymentsByCheckout.length > 0) {
+        pendingPayments = paymentsByCheckout;
+        console.log('Found payment by CheckoutRequestID:', checkoutRequestID);
+      }
+    }
+
+    // If not found by CheckoutRequestID, search by phone and pending status
+    if (pendingPayments.length === 0) {
+      const { data: paymentsByPhone, error: phoneError } = await supabase
+        .from('payments')
+        .select(`
+          *,
+          clients!inner (*)
+        `)
+        .eq('payment_method', 'mpesa')
+        .ilike('notes', '%pending%')
+        .or(`clients.phone.eq.${cleanPhone},clients.mpesa_number.eq.${phoneNumber}`);
+        
+      pendingPayments = paymentsByPhone || [];
+      searchError = phoneError;
+    }
 
     if (searchError) {
       console.error('Error searching for pending payments:', searchError)
@@ -198,7 +231,13 @@ serve(async (req) => {
         .from('payments')
         .update({
           mpesa_receipt_number: mpesaReceiptNumber,
-          notes: `Payment confirmed via M-Pesa - Receipt: ${mpesaReceiptNumber}`,
+          notes: JSON.stringify({
+            status: 'confirmed',
+            mpesa_receipt: mpesaReceiptNumber,
+            confirmed_at: new Date().toISOString(),
+            amount: parseFloat(amount),
+            phone: phoneNumber
+          }),
           payment_date: new Date().toISOString()
         })
         .eq('id', paymentRecord.id)
