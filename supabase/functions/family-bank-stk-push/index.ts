@@ -185,18 +185,18 @@ serve(async (req) => {
         .from('family_bank_stk_requests')
         .update({ 
           status: 'failed',
-          response_description: 'Family Bank sandbox server is currently unavailable (Connection timeout)',
-          customer_message: 'Family Bank service is temporarily unavailable. Please try again later.'
+          response_description: 'Failed to obtain access token',
+          customer_message: 'Authentication failed. Please try again.'
         })
         .eq('id', stkRequest.id);
 
       return new Response(JSON.stringify({
         success: false,
-        message: 'Family Bank service unavailable',
-        error: 'Family Bank sandbox server is currently down (Connection timeout). This is a known issue with their test environment.',
-        details: 'The Family Bank sandbox at sandbox.familybank.co.ke is returning 522 Connection timeout errors. This typically indicates their test servers are down or under maintenance.'
+        message: 'Authentication failed',
+        error: 'Unable to authenticate with Family Bank',
+        details: tokenError.message
       }), {
-        status: 503, // Service Unavailable instead of 500
+        status: 500,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' }
       })
     }
