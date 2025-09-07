@@ -1,4 +1,3 @@
-
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 
 const corsHeaders = {
@@ -18,34 +17,48 @@ serve(async (req) => {
     
     if (gateway === 'celcomafrica') {
       // Use Celcomafrica SMS gateway
-      try {
-        const celcomafricaResponse = await fetch('https://api.celcomafrica.com/v1/sms/send', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${Deno.env.get('CELCOMAFRICA_API_KEY')}`,
-          },
-          body: JSON.stringify({
-            from: Deno.env.get('CELCOMAFRICA_SENDER_ID') || 'INTERNET',
-            to: phone,
-            message: message,
-          }),
-        });
+      console.log('Sending SMS via Celcomafrica:', { phone, message });
 
-        if (!celcomafricaResponse.ok) {
-          throw new Error(`Celcomafrica API error: ${celcomafricaResponse.statusText}`);
-        }
+      // Format phone number (ensure it starts with 254)
+      let formattedPhone = phone.replace(/\D/g, ''); // Remove non-digits
+      if (formattedPhone.startsWith('0')) {
+        formattedPhone = '254' + formattedPhone.substring(1);
+      } else if (formattedPhone.startsWith('7') || formattedPhone.startsWith('1')) {
+        formattedPhone = '254' + formattedPhone;
+      }
 
-        response = await celcomafricaResponse.json();
-      } catch (error) {
-        // If Celcomafrica fails (DNS or network error), return a mock success for testing
-        console.log('Celcomafrica service unavailable, simulating successful SMS send for testing');
-        response = { 
-          success: true, 
-          message: 'SMS simulation - Celcomafrica service unavailable', 
-          messageId: `test_${Date.now()}`,
-          status: 'simulated'
+      // Prepare SMS payload
+      const smsPayload = {
+        apikey: '3230abd57d39aa89fc407618f3faaacc',
+        partnerID: '800',
+        message: message,
+        shortcode: 'LAKELINK',
+        mobile: formattedPhone
+      };
+
+      console.log('SMS payload:', smsPayload);
+
+      const celcomafricaResponse = await fetch('https://isms.celcomafrica.com/api/services/sendsms', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(smsPayload),
+      });
+
+      const result = await celcomafricaResponse.json();
+      console.log('Celcomafrica API response:', result);
+
+      // Check if SMS was sent successfully
+      if (result.success || result.status === 'success' || celcomafricaResponse.ok) {
+        response = {
+          success: true,
+          message: 'SMS sent successfully',
+          messageId: result.messageId || result.id || `sms_${Date.now()}`,
+          response: result
         };
+      } else {
+        throw new Error(result.message || 'Failed to send SMS');
       }
     } else {
       // Fallback to AfricasTalking for testing
