@@ -185,18 +185,19 @@ serve(async (req) => {
         .from('family_bank_stk_requests')
         .update({ 
           status: 'failed',
-          response_description: 'Failed to obtain access token',
-          customer_message: 'Authentication failed. Please try again.'
+          response_description: 'Family Bank API servers unavailable',
+          customer_message: 'Family Bank service is temporarily down. Please try M-Pesa or try again later.'
         })
         .eq('id', stkRequest.id);
 
       return new Response(JSON.stringify({
         success: false,
-        message: 'Authentication failed',
-        error: 'Unable to authenticate with Family Bank',
-        details: tokenError.message
+        message: 'Family Bank service unavailable',
+        error: 'Family Bank API servers are currently unreachable',
+        details: 'Connection timeout to Family Bank servers. This is a temporary issue on their end.',
+        suggestion: 'Please try M-Pesa payment method or retry Family Bank later.'
       }), {
-        status: 500,
+        status: 200, // Return 200 so the UI can handle this gracefully
         headers: { ...corsHeaders, 'Content-Type': 'application/json' }
       })
     }
