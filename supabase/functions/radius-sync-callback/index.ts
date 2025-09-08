@@ -94,10 +94,7 @@ serve(async (req) => {
         last_radius_sync_at: new Date().toISOString()
       }
 
-      // Clear disconnection schedule if successfully synced and active
-      if (actualSyncStatus === 'synced') {
-        updateData.disconnection_scheduled_at = null
-      }
+      // Note: disconnection_scheduled_at column handling removed as it doesn't exist in current schema
 
       const { error: updateError } = await supabaseClient
         .from('clients')
