@@ -1,7 +1,6 @@
 
 import { useCallback } from 'react';
-import { radiusService } from '@/services/radiusService';
-import { enhancedSnmpService } from '@/services/enhancedSnmpService';
+import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/contexts/AuthContext';
 
@@ -18,13 +17,21 @@ export const useNetworkManagement = () => {
         return false;
       }
       
-      // Try RADIUS disconnect first
-      const radiusSuccess = await radiusService.disconnectClient(clientId);
-      
-      // Also try SNMP disconnect
-      const snmpSuccess = await enhancedSnmpService.disconnectClient(clientId);
-      
-      if (radiusSuccess || snmpSuccess) {
+      // Use the new network automation function
+      const { data, error } = await supabase.functions.invoke('network-automation', {
+        body: {
+          action: 'disconnect_client',
+          client_id: clientId,
+          company_id: profile.isp_company_id
+        }
+      });
+
+      if (error) {
+        console.error('Network automation error:', error);
+        throw new Error(error.message);
+      }
+
+      if (data?.success) {
         toast({
           title: "Client Disconnected",
           description: "Client has been successfully disconnected from the network.",
@@ -49,10 +56,26 @@ export const useNetworkManagement = () => {
     try {
       console.log(`Reconnecting client: ${clientId}`);
       
-      // Try SNMP reconnect
-      const success = await enhancedSnmpService.reconnectClient(clientId);
+      if (!profile?.isp_company_id) {
+        console.error('No company ID available');
+        return false;
+      }
       
-      if (success) {
+      // Use the new network automation function
+      const { data, error } = await supabase.functions.invoke('network-automation', {
+        body: {
+          action: 'connect_client',
+          client_id: clientId,
+          company_id: profile.isp_company_id
+        }
+      });
+
+      if (error) {
+        console.error('Network automation error:', error);
+        throw new Error(error.message);
+      }
+
+      if (data?.success) {
         toast({
           title: "Client Reconnected",
           description: "Client has been successfully reconnected to the network.",
@@ -70,15 +93,32 @@ export const useNetworkManagement = () => {
       });
       return false;
     }
-  }, [toast]);
+  }, [toast, profile?.isp_company_id]);
 
   const applySpeedLimit = useCallback(async (clientId: string, packageId: string): Promise<boolean> => {
     try {
       console.log(`Applying speed limit for client: ${clientId}, package: ${packageId}`);
       
-      const success = await enhancedSnmpService.applySpeedLimit(clientId, packageId);
+      if (!profile?.isp_company_id) {
+        console.error('No company ID available');
+        return false;
+      }
       
-      if (success) {
+      // Use the new network automation function
+      const { data, error } = await supabase.functions.invoke('network-automation', {
+        body: {
+          action: 'update_qos',
+          client_id: clientId,
+          company_id: profile.isp_company_id
+        }
+      });
+
+      if (error) {
+        console.error('Network automation error:', error);
+        throw new Error(error.message);
+      }
+
+      if (data?.success) {
         toast({
           title: "Speed Limit Applied",
           description: "Speed limit has been successfully applied to the client.",
@@ -96,7 +136,7 @@ export const useNetworkManagement = () => {
       });
       return false;
     }
-  }, [toast]);
+  }, [toast, profile?.isp_company_id]);
 
   return {
     disconnectClient,

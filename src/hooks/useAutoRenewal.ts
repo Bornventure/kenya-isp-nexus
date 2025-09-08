@@ -76,11 +76,49 @@ export const useAutoRenewal = () => {
       }
     };
 
+    const processNetworkAutomation = async () => {
+      try {
+        // Call network automation for auto-renewals
+        if (!client) return;
+        
+        // Get the current user profile to get company ID
+        const { data: { user } } = await supabase.auth.getUser();
+        if (!user) return;
+
+        const { data: profile } = await supabase
+          .from('profiles')
+          .select('isp_company_id')
+          .eq('id', user.id)
+          .single();
+
+        if (!profile?.isp_company_id) return;
+
+        const { data, error } = await supabase.functions.invoke('network-automation', {
+          body: {
+            action: 'process_renewals',
+            company_id: profile.isp_company_id
+          }
+        });
+
+        if (error) {
+          console.error('Network automation error:', error);
+        } else if (data?.success) {
+          console.log('Network automation completed:', data.message);
+        }
+      } catch (error) {
+        console.error('Network automation error:', error);
+      }
+    };
+
     // Check immediately
     checkAndRenewSubscription();
+    processNetworkAutomation();
 
     // Set up interval to check every 2 minutes
-    const interval = setInterval(checkAndRenewSubscription, 2 * 60 * 1000);
+    const interval = setInterval(() => {
+      checkAndRenewSubscription();
+      processNetworkAutomation();
+    }, 2 * 60 * 1000);
 
     return () => clearInterval(interval);
   }, [client, refreshClientData, toast]);

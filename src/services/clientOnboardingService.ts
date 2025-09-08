@@ -5,8 +5,11 @@ interface RadiusUser {
   id: string;
   username: string;
   password: string;
+  profile: string;
+  status: string;
   is_active: boolean;
   client_id: string;
+  isp_company_id: string;
   created_at: string;
   updated_at: string;
 }
@@ -41,25 +44,21 @@ const generateRandomPassword = (): string => {
 };
 
 export const createRadiusUser = async (clientData: any): Promise<RadiusUser> => {
-  const radiusUser: RadiusUser = {
-    id: `${clientData.id}_radius`,
-    username: clientData.username || clientData.email,
-    password: clientData.password || generateRandomPassword(),
-    is_active: true,
-    client_id: clientData.id,
-    created_at: new Date().toISOString(),
-    updated_at: new Date().toISOString()
-  };
+  const username = `${clientData.name.replace(/\s+/g, '').toLowerCase()}_${clientData.id.slice(0, 8)}`;
+  const password = generateRandomPassword();
 
-  // Use audit_logs table to simulate RADIUS user creation
+  // Create actual RADIUS user in the radius_users table
   const { data, error } = await supabase
-    .from('audit_logs')
+    .from('radius_users')
     .insert({
-      action: 'radius_user_created',
-      resource: 'radius_user',
-      resource_id: radiusUser.id,
-      success: true,
-      changes: radiusUser as any
+      username,
+      password,
+      group_name: 'default',
+      is_active: true,
+      client_id: clientData.id,
+      isp_company_id: clientData.isp_company_id,
+      max_download: '10000', // Default 10Mbps
+      max_upload: '5000' // Default 5Mbps
     })
     .select('*')
     .single();
@@ -68,6 +67,30 @@ export const createRadiusUser = async (clientData: any): Promise<RadiusUser> => 
     console.error('Error creating RADIUS user:', error);
     throw error;
   }
+
+  // Also log the action
+  await supabase
+    .from('audit_logs')
+    .insert({
+      action: 'radius_user_created',
+      resource: 'radius_user',
+      resource_id: data.id,
+      success: true,
+      changes: { username, client_id: clientData.id } as any
+    });
+
+  const radiusUser: RadiusUser = {
+    id: data.id,
+    username: data.username,
+    password: data.password,
+    profile: 'default',
+    status: 'active',
+    client_id: data.client_id,
+    isp_company_id: data.isp_company_id,
+    created_at: data.created_at,
+    updated_at: data.updated_at,
+    is_active: data.is_active
+  };
 
   return radiusUser;
 };
@@ -95,15 +118,27 @@ export const updateClientProfile = async (clientId: string, updates: any): Promi
 
 export const createClientService = async (clientId: string, serviceData: any): Promise<any> => {
   try {
+    // Get client details to find service package
+    const { data: client, error: clientError } = await supabase
+      .from('clients')
+      .select('service_package_id, isp_company_id')
+      .eq('id', clientId)
+      .single();
+
+    if (clientError || !client) {
+      throw new Error('Client not found');
+    }
+
     // Use client_service_assignments table
     const { data, error } = await supabase
       .from('client_service_assignments')
       .insert({
         client_id: clientId,
-        service_package_id: serviceData.service_package_id,
-        assigned_at: serviceData.start_date,
-        is_active: serviceData.status === 'active',
-        notes: serviceData.notes
+        service_package_id: client.service_package_id || serviceData.service_package_id,
+        assigned_at: new Date().toISOString(),
+        is_active: true,
+        notes: 'Created during onboarding',
+        isp_company_id: client.isp_company_id
       })
       .select()
       .single();
@@ -272,10 +307,10 @@ class ClientOnboardingService {
         description: 'Sending welcome email to client'
       },
       { 
-        id: 'initial_invoice', 
-        name: 'Create Initial Invoice', 
+        id: 'service_assignment', 
+        name: 'Create Service Assignment', 
         status: 'pending',
-        description: 'Creating initial setup invoice'
+        description: 'Assigning service package to client'
       }
     ];
 
@@ -299,9 +334,10 @@ class ClientOnboardingService {
 
       // Step 2: Create RADIUS user
       steps[1].status = 'in_progress';
-      await createRadiusUser(client);
+      const radiusUser = await createRadiusUser(client);
       steps[1].status = 'completed';
       steps[1].completedAt = new Date().toISOString();
+      steps[1].message = `RADIUS user created: ${radiusUser.username}`;
 
       // Step 3: Provision MikroTik
       steps[2].status = 'in_progress';
@@ -315,9 +351,11 @@ class ClientOnboardingService {
       steps[3].status = 'completed';
       steps[3].completedAt = new Date().toISOString();
 
-      // Step 5: Create initial invoice
+      // Step 5: Create client service assignment
+      steps[4].name = 'Create Service Assignment';
+      steps[4].description = 'Assigning service package to client';
       steps[4].status = 'in_progress';
-      await createInitialInvoice(clientId);
+      await createClientService(clientId, {});
       steps[4].status = 'completed';
       steps[4].completedAt = new Date().toISOString();
 
