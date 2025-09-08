@@ -18,6 +18,9 @@ serve(async (req) => {
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
     )
 
+    const requestBody = await req.json()
+    
+    // Handle both old format and new EC2 format
     const { 
       client_id, 
       router_id,
@@ -26,23 +29,39 @@ serve(async (req) => {
       sync_details,
       ec2_instance_id,
       mikrotik_router_id,
-      radius_config 
-    } = await req.json()
+      radius_config,
+      // New EC2 format
+      data
+    } = requestBody
+    
+    // Extract values from EC2 format if present
+    const actualClientId = client_id || data?.client_id
+    const actualRouterId = router_id || data?.router_id
+    const actualSyncStatus = sync_status || data?.sync_status
+    const actualErrorMessage = error_message || (data?.sync_status === 'failed' ? 'Sync failed' : null)
+    const actualEc2InstanceId = ec2_instance_id || data?.connection_summary?.sync_details?.ec2_instance_id
+    const actualMikrotikRouterId = mikrotik_router_id || data?.connection_summary?.sync_details?.mikrotik_router_id
+    const actualRadiusConfig = radius_config || data?.connection_summary?.sync_details?.radius_config
 
-    console.log('Processing sync callback:', { client_id, router_id, sync_status, error_message })
+    console.log('Processing sync callback:', { 
+      client_id: actualClientId, 
+      router_id: actualRouterId, 
+      sync_status: actualSyncStatus, 
+      error_message: actualErrorMessage 
+    })
 
     // Handle router status updates
-    if (router_id) {
+    if (actualRouterId) {
       const routerUpdateData = {
-        connection_status: sync_status === 'synced' ? 'connected' : 'configuration_failed',
-        last_test_results: radius_config ? 
+        connection_status: actualSyncStatus === 'synced' ? 'connected' : 'configuration_failed',
+        last_test_results: actualRadiusConfig ? 
           JSON.stringify({ 
-            message: error_message || 'RADIUS configuration completed successfully',
-            config: radius_config,
+            message: actualErrorMessage || 'RADIUS configuration completed successfully',
+            config: actualRadiusConfig,
             timestamp: new Date().toISOString()
           }) : 
           JSON.stringify({ 
-            message: error_message || 'RADIUS configuration completed successfully',
+            message: actualErrorMessage || 'RADIUS configuration completed successfully',
             timestamp: new Date().toISOString()
           }),
         updated_at: new Date().toISOString()
@@ -51,39 +70,39 @@ serve(async (req) => {
       const { error: routerError } = await supabaseClient
         .from('mikrotik_routers')
         .update(routerUpdateData)
-        .eq('id', router_id)
+        .eq('id', actualRouterId)
 
       if (routerError) {
         console.error('Error updating router status:', routerError)
         throw routerError
       }
 
-      console.log('Successfully updated router status:', router_id, 'to', routerUpdateData.connection_status)
+      console.log('Successfully updated router status:', actualRouterId, 'to', routerUpdateData.connection_status)
     }
 
     // Handle client status updates
-    if (!client_id && !router_id) {
+    if (!actualClientId && !actualRouterId) {
       throw new Error('Either client_id or router_id is required')
     }
 
-    if (client_id) {
-      console.log(`Processing sync callback for client ${client_id}: ${sync_status}`)
+    if (actualClientId) {
+      console.log(`Processing sync callback for client ${actualClientId}: ${actualSyncStatus}`)
 
       // Update client sync status
       const updateData: any = {
-        radius_sync_status: sync_status, // 'synced', 'failed', 'pending'
+        radius_sync_status: actualSyncStatus, // 'synced', 'failed', 'pending'
         last_radius_sync_at: new Date().toISOString()
       }
 
       // Clear disconnection schedule if successfully synced and active
-      if (sync_status === 'synced') {
+      if (actualSyncStatus === 'synced') {
         updateData.disconnection_scheduled_at = null
       }
 
       const { error: updateError } = await supabaseClient
         .from('clients')
         .update(updateData)
-        .eq('id', client_id)
+        .eq('id', actualClientId)
 
       if (updateError) {
         throw updateError
@@ -94,33 +113,33 @@ serve(async (req) => {
         .from('radius_users')
         .update({
           last_synced_to_radius: new Date().toISOString(),
-          is_active: sync_status === 'synced'
+          is_active: actualSyncStatus === 'synced'
         })
-        .eq('client_id', client_id)
+        .eq('client_id', actualClientId)
 
       // Log the sync result
       await supabaseClient
         .from('audit_logs')
         .insert({
           resource: 'radius_sync',
-          action: `sync_${sync_status}`,
-          resource_id: client_id,
+          action: `sync_${actualSyncStatus}`,
+          resource_id: actualClientId,
           changes: {
-            sync_status,
-            error_message,
+            sync_status: actualSyncStatus,
+            error_message: actualErrorMessage,
             sync_details,
-            ec2_instance_id,
-            mikrotik_router_id,
+            ec2_instance_id: actualEc2InstanceId,
+            mikrotik_router_id: actualMikrotikRouterId,
             timestamp: new Date().toISOString()
           },
           user_id: null, // System action
-          success: sync_status === 'synced',
-          error_message: sync_status === 'failed' ? error_message : null
+          success: actualSyncStatus === 'synced',
+          error_message: actualSyncStatus === 'failed' ? actualErrorMessage : null
         })
 
       // If sync failed, optionally retry or alert
-      if (sync_status === 'failed') {
-        console.error(`RADIUS sync failed for client ${client_id}:`, error_message)
+      if (actualSyncStatus === 'failed') {
+        console.error(`RADIUS sync failed for client ${actualClientId}:`, actualErrorMessage)
         
         // Could implement retry logic here or send alert
         // For now, just log it
@@ -130,7 +149,7 @@ serve(async (req) => {
       const { data: updatedClient } = await supabaseClient
         .from('clients')
         .select('id, name, radius_sync_status, last_radius_sync_at')
-        .eq('id', client_id)
+        .eq('id', actualClientId)
         .single()
     }
 
@@ -139,7 +158,7 @@ serve(async (req) => {
     let authenticatedUsers = []
     let radiusServerInfo = null
 
-    if (router_id) {
+    if (actualRouterId) {
       // Get detailed router information
       const { data: router } = await supabaseClient
         .from('mikrotik_routers')
@@ -147,7 +166,7 @@ serve(async (req) => {
           *,
           isp_companies(name)
         `)
-        .eq('id', router_id)
+        .eq('id', actualRouterId)
         .single()
 
       routerDetails = router
@@ -156,7 +175,7 @@ serve(async (req) => {
       const { data: radiusServers } = await supabaseClient
         .from('radius_servers')
         .select('*')
-        .eq('router_id', router_id)
+        .eq('router_id', actualRouterId)
 
       radiusServerInfo = radiusServers
 
@@ -200,11 +219,11 @@ serve(async (req) => {
         success: true,
         message: `Sync callback processed successfully`,
         data: {
-          client_id,
-          router_id,
-          sync_status,
-          last_synced: client_id ? updateData?.last_radius_sync_at : new Date().toISOString(),
-          client_info: client_id ? updatedClient : null,
+          client_id: actualClientId,
+          router_id: actualRouterId,
+          sync_status: actualSyncStatus,
+          last_synced: actualClientId ? updateData?.last_radius_sync_at : new Date().toISOString(),
+          client_info: actualClientId ? updatedClient : null,
           router_details: routerDetails,
           radius_servers: radiusServerInfo,
           authenticated_users: authenticatedUsers,
@@ -214,9 +233,9 @@ serve(async (req) => {
             router_ip: routerDetails?.ip_address,
             last_updated: new Date().toISOString(),
             sync_details: {
-              ec2_instance_id,
-              mikrotik_router_id,
-              radius_config: radius_config ? 'provided' : 'not_provided'
+              ec2_instance_id: actualEc2InstanceId,
+              mikrotik_router_id: actualMikrotikRouterId,
+              radius_config: actualRadiusConfig ? 'provided' : 'not_provided'
             }
           }
         }
