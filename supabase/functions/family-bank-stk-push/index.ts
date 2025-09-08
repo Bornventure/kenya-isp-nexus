@@ -28,22 +28,22 @@ function generatePassword(businessShortCode: string, clientId: string, timestamp
 
 // Get OAuth2 access token from Family Bank
 async function getAccessToken(): Promise<string> {
-  const tokenUrl = Deno.env.get('FAMILY_BANK_TOKEN_URL')!;
-  const clientId = Deno.env.get('FAMILY_BANK_CLIENT_ID')!;
-  const clientSecret = Deno.env.get('FAMILY_BANK_CLIENT_SECRET')!;
-  const scope = Deno.env.get('FAMILY_BANK_SCOPE')!;
+  const tokenUrl = "https://openbank.familybank.co.ke:8083/connect/token";
+  const clientId = "LAKELINK";
+  const clientSecret = "secret";
 
   console.log('Requesting OAuth2 token from:', tokenUrl);
 
   const tokenResponse = await fetch(tokenUrl, {
     method: 'POST',
     headers: {
-      'Content-Type': 'application/x-www-form-urlencoded',
-      'Authorization': `Basic ${btoa(`${clientId}:${clientSecret}`)}`
+      'Content-Type': 'application/x-www-form-urlencoded'
     },
     body: new URLSearchParams({
+      'client_id': clientId,
+      'client_secret': clientSecret,
       'grant_type': 'client_credentials',
-      'scope': scope
+      'scope': 'ESB_REST_API'
     })
   });
 
@@ -129,8 +129,8 @@ serve(async (req) => {
 
     // Generate timestamp and password
     const timestamp = getTimestamp();
-    const merchantCode = Deno.env.get('FAMILY_BANK_MERCHANT_CODE')!;
-    const clientId = Deno.env.get('FAMILY_BANK_CLIENT_ID')!;
+    const merchantCode = "026026";
+    const clientId = "LAKELINK";
     const password = generatePassword(merchantCode, clientId, timestamp);
 
     console.log('Generated authentication params:', {
@@ -230,7 +230,7 @@ serve(async (req) => {
     // Make STK push request to Family Bank
     console.log('Sending STK Push request to Family Bank...');
     
-    const familyBankResponse = await fetch(Deno.env.get('FAMILY_BANK_STK_URL')!, {
+    const familyBankResponse = await fetch("https://openbank.familybank.co.ke:8084/api/v1/Mpesa/stkpush", {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',

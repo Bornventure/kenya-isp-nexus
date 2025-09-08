@@ -13,24 +13,22 @@ serve(async (req) => {
   try {
     console.log("[FAMILY-BANK-TEST] Testing Family Bank API connection...");
     
-    const tokenUrl = "https://api.familybank.co.ke/v1/oauth/token";
-    const clientId = Deno.env.get("FAMILY_BANK_CLIENT_ID");
-    const clientSecret = Deno.env.get("FAMILY_BANK_CLIENT_SECRET");
-    
-    if (!clientId || !clientSecret) {
-      throw new Error("Family Bank credentials not configured");
-    }
+    const tokenUrl = "https://openbank.familybank.co.ke:8083/connect/token";
+    const clientId = "LAKELINK";
+    const clientSecret = "secret";
 
     console.log("[FAMILY-BANK-TEST] Making request to token endpoint...");
     
     const response = await fetch(tokenUrl, {
       method: "POST",
       headers: {
-        "Content-Type": "application/x-www-form-urlencoded",
-        "Authorization": `Basic ${btoa(`${clientId}:${clientSecret}`)}`
+        "Content-Type": "application/x-www-form-urlencoded"
       },
       body: new URLSearchParams({
-        grant_type: "client_credentials"
+        client_id: clientId,
+        client_secret: clientSecret,
+        grant_type: "client_credentials",
+        scope: "ESB_REST_API"
       }).toString()
     });
 
