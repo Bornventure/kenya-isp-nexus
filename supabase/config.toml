@@ -38,6 +38,33 @@ verify_jwt = false
 [functions.process-radius-records]
 verify_jwt = false
 
+[functions.test-family-bank-connection]
+verify_jwt = false
+
+[functions.family-bank-stk-push]
+verify_jwt = false
+
+[functions.family-bank-stk-callback]
+verify_jwt = false
+
+[functions.family-bank-query-status]
+verify_jwt = false
+
+[functions.mpesa-stk-push]
+verify_jwt = false
+
+[functions.mpesa-c2b-callback]
+verify_jwt = false
+
+[functions.check-payment-status]
+verify_jwt = false
+
+[functions.network-automation]
+verify_jwt = false
+
+[functions.send-test-message]
+verify_jwt = false
+
 [db]
 port = 54322
 shadow_port = 54320
