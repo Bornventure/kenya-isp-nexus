@@ -576,6 +576,7 @@ export type Database = {
           connection_type: Database["public"]["Enums"]["connection_type"]
           county: string
           created_at: string | null
+          disconnection_scheduled_at: string | null
           email: string | null
           id: string
           id_number: string
@@ -586,6 +587,7 @@ export type Database = {
           is_active: boolean
           isp_company_id: string | null
           kra_pin_number: string | null
+          last_radius_sync_at: string | null
           latitude: number | null
           longitude: number | null
           monthly_rate: number
@@ -593,6 +595,7 @@ export type Database = {
           name: string
           notes: string | null
           phone: string
+          radius_sync_status: string | null
           rejected_at: string | null
           rejected_by: string | null
           rejection_reason: string | null
@@ -616,6 +619,7 @@ export type Database = {
           connection_type: Database["public"]["Enums"]["connection_type"]
           county: string
           created_at?: string | null
+          disconnection_scheduled_at?: string | null
           email?: string | null
           id?: string
           id_number: string
@@ -626,6 +630,7 @@ export type Database = {
           is_active?: boolean
           isp_company_id?: string | null
           kra_pin_number?: string | null
+          last_radius_sync_at?: string | null
           latitude?: number | null
           longitude?: number | null
           monthly_rate: number
@@ -633,6 +638,7 @@ export type Database = {
           name: string
           notes?: string | null
           phone: string
+          radius_sync_status?: string | null
           rejected_at?: string | null
           rejected_by?: string | null
           rejection_reason?: string | null
@@ -656,6 +662,7 @@ export type Database = {
           connection_type?: Database["public"]["Enums"]["connection_type"]
           county?: string
           created_at?: string | null
+          disconnection_scheduled_at?: string | null
           email?: string | null
           id?: string
           id_number?: string
@@ -666,6 +673,7 @@ export type Database = {
           is_active?: boolean
           isp_company_id?: string | null
           kra_pin_number?: string | null
+          last_radius_sync_at?: string | null
           latitude?: number | null
           longitude?: number | null
           monthly_rate?: number
@@ -673,6 +681,7 @@ export type Database = {
           name?: string
           notes?: string | null
           phone?: string
+          radius_sync_status?: string | null
           rejected_at?: string | null
           rejected_by?: string | null
           rejection_reason?: string | null
