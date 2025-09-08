@@ -35,13 +35,26 @@ serve(async (req) => {
     } = requestBody
     
     // Extract values from EC2 format if present
-    const actualClientId = client_id || data?.client_id
-    const actualRouterId = router_id || data?.router_id
+    let actualClientId = client_id || data?.client_id
+    let actualRouterId = router_id || data?.router_id
     const actualSyncStatus = sync_status || data?.sync_status
     const actualErrorMessage = error_message || (data?.sync_status === 'failed' ? 'Sync failed' : null)
     const actualEc2InstanceId = ec2_instance_id || data?.connection_summary?.sync_details?.ec2_instance_id
     const actualMikrotikRouterId = mikrotik_router_id || data?.connection_summary?.sync_details?.mikrotik_router_id
     const actualRadiusConfig = radius_config || data?.connection_summary?.sync_details?.radius_config
+
+    // Validate UUID format for client_id and router_id
+    const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i
+    
+    if (actualClientId && (actualClientId === 'uuid' || !uuidRegex.test(actualClientId))) {
+      console.warn(`Invalid client_id format: ${actualClientId}. Skipping client operations.`)
+      actualClientId = null
+    }
+    
+    if (actualRouterId && (actualRouterId === 'uuid' || !uuidRegex.test(actualRouterId))) {
+      console.warn(`Invalid router_id format: ${actualRouterId}. Skipping router operations.`)
+      actualRouterId = null
+    }
 
     console.log('Processing sync callback:', { 
       client_id: actualClientId, 
