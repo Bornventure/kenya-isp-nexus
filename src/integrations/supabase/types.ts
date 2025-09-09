@@ -195,6 +195,13 @@ export type Database = {
             foreignKeyName: "bandwidth_statistics_client_id_fkey"
             columns: ["client_id"]
             isOneToOne: false
+            referencedRelation: "client_network_overview"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "bandwidth_statistics_client_id_fkey"
+            columns: ["client_id"]
+            isOneToOne: false
             referencedRelation: "clients"
             referencedColumns: ["id"]
           },
@@ -310,6 +317,13 @@ export type Database = {
             foreignKeyName: "client_equipment_client_id_fkey"
             columns: ["client_id"]
             isOneToOne: false
+            referencedRelation: "client_network_overview"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "client_equipment_client_id_fkey"
+            columns: ["client_id"]
+            isOneToOne: false
             referencedRelation: "clients"
             referencedColumns: ["id"]
           },
@@ -367,6 +381,13 @@ export type Database = {
           updated_at?: string | null
         }
         Relationships: [
+          {
+            foreignKeyName: "client_equipment_assignments_client_id_fkey"
+            columns: ["client_id"]
+            isOneToOne: false
+            referencedRelation: "client_network_overview"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "client_equipment_assignments_client_id_fkey"
             columns: ["client_id"]
@@ -449,6 +470,13 @@ export type Database = {
             foreignKeyName: "fk_client_hotspot_access_client"
             columns: ["client_id"]
             isOneToOne: false
+            referencedRelation: "client_network_overview"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "fk_client_hotspot_access_client"
+            columns: ["client_id"]
+            isOneToOne: false
             referencedRelation: "clients"
             referencedColumns: ["id"]
           },
@@ -496,6 +524,13 @@ export type Database = {
           updated_at?: string | null
         }
         Relationships: [
+          {
+            foreignKeyName: "client_service_assignments_client_id_fkey"
+            columns: ["client_id"]
+            isOneToOne: false
+            referencedRelation: "client_network_overview"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "client_service_assignments_client_id_fkey"
             columns: ["client_id"]
@@ -561,6 +596,13 @@ export type Database = {
             foreignKeyName: "client_workflow_status_client_id_fkey"
             columns: ["client_id"]
             isOneToOne: false
+            referencedRelation: "client_network_overview"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "client_workflow_status_client_id_fkey"
+            columns: ["client_id"]
+            isOneToOne: false
             referencedRelation: "clients"
             referencedColumns: ["id"]
           },
@@ -599,6 +641,7 @@ export type Database = {
           rejected_at: string | null
           rejected_by: string | null
           rejection_reason: string | null
+          router_assignment: string | null
           service_activated_at: string | null
           service_package_id: string | null
           status: Database["public"]["Enums"]["client_status"] | null
@@ -642,6 +685,7 @@ export type Database = {
           rejected_at?: string | null
           rejected_by?: string | null
           rejection_reason?: string | null
+          router_assignment?: string | null
           service_activated_at?: string | null
           service_package_id?: string | null
           status?: Database["public"]["Enums"]["client_status"] | null
@@ -685,6 +729,7 @@ export type Database = {
           rejected_at?: string | null
           rejected_by?: string | null
           rejection_reason?: string | null
+          router_assignment?: string | null
           service_activated_at?: string | null
           service_package_id?: string | null
           status?: Database["public"]["Enums"]["client_status"] | null
@@ -716,6 +761,13 @@ export type Database = {
             columns: ["isp_company_id"]
             isOneToOne: false
             referencedRelation: "isp_companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "clients_router_assignment_fkey"
+            columns: ["router_assignment"]
+            isOneToOne: false
+            referencedRelation: "mikrotik_routers"
             referencedColumns: ["id"]
           },
           {
@@ -838,6 +890,13 @@ export type Database = {
           total_bytes?: number | null
         }
         Relationships: [
+          {
+            foreignKeyName: "data_usage_client_id_fkey"
+            columns: ["client_id"]
+            isOneToOne: false
+            referencedRelation: "client_network_overview"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "data_usage_client_id_fkey"
             columns: ["client_id"]
@@ -1002,6 +1061,13 @@ export type Database = {
             foreignKeyName: "equipment_client_id_fkey"
             columns: ["client_id"]
             isOneToOne: false
+            referencedRelation: "client_network_overview"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "equipment_client_id_fkey"
+            columns: ["client_id"]
+            isOneToOne: false
             referencedRelation: "clients"
             referencedColumns: ["id"]
           },
@@ -1055,6 +1121,13 @@ export type Database = {
             columns: ["assigned_by"]
             isOneToOne: false
             referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "equipment_assignments_client_id_fkey"
+            columns: ["client_id"]
+            isOneToOne: false
+            referencedRelation: "client_network_overview"
             referencedColumns: ["id"]
           },
           {
@@ -1715,6 +1788,13 @@ export type Database = {
             foreignKeyName: "installation_invoices_client_id_fkey"
             columns: ["client_id"]
             isOneToOne: false
+            referencedRelation: "client_network_overview"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "installation_invoices_client_id_fkey"
+            columns: ["client_id"]
+            isOneToOne: false
             referencedRelation: "clients"
             referencedColumns: ["id"]
           },
@@ -2045,6 +2125,13 @@ export type Database = {
             foreignKeyName: "inventory_items_assigned_customer_id_fkey"
             columns: ["assigned_customer_id"]
             isOneToOne: false
+            referencedRelation: "client_network_overview"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "inventory_items_assigned_customer_id_fkey"
+            columns: ["assigned_customer_id"]
+            isOneToOne: false
             referencedRelation: "clients"
             referencedColumns: ["id"]
           },
@@ -2114,6 +2201,13 @@ export type Database = {
           vat_amount?: number
         }
         Relationships: [
+          {
+            foreignKeyName: "invoices_client_id_fkey"
+            columns: ["client_id"]
+            isOneToOne: false
+            referencedRelation: "client_network_overview"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "invoices_client_id_fkey"
             columns: ["client_id"]
@@ -2534,6 +2628,13 @@ export type Database = {
             foreignKeyName: "network_events_client_id_fkey"
             columns: ["client_id"]
             isOneToOne: false
+            referencedRelation: "client_network_overview"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "network_events_client_id_fkey"
+            columns: ["client_id"]
+            isOneToOne: false
             referencedRelation: "clients"
             referencedColumns: ["id"]
           },
@@ -2591,6 +2692,13 @@ export type Database = {
           type?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "notification_logs_client_id_fkey"
+            columns: ["client_id"]
+            isOneToOne: false
+            referencedRelation: "client_network_overview"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "notification_logs_client_id_fkey"
             columns: ["client_id"]
@@ -2853,6 +2961,13 @@ export type Database = {
           reference_number?: string | null
         }
         Relationships: [
+          {
+            foreignKeyName: "payments_client_id_fkey"
+            columns: ["client_id"]
+            isOneToOne: false
+            referencedRelation: "client_network_overview"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "payments_client_id_fkey"
             columns: ["client_id"]
@@ -3279,6 +3394,13 @@ export type Database = {
             foreignKeyName: "radius_users_client_id_fkey"
             columns: ["client_id"]
             isOneToOne: false
+            referencedRelation: "client_network_overview"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "radius_users_client_id_fkey"
+            columns: ["client_id"]
+            isOneToOne: false
             referencedRelation: "clients"
             referencedColumns: ["id"]
           },
@@ -3586,6 +3708,13 @@ export type Database = {
             foreignKeyName: "support_tickets_client_id_fkey"
             columns: ["client_id"]
             isOneToOne: false
+            referencedRelation: "client_network_overview"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "support_tickets_client_id_fkey"
+            columns: ["client_id"]
+            isOneToOne: false
             referencedRelation: "clients"
             referencedColumns: ["id"]
           },
@@ -3770,6 +3899,13 @@ export type Database = {
             columns: ["assigned_technician"]
             isOneToOne: false
             referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "technical_installations_client_id_fkey"
+            columns: ["client_id"]
+            isOneToOne: false
+            referencedRelation: "client_network_overview"
             referencedColumns: ["id"]
           },
           {
@@ -3970,6 +4106,13 @@ export type Database = {
             foreignKeyName: "usage_alerts_client_id_fkey"
             columns: ["client_id"]
             isOneToOne: false
+            referencedRelation: "client_network_overview"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "usage_alerts_client_id_fkey"
+            columns: ["client_id"]
+            isOneToOne: false
             referencedRelation: "clients"
             referencedColumns: ["id"]
           },
@@ -4021,6 +4164,13 @@ export type Database = {
             foreignKeyName: "wallet_monitoring_rules_client_id_fkey"
             columns: ["client_id"]
             isOneToOne: false
+            referencedRelation: "client_network_overview"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "wallet_monitoring_rules_client_id_fkey"
+            columns: ["client_id"]
+            isOneToOne: false
             referencedRelation: "clients"
             referencedColumns: ["id"]
           },
@@ -4065,6 +4215,13 @@ export type Database = {
             foreignKeyName: "wallet_transactions_client_id_fkey"
             columns: ["client_id"]
             isOneToOne: false
+            referencedRelation: "client_network_overview"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "wallet_transactions_client_id_fkey"
+            columns: ["client_id"]
+            isOneToOne: false
             referencedRelation: "clients"
             referencedColumns: ["id"]
           },
@@ -4072,9 +4229,40 @@ export type Database = {
       }
     }
     Views: {
-      [_ in never]: never
+      client_network_overview: {
+        Row: {
+          email: string | null
+          id: string | null
+          last_radius_sync_at: string | null
+          monthly_rate: number | null
+          name: string | null
+          phone: string | null
+          radius_sync_status: string | null
+          router_assignment: string | null
+          router_ip: unknown | null
+          router_name: string | null
+          router_status: string | null
+          service_package_name: string | null
+          status: Database["public"]["Enums"]["client_status"] | null
+          subscription_end_date: string | null
+          wallet_balance: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "clients_router_assignment_fkey"
+            columns: ["router_assignment"]
+            isOneToOne: false
+            referencedRelation: "mikrotik_routers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Functions: {
+      auto_assign_client_to_router: {
+        Args: { client_id_param: string }
+        Returns: string
+      }
       check_renewal_reminders: {
         Args: Record<PropertyKey, never>
         Returns: undefined
