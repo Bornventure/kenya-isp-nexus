@@ -107,7 +107,7 @@ export const useClients = () => {
     return () => {
       supabase.removeChannel(channel);
     };
-  }, [queryClient]);
+  }, []);
 
   const createClient = useMutation({
     mutationFn: async (clientData: any) => {

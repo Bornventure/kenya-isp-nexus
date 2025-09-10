@@ -44,7 +44,7 @@ export const useMikrotikRouters = () => {
     return () => {
       supabase.removeChannel(channel);
     };
-  }, [queryClient]);
+  }, []);
 
   const createRouter = useMutation({
     mutationFn: async (routerData: any) => {
