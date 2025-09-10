@@ -27,7 +27,7 @@ export const useMikrotikRouters = () => {
   // Set up real-time subscriptions for router updates
   useEffect(() => {
     const channel = supabase
-      .channel('router-changes')
+      .channel(`router-changes-${Math.random()}`)
       .on(
         'postgres_changes',
         {

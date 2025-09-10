@@ -90,7 +90,7 @@ export const useClients = () => {
   // Set up real-time subscriptions for client updates
   useEffect(() => {
     const channel = supabase
-      .channel('client-changes')
+      .channel(`client-changes-${Math.random()}`)
       .on(
         'postgres_changes',
         {
