@@ -7,6 +7,8 @@ import { AlertTriangle, Activity, Users, Zap, Settings, Router, Server, UserChec
 import { MikrotikRouterManager } from '@/components/network/MikroTikRouterManager';
 import { RadiusServerManager } from '@/components/NetworkManagement/RadiusServerManager';
 import RadiusUserManager from '@/components/NetworkManagement/RadiusUserManager';
+import RouterStatusManager from '@/components/network/RouterStatusManager';
+import RadiusClientManager from '@/components/network/RadiusClientManager';
 import { useMikrotikRouters } from '@/hooks/useMikrotikRouters';
 import { useClients } from '@/hooks/useClients';
 import { useRadiusServers } from '@/hooks/useRadiusServers';
@@ -103,8 +105,9 @@ const EnhancedProductionNetworkPanel = () => {
       </div>
 
       <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-4">
-        <TabsList className="grid w-full grid-cols-5">
+        <TabsList className="grid w-full grid-cols-6">
           <TabsTrigger value="overview">Overview</TabsTrigger>
+          <TabsTrigger value="status">Router Status</TabsTrigger>
           <TabsTrigger value="routers">Router Management</TabsTrigger>
           <TabsTrigger value="clients">Client Control</TabsTrigger>
           <TabsTrigger value="radius">RADIUS Config</TabsTrigger>
@@ -162,6 +165,10 @@ const EnhancedProductionNetworkPanel = () => {
               </CardContent>
             </Card>
           </div>
+        </TabsContent>
+
+        <TabsContent value="status">
+          <RouterStatusManager />
         </TabsContent>
 
         <TabsContent value="routers">
@@ -316,7 +323,7 @@ const EnhancedProductionNetworkPanel = () => {
         </TabsContent>
 
         <TabsContent value="radius-users" className="space-y-4">
-          <RadiusUserManager />
+          <RadiusClientManager />
         </TabsContent>
       </Tabs>
     </div>
