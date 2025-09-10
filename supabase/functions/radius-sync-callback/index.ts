@@ -66,6 +66,9 @@ serve(async (req) => {
     if (actualRouterId) {
       const routerUpdateData = {
         connection_status: actualConnectionStatus || (actualSyncStatus === 'synced' ? 'connected' : 'configuration_failed'),
+        sync_status: actualSyncStatus || 'synced',
+        last_sync_at: timestamp || new Date().toISOString(),
+        last_error: actualErrorMessage,
         last_test_results: JSON.stringify({ 
           message: actualErrorMessage || 'RADIUS configuration completed successfully',
           timestamp: timestamp || new Date().toISOString()
@@ -93,14 +96,18 @@ serve(async (req) => {
       // Update client based on EC2 callback
       const updateData: any = {
         radius_sync_status: actualSyncStatus || 'synced',
-        last_radius_sync_at: timestamp || new Date().toISOString()
+        last_sync_at: timestamp || new Date().toISOString(),
+        radius_status: actualStatus || 'active',
+        last_error: actualErrorMessage
       }
 
       // Update client status based on action
       if (actualAction === 'disconnect' || actualStatus === 'inactive') {
         updateData.status = 'suspended'
+        updateData.radius_status = 'suspended'
       } else if (actualAction === 'connect' || actualStatus === 'active') {
         updateData.status = 'active'
+        updateData.radius_status = 'active'
         updateData.disconnection_scheduled_at = null
       }
 
@@ -121,6 +128,27 @@ serve(async (req) => {
           is_active: actualStatus === 'active'
         })
         .eq('client_id', actualClientId)
+
+      // Insert event into radius_events table
+      const { data: clientData } = await supabaseClient
+        .from('clients')
+        .select('isp_company_id')
+        .eq('id', actualClientId)
+        .single()
+
+      if (clientData) {
+        await supabaseClient
+          .from('radius_events')
+          .insert({
+            username: `client_${actualClientId}`,
+            client_id: actualClientId,
+            action: actualAction || 'sync',
+            success: !actualErrorMessage,
+            error: actualErrorMessage,
+            isp_company_id: clientData.isp_company_id,
+            timestamp: timestamp || new Date().toISOString()
+          })
+      }
 
       // Log the callback event
       await supabaseClient

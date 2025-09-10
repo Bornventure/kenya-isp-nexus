@@ -66,10 +66,24 @@ serve(async (req) => {
         .from('clients')
         .update({ 
           status: 'suspended',
+          radius_status: 'suspended',
           disconnection_scheduled_at: null 
         })
         .eq('id', client.id)
     }
+
+    // Insert into radius_events table
+    await supabaseClient
+      .from('radius_events')
+      .insert({
+        username,
+        client_id: client.id,
+        action,
+        success,
+        error,
+        isp_company_id: client.isp_company_id,
+        timestamp: timestamp || new Date().toISOString()
+      })
 
     // Log the CoA event
     await supabaseClient
