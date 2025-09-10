@@ -150,6 +150,26 @@ export const useClients = () => {
         .single();
 
       if (error) throw error;
+
+      // Trigger RADIUS webhook if status changed
+      if (updates.status) {
+        try {
+          const action = updates.status === 'suspended' ? 'client_suspend' : 
+                        updates.status === 'active' ? 'client_connect' : 'update';
+          
+          await supabase.functions.invoke('radius-webhook', {
+            body: {
+              record: { ...data, ...updates },
+              table_name: 'clients',
+              action
+            }
+          });
+        } catch (webhookError) {
+          console.error('Webhook error:', webhookError);
+          // Don't fail the main operation for webhook errors
+        }
+      }
+
       return data;
     },
     onSuccess: () => {

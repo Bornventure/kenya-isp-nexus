@@ -2382,6 +2382,7 @@ export type Database = {
           admin_password: string
           admin_username: string
           client_network: string
+          coa_secret: string | null
           connection_status: string
           created_at: string
           dns_servers: string
@@ -2392,6 +2393,7 @@ export type Database = {
           last_test_results: Json | null
           name: string
           pppoe_interface: string
+          radius_secret: string | null
           snmp_community: string
           snmp_version: number
           status: string
@@ -2401,6 +2403,7 @@ export type Database = {
           admin_password: string
           admin_username: string
           client_network?: string
+          coa_secret?: string | null
           connection_status?: string
           created_at?: string
           dns_servers?: string
@@ -2411,6 +2414,7 @@ export type Database = {
           last_test_results?: Json | null
           name: string
           pppoe_interface?: string
+          radius_secret?: string | null
           snmp_community?: string
           snmp_version?: number
           status?: string
@@ -2420,6 +2424,7 @@ export type Database = {
           admin_password?: string
           admin_username?: string
           client_network?: string
+          coa_secret?: string | null
           connection_status?: string
           created_at?: string
           dns_servers?: string
@@ -2430,6 +2435,7 @@ export type Database = {
           last_test_results?: Json | null
           name?: string
           pppoe_interface?: string
+          radius_secret?: string | null
           snmp_community?: string
           snmp_version?: number
           status?: string
@@ -3420,6 +3426,7 @@ export type Database = {
           data_cap_gb: number | null
           data_limit: number | null
           description: string | null
+          groupname: string | null
           id: string
           is_active: boolean | null
           isp_company_id: string | null
@@ -3435,6 +3442,7 @@ export type Database = {
           data_cap_gb?: number | null
           data_limit?: number | null
           description?: string | null
+          groupname?: string | null
           id?: string
           is_active?: boolean | null
           isp_company_id?: string | null
@@ -3450,6 +3458,7 @@ export type Database = {
           data_cap_gb?: number | null
           data_limit?: number | null
           description?: string | null
+          groupname?: string | null
           id?: string
           is_active?: boolean | null
           isp_company_id?: string | null

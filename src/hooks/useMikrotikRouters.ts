@@ -53,12 +53,29 @@ export const useMikrotikRouters = () => {
         .insert({
           ...routerData,
           isp_company_id: profile?.isp_company_id || '',
-          gateway: routerData.gateway || '192.168.1.1'
+          gateway: routerData.gateway || '192.168.1.1',
+          radius_secret: routerData.radius_secret || 'RouterSQLSecret123',
+          coa_secret: routerData.coa_secret || 'CoASecret123'
         })
         .select()
         .single();
 
       if (error) throw error;
+
+      // Trigger RADIUS webhook for router registration
+      try {
+        await supabase.functions.invoke('radius-webhook', {
+          body: {
+            record: data,
+            table_name: 'mikrotik_routers',
+            action: 'router_connect'
+          }
+        });
+      } catch (webhookError) {
+        console.error('Router webhook error:', webhookError);
+        // Don't fail the main operation for webhook errors
+      }
+
       return data;
     },
     onSuccess: () => {
@@ -87,6 +104,21 @@ export const useMikrotikRouters = () => {
         .single();
 
       if (error) throw error;
+
+      // Trigger RADIUS webhook for router updates
+      try {
+        await supabase.functions.invoke('radius-webhook', {
+          body: {
+            record: { ...data, ...updates },
+            table_name: 'mikrotik_routers', 
+            action: 'router_connect' // Always use connect for updates
+          }
+        });
+      } catch (webhookError) {
+        console.error('Router webhook error:', webhookError);
+        // Don't fail the main operation for webhook errors
+      }
+
       return data;
     },
     onSuccess: () => {

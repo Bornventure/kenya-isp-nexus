@@ -18,97 +18,78 @@ serve(async (req) => {
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
     )
 
-    const { client_id, status, action, ec2_endpoint } = await req.json()
+    // Handle EC2 CoA event callback
+    const { username, action, success, error, timestamp } = await req.json()
 
-    if (!client_id || !status || !action) {
-      throw new Error('client_id, status, and action are required')
+    if (!username || !action) {
+      throw new Error('username and action are required for CoA events')
     }
 
-    console.log(`Processing webhook for client ${client_id}: ${action} (${status})`)
+    console.log(`Processing CoA event for user ${username}: ${action} (success: ${success})`)
 
-    // Get client details with RADIUS credentials
-    const { data: client, error: clientError } = await supabaseClient
-      .from('clients')
+    // Get client by RADIUS username
+    const { data: radiusUser, error: radiusUserError } = await supabaseClient
+      .from('radius_users')
       .select(`
         *,
-        service_packages (
+        clients (
+          id,
           name,
-          download_speed,
-          upload_speed,
-          session_timeout,
-          idle_timeout
+          phone,
+          email,
+          status,
+          isp_company_id
         )
       `)
-      .eq('id', client_id)
+      .eq('username', username)
       .single()
 
-    if (clientError || !client) {
-      throw new Error('Client not found')
+    if (radiusUserError || !radiusUser) {
+      throw new Error('RADIUS user not found')
     }
 
-    // Prepare webhook data for EC2
-    const webhookData = {
-      client_id,
-      username: client.radius_username,
-      password: client.radius_password,
-      status,
-      action, // 'connect', 'disconnect', 'reconnect', 'update'
-      
-      // Bandwidth limits
-      download_speed_kbps: client.service_packages?.download_speed ? client.service_packages.download_speed * 1024 : 5120,
-      upload_speed_kbps: client.service_packages?.upload_speed ? client.service_packages.upload_speed * 1024 : 512,
-      session_timeout: client.service_packages?.session_timeout || 86400,
-      idle_timeout: client.service_packages?.idle_timeout || 1800,
-      
-      // Client info
-      client_name: client.name,
-      client_phone: client.phone,
-      
-      // Timestamps
-      timestamp: new Date().toISOString(),
-      priority: action === 'disconnect' ? 'high' : 'normal'
+    const client = radiusUser.clients
+
+    // Log the CoA event
+    const coaData = {
+      username,
+      action,
+      success,
+      error,
+      timestamp: timestamp || new Date().toISOString(),
+      client_id: client.id
     }
 
-    // Send webhook to EC2 endpoint if provided
-    if (ec2_endpoint) {
-      try {
-        const webhookResponse = await fetch(ec2_endpoint, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${Deno.env.get('EC2_WEBHOOK_TOKEN') || 'default-token'}`
-          },
-          body: JSON.stringify(webhookData)
+    // Update client status based on CoA action if it was successful
+    if (success && action === 'disconnect') {
+      await supabaseClient
+        .from('clients')
+        .update({ 
+          status: 'suspended',
+          disconnection_scheduled_at: null 
         })
-
-        if (!webhookResponse.ok) {
-          console.error('EC2 webhook failed:', await webhookResponse.text())
-        } else {
-          console.log('EC2 webhook sent successfully')
-        }
-      } catch (webhookError) {
-        console.error('Error sending EC2 webhook:', webhookError)
-      }
+        .eq('id', client.id)
     }
 
-    // Log the webhook event
+    // Log the CoA event
     await supabaseClient
       .from('audit_logs')
       .insert({
-        resource: 'radius_webhook',
-        action: `webhook_${action}`,
-        resource_id: client_id,
-        changes: webhookData,
+        resource: 'radius_coa',
+        action: `coa_${action}`,
+        resource_id: client.id,
+        changes: coaData,
         user_id: null, // System action
         isp_company_id: client.isp_company_id,
-        success: true
+        success: success,
+        error_message: success ? null : error
       })
 
     return new Response(
       JSON.stringify({
         success: true,
-        message: `Webhook processed for ${action} action`,
-        data: webhookData
+        message: `CoA event processed for ${action} action`,
+        data: coaData
       }),
       { 
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },

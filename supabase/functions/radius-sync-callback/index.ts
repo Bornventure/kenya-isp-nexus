@@ -20,28 +20,27 @@ serve(async (req) => {
 
     const requestBody = await req.json()
     
-    // Handle both old format and new EC2 format
+    // Handle EC2 callback format for client status
     const { 
       client_id, 
       router_id,
+      status,
+      action,
       sync_status, 
-      error_message, 
-      sync_details,
-      ec2_instance_id,
-      mikrotik_router_id,
-      radius_config,
-      // New EC2 format
-      data
+      connection_status,
+      error_message,
+      timestamp
     } = requestBody
     
-    // Extract values from EC2 format if present
-    let actualClientId = client_id || data?.client_id
-    let actualRouterId = router_id || data?.router_id
-    const actualSyncStatus = sync_status || data?.sync_status
-    const actualErrorMessage = error_message || (data?.sync_status === 'failed' ? 'Sync failed' : null)
-    const actualEc2InstanceId = ec2_instance_id || data?.connection_summary?.sync_details?.ec2_instance_id
-    const actualMikrotikRouterId = mikrotik_router_id || data?.connection_summary?.sync_details?.mikrotik_router_id
-    const actualRadiusConfig = radius_config || data?.connection_summary?.sync_details?.radius_config
+    console.log('Processing EC2 callback:', requestBody)
+    
+    let actualClientId = client_id
+    let actualRouterId = router_id
+    let actualStatus = status
+    let actualAction = action
+    let actualSyncStatus = sync_status
+    let actualConnectionStatus = connection_status
+    let actualErrorMessage = error_message
 
     // Validate UUID format for client_id and router_id
     const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i
@@ -63,20 +62,14 @@ serve(async (req) => {
       error_message: actualErrorMessage 
     })
 
-    // Handle router status updates
+    // Handle router status updates from EC2
     if (actualRouterId) {
       const routerUpdateData = {
-        connection_status: actualSyncStatus === 'synced' ? 'connected' : 'configuration_failed',
-        last_test_results: actualRadiusConfig ? 
-          JSON.stringify({ 
-            message: actualErrorMessage || 'RADIUS configuration completed successfully',
-            config: actualRadiusConfig,
-            timestamp: new Date().toISOString()
-          }) : 
-          JSON.stringify({ 
-            message: actualErrorMessage || 'RADIUS configuration completed successfully',
-            timestamp: new Date().toISOString()
-          }),
+        connection_status: actualConnectionStatus || (actualSyncStatus === 'synced' ? 'connected' : 'configuration_failed'),
+        last_test_results: JSON.stringify({ 
+          message: actualErrorMessage || 'RADIUS configuration completed successfully',
+          timestamp: timestamp || new Date().toISOString()
+        }),
         updated_at: new Date().toISOString()
       }
 
@@ -93,22 +86,21 @@ serve(async (req) => {
       console.log('Successfully updated router status:', actualRouterId, 'to', routerUpdateData.connection_status)
     }
 
-    // Handle client status updates
-    if (!actualClientId && !actualRouterId) {
-      throw new Error('Either client_id or router_id is required')
-    }
-
+    // Handle client status updates from EC2
     if (actualClientId) {
-      console.log(`Processing sync callback for client ${actualClientId}: ${actualSyncStatus}`)
+      console.log(`Processing EC2 callback for client ${actualClientId}: ${actualAction} (${actualStatus})`)
 
-      // Update client sync status
+      // Update client based on EC2 callback
       const updateData: any = {
-        radius_sync_status: actualSyncStatus, // 'synced', 'failed', 'pending'
-        last_radius_sync_at: new Date().toISOString()
+        radius_sync_status: actualSyncStatus || 'synced',
+        last_radius_sync_at: timestamp || new Date().toISOString()
       }
 
-      // Clear disconnection schedule if successfully synced and active
-      if (actualSyncStatus === 'synced') {
+      // Update client status based on action
+      if (actualAction === 'disconnect' || actualStatus === 'inactive') {
+        updateData.status = 'suspended'
+      } else if (actualAction === 'connect' || actualStatus === 'active') {
+        updateData.status = 'active'
         updateData.disconnection_scheduled_at = null
       }
 
@@ -125,45 +117,31 @@ serve(async (req) => {
       await supabaseClient
         .from('radius_users')
         .update({
-          last_synced_to_radius: new Date().toISOString(),
-          is_active: actualSyncStatus === 'synced'
+          last_synced_to_radius: timestamp || new Date().toISOString(),
+          is_active: actualStatus === 'active'
         })
         .eq('client_id', actualClientId)
 
-      // Log the sync result
+      // Log the callback event
       await supabaseClient
         .from('audit_logs')
         .insert({
-          resource: 'radius_sync',
-          action: `sync_${actualSyncStatus}`,
+          resource: 'radius_callback',
+          action: `callback_${actualAction}`,
           resource_id: actualClientId,
           changes: {
+            status: actualStatus,
+            action: actualAction,
             sync_status: actualSyncStatus,
             error_message: actualErrorMessage,
-            sync_details,
-            ec2_instance_id: actualEc2InstanceId,
-            mikrotik_router_id: actualMikrotikRouterId,
-            timestamp: new Date().toISOString()
+            timestamp: timestamp || new Date().toISOString()
           },
           user_id: null, // System action
-          success: actualSyncStatus === 'synced',
-          error_message: actualSyncStatus === 'failed' ? actualErrorMessage : null
+          success: !actualErrorMessage,
+          error_message: actualErrorMessage
         })
 
-      // If sync failed, optionally retry or alert
-      if (actualSyncStatus === 'failed') {
-        console.error(`RADIUS sync failed for client ${actualClientId}:`, actualErrorMessage)
-        
-        // Could implement retry logic here or send alert
-        // For now, just log it
-      }
-
-      // Get updated client data to return
-      const { data: updatedClient } = await supabaseClient
-        .from('clients')
-        .select('id, name, radius_sync_status, last_radius_sync_at')
-        .eq('id', actualClientId)
-        .single()
+      console.log(`Successfully processed callback for client ${actualClientId}`)
     }
 
     // Get comprehensive router details if router_id is provided
