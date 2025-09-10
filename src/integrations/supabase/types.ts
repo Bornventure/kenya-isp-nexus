@@ -620,6 +620,7 @@ export type Database = {
           created_at: string | null
           disconnection_scheduled_at: string | null
           email: string | null
+          groupname: string | null
           id: string
           id_number: string
           installation_completed_at: string | null
@@ -629,7 +630,9 @@ export type Database = {
           is_active: boolean
           isp_company_id: string | null
           kra_pin_number: string | null
+          last_error: string | null
           last_radius_sync_at: string | null
+          last_sync_at: string | null
           latitude: number | null
           longitude: number | null
           monthly_rate: number
@@ -637,6 +640,7 @@ export type Database = {
           name: string
           notes: string | null
           phone: string
+          radius_status: string | null
           radius_sync_status: string | null
           rejected_at: string | null
           rejected_by: string | null
@@ -664,6 +668,7 @@ export type Database = {
           created_at?: string | null
           disconnection_scheduled_at?: string | null
           email?: string | null
+          groupname?: string | null
           id?: string
           id_number: string
           installation_completed_at?: string | null
@@ -673,7 +678,9 @@ export type Database = {
           is_active?: boolean
           isp_company_id?: string | null
           kra_pin_number?: string | null
+          last_error?: string | null
           last_radius_sync_at?: string | null
+          last_sync_at?: string | null
           latitude?: number | null
           longitude?: number | null
           monthly_rate: number
@@ -681,6 +688,7 @@ export type Database = {
           name: string
           notes?: string | null
           phone: string
+          radius_status?: string | null
           radius_sync_status?: string | null
           rejected_at?: string | null
           rejected_by?: string | null
@@ -708,6 +716,7 @@ export type Database = {
           created_at?: string | null
           disconnection_scheduled_at?: string | null
           email?: string | null
+          groupname?: string | null
           id?: string
           id_number?: string
           installation_completed_at?: string | null
@@ -717,7 +726,9 @@ export type Database = {
           is_active?: boolean
           isp_company_id?: string | null
           kra_pin_number?: string | null
+          last_error?: string | null
           last_radius_sync_at?: string | null
+          last_sync_at?: string | null
           latitude?: number | null
           longitude?: number | null
           monthly_rate?: number
@@ -725,6 +736,7 @@ export type Database = {
           name?: string
           notes?: string | null
           phone?: string
+          radius_status?: string | null
           radius_sync_status?: string | null
           rejected_at?: string | null
           rejected_by?: string | null
@@ -2390,6 +2402,8 @@ export type Database = {
           id: string
           ip_address: unknown
           isp_company_id: string
+          last_error: string | null
+          last_sync_at: string | null
           last_test_results: Json | null
           name: string
           pppoe_interface: string
@@ -2397,6 +2411,7 @@ export type Database = {
           snmp_community: string
           snmp_version: number
           status: string
+          sync_status: string | null
           updated_at: string
         }
         Insert: {
@@ -2411,6 +2426,8 @@ export type Database = {
           id?: string
           ip_address: unknown
           isp_company_id: string
+          last_error?: string | null
+          last_sync_at?: string | null
           last_test_results?: Json | null
           name: string
           pppoe_interface?: string
@@ -2418,6 +2435,7 @@ export type Database = {
           snmp_community?: string
           snmp_version?: number
           status?: string
+          sync_status?: string | null
           updated_at?: string
         }
         Update: {
@@ -2432,6 +2450,8 @@ export type Database = {
           id?: string
           ip_address?: unknown
           isp_company_id?: string
+          last_error?: string | null
+          last_sync_at?: string | null
           last_test_results?: Json | null
           name?: string
           pppoe_interface?: string
@@ -2439,6 +2459,7 @@ export type Database = {
           snmp_community?: string
           snmp_version?: number
           status?: string
+          sync_status?: string | null
           updated_at?: string
         }
         Relationships: []
