@@ -3,6 +3,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/contexts/AuthContext';
+import { useEffect } from 'react';
 import type { MikrotikRouter } from '@/types/network';
 
 export const useMikrotikRouters = () => {
@@ -22,6 +23,28 @@ export const useMikrotikRouters = () => {
       return data as MikrotikRouter[];
     },
   });
+
+  // Set up real-time subscriptions for router updates
+  useEffect(() => {
+    const channel = supabase
+      .channel('router-changes')
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'mikrotik_routers'
+        },
+        () => {
+          queryClient.invalidateQueries({ queryKey: ['mikrotik-routers'] });
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [queryClient]);
 
   const createRouter = useMutation({
     mutationFn: async (routerData: any) => {

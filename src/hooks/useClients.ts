@@ -3,6 +3,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/contexts/AuthContext';
+import { useEffect } from 'react';
 
 export interface DatabaseClient {
   id: string;
@@ -85,6 +86,28 @@ export const useClients = () => {
       })) as DatabaseClient[];
     },
   });
+
+  // Set up real-time subscriptions for client updates
+  useEffect(() => {
+    const channel = supabase
+      .channel('client-changes')
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'clients'
+        },
+        () => {
+          queryClient.invalidateQueries({ queryKey: ['clients'] });
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [queryClient]);
 
   const createClient = useMutation({
     mutationFn: async (clientData: any) => {
