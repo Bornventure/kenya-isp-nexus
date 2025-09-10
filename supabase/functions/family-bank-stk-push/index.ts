@@ -28,9 +28,9 @@ function generatePassword(businessShortCode: string, clientId: string, timestamp
 
 // Get OAuth2 access token from Family Bank
 async function getAccessToken(): Promise<string> {
-  const tokenUrl = "https://openbank.familybank.co.ke:8083/connect/token";
-  const clientId = "LAKELINK";
-  const clientSecret = "secret";
+  const tokenUrl = Deno.env.get('FAMILY_BANK_TOKEN_URL') || "https://openbank.familybank.co.ke:8083/connect/token";
+  const clientId = Deno.env.get('FAMILY_BANK_CLIENT_ID')!;
+  const clientSecret = Deno.env.get('FAMILY_BANK_CLIENT_SECRET')!;
 
   console.log('Requesting OAuth2 token from:', tokenUrl);
 
@@ -129,14 +129,14 @@ serve(async (req) => {
 
     // Generate timestamp and password
     const timestamp = getTimestamp();
-    const merchantCode = "026026";
-    const clientId = "LAKELINK";
-    const password = generatePassword(merchantCode, clientId, timestamp);
+    const merchantCode = Deno.env.get('FAMILY_BANK_MERCHANT_CODE')!;
+    const authClientId = Deno.env.get('FAMILY_BANK_CLIENT_ID')!;
+    const password = generatePassword(merchantCode, authClientId, timestamp);
 
     console.log('Generated authentication params:', {
       timestamp,
       merchantCode,
-      clientId: clientId.substring(0, 5) + '...' // Partial logging for security
+      clientId: authClientId.substring(0, 5) + '...' // Partial logging for security
     });
 
     // Create STK request record BEFORE making the API call

@@ -13,9 +13,13 @@ serve(async (req) => {
   try {
     console.log("[FAMILY-BANK-TEST] Testing Family Bank API connection...");
     
-    const tokenUrl = "https://openbank.familybank.co.ke:8083/connect/token";
-    const clientId = "LAKELINK";
-    const clientSecret = "secret";
+    const tokenUrl = Deno.env.get('FAMILY_BANK_TOKEN_URL') || "https://openbank.familybank.co.ke:8083/connect/token";
+    const clientId = Deno.env.get('FAMILY_BANK_CLIENT_ID');
+    const clientSecret = Deno.env.get('FAMILY_BANK_CLIENT_SECRET');
+
+    if (!clientId || !clientSecret) {
+      throw new Error('Missing Family Bank credentials. Please configure FAMILY_BANK_CLIENT_ID and FAMILY_BANK_CLIENT_SECRET in Supabase secrets.');
+    }
 
     console.log("[FAMILY-BANK-TEST] Making request to token endpoint...");
     
