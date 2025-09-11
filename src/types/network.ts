@@ -5,6 +5,8 @@ export interface MikrotikRouter {
   ip_address: string;
   admin_username: string;
   admin_password: string;
+  radius_secret?: string;
+  coa_secret?: string;
   snmp_community?: string;
   snmp_version?: number;
   pppoe_interface?: string;

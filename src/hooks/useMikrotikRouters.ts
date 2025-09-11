@@ -48,14 +48,24 @@ export const useMikrotikRouters = () => {
 
   const createRouter = useMutation({
     mutationFn: async (routerData: any) => {
+      // Generate secure radius_secret if not provided
+      const generateRadiusSecret = () => {
+        const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
+        let result = '';
+        for (let i = 0; i < 16; i++) {
+          result += chars.charAt(Math.floor(Math.random() * chars.length));
+        }
+        return result;
+      };
+
       const { data, error } = await supabase
         .from('mikrotik_routers')
         .insert({
           ...routerData,
           isp_company_id: profile?.isp_company_id || '',
           gateway: routerData.gateway || '192.168.1.1',
-          radius_secret: routerData.radius_secret || 'RouterSQLSecret123',
-          coa_secret: routerData.coa_secret || 'CoASecret123'
+          radius_secret: routerData.radius_secret || generateRadiusSecret(),
+          coa_secret: routerData.coa_secret || generateRadiusSecret()
         })
         .select()
         .single();

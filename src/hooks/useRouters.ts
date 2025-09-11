@@ -23,12 +23,24 @@ export const useRouters = () => {
 
   const createRouter = useMutation({
     mutationFn: async (routerData: Omit<MikrotikRouter, 'id' | 'created_at' | 'updated_at'>) => {
+      // Generate secure radius_secret if not provided
+      const generateRadiusSecret = () => {
+        const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
+        let result = '';
+        for (let i = 0; i < 16; i++) {
+          result += chars.charAt(Math.floor(Math.random() * chars.length));
+        }
+        return result;
+      };
+
       // Ensure all required fields are present
       const insertData = {
         name: routerData.name,
         ip_address: routerData.ip_address,
         admin_username: routerData.admin_username,
         admin_password: routerData.admin_password,
+        radius_secret: routerData.radius_secret || generateRadiusSecret(),
+        coa_secret: routerData.coa_secret || generateRadiusSecret(),
         snmp_community: routerData.snmp_community || 'public',
         snmp_version: routerData.snmp_version || 2,
         pppoe_interface: routerData.pppoe_interface || 'ether1',
