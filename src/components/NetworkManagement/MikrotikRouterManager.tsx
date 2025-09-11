@@ -19,6 +19,8 @@ export const MikrotikRouterManager = () => {
     ip_address: '',
     admin_username: 'admin',
     admin_password: '',
+    radius_secret: '',
+    coa_secret: '',
     snmp_community: 'public',
     snmp_version: 2,
     pppoe_interface: 'ether1',
@@ -39,6 +41,8 @@ export const MikrotikRouterManager = () => {
       ip_address: '',
       admin_username: 'admin',
       admin_password: '',
+      radius_secret: '',
+      coa_secret: '',
       snmp_community: 'public',
       snmp_version: 2,
       pppoe_interface: 'ether1',
@@ -157,6 +161,26 @@ export const MikrotikRouterManager = () => {
                       value={formData.dns_servers}
                       onChange={(e) => setFormData({ ...formData, dns_servers: e.target.value })}
                       placeholder="8.8.8.8,8.8.4.4"
+                    />
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label htmlFor="radius_secret">RADIUS Secret</Label>
+                    <Input
+                      id="radius_secret"
+                      value={formData.radius_secret}
+                      onChange={(e) => setFormData({ ...formData, radius_secret: e.target.value })}
+                      placeholder="Enter RADIUS secret"
+                    />
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label htmlFor="coa_secret">CoA Secret</Label>
+                    <Input
+                      id="coa_secret"
+                      value={formData.coa_secret}
+                      onChange={(e) => setFormData({ ...formData, coa_secret: e.target.value })}
+                      placeholder="Enter CoA secret"
                     />
                   </div>
 
