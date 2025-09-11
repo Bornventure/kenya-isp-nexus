@@ -22,6 +22,8 @@ const AddRouterDialog: React.FC<AddRouterDialogProps> = ({ open, onClose }) => {
     ip_address: '',
     admin_username: '',
     admin_password: '',
+    radius_secret: '',
+    coa_secret: '',
     snmp_community: 'public',
     snmp_version: 2,
     pppoe_interface: 'ether1',
@@ -53,6 +55,8 @@ const AddRouterDialog: React.FC<AddRouterDialogProps> = ({ open, onClose }) => {
       ip_address: '',
       admin_username: '',
       admin_password: '',
+      radius_secret: '',
+      coa_secret: '',
       snmp_community: 'public',
       snmp_version: 2,
       pppoe_interface: 'ether1',
@@ -167,6 +171,28 @@ const AddRouterDialog: React.FC<AddRouterDialogProps> = ({ open, onClose }) => {
                 value={formData.dns_servers}
                 onChange={(e) => handleInputChange('dns_servers', e.target.value)}
                 placeholder="8.8.8.8,8.8.4.4"
+              />
+            </div>
+          </div>
+
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <Label htmlFor="radius_secret">RADIUS Secret</Label>
+              <Input
+                id="radius_secret"
+                value={formData.radius_secret}
+                onChange={(e) => handleInputChange('radius_secret', e.target.value)}
+                placeholder="Enter RADIUS secret"
+              />
+            </div>
+            
+            <div>
+              <Label htmlFor="coa_secret">CoA Secret</Label>
+              <Input
+                id="coa_secret"
+                value={formData.coa_secret}
+                onChange={(e) => handleInputChange('coa_secret', e.target.value)}
+                placeholder="Enter CoA secret"
               />
             </div>
           </div>
