@@ -28,7 +28,9 @@ const MikrotikConfigurationPanel = () => {
     host: '192.168.100.2',
     user: 'admin', 
     password: 'admin123',
-    port: 8728
+    port: 8728,
+    radius_secret: '',
+    coa_secret: ''
   });
   const [isLoading, setIsLoading] = useState(false);
   const [connectionStatus, setConnectionStatus] = useState<'unknown' | 'success' | 'error'>('unknown');
@@ -61,6 +63,8 @@ const MikrotikConfigurationPanel = () => {
         ip_address: config.host,
         admin_username: config.user,
         admin_password: config.password,
+        radius_secret: config.radius_secret,
+        coa_secret: config.coa_secret,
         snmp_community: 'public',
         snmp_version: 2,
         pppoe_interface: 'ether1',
@@ -79,7 +83,9 @@ const MikrotikConfigurationPanel = () => {
         host: '192.168.100.2',
         user: 'admin',
         password: 'admin123',
-        port: 8728
+        port: 8728,
+        radius_secret: '',
+        coa_secret: ''
       });
       
       toast({
@@ -114,6 +120,8 @@ const MikrotikConfigurationPanel = () => {
       ip_address: config.host,
       admin_username: config.user,
       admin_password: config.password,
+      radius_secret: config.radius_secret,
+      coa_secret: config.coa_secret,
       snmp_community: 'public',
       snmp_version: 2,
       pppoe_interface: 'ether1', 
@@ -235,6 +243,26 @@ const MikrotikConfigurationPanel = () => {
                 value={config.password}
                 onChange={(e) => handleConfigChange('password', e.target.value)}
                 placeholder="Enter router password"
+              />
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="radius_secret">RADIUS Secret</Label>
+              <Input
+                id="radius_secret"
+                value={config.radius_secret}
+                onChange={(e) => handleConfigChange('radius_secret', e.target.value)}
+                placeholder="Enter RADIUS secret"
+              />
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="coa_secret">CoA Secret</Label>
+              <Input
+                id="coa_secret"
+                value={config.coa_secret}
+                onChange={(e) => handleConfigChange('coa_secret', e.target.value)}
+                placeholder="Enter CoA secret"
               />
             </div>
           </div>
