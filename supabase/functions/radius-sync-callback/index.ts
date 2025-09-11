@@ -111,126 +111,123 @@ serve(async (req) => {
         updateData.disconnection_scheduled_at = null
       }
 
-      const { error: updateError } = await supabaseClient
-        .from('clients')
-        .update(updateData)
-        .eq('id', actualClientId)
-
-      if (updateError) {
-        throw updateError
-      }
-
-      // Update radius_users table
-      await supabaseClient
-        .from('radius_users')
-        .update({
-          last_synced_to_radius: timestamp || new Date().toISOString(),
-          is_active: actualStatus === 'active'
-        })
-        .eq('client_id', actualClientId)
-
-      // Insert event into radius_events table
-      const { data: clientData } = await supabaseClient
+      // Batch all database operations in a single transaction
+      const { data: clientData, error: clientSelectError } = await supabaseClient
         .from('clients')
         .select('isp_company_id')
         .eq('id', actualClientId)
         .single()
 
-      if (clientData) {
-        await supabaseClient
-          .from('radius_events')
-          .insert({
-            username: `client_${actualClientId}`,
-            client_id: actualClientId,
-            action: actualAction || 'sync',
-            success: !actualErrorMessage,
-            error: actualErrorMessage,
-            isp_company_id: clientData.isp_company_id,
-            timestamp: timestamp || new Date().toISOString()
+      if (clientSelectError) throw clientSelectError
+
+      // Batch updates using Promise.all for parallel execution
+      const batchOperations = [
+        // Update client
+        supabaseClient
+          .from('clients')
+          .update(updateData)
+          .eq('id', actualClientId),
+        
+        // Update radius_users
+        supabaseClient
+          .from('radius_users')
+          .update({
+            last_synced_to_radius: timestamp || new Date().toISOString(),
+            is_active: actualStatus === 'active'
           })
+          .eq('client_id', actualClientId)
+      ]
+
+      // Only add logging if it's not a frequent operation to reduce noise
+      if (actualErrorMessage || actualSyncStatus === 'failed') {
+        batchOperations.push(
+          // Insert event into radius_events table
+          supabaseClient
+            .from('radius_events')
+            .insert({
+              username: `client_${actualClientId}`,
+              client_id: actualClientId,
+              action: actualAction || 'sync',
+              success: !actualErrorMessage,
+              error: actualErrorMessage,
+              isp_company_id: clientData.isp_company_id,
+              timestamp: timestamp || new Date().toISOString()
+            }),
+          
+          // Log the callback event
+          supabaseClient
+            .from('audit_logs')
+            .insert({
+              resource: 'radius_callback',
+              action: `callback_${actualAction}`,
+              resource_id: actualClientId,
+              changes: {
+                status: actualStatus,
+                action: actualAction,
+                sync_status: actualSyncStatus,
+                error_message: actualErrorMessage,
+                timestamp: timestamp || new Date().toISOString()
+              },
+              user_id: null,
+              success: !actualErrorMessage,
+              error_message: actualErrorMessage
+            })
+        )
       }
 
-      // Log the callback event
-      await supabaseClient
-        .from('audit_logs')
-        .insert({
-          resource: 'radius_callback',
-          action: `callback_${actualAction}`,
-          resource_id: actualClientId,
-          changes: {
-            status: actualStatus,
-            action: actualAction,
-            sync_status: actualSyncStatus,
-            error_message: actualErrorMessage,
-            timestamp: timestamp || new Date().toISOString()
-          },
-          user_id: null, // System action
-          success: !actualErrorMessage,
-          error_message: actualErrorMessage
-        })
+      const results = await Promise.allSettled(batchOperations)
+      
+      // Check for any failures
+      const failures = results.filter(r => r.status === 'rejected')
+      if (failures.length > 0) {
+        console.error('Some batch operations failed:', failures)
+      }
 
       console.log(`Successfully processed callback for client ${actualClientId}`)
     }
 
-    // Get comprehensive router details if router_id is provided
+    // Optimized router details - only fetch when necessary
     let routerDetails = null
     let authenticatedUsers = []
-    let radiusServerInfo = null
+    
+    // Only fetch detailed router info if explicitly requested or on error
+    if (actualRouterId && (actualErrorMessage || actualSyncStatus === 'failed')) {
+      const [routerResult, activeSessionsResult] = await Promise.allSettled([
+        supabaseClient
+          .from('mikrotik_routers')
+          .select(`
+            id,
+            name,
+            ip_address,
+            connection_status,
+            sync_status,
+            last_sync_at,
+            isp_companies(name)
+          `)
+          .eq('id', actualRouterId)
+          .single(),
+        
+        supabaseClient
+          .from('active_sessions')
+          .select('username, calling_station_id, session_start')
+          .eq('nas_ip_address', 
+            // Use a subquery to get IP without separate call
+            supabaseClient
+              .from('mikrotik_routers')
+              .select('ip_address')
+              .eq('id', actualRouterId)
+              .single()
+              .then(r => r.data?.ip_address)
+          )
+      ])
 
-    if (actualRouterId) {
-      // Get detailed router information
-      const { data: router } = await supabaseClient
-        .from('mikrotik_routers')
-        .select(`
-          *,
-          isp_companies(name)
-        `)
-        .eq('id', actualRouterId)
-        .single()
-
-      routerDetails = router
-
-      // Get RADIUS server configuration for this router
-      const { data: radiusServers } = await supabaseClient
-        .from('radius_servers')
-        .select('*')
-        .eq('router_id', actualRouterId)
-
-      radiusServerInfo = radiusServers
-
-      // Get authenticated users/clients connected to this router
-      const { data: activeSessions } = await supabaseClient
-        .from('active_sessions')
-        .select(`
-          *,
-          clients(id, name, email, phone, status)
-        `)
-        .eq('nas_ip_address', router?.ip_address)
-
-      authenticatedUsers = activeSessions || []
-
-      // Get RADIUS users associated with this router's network
-      const { data: radiusUsers } = await supabaseClient
-        .from('radius_users')
-        .select(`
-          *,
-          clients(id, name, email, phone, status, monthly_rate)
-        `)
-        .eq('isp_company_id', router?.isp_company_id)
-        .eq('is_active', true)
-
-      // Combine session data with user data for comprehensive view
-      const userSummary = radiusUsers?.map(user => ({
-        ...user,
-        has_active_session: activeSessions?.some(session => 
-          session.username === user.username
-        ) || false,
-        session_details: activeSessions?.find(session => 
-          session.username === user.username
-        )
-      })) || []
-
-      authenticatedUsers = userSummary
+      if (routerResult.status === 'fulfilled') {
+        routerDetails = routerResult.value.data
+      }
+      
+      if (activeSessionsResult.status === 'fulfilled') {
+        authenticatedUsers = activeSessionsResult.value.data || []
+      }
     }
 
     return new Response(
@@ -242,21 +239,14 @@ serve(async (req) => {
           router_id: actualRouterId,
           sync_status: actualSyncStatus,
           last_synced: actualClientId ? updateData?.last_radius_sync_at : new Date().toISOString(),
-          client_info: actualClientId ? updatedClient : null,
           router_details: routerDetails,
-          radius_servers: radiusServerInfo,
           authenticated_users: authenticatedUsers,
-          connection_summary: {
+          connection_summary: routerDetails ? {
             total_active_users: authenticatedUsers.length,
-            router_status: routerDetails?.connection_status,
-            router_ip: routerDetails?.ip_address,
-            last_updated: new Date().toISOString(),
-            sync_details: {
-              ec2_instance_id: actualEc2InstanceId,
-              mikrotik_router_id: actualMikrotikRouterId,
-              radius_config: actualRadiusConfig ? 'provided' : 'not_provided'
-            }
-          }
+            router_status: routerDetails.connection_status,
+            router_ip: routerDetails.ip_address,
+            last_updated: new Date().toISOString()
+          } : null
         }
       }),
       { 

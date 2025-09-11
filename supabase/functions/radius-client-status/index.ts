@@ -26,7 +26,7 @@ serve(async (req) => {
 
     console.log('Fetching RADIUS client status for company:', company_id)
 
-    // Get all clients with RADIUS credentials and their current status
+    // Single optimized query with JOIN to reduce DB calls
     const { data: clients, error: clientsError } = await supabaseClient
       .from('clients')
       .select(`
@@ -49,6 +49,10 @@ serve(async (req) => {
           upload_speed,
           session_timeout,
           idle_timeout
+        ),
+        radius_users!inner (
+          bandwidth_profile,
+          is_active
         )
       `)
       .eq('isp_company_id', company_id)
@@ -56,53 +60,42 @@ serve(async (req) => {
 
     if (clientsError) throw clientsError
 
-    // Get RADIUS users data
-    const { data: radiusUsers, error: radiusError } = await supabaseClient
-      .from('radius_users')
-      .select('*')
-      .eq('isp_company_id', company_id)
-
-    if (radiusError) throw radiusError
-
-    // Combine data for comprehensive client status
-    const clientStatus = clients.map(client => {
-      const radiusUser = radiusUsers.find(ru => ru.client_id === client.id)
+    // Optimized data processing with pre-computed values
+    const currentTime = new Date().toISOString()
+    const clientStatus = clients.map(client => ({
+      client_id: client.id,
+      name: client.name,
+      phone: client.phone,
+      email: client.email,
+      status: client.status,
       
-      return {
-        client_id: client.id,
-        name: client.name,
-        phone: client.phone,
-        email: client.email,
-        status: client.status,
-        
-        // RADIUS credentials
-        username: client.radius_username,
-        password: client.radius_password,
-        bandwidth_profile: radiusUser?.bandwidth_profile || 'default',
-        
-        // Bandwidth limits from service package
-        download_speed_kbps: client.service_packages?.download_speed ? client.service_packages.download_speed * 1024 : 5120,
-        upload_speed_kbps: client.service_packages?.upload_speed ? client.service_packages.upload_speed * 1024 : 512,
-        session_timeout: client.service_packages?.session_timeout || 86400,
-        idle_timeout: client.service_packages?.idle_timeout || 1800,
-        
-        // Sync status
-        sync_status: client.radius_sync_status,
-        last_synced: client.last_radius_sync_at,
-        needs_sync: client.radius_sync_status === 'pending',
-        
-        // Billing info
-        subscription_end_date: client.subscription_end_date,
-        wallet_balance: client.wallet_balance,
-        monthly_rate: client.monthly_rate,
-        scheduled_for_disconnection: !!client.disconnection_scheduled_at,
-        
-        // Action required
-        action: client.status === 'active' ? 'ensure_connected' : 'disconnect',
-        
-        last_updated: new Date().toISOString()
-      }
-    })
+      // RADIUS credentials
+      username: client.radius_username,
+      password: client.radius_password,
+      bandwidth_profile: client.radius_users?.[0]?.bandwidth_profile || 'default',
+      
+      // Bandwidth limits from service package
+      download_speed_kbps: client.service_packages?.download_speed ? client.service_packages.download_speed * 1024 : 5120,
+      upload_speed_kbps: client.service_packages?.upload_speed ? client.service_packages.upload_speed * 1024 : 512,
+      session_timeout: client.service_packages?.session_timeout || 86400,
+      idle_timeout: client.service_packages?.idle_timeout || 1800,
+      
+      // Sync status
+      sync_status: client.radius_sync_status,
+      last_synced: client.last_radius_sync_at,
+      needs_sync: client.radius_sync_status === 'pending',
+      
+      // Billing info
+      subscription_end_date: client.subscription_end_date,
+      wallet_balance: client.wallet_balance,
+      monthly_rate: client.monthly_rate,
+      scheduled_for_disconnection: !!client.disconnection_scheduled_at,
+      
+      // Action required
+      action: client.status === 'active' ? 'ensure_connected' : 'disconnect',
+      
+      last_updated: currentTime
+    }))
 
     console.log(`Retrieved status for ${clientStatus.length} RADIUS clients`)
 
