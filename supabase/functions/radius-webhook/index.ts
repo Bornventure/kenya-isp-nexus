@@ -87,7 +87,7 @@ serve(async (req) => {
     }
 
     // Send to EC2 RADIUS API
-    const res = await fetch("https://ec2-51-21-19-204.eu-north-1.compute.amazonaws.com/radius-webhook", {
+    const res = await fetch("https://radius.lakelink.co.ke/radius-webhook", {
       method: "POST",
       headers: {
         "Authorization": "Bearer 7be15e5c7e40e658bac7ff64eab3bae6841b5f3224939b088f14635e67769984",
