@@ -28,28 +28,34 @@ function generatePassword(businessShortCode: string, clientId: string, timestamp
 
 // Get OAuth2 access token from Family Bank
 async function getAccessToken(): Promise<string> {
-  const tokenUrl = Deno.env.get('FAMILY_BANK_TOKEN_URL')!;
+  const tokenUrl = Deno.env.get('FAMILY_BANK_TOKEN_URL') || "https://openbank.familybank.co.ke:8083/connect/token";
   const clientId = Deno.env.get('FAMILY_BANK_CLIENT_ID')!;
   const clientSecret = Deno.env.get('FAMILY_BANK_CLIENT_SECRET')!;
-  const scope = Deno.env.get('FAMILY_BANK_SCOPE')!;
+
+  console.log('Requesting OAuth2 token from:', tokenUrl);
 
   const tokenResponse = await fetch(tokenUrl, {
     method: 'POST',
     headers: {
-      'Content-Type': 'application/x-www-form-urlencoded',
-      'Authorization': `Basic ${btoa(`${clientId}:${clientSecret}`)}`
+      'Content-Type': 'application/x-www-form-urlencoded'
     },
     body: new URLSearchParams({
+      'client_id': clientId,
+      'client_secret': clientSecret,
       'grant_type': 'client_credentials',
-      'scope': scope
+      'scope': 'ESB_REST_API'
     })
   });
 
   if (!tokenResponse.ok) {
-    throw new Error(`Failed to get access token: ${tokenResponse.status}`);
+    const errorText = await tokenResponse.text();
+    console.error('Token request failed:', tokenResponse.status, errorText);
+    throw new Error(`Failed to get access token: ${tokenResponse.status} - ${errorText}`);
   }
 
   const tokenData = await tokenResponse.json();
+  console.log('Token response received successfully');
+  
   return tokenData.access_token;
 }
 

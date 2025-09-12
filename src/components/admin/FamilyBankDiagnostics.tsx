@@ -22,7 +22,8 @@ export const FamilyBankDiagnostics = () => {
     setIsChecking(true);
     
     try {
-      const { data, error } = await supabase.functions.invoke('test-family-bank-connection');
+      // First try the new validation function
+      const { data, error } = await supabase.functions.invoke('validate-family-bank-config');
       
       if (error) {
         setStatus({

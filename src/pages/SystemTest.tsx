@@ -7,6 +7,8 @@ import ProductionReadinessChecklist from '@/components/testing/ProductionReadine
 import NetworkDiagnosticsPanel from '@/components/network/NetworkDiagnosticsPanel';
 import ProductionNetworkPanel from '@/components/network/ProductionNetworkPanel';
 import MikroTikSetupGuide from '@/components/network/MikroTikSetupGuide';
+import { FamilyBankDiagnostics } from '@/components/admin/FamilyBankDiagnostics';
+import { FamilyBankSettings } from '@/components/admin/FamilyBankSettings';
 
 const SystemTest = () => {
   return (
@@ -66,6 +68,10 @@ const SystemTest = () => {
         </TabsContent>
 
         <TabsContent value="diagnostics" className="space-y-4">
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            <FamilyBankSettings />
+            <FamilyBankDiagnostics />
+          </div>
           <NetworkDiagnosticsPanel />
         </TabsContent>
 
