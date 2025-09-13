@@ -119,37 +119,34 @@ serve(async (req) => {
         .maybeSingle()
 
       if (clientSelectError) throw clientSelectError
-      if (!clientData) {
-        console.warn(`Client ${actualClientId} not found, skipping update`)
-        return new Response(
-          JSON.stringify({ 
-            success: false, 
-            error: `Client ${actualClientId} not found` 
-          }),
-          { 
-            headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-            status: 404 
-          }
-        )
+      const clientExists = !!clientData
+      if (!clientExists) {
+        console.warn(`Client ${actualClientId} not found; proceeding without client updates`)
       }
 
       // Batch updates using Promise.all for parallel execution
-      const batchOperations = [
+      const batchOperations: Promise<any>[] = []
+
+      if (clientData) {
         // Update client
-        supabaseClient
-          .from('clients')
-          .update(updateData)
-          .eq('id', actualClientId),
-        
+        batchOperations.push(
+          supabaseClient
+            .from('clients')
+            .update(updateData)
+            .eq('id', actualClientId)
+        )
+
         // Update radius_users
-        supabaseClient
-          .from('radius_users')
-          .update({
-            last_synced_to_radius: timestamp || new Date().toISOString(),
-            is_active: actualStatus === 'active'
-          })
-          .eq('client_id', actualClientId)
-      ]
+        batchOperations.push(
+          supabaseClient
+            .from('radius_users')
+            .update({
+              last_synced_to_radius: timestamp || new Date().toISOString(),
+              is_active: actualStatus === 'active'
+            })
+            .eq('client_id', actualClientId)
+        )
+      }
 
       // Only add logging if it's not a frequent operation to reduce noise
       if (actualErrorMessage || actualSyncStatus === 'failed') {
@@ -163,7 +160,7 @@ serve(async (req) => {
               action: actualAction || 'sync',
               success: !actualErrorMessage,
               error: actualErrorMessage,
-              isp_company_id: clientData.isp_company_id,
+              isp_company_id: clientData?.isp_company_id ?? null,
               timestamp: timestamp || new Date().toISOString()
             }),
           
