@@ -202,10 +202,9 @@ serve(async (req) => {
     
     // Only fetch detailed router info if explicitly requested or on error
     if (actualRouterId && (actualErrorMessage || actualSyncStatus === 'failed')) {
-      const [routerResult, activeSessionsResult] = await Promise.allSettled([
-        supabaseClient
-          .from('mikrotik_routers')
-          .select(`
+      const { data: routerData, error: routerErr } = await supabaseClient
+        .from('mikrotik_routers')
+        .select(`
             id,
             name,
             ip_address,
@@ -214,29 +213,24 @@ serve(async (req) => {
             last_sync_at,
             isp_companies(name)
           `)
-          .eq('id', actualRouterId)
-          .maybeSingle(),
-        
-        supabaseClient
-          .from('active_sessions')
-          .select('username, calling_station_id, session_start')
-          .eq('nas_ip_address', 
-            // Use a subquery to get IP without separate call
-            supabaseClient
-              .from('mikrotik_routers')
-              .select('ip_address')
-              .eq('id', actualRouterId)
-              .single()
-              .then(r => r.data?.ip_address)
-          )
-      ])
+        .eq('id', actualRouterId)
+        .maybeSingle()
 
-      if (routerResult.status === 'fulfilled') {
-        routerDetails = routerResult.value.data
+      if (!routerErr) {
+        routerDetails = routerData
       }
       
-      if (activeSessionsResult.status === 'fulfilled') {
-        authenticatedUsers = activeSessionsResult.value.data || []
+      if (routerDetails?.ip_address) {
+        const { data: sessionsData, error: sessionsErr } = await supabaseClient
+          .from('active_sessions')
+          .select('username, calling_station_id, session_start')
+          .eq('nas_ip_address', routerDetails.ip_address)
+
+        if (!sessionsErr) {
+          authenticatedUsers = sessionsData || []
+        } else {
+          console.warn('Failed to fetch active sessions:', sessionsErr)
+        }
       }
     }
 
@@ -248,7 +242,7 @@ serve(async (req) => {
           client_id: actualClientId,
           router_id: actualRouterId,
           sync_status: actualSyncStatus,
-          last_synced: actualClientId ? updateData?.last_radius_sync_at : new Date().toISOString(),
+          last_synced: timestamp || new Date().toISOString(),
           router_details: routerDetails,
           authenticated_users: authenticatedUsers,
           connection_summary: routerDetails ? {
