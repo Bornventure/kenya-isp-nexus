@@ -116,9 +116,22 @@ serve(async (req) => {
         .from('clients')
         .select('isp_company_id')
         .eq('id', actualClientId)
-        .single()
+        .maybeSingle()
 
       if (clientSelectError) throw clientSelectError
+      if (!clientData) {
+        console.warn(`Client ${actualClientId} not found, skipping update`)
+        return new Response(
+          JSON.stringify({ 
+            success: false, 
+            error: `Client ${actualClientId} not found` 
+          }),
+          { 
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+            status: 404 
+          }
+        )
+      }
 
       // Batch updates using Promise.all for parallel execution
       const batchOperations = [
@@ -205,7 +218,7 @@ serve(async (req) => {
             isp_companies(name)
           `)
           .eq('id', actualRouterId)
-          .single(),
+          .maybeSingle(),
         
         supabaseClient
           .from('active_sessions')
