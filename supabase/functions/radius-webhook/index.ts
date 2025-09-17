@@ -27,7 +27,14 @@ serve(async (req) => {
 
     const { record, table_name, action } = await req.json()
 
-    console.log('Processing radius webhook for table:', table_name, 'record:', record)
+    console.log('Processing optimized radius webhook for table:', table_name, 'action:', action)
+
+    // Skip processing for irrelevant changes
+    if (!record || !table_name) {
+      return new Response(JSON.stringify({ status: 'skipped', reason: 'missing data' }), { 
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+      })
+    }
 
     let webhookData
     if (table_name === 'mikrotik_routers') {
@@ -86,31 +93,50 @@ serve(async (req) => {
       throw new Error(`Unsupported table: ${table_name}`)
     }
 
-    // Send to EC2 RADIUS API
-    const res = await fetch("https://radius.lakelink.co.ke/radius-webhook", {
-      method: "POST",
-      headers: {
-        "Authorization": "Bearer 7be15e5c7e40e658bac7ff64eab3bae6841b5f3224939b088f14635e67769984",
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify(webhookData),
-    })
+    // Send to EC2 RADIUS API with timeout
+    const controller = new AbortController()
+    const timeoutId = setTimeout(() => controller.abort(), 8000) // 8 second timeout
+    
+    let res, responseText
+    try {
+      res = await fetch("https://radius.lakelink.co.ke/radius-webhook", {
+        method: "POST",
+        headers: {
+          "Authorization": "Bearer 7be15e5c7e40e658bac7ff64eab3bae6841b5f3224939b088f14635e67769984",
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(webhookData),
+        signal: controller.signal
+      })
+      responseText = await res.text()
+    } catch (error) {
+      clearTimeout(timeoutId)
+      if (error.name === 'AbortError') {
+        console.warn('EC2 RADIUS API request timed out')
+        responseText = 'Request timed out'
+        res = { ok: false, status: 408 }
+      } else {
+        throw error
+      }
+    }
+    clearTimeout(timeoutId)
 
-    const responseText = await res.text()
     console.log('EC2 RADIUS API response:', responseText)
 
-    // Log the webhook event in audit logs
-    await supabaseClient
-      .from('audit_logs')
-      .insert({
-        resource: 'radius_webhook',
-        action: `webhook_${webhookData.action}`,
-        resource_id: webhookData.client_id || webhookData.router_id,
-        changes: webhookData,
-        user_id: null, // System action
-        success: res.ok,
-        error_message: res.ok ? null : responseText
-      })
+    // Only log significant events to audit logs (not every webhook call)
+    if (!res.ok || ['INSERT', 'DELETE'].includes(action)) {
+      await supabaseClient
+        .from('audit_logs')
+        .insert({
+          resource: 'radius_webhook',
+          action: `webhook_${webhookData.action}`,
+          resource_id: webhookData.client_id || webhookData.router_id,
+          changes: webhookData,
+          user_id: null, // System action
+          success: res.ok,
+          error_message: res.ok ? null : responseText
+        })
+    }
 
     return new Response(responseText, { 
       status: res.status,
